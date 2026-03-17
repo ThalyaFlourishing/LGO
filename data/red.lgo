@@ -1,0 +1,29 @@
+# LGO Sample Gear Data — Red Line
+# Format: <slot>,<item_name>,<stat1>=<value1>[,<stat2>=<value2>...]
+
+head,Iron Helm,Vitality=200,Morale=400
+head,Steel Helm,Vitality=280,Morale=560,Physical_Mastery=120
+
+chest,Iron Breastplate,Vitality=250,Morale=500
+chest,Steel Breastplate,Vitality=340,Morale=680,Physical_Mastery=160
+
+legs,Iron Leggings,Vitality=220,Morale=440
+legs,Steel Leggings,Vitality=300,Morale=600,Physical_Mastery=140
+
+hands,Iron Gauntlets,Vitality=180,Morale=360
+hands,Steel Gauntlets,Vitality=240,Morale=480,Physical_Mastery=100
+
+feet,Iron Boots,Vitality=170,Morale=340
+feet,Steel Boots,Vitality=230,Morale=460,Physical_Mastery=90
+
+shoulder,Iron Pauldrons,Vitality=190,Morale=380
+shoulder,Steel Pauldrons,Vitality=260,Morale=520,Physical_Mastery=110
+
+back,Worn Cloak,Vitality=150,Morale=300
+back,Fine Cloak,Vitality=210,Morale=420,Physical_Mastery=80
+
+neck,Bronze Necklace,Vitality=140,Morale=280
+neck,Silver Necklace,Vitality=200,Morale=400,Critical_Rating=90
+
+pocket,Lucky Coin,Vitality=120,Morale=240
+pocket,Champion Emblem,Vitality=180,Morale=360,Physical_Mastery=70
