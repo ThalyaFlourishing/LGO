@@ -1,0 +1,2 @@
+# LGO
+LotRO Gear Optimizer
