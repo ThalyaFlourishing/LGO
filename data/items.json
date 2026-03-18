@@ -1,0 +1,152 @@
+[
+  {
+    "name": "Helm of the Wanderer",
+    "slot": "head",
+    "item_level": 475,
+    "stats": { "vitality": 1200, "morale": 3500, "crit_rating": 800, "might": 950 }
+  },
+  {
+    "name": "Iron-bound Helm",
+    "slot": "head",
+    "item_level": 470,
+    "stats": { "vitality": 1100, "morale": 3200, "armor": 2000, "phys_mitigation": 500 }
+  },
+  {
+    "name": "Shoulders of the Argonath",
+    "slot": "shoulders",
+    "item_level": 475,
+    "stats": { "might": 900, "crit_rating": 750, "dev_rating": 600, "vitality": 800 }
+  },
+  {
+    "name": "Mantle of Shadow",
+    "slot": "shoulders",
+    "item_level": 472,
+    "stats": { "agility": 850, "crit_rating": 700, "finesse_rating": 500, "vitality": 700 }
+  },
+  {
+    "name": "Breastplate of Minas Tirith",
+    "slot": "chest",
+    "item_level": 480,
+    "stats": { "vitality": 1500, "morale": 4200, "armor": 3500, "phys_mitigation": 900 }
+  },
+  {
+    "name": "Robe of the Wise",
+    "slot": "chest",
+    "item_level": 475,
+    "stats": { "will": 1300, "fate": 900, "outgoing_healing": 600, "power": 2000 }
+  },
+  {
+    "name": "Gauntlets of Might",
+    "slot": "hands",
+    "item_level": 475,
+    "stats": { "might": 1000, "crit_rating": 820, "dev_rating": 700, "offensive_overpower": 400 }
+  },
+  {
+    "name": "Grips of Endurance",
+    "slot": "hands",
+    "item_level": 472,
+    "stats": { "vitality": 950, "armor": 1200, "crit_defense": 500, "resistance": 400 }
+  },
+  {
+    "name": "Greaves of Rivendell",
+    "slot": "legs",
+    "item_level": 475,
+    "stats": { "vitality": 1300, "morale": 3800, "might": 800, "crit_rating": 650 }
+  },
+  {
+    "name": "Warlegs of the Peak",
+    "slot": "legs",
+    "item_level": 478,
+    "stats": { "might": 1100, "dev_rating": 780, "crit_rating": 820, "offensive_overpower": 500 }
+  },
+  {
+    "name": "Boots of Swiftness",
+    "slot": "feet",
+    "item_level": 475,
+    "stats": { "agility": 900, "finesse_rating": 600, "crit_rating": 700, "vitality": 700 }
+  },
+  {
+    "name": "Sabatons of Iron",
+    "slot": "feet",
+    "item_level": 472,
+    "stats": { "armor": 1800, "phys_mitigation": 600, "tact_mitigation": 400, "vitality": 900 }
+  },
+  {
+    "name": "Cloak of the Ranger",
+    "slot": "back",
+    "item_level": 475,
+    "stats": { "might": 750, "agility": 750, "crit_rating": 650, "resistance": 400 }
+  },
+  {
+    "name": "Amulet of Power",
+    "slot": "neck",
+    "item_level": 478,
+    "stats": { "might": 650, "dev_rating": 550, "offensive_overpower": 450, "vitality": 600 }
+  },
+  {
+    "name": "Pendant of Will",
+    "slot": "neck",
+    "item_level": 475,
+    "stats": { "will": 900, "fate": 700, "outgoing_healing": 500, "vitality": 600 }
+  },
+  {
+    "name": "Earring of the Citadel",
+    "slot": "ear1",
+    "item_level": 475,
+    "stats": { "might": 600, "crit_rating": 500, "dev_rating": 450, "vitality": 500 }
+  },
+  {
+    "name": "Stud of Endurance",
+    "slot": "ear2",
+    "item_level": 472,
+    "stats": { "vitality": 600, "morale": 1500, "crit_defense": 400, "resistance": 350 }
+  },
+  {
+    "name": "Ring of Valour",
+    "slot": "finger1",
+    "item_level": 475,
+    "stats": { "might": 580, "offensive_overpower": 420, "crit_rating": 480, "vitality": 450 }
+  },
+  {
+    "name": "Ring of Fortune",
+    "slot": "finger2",
+    "item_level": 475,
+    "stats": { "fate": 600, "crit_rating": 520, "finesse_rating": 440, "vitality": 430 }
+  },
+  {
+    "name": "Bracer of the Mountain",
+    "slot": "wrist1",
+    "item_level": 475,
+    "stats": { "might": 700, "crit_rating": 580, "dev_rating": 500, "vitality": 520 }
+  },
+  {
+    "name": "Wristguard of Steel",
+    "slot": "wrist2",
+    "item_level": 472,
+    "stats": { "armor": 900, "phys_mitigation": 450, "crit_defense": 380, "vitality": 580 }
+  },
+  {
+    "name": "Sword of the High King",
+    "slot": "main_hand",
+    "item_level": 480,
+    "stats": { "might": 1200, "dev_rating": 900, "crit_rating": 850, "offensive_overpower": 600 }
+  },
+  {
+    "name": "Axe of the Dwarven Lord",
+    "slot": "main_hand",
+    "item_level": 478,
+    "stats": { "might": 1150, "crit_rating": 900, "finesse_rating": 700, "offensive_overpower": 550 }
+  },
+  {
+    "name": "Shield of the White Tree",
+    "slot": "off_hand",
+    "item_level": 478,
+    "stats": { "armor": 2500, "phys_mitigation": 700, "tact_mitigation": 500, "vitality": 800 }
+  },
+  {
+    "name": "Tome of Ancient Lore",
+    "slot": "pocketed",
+    "item_level": 475,
+    "stats": { "will": 800, "fate": 650, "outgoing_healing": 400, "power": 1500 }
+  }
+]

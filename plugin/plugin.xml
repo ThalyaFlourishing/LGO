@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<Plugin>
+    <Information>
+        <Name>LGO</Name>
+        <Author>ThalyaFlourishing</Author>
+        <Version>0.1</Version>
+        <Description>LotRO Gear Optimizer — exports gear and stats for offline optimization with the lgo CLI.</Description>
+    </Information>
+    <Package>LGO</Package>
+    <Script>LGO.lua</Script>
+</Plugin>
