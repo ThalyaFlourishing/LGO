@@ -1,0 +1,11 @@
+{
+  "weights": [
+    ["will",            1.0],
+    ["fate",            0.9],
+    ["outgoing_healing",0.85],
+    ["vitality",        0.7],
+    ["crit_rating",     0.6],
+    ["power",           0.5],
+    ["incoming_healing",0.3]
+  ]
+}
