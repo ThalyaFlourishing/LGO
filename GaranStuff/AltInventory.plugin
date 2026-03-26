@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<Plugin>
+	<Information>
+		<Name>AltInventory</Name>
+		<Author>Garan</Author>
+		<Version>3.12</Version>
+		<Description>This Plugin will display all of you character's bag inventory, vault inventory and shared storage.</Description>
+		<Image>GaranStuff/AltInventory/Resources/Icon.tga</Image>
+	</Information>
+	<Package>GaranStuff.AltInventory.Main</Package>
+	<Configuration Apartment="AltInventory" />
+</Plugin>

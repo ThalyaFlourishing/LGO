@@ -1,0 +1,382 @@
+Version History and Change Log:
+Ver 3.12
+Fixed group category bug reported by matter76 and Azkarath on lotrointerface.com Your existing group definitions and item data are fine. The bug was actually in the Table.Contains function that was erroneously treating the numeric values as strings and thus "2" would match as part of "299", etc.
+Fixed bug that prevented font selection control being visible in main inventory window and options window
+Updated ItemExplorer window
+	Search no longer allows searching without any criteria, you must enter at least one criteria
+	You can cancel a search in process by clicking the button again (it will say 'Cancel' when a search is in process)
+Fixed bug in item database that failed to add item categories that were not previously known (thus preventing searching those items)
+As suggested by Azkarath, left clicking a group title will expand or collapse the group (the same as clicking the expand/collapse button/indicator).
+Fixed bug that prevented items resolving to generic groups if they had a unique name but were not defined in a group by the unique name
+Group Category criteria are now listed alphabetically with "Checked" items at the top. This should make it much easier to find categories that are already checked.
+Added item info (tooltips, preview and link to chat) for equipped items of alts in the equipped items panel. Note, this can only show the generic version of the equipped item so no slotted essences will show and the item level will reflect the lowest level version of the item.
+
+Ver 3.11
+Fixed bug in Opacity of Group Maintenance window - it will no longer be semi-transparent and hard to see...
+Added ability to use Lua Patterns in Item Name (Unique) and Item Info Name (Generic) criteria values. So, if you enter "*. Hide" in Item Info Name, it will match any item with the word "Hide" following a space, so it will match "Light Hide", "Medium Hide", "Gundabad Hide", Etc.
+This makes it much easier to create windows for watching hides, logs, ores, etc. when gathering crafting material. You could similarly track Leathers or Ingots or whatever you like. Especially since the window should automatically pick up on new tiers as they are added as long as SSG uses the same keywords.
+Fixed bug in DropDownList class when setting selected index programmatically, control text display and list selection was not updating prior to firing SelectedIndexChanged which caused all sorts of confusion
+Added button to quickly re-select the current player's bags when another inventory container is currently selected (requested by Vuldyn on lotro forums)
+Fixed bug when deleting a group with item in criteria list that could also match criteria in another window the item would not be displayed in the other window without reloading
+Changed icon visibility options, instead of a checkbox "Show When Minimized", it is now radio button options, "Never", "When Minimized", or "Always". This allows users to optionally keep the icon displayed even when the inventory is showing to use it as a toggle. The default behavior is still "When Minimized"
+Fixed a bug that caused "(EI)" records to be orphaned when a character is removed.
+Fixed any existing orphaned "(EI)" records
+Fixed a bug that caused the "Show Current Bags" button to be unusable after removing a character.
+Fixed bug that caused the first item added to undocked displays to have blank icon until a second item was added or the display was updated
+Fixed bug that caused unzoomed icons that were scrolled out of view when loaded to remain blank even when scrolled into view until the display was refreshed
+Added ability to display generic tool tips for items when displaying alt character inventories. NOTE: this will ONLY display the tooltip for the generic item matching the item's name. If more than one inventory item has the same name, it will display the tool tip of the first item found. This will NOT display item stack specific information such as wear state, some armor specs that change with item instance, slotted essences, etc.
+Re-enabled drag/drop of items to search text - not sure when it got removed but it's back. Thanks to Beleg from LoH on Peregrin for mentioning this.
+Fixed a bug where special characters in search text would not match item names (Lua pattern matching is not currently supported)
+Group Maintenance window now properly hides for Escape and F12
+Since an item database was added to allow displaying tooltips for alt items, I added an Item Explorer for searching that database. The button that looks like a crystal ball with armor inside (bottom left of the main inventory window) opens the Item Explorer.
+You can search by distinct ID (if you happen to know one), Name, Category, Quality, and/or Durability. The result display will include the info known about the item(s) found (id, name, quality, durability, category, and description)  as well as an item info control that will provide the tooltip and can be Ctrl+clicked to open the dressing room or Right clicked to send to chat.
+The item database will automatically detect previously unknown items and trigger a background scan that will identify new items after a game update. This is throttled so that it should not impact your game play other than decreasing your FPS a little for the couple of minutes that it runs and should take less than five minutes even on very slow computers.
+
+Ver 3.10
+Fixed bug that prevented resizing undocked group panels
+Fixed bug that would cause undocked panels with no items to show a gold background due to the item list being empty
+Fixed bug in display mode buttons (text only, icon+text, icon only) which generated an error and prevented switching display modes.
+Added "Save as Default" and "Load Default" to Group maintenance. Now you can define your group setup once, save it as a default setup and then load it on each alt so you don't have to manually set it up all over again for each alt. Once loaded, you can still customize each alt's view if desired, this just makes it easy to save any common groups you may want to load on an alt
+Zoom mechanism and UI fonts have been completely revamped to enable icon zooming and user selected fonts while still enabling the custom groups. This should be a more flexible approach, allowing users to select the size/face of the font to use and eliminating some odd scaling issues as well as the resizing race condition that was added with the Groups functionality that was locking up the client when zoomed.
+Updated options window to support user selected fonts
+Added Timing Delay to options window - this delay is used to fix some of the bizarre timing issues with rendering embedded controls using stretchmode. If you are experiencing issues with the item controls not rendering properly at zooms>1 then you can try to increase these times slightly - it will slow down the response of the window to many events but should eliminate many issues with rendering. This time is expressed in seconds, so .01 will add 1 hundredth of a second to the delay. Note, this delay ONLY affects the plugin when zoom>1
+Fixed a long standing bug in drop-down list sizing that cropped off the bottom of the list at certain font sizes
+Fixed a bug introduced in 3.09 that could generate an error message (but was otherwise harmless) when detaching items from mail if the UI had not yet been displayed
+Added a height lock to undocked group windows. You can now specify a specific height for a window. You can enable height locking on the Group Maintenance window or by right clicking the Title bar in the group window and selecting "Max Height" from the menu. Once height locked, a border will appear at the bottom of the window when the group is not docked. You can drag that border to resize the group window. If you right click the border, you can turn height locking off and the window will again grow and shrink based on the number of items in the group.
+This will help alleviate the situation where a group extends all the way to the bottom of the screen before displaying a scrollbar but the user would like a smaller window (with a scrollbar).
+Improved some processng (although there is still room for further improvement) when swapping inventory dislays or filtering/searching.
+Note: the first access to the "All" inventory display after loading the plugin will still have a significant delay (usually less than 10 seconds but it can be longer if you have a great many alts, a mechanical hard drive, or a slower computer) since the data is not accessed until "All" is selected to cut down on plugin load time.
+Note: if using zoom>1, you will likely see icons briefly displaying outside the plugin's window as you change displays, scroll, expand/collapse, etc. This is due to a bug in the SetStrechMode API call that allows controls to display outside their parent (bounding) control which requires a calculation to determine which icons need to be hidden to prevent displaying outside their parent. This means that items being scrolled will have their icons disappear at the top and bottom of the list so as not to display partially outside the list. It's not perfect but works.
+Implemented the improved DropDownList (from MoorMap) for the Filter list. This allows typing part of a category name and the filter list will display only those filters that contain the typed portion - with the growing list of categories, currently over 250, this seemed a useful feature to implement here. Note, the category filter list will only display the categories that actually exist in one of the currently displayed windows (either docked or un-docked) so the entire 256 list of entries may not always be shown even without user entered text (there's no point allowing filtering on a category that has no items on the current display, the absence of the filter should be sufficient if you really want to know that there are no matching items)
+Fixed an issue that arose when SSG removed the "Corsair" item category in U38.
+Fixed bug in GroupMaint that could cause an error creating a new group depending on current display settings.
+Updated DE/FR translations to include missing translations upto U38 (inclusive)
+
+Ver 3.09.01
+This is an interim release to address a couple major bugs in 3.09. The zoom level is still disabled pending ver 3.10 due to some significant issues with the stretchmode functionality.
+Bugs fixed from 3.09:
+Filter and Search are now properly applied
+Display Mode (text only, icon & text, icon only) are now properly applied
+
+Ver 3.09
+[color=red]NOTE: ZOOM IS TEMPORARILY DISABLED IN VER 3.09 - due to a client crash issue arising from a conflict with the new group displays, the zoom feature is currently disabled. I will be looking into this ASAP and hope to have a solution soon. Unfortunately, due to the nature of the crash, it may take awhile to debug it.
+Users that wish to continue using Zoom should NOT install version 3.09[/color]
+Updated the Item Category table for all of the categories missing through U37
+Added display Groups. You can now define groups for your inventory displays. The items displayed in a group can be defined by category or item name or custom item name (for unique crafted items)
+Item Groups can now have a floating display or be docked in the regular inventory display. When floating, they will be visible at all times (except when the UI is hidden) but can be collapsed so that only the header shows.
+All Item Groups can be collapsed, whether floating or in the regular inventory display.
+So, if you want the gear you switch to for DPS to all be displayed together, create a Group named "DPS" and then drag each of your DPS gear items to that group. Note, items are still unique, so they can only exist in one group at a time. If an item is used for DPS and, say, tanking, it would be best to have a "Gear" group as well for such shared items
+When docked, Groups can be moved up or down in the display list so that you can better organize your groups.
+The initial "Main" group is a catch-all and can not have any criteria added to it. All items not assigned to another group will be displayed in the main group. You can, however rename the Main group (but it will still be the main group)
+Each type of inventory can have its own set of display groups, ALL, Bags, Vault, and Shared. You can alternately set groups to use the Bags display groups if desired.
+To create a new group, simply right click on the display header or any group header and choose "New", fill in a name and some criteria (or it will be empty) and click "Add".
+To rename a group or update criteria, simply right click the group header, update the name or add the items to criteria (you can type names or drag an instance of the item to one of the criteria lists) and click Save.
+To delete a group, right click the header and select "Delete" - there is a confirmation dialog, but after confirming, it can not be undone (you will have to recreate the group)
+To add criteria, either type a name and click "Add" or drag an item to one of the criteria lists. You can manually check/uncheck categories in the Category criteria. Note, if you try to add a name or category to more than one group of the same inventory type (bags, vault, shared, etc) you will get an error. Remove the item/category from the existing group before trying to add it to a different group.
+To remove criteria, on the group maintenance window, either right click a criteria and click "Remove" or click the "Clear" button to remove all criteria of that type from the group.
+
+Ver 3.08
+Fixed bug in "Show ALL" that did not automatically refresh view after resetting search text.
+Added Equipped Items display - character name with ' (EI)' - there is no "ALL" version of EI (it wouldn't make sense).
+Note: Equipped Items do not count toward your inventory totals since they are not in your bags or storage
+Due to limitations in the API, tooltips will only display for the logged in character - only the Item Name is displayed when hovering over equipped items for alts
+Known issue: the "item wear" mannequin currently only updates when the display is refreshed
+
+Ver 3.07
+Added ability to Zoom the interface for large screens. To zoom, open the options window and select one of the zoom options at the bottom of the General Options tab.
+NOTE: Due to underlying inconsistancies in the handling of sizing when a window is stretched (zoomed), the built-in resizing had to be disabled. To resize the inventory window when zoomed, hold either Alt or Shift and then drag the border (or any of the background) of the window to resize
+Fixed bug in compact view that would sometimes cause the window to resize improperly.
+Fixed but that caused a creep in the positioning and size of the compact window between unloading and reloading the plugin.
+
+Ver 3.06
+Fix due to API change for ListBoxes from SetMaxItemsPerLine to SetMaxColumns
+
+Ver 3.05
+Fixed bug reported by bsmorgan when refreshing vault for "ALL" characters.
+Added "Load with ALL View" option requested by bsmorgan
+
+Ver 3.04
+Implemented a work-around for the bug introduced by U13 that prevented suppressing the built-in bag UIs.
+
+Ver 3.03
+Fixed bug when turning on "Current bags display total items" with current character selected and then adding an item to inventory reported by Bill Magill.
+Reimplemented the "/altinventory toggle" command
+Fixed bug when clicking Cancel in Options dialog reported by RJFerret.
+
+Ver 3.02
+Re-implemented the ability to utilize the current character items directly from AltInventory
+Re-implemented drag/drop for current items both into and out of AltInventory. Note, drag/drop will ONLY work when displaying the current character's bags.
+Re-enabled "Replace Bags" option.
+Added "Use Mini Icon" option. Changes the 32x32 square icon to a 16x16 round icon suitable for placement on the compass ring.
+Fixed a bug which sometimes prevented the Sort from being properly applied when adding an item (items were sometimes being added in incorrect positions).
+Fixed the missing quantity column in Text only display
+Doubled the width of the item entries for Text only display to allow for extra long item names
+
+Ver 3.01
+Minor bug fix for icon positioning typo in DE and FR clients
+
+ver 3.0
+This is a complete rewrite of the plugin to eliminate all of the old workarounds for bugs that have since been fixed, to incorporate new functionality that has been implemented by Turbine and to separate the inventory aspect of the plugin from the other character information and item tracking which will be implemented in separate plugins.
+This version is no longer intended to function as a "bag replacement" and does not support sorting inventory by "Location in Bag". All items with the same name are counted as a single entry so the total quantity of items is displayed. This helps to DRASTICALLY improve the plugin's performance and allows using a single reusable display for all types of inventory (bags, vault and shared storage).
+This version has a much simpler data structure which reduces initialization time and memory footprint while significantly improving display performance.
+This version also expands case-insensitive searching to FR and DE clients, the special accent characters will no longer prevent searching. You can enter the character with or without the accent and it will correctly filter. Note, the TextBox object automatically converts the " " character (not my doing, this is a Turbine quirk) to "ss" but it will still filter correctly.
+I have also updated the Item Category data to include as many of the new categories as I could find and also located as many translations as I could find. Anyone that wants to submit category translations should use the exact text displayed in Vault and Shared Storage filter lists as well as the english equivalent. This usually involves having at least one of the class of item in your vault/storage and restarting your client in each language to record the text - which is why a few are missing :(
+The language selection in Options will now immediately apply to the filter list when clicking "Save", no more unloading and reloading the plugin to get that to refresh. It will also now retain the selected filter when changing languages.
+The Minimal Header Window (the window displayed when the "Use Minimal Header" option is selected) sizing and positioning are still a bit touchy as there is only a 3pixel wide border, but if you are in an area outside the item list, you will have a 15 pixel to grab. To move the Minimal Header Window, you have to grab the top left corner near the "<>" symbol.
+The number of snapshots is now fixed at 10 - the plugin automatically keeps the 10 most recent copies of your inventory. This snapshot now includes all inventories (bags, vault and shared) for all characters in a single file.
+
+Ver 2.12
+You must now hold down the Ctrl key to start dragging the minimized icon.
+Added all of the missing Item Categories available from the latest Turbine enumeration
+(at least 2 have been found that were not in the enumeration so I suspect there are more)
+Improved the Tracked Item update to improve performance. This still needs more work.
+Fixed a bug in Item Tracking that would only update the quantity of the last tracked item if two or more tracked items were looted off the same corpse/object
+Added "High" Threshold settings to Item Tracking so users can now get alerts when they have acquired a sufficent number of an item such as task items
+Changed the data format for the "ALL Character" tracked items. Users will have to recreate their "ALL Character" item tracking settings.
+FINALLY Fixed the bug that was corrupting the "ALL Character" tracking data (it only took a year and a half :p )
+Fixed a number of bugs in the RemoveCharacter function.
+Added icon position to Options panel so those who lose track of the icon can change its position in Options.
+Fixed "ghost headers" which were displaying across icons in Vault and Shared Storage when using icon only view.
+Fixed icon alignment so that item controls and icons line up properly when changing between current character and alt characters
+Updated resizing code and significantly improved "resize" response time.
+Removed support for session play characters. AltInventory will no longer load if you are currently running on a session play character. If you already have session play characters in your AltInventory character list, you can select that character and then hit the skull button to delete that character's data.
+
+Ver 2.11c
+Fixed several bugs including the Equipped Items panel bugs.
+
+Ver 2.11b
+Fixed one of the causes of client crashes on logout.
+
+Ver 2.11
+Added a workaround to fix the Backpack initialization when loading with the Turbine Plugin Manager
+Fixed a table sort issue caused by non-unique entries for the "ALL" user.
+Fixed bug that would show Vault capacity when viewing Backpack for the "ALL" user.
+
+Ver 2.10
+Added Vault panel
+Added Shared Storage panel
+Modified the Bag panel to use the new Vault/Shared Storage data format. This will allow fixing the bug in the tracking window.
+Added color slider in options for Panel Background - this changes the color of the scrollwork background of the main panel
+Added One-Shot icon to the crafting panel for one-shot recipes - thanks to Kynta for reminding me of this.
+Multiple fixes to the German translation, thanks to Schlumpf for providing the corrected text.
+
+Ver 2.09
+Fixed the Virtue trait cap bug, Virtues can now correctly go to 14.
+As requested by Bowler, I have added automatic inventory snap shots. The inventory file will save a snapshot each time the plugin is unloaded - you can set the maximum number of snapshots in the options, it defaults to 10. The snapshots are saved in the 
+"My Documents\The Lord of the Rings Online\PluginData\username\servername\charactername" folder as AltInventorySnapShot_xx.plugindata where xx is the autoincremented index. When the max index is reached it will automatically roll over to 1.
+Fixed the wallet 0 currency bug.
+Added "Festival Items" to Scholar crafting and fireworks recipes
+Added "Potions (Theodred's Riders)" to Scholar crafting and moved Rohirric Athelas & Celebrant to "Potions (Theodred's Riders)"
+
+Ver 2.08
+Fixed bug in "All" character Traits panel
+Added The Riders of Stangard and Heros of Limlight Gorge to Rep Panel
+Added many if not all Update 6 recipes
+- I may have missed a few and the Jeweller Brooch ones have odd naming - the recipe item is named for the ore ingredient but the created items are named after the gem ingredient. I'll have to find some of those recipes to see how they show up once learned.
+- some of the recipes may be in an incorrect subgroup since I have no way of knowing the correct group until I stumble across one of the recipes in game so I can see where it lands after being learned
+Fixed a bug in the Trait panel that would cause an error if a character last saved with a version prior to 2.06 was selected
+Removed the "Enable Attributes" setting now that Turbine has fixed the bug in :GetAttributes() - Money and Statistics will automatically be turned on for all characters as they are logged in
+Removed the "Money" display on the main window since the Gold is displayed in the new Wallet panel with all of the other currencies
+Added Wallet Panel for Gold, DP and Barter Wallet Currencies.
+Fixed a bug in Character Notes, Equipped Items, Slotted Traits and Faction Rep panels that would leave orphaned records when deleting a character.
+
+Ver 2.07
+Added Proficiency and Mastery tracking for crafting Tiers.  Just click the highest tier of Proficiency or Mastery that you have achieved (no need to click all tiers, the plugin will automatically account for lower tiers). Note, if your highest tiers of proficiency and mastery are the same, you only have to click the mastery as the plugin knows to require proficiency for mastery.
+All three clients, EN, FR and DE clients will automatically detect crafting Proficiency/Mastery tier changes as long as AltInventory is loaded when the change occurs (FR and DE are not yet supported by the auto update for Rep tiers).
+Fixed German translation for Metalsmith (I completely missed it :p ).
+Added recipe popup tooltips for the crafting panel - note, only recipes that exist as actual objects have a tooltip, default recipes can not (two recipes are still missing info, "Peerless Thain's Halberd" and "Reforged Captain's Mace of the Second Age Recipe (Level 65)" as they are not in the Lorebook and their resource IDs could not be resolved yet)
+Updated recipe lists - some recipes may still have incorrect categories since there is no way to know the category without actually having the recipe known.
+Some "learned" recipes will appear to show duplicates, this is due to there being two versions of the recipe, mostly the old trophy versions, but they have distinctly different recipe IDs and both versions can be "known". To determine which version you actually know, hover the mouse over the "info" link and the tooltip will tell you if that version is actually "known".
+Some "learned" recipes appear in multiple tiers such as the LM pet talismans and "Officer's Armour" but these are distinct recipes and are correct.
+Updated crafting recipes for update 5.2 changes
+I gave up hoping that Turbine would ever expose the HUD status and modified the windows and icons to assume the HUD is displayed when the plugin is loaded (this assumption is fairly safe not that users can load plugins automatically via the Turbine Plugin Manager)
+Expanded the area where the user can click the Minimal Header display to move the window when showing the Minimal view.
+Located and fixed a performance bug that was causing intermittent lag when equipment was swapped even when the plugin was not visible.
+
+Ver 2.06
+Added item name popup display for Equipped Items.
+Moved Wallet display below panel buttons to allow space for more buttons.
+Fixed minor color discrepancy in panel buttons.
+Added Rep Panel - keep track of which alts have what tier of reputation with each faction as well as their crafting guild. This panels is just a beta and will have a significant update at some point in the future, especially the graphics (or lack thereof).
+Added Traits panel - note, many of the Trait icon resource IDs have not yet been located so some icons will show as a blank square.  I will be adding icons as I find the time to locate their Resource IDs.
+Moved Avoidance values back into their correct column under their heading separator
+Fixed panels so they don't display when they are not relevant (i.e. the equipped item panel no longer show for Creep characters since there's no valid data)
+Added DE and FR translations for crafting panel. Note, this does not yet include the category and recipe translations, just the controls.
+Fixed the Select All and Clear All buttons on the crafting panel (I broke them just prior to releasing 2.05 when I added categories to the crafting panel)
+Fixed a number of incorrect recipe categories, thanks to Bill Magill of the Old Timers Guild for proofing
+Added a number of missing Westfold tier recipes that were added to the Lorebook (current as of Jan 4)
+
+ver 2.05
+Added real items to the Equipment View. Unfortunately, only the item icons and names are programatically available so "examine" tooltips aren't possible yet.
+Added Wallet display - note, the wallet is turned off by default because the :GetAttributes() method can cause client crashes. When turbine fixes this, I will change this to turn the wallet on by default
+Added real stats to display - note, for the same reason as wallet, the stats display is turned off by default
+Added option to enable/disable Attributes - enabling this at this time will make the plugin subject to crashing the client if it is ever unloaded so this is not considered a safe option at this time and defaults to disabled.
+NOTE: If you enable Attributes and are experiencing client crashes, you will have to reload the client, load AltInventory, disable Attributes, unload AltInventory and LOG OUT your character (you don't have to actually exit the game, just logging out to the character selection screen is sufficient to clear the underlying bug).
+Added Crafting panel for tracking vocation and known recipes.
+-- see the crafting.lua file for comments on the crafting data
+Fixed a minor bug in the equipement and stats panels positions that was intermittently causing panels to overlay the right window border when resizing the main window
+Fixed the Title bar icon being cropped after the RoI update (Turbine changed the width of the title overlay).
+Fixed the glitch introduced in RoI that prevents controls from properly invalidating their drawing region if their parent has no background/backcolor set.
+Added a Notepad panel. Just a basic scratch pad which saves notes per character - even the "All" selection can have it's own separate notes.
+
+Ver 2.04
+Fixed a bug that would cause an error when Search contained certain special characters
+Fixed bug that caused view to be blank if Minimal Header and Load Minimized options were both set.
+Fixed a bug which could cause minimized icon location to be saved incorrectly.
+Modified Vindar Patch code to allow plugin to continue loading and provide additional information when saved data fails to load
+Changed View mechanism to allow for easier addition of new Views
+Fleshed out more of the Stats view - still just a preview since we don't have access to the real data :(
+Added List Text Color in Options
+
+Ver 2.03c
+fix for backward compatability with version 1.13 saved data
+Added Headings Color in Options
+Ver 2.03b
+Added a check to verify that saved data is in a readable table format - it is possible that read data may still be corrupt, but it will not prevent the plugin from loading.
+Ver 2.03a
+Fixed a bug that displayed Bag Separators when Sorting by "Location in Bag" even when the option was turned off in Options
+Ver 2.03
+Fixed a bug in the ListBox selected index test that would prevent loading with "Update 2"
+Fixed a bug that would cause the plugin to cease functioning when the Search text contained a "pattern" character like "["
+Fixed a bug that would prevent loading when sorting on "Category" if an item existed in inventory that was not in the enumeration
+Added "Show Icon When Minimized" option for those that prefer to use the Toggle command and never see the minimized icon (particularly helpful for frequent screenshots).
+The plugin now automatically minimizes when the HUD is toggled the same as when Esc is pressed.  If "Show Icon When Minimized" is turned off, the icon will not display, allowing for clean screenshots.
+Added a few of the missing ItemCategory translations (still a work in progress)
+Added optional "Bag Separators" when sorting by Location in Bag
+Fixed bug preventing some labels on Options panel from changing text color
+
+Ver 2.02
+Fixed a bug that would cause "Undefined" to display in the filter list at all times
+Fixed a bug that caused items with truly undefined categories not to display in the "Undefined" category
+Fixed "Category" sort bug and reenabled "Category" as a sort option - NOTE, if you change languages, you will have to reload the plugin to get alphabetized categories in the filter and to properly sort by them. This is "as designed" to avoid memory leak issues. I may change this in a future release, but not likely since it only happens when changing languages.
+Fixed a bug that prevented the "X" (close window) button on the main form from displaying the Minimized Icon after hiding the main window.
+Created a "minimal footprint" display (limited header/footer with no graphics)
+Implemented Vindar Patch for European clients
+Stripped out all displayed text into a resource file in preparation for translated versions of interface
+Implemented initial translations for French and German clients.  This may need some clean up as some of the translations were literal and may not be appropriate for the game context.
+Started identifying the Item Category values that are missing from the Turbine enumeration and documentation - this task is definately not complete
+Created prototype "Equipped Items" and "Statistics" views and all of the structure needed to implement additional views such as "Traits" and "Known Recipes" if that data ever becomes available via Lua.
+
+Ver 2.01a - Commented out the reference to Turbine.Debug.
+Ver 2.01 - Fixes/Updates
+Fixed a bug that was preventing hiding/toggling the main window using Chat commands. I also fixed the Chat commands so that they are no longer case sensitive. ("/AlTiNvEnToRy ToGgLe" will now work as well as "/AltInventory toggle")
+Added an option to the Options Window to allow loading the plugin in it's minimized state (the minimized icon shows instead of the main window).
+
+Version 2.0 of Alt Inventory had significant changes in the underlying code as well as the presentation
+To the end users, the most significant changes are the addition of an "Icon Only" or "Bag" view, the addition of horizontal resizing (it was previously only resizable vertically) which also allows multiple columns to be displayed and the implementation of the text Search feature.
+The Filter, Search, Sort and Display controls were moved down into their own section to more closely mimic the built in Vault and Shared Storage panels as well as to make room for future expansion (yes, I have plans for the space below the "capacity" display) *wrings hands and grins evilly*.
+I also added some minor customization for font and control background colors. The plugin also now runs in a seperate apartment, isolating it from some of the event handler problems currently plaguing Lua plugins.
+
+Ver 1.13 Fixes
+
+Fixed compatibility issues with November Lua patch
+
+Changed Capacity text to display "N/A" when "ALL" is selected for user.
+
+Changed Filter to use the now functional Turbine Categories. I'm not particularly fond of the Turbine categories and will probably be adding some mechanism for at least grouping some of them into custom category groups (like all the crafting scrolls and such) to cut down on the number of categories. Currently, only categories for which you actually have items are displayed, so you don't have to scroll through all 150 categories but it could still use improvment. Note, to use the filter, you will have to load Alt Inventory on each of your characters to override the old default "0" that was stored, once you have done this, it will start working properly.
+
+ 
+
+Ver 1.12 Fixes
+
+Fixed issue with character list when initially loading with a new character
+
+Changed list updates so that keeping the inventory minimized while adventuring/looting/crafting will eliminate inventory update lag. There will still be some minor lag when the list is displayed and you add or remove an item from your inventory - this is caused by the temporary workaround that refreshes the entire inventory on quantity changes instead of just changed items since we don't get ItemRemoved() events while merging stacks. Once Turbine fixes ItemRemoved(), I will be able to eliminate that lag as well.
+
+ 
+
+Ver 1.11 Fixed a memory leak
+
+ 
+
+Ver 1.10 Fixed bug that caused load errors on new characters
+
+ 
+
+Ver 1.09 Updates/Fixes
+
+Added Item Tracking. This allows you to add items from your inventory to either a Character only list or a shared "All" list and keep track of items that are important to you, either crafting resources or pots, or just interesting stuff. Adding/removing an item is as simple as right clicking it in the Alt Inventory window and picking the list to add it to or remove it from. The system supports two levels of alerts for each item, a "Low" warning and a "Critical" alert - the warning will flash the Alt Inventory Minimized Icon with a yellow background, the alert will flash red. Both will output a text message indicating the Item that caused the warning/alert and it's quantity. You can display the list of items being tracked (see image at right). "Critical" items will always be listed first with a red background, followed by "Low" items with a yellow background and then items that have more quantity than their "Low" threshold. You can set the default thresholds for "Character" and "All" in the Options window. You can also specify custom thresholds per item by right clicking the item in the Tracking Window. To open the Tracking Window, click the 321 icon in the bottom left corner of the Alt Inventory window.
+
+Fixed a bug that was intermittently causing excessive calls to the inventory refresh when adding, removing, splitting or merging stacks. 
+
+ 
+
+Note, while I have attempted to handle the known issue with no ItemRemoved event firing when stacks are merged, there is a small chance that the event will be delayed causing the tracked quantities and displayed quantities to be temporarily incorrect - resplitting and merging the stack will fix this (or any other event that changes the quantity of the item on the character). Once Turbine fixes the ItemRemoved event, this bug will cease to occur.
+
+ 
+
+Ver 1.08 Updates/Fixes
+
+Fixed issue with mouse hover not working, you no longer have to click an entry in the "ALL" view to see the pop-up, just hover over it for half a second.
+
+After some delving into dark, ancient lore (i.e. undocumented API interfaces) I have implemented Icons for off-line character inventory items. In order to see the icons, you will have to log-in each of those characters and run the plugin, upon exit, your snapshot will now include all the data needed to recreate the icon image (alas, still no way to create an item pop-up like linked items in chat).
+
+For anyone who doesn't want to see icons for off-line character's items, there is a new setting in the Options dialog to turn them off (note, the Current character will still display item icons since those icons are fully interactable items).
+
+ 
+
+Ver 1.07 Fix
+
+Removed extraneous reference to test library. Sorry folks.
+
+ 
+
+Ver 1.06 Updates/Fixes
+
+Added an Options window (to open options, click the gears icon in the bottom left corner of the Alt Inventory window)
+
+Added ability to accept Drag/Drop items (at present they are simply put into the first slot of the underlying bags, bumping what ever was there to the first empty slot)
+
+Added option to replace bags (in Options window) - this will suppress the standard bags and respond to the inventory/bags toggle events - yes Uthboth, this is for you 
+
+Added missing Toggle option for the /AltInventory chat command
+
+Added Sort by "Quality, Name A-Z" (mostly to test the code for sorting by Category when that becomes available)
+
+Fixed closing child windows when main window is closed
+
+Updated the sizing icon to the image used by the built-in sizing mouse pointer (now if only they'd give us access to change the actual mouse pointer)
+
+Changed main window close button to work better with skins.
+
+ 
+
+Ver 1.05 - fixed a bug that caused load failures on new installations.
+
+ 
+
+Ver 1.04 - no significant changes, something just went wrong in the upload of the zip file for ver 1.03 so I had to increment the version and try again.
+
+ 
+
+Ver 1.03 Updates/Fixes
+
+Add an "ALL" character selection option. When "ALL" is selected, the display will show all of the items found with the total quantity on all characters. If you click on the item or total quantity, a pop-up will display the Characters with that item and their individual quantity.
+
+Added chat command shortcuts for "/altinventory show" and "/altinventory hide" to control the display of the main window as an alternative to finding and clicking the icon (the icon will still display, but you can safely hide it in a corner and ignore it if you want to bind the commands to a quickslot).
+
+Added vertical resizing of the main window. You can now resize the main window vertically to as small as one icon item display or as large as the vertical size of your display. To resize the window, just left drag the lower border (an icon will display when you press the mouse down anywhere on the lower border to indicate that the window can be resized since we have no control over the mouse pointer at this time). Note, "/altinventory toggle" will be available in version 1.06 and will toggle the visible state of the main window.
+
+ 
+
+Ver 1.02 Updates/Fixes
+
+Added rudimentary sorting.
+
+Fixed bug that was causing dropdown lists to display fewer items at a time than they should.
+
+Changed stored data format to allow for better flexibility and future expansion (the plugin will read older stored data and convert it to the new format on the fly).
+
+ 
+
+Ver 1.01 Updates/Fixes
+
+Added fully functional item icons for current user inventory.
+
+Fixed current user iventory not updating when contents of bags changed.
+
+Changed saved settings so that window and icon positions are stored per character.
+
+ 
+
+Download available at LoTROInterface.com

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PluginConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Id>414</Id>
+  <Name>Alt Inventory</Name>
+  <Version>3.12</Version>
+  <Author>Garan</Author>
+  <InfoUrl>http://www.lotrointerface.com/downloads/info414</InfoUrl>
+  <DownloadUrl>http://www.lotrointerface.com/downloads/download414</DownloadUrl>
+  <Descriptors>
+    <descriptor>GaranStuff\AltInventory.plugin</descriptor>
+  </Descriptors>
+  <Dependencies />
+</PluginConfig>
