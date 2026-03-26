@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<Plugin>
+  <Information>
+    <Name>lgo</Name>
+    <Author>ThalyaFlourishing</Author>
+    <Version>1.0</Version>
+  </Information>
+  <Package>Thalya.lgo.Main</Package>
+</Plugin>

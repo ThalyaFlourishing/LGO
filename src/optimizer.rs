@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Write};
+use std::io::Write;
 
 pub fn run(input_file: &str) -> Result<(), String> {
     let input =
