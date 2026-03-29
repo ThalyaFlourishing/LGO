@@ -15,7 +15,6 @@
 //!   - equipped:    items currently worn; slot resolved from plugin index
 //!   - candidates:  items from the 'lgo' chest; slot resolved later by wiki
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 

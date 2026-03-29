@@ -1,4 +1,4 @@
-//! LGO — LOTRO Gear Optimizer
+//! LGO - LOTRO Gear Optimizer
 //!
 //! Usage:
 //!   lgo [--character <name>] [--cache <path>] <stat:minimum> [<stat:minimum> ...]
@@ -28,7 +28,7 @@ use std::process;
 use cache::Cache;
 use stat::StatGoal;
 
-// ?? Entry point ???????????????????????????????????????????????????????????????
+// -- Entry point ---------------------------------------------------------------
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -80,15 +80,10 @@ fn main() {
         .clone()
         .unwrap_or_else(|| cache::default_cache_path(plugindata_path.parent()));
     let mut item_cache = match Cache::load(&cache_path) {
-        Ok(c) => c,
+        Ok(c)  => c,
         Err(e) => {
             eprintln!("Warning: could not load cache ({}); starting empty.", e);
-            Cache::load(&cache_path).unwrap_or_else(|_| {
-                // If the path is unreadable and non-existent, create fresh.
-                Cache::load(Path::new("/dev/null")).unwrap_or_else(|_| {
-                    panic!("Failed to initialise cache")
-                })
-            })
+            Cache::empty(&cache_path)
         }
     };
 
@@ -113,7 +108,7 @@ fn main() {
     // Report any items that could not be resolved.
     for name in &all_names {
         if !resolved.contains_key(name) {
-            eprintln!("[lgo] WARN: '{}' could not be resolved — skipped.", name);
+            eprintln!("[lgo] WARN: '{}' could not be resolved - skipped.", name);
         }
     }
 
@@ -144,7 +139,7 @@ fn main() {
     }
 }
 
-// ?? CLI parsing ???????????????????????????????????????????????????????????????
+// -- CLI parsing ---------------------------------------------------------------
 
 struct Cli {
     character:  Option<String>,
@@ -186,7 +181,7 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
     Ok(Cli { character, cache_path, goals })
 }
 
-// ?? File discovery ????????????????????????????????????????????????????????????
+// -- File discovery ------------------------------------------------------------
 
 fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
     let docs = documents_dir()?;
@@ -245,7 +240,7 @@ fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
         ));
     }
 
-    // Sort lexicographically — timestamp format means latest is last.
+    // Sort lexicographically - timestamp format means latest is last.
     entries.sort();
     Ok(entries.into_iter().last().unwrap())
 }
@@ -300,10 +295,10 @@ fn documents_dir() -> Result<PathBuf, String> {
         .map_err(|e| format!("Cannot determine working directory: {}", e))
 }
 
-// ?? Usage ?????????????????????????????????????????????????????????????????????
+// -- Usage ---------------------------------------------------------------------
 
 fn print_usage() {
-    println!("LGO — LOTRO Gear Optimizer");
+    println!("LGO - LOTRO Gear Optimizer");
     println!();
     println!("Usage:");
     println!("  lgo [options] <stat:minimum> [<stat:minimum> ...]");
@@ -315,7 +310,7 @@ fn print_usage() {
     println!();
     println!("Stat goals:");
     println!("  Each goal is a stat name and a minimum value, separated by ':'.");
-    println!("  Goals are listed in priority order — the first stat is maximised");
+    println!("  Goals are listed in priority order - the first stat is maximised");
     println!("  first, with later stats used only as tiebreakers.");
     println!("  A minimum of 0 means 'maximise but no floor required'.");
     println!();

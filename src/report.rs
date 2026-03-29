@@ -7,8 +7,6 @@
 //!   - Any warnings (truncated pools, missing items, etc.)
 //!   - A clear INFEASIBLE banner when no combination meets all minima
 
-use std::collections::HashMap;
-
 use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
 use crate::stat::{Stat, StatGoal};

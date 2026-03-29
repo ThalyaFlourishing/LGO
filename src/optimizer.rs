@@ -18,7 +18,7 @@
 //!   Step 2: Among the survivors, keep only those achieving the maximum of
 //!           Stat2. Etc.
 //!
-//! This is O(goals × slots × candidates_per_slot) — effectively free.
+//! This is O(goals ? slots ? candidates_per_slot) ? effectively free.
 //!
 //! ## Feasibility
 //!
@@ -28,7 +28,7 @@
 //! Feasibility is checked at the gear-set level, not per item. We use a
 //! two-phase approach:
 //!
-//! Phase 1 — attempt feasible optimisation:
+//! Phase 1 ? attempt feasible optimisation:
 //!   For each slot and each goal stat, a candidate is *compatible* if it
 //!   allows every minimum to potentially be met when the other slots each
 //!   contribute their best. Formally, candidate C in slot K is compatible if:
@@ -42,7 +42,7 @@
 //!   narrowing. If every slot still has at least one candidate, the result
 //!   is feasible.
 //!
-//! Phase 2 — infeasible fallback:
+//! Phase 2 ? infeasible fallback:
 //!   If Phase 1 empties any slot's pool (meaning no combination can satisfy
 //!   all minima), run lexicographic narrowing on the full unfiltered pools
 //!   and report which minima were missed.
@@ -65,7 +65,7 @@ use crate::stat::{Stat, StatGoal};
 // ?? Constants ?????????????????????????????????????????????????????????????????
 
 /// Maximum candidates considered per slot. Excess items are dropped with a
-/// warning. Keeps the paired-slot enumeration bounded (max 6×5 = 30 pairs).
+/// warning. Keeps the paired-slot enumeration bounded (max 6?5 = 30 pairs).
 pub const MAX_CANDIDATES_PER_SLOT: usize = 6;
 
 // ?? Public types ??????????????????????????????????????????????????????????????
