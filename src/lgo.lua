@@ -3,12 +3,11 @@
 -- Direction:
 --   - Candidate gear comes from Shared Storage chest named "lgo"
 --   - Ignore inventory bags for selection (bags/rows can be rearranged)
+--   - Shared Storage panel must be opened at least once before use
 --
 -- Commands:
 --   /lgo
 --     -> help
---   /lgo probe
---     -> write API probe data
 --   /lgo ss
 --     -> export ALL items in Shared Storage (debug)
 --   /lgo ss chest <name>
@@ -23,6 +22,13 @@
 --     -> export (equipped) + (shared storage chest <name>)
 --
 -- Data is written via Turbine.PluginData.Save(Turbine.DataScope.Account, key, table)
+--
+-- Notes on gear stats:
+--   The LotRO plugin API does not expose numeric stat values.
+--   GetDescription() returns an unserializable engine token.
+--   GetLevel/GetRequiredLevel/GetItemClass are absent on this API version.
+--   Per-item data exported: name, category, quality, IsUnique.
+--   The Rust optimizer looks up stats externally by item name.
 
 import "Turbine";
 import "Turbine.Gameplay";
@@ -119,10 +125,9 @@ local function TryCall0(obj, methodName)
 end
 
 local function ExtractItemRecord(item, indexOrSlot)
-  local rec = {
-    slot = indexOrSlot, -- "slot" is used for both equipment slots and storage indices
-  };
+  local rec = { slot = indexOrSlot };
 
+  -- Item-level name (may be a custom rename; falls back to info name)
   local name = nil;
   if item ~= nil and type(item.GetName) == "function" then
     local ok, n = pcall(function() return item:GetName(); end);
@@ -136,11 +141,13 @@ local function ExtractItemRecord(item, indexOrSlot)
   rec.name = name;
   rec.infoName = infoName;
 
+  -- Quantity (stack size of this instance)
   if item ~= nil and type(item.GetQuantity) == "function" then
     local ok, q = pcall(function() return item:GetQuantity(); end);
     if ok then rec.quantity = q end
   end
 
+  -- Shared Storage chest index (only present on shared-storage items)
   if item ~= nil and type(item.GetChest) == "function" then
     local ok, c = pcall(function() return item:GetChest(); end);
     if ok then rec.chest = c end
@@ -148,19 +155,25 @@ local function ExtractItemRecord(item, indexOrSlot)
 
   if info ~= nil then
     rec.itemInfo = {};
-    local fields = {
-      "GetCategory",
-      "GetQuality",
-      "GetDescription",
-      "GetLevel",
-      "GetRequiredLevel",
-      "GetItemClass",
+
+    -- Only confirmed-serializable ItemInfo fields on this API version.
+    -- GetLevel / GetRequiredLevel / GetItemClass are absent.
+    -- GetDescription returns an unserializable engine token.
+    local scalarFields = {
+      "GetCategory",  -- Turbine.Gameplay.ItemCategory enum integer
+      "GetQuality",   -- Turbine.Gameplay.ItemQuality enum integer
     };
-    for _, methodName in ipairs(fields) do
+    for _, methodName in ipairs(scalarFields) do
       local v, existed, ok = TryCall0(info, methodName);
       if existed and ok and v ~= nil then
         rec.itemInfo[methodName] = tostring(v);
       end
+    end
+
+    -- IsUnique: optimizer must not suggest equipping two of the same unique
+    local v, existed, ok = TryCall0(info, "IsUnique");
+    if existed and ok and v ~= nil then
+      rec.itemInfo["IsUnique"] = tostring(v);
     end
   end
 
@@ -190,7 +203,7 @@ local function GetSharedStorage()
       return ss:IsAvailable();
     end);
     if ok2 and available == false then
-      return nil, "Shared Storage not available (open it in-game first)";
+      return nil, "Shared Storage not available (open the panel in-game first)";
     end
   end
 
@@ -216,23 +229,27 @@ local function EnumerateSharedStorageItems(filterFn)
     return nil, "sharedStorage.GetItem is not a function";
   end
 
-  local okCount, count = Try("sharedStorage:GetCount()", function() return ss:GetCount(); end);
+  local okCount, count = Try("sharedStorage:GetCount()", function()
+    return ss:GetCount();
+  end);
   if not okCount or type(count) ~= "number" then
     return nil, "sharedStorage:GetCount() did not return a number";
   end
 
   local cap = nil;
   if type(ss.GetCapacity) == "function" then
-    local okCap, c = Try("sharedStorage:GetCapacity()", function() return ss:GetCapacity(); end);
+    local okCap, c = Try("sharedStorage:GetCapacity()", function()
+      return ss:GetCapacity();
+    end);
     if okCap then cap = c end
   end
 
   local out = {
-    version = "shared-storage-export-1",
+    version = "shared-storage-export-3",
     character = CharacterName(),
     storage = { count = count, capacity = cap },
     items = {},
-    chestsSeen = {}, -- [chestIndex] = chestName
+    chestsSeen = {},
   };
 
   for i = 1, count do
@@ -269,7 +286,7 @@ local function ExportSharedStorageAll()
     return;
   end
   SaveAccount("lgo_ss", data);
-  Print("ss: exported " .. tostring(#data.items) .. " items (with names)");
+  Print("ss: exported " .. tostring(#data.items) .. " items");
 end
 
 local function ExportSharedStorageChestName(chestName)
@@ -290,7 +307,8 @@ local function ExportSharedStorageChestName(chestName)
 
   data.filter = { type = "sharedStorageChestName", value = chestName };
   SaveAccount("lgo_ss_chest", data);
-  Print("ss chest: exported " .. tostring(#data.items) .. " items in chest '" .. chestName .. "'");
+  Print("ss chest: exported " .. tostring(#data.items) ..
+    " items in chest '" .. chestName .. "'");
 end
 
 local function ExportSharedStorageChestIndex(chestIndexStr)
@@ -312,7 +330,8 @@ local function ExportSharedStorageChestIndex(chestIndexStr)
 
   data.filter = { type = "sharedStorageChestIndex", value = chestIndex };
   SaveAccount("lgo_ss_chestindex", data);
-  Print("ss chestindex: exported " .. tostring(#data.items) .. " items in chest index " .. tostring(chestIndex));
+  Print("ss chestindex: exported " .. tostring(#data.items) ..
+    " items in chest index " .. tostring(chestIndex));
 end
 
 -- ── Equipment enumeration ───────────────────────────────────────────────────
@@ -323,7 +342,9 @@ local function GetEquipment()
   if type(player.GetEquipment) ~= "function" then
     return nil, "player.GetEquipment is not a function";
   end
-  local ok, eq = Try("player:GetEquipment()", function() return player:GetEquipment(); end);
+  local ok, eq = Try("player:GetEquipment()", function()
+    return player:GetEquipment();
+  end);
   if not ok or eq == nil then
     return nil, "player:GetEquipment() returned nil";
   end
@@ -354,7 +375,7 @@ local function EnumerateEquippedItems()
   local count = GetEquipmentCount(eq);
 
   local out = {
-    version = "equip-export-1",
+    version = "equip-export-3",
     character = CharacterName(),
     count = count,
     items = {},
@@ -375,7 +396,7 @@ local function EnumerateEquippedItems()
       addSlot(slot);
     end
   else
-    -- Conservative scan if we can't discover count. Stop after long nil streak.
+    -- Count unavailable: scan conservatively, stop after a long nil streak
     local maxSlot = 40;
     local nilStreak = 0;
     local nilStreakStop = 20;
@@ -390,9 +411,7 @@ local function EnumerateEquippedItems()
         end
       else
         nilStreak = nilStreak + 1;
-        if nilStreak >= nilStreakStop then
-          break;
-        end
+        if nilStreak >= nilStreakStop then break end
       end
     end
     out._note = "Equipment count unavailable; scanned slots 1.." .. tostring(maxSlot);
@@ -408,7 +427,7 @@ local function ExportEquipped()
     return;
   end
   SaveAccount("lgo_equip", data);
-  Print("equip: exported " .. tostring(#data.items) .. " equipped items (with names)");
+  Print("equip: exported " .. tostring(#data.items) .. " equipped items");
 end
 
 -- ── Combined export (equipped + shared storage chest) ───────────────────────
@@ -432,7 +451,7 @@ local function ExportCombined(sharedChestName)
   end
 
   local out = {
-    version = "lgo-export-1",
+    version = "lgo-export-3",
     character = CharacterName(),
     selectedSharedStorageChestName = sharedChestName,
     equipped = equip,
@@ -440,156 +459,11 @@ local function ExportCombined(sharedChestName)
   };
 
   SaveAccount("lgo_export", out);
-  Print("export: equipped=" .. tostring(#equip.items) .. " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
+  Print("export: equipped=" .. tostring(#equip.items) ..
+    " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
 end
 
--- ── Probe (API surface) ──────────────────────────────────────────────────────
-
-local function ProbeAPIs()
-  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
-  local backpack = nil;
-  local sharedStorage = nil;
-  local vault = nil;
-  local equipment = nil;
-
-  if player ~= nil then
-    if player.GetBackpack ~= nil then backpack = player:GetBackpack(); end
-    if player.GetSharedStorage ~= nil then
-      local ok, ss = pcall(function() return player:GetSharedStorage(); end);
-      if ok then sharedStorage = ss end
-    end
-    if player.GetVault ~= nil then
-      local ok, v = pcall(function() return player:GetVault(); end);
-      if ok then vault = v end
-    end
-    if player.GetEquipment ~= nil then
-      local ok, e = pcall(function() return player:GetEquipment(); end);
-      if ok then equipment = e end
-    end
-  end
-
-  local probe = {
-    version = "probe-3",
-    character = CharacterName(),
-    notes = {
-      "Probe tests a fixed list of methods (userdata cannot be enumerated reliably).",
-      "Candidate gear is expected from Shared Storage chest name 'lgo'.",
-    },
-    player = {},
-    sharedStorage = {},
-    vault = {},
-    backpack = {},
-    equipment = {},
-    sampleSharedStorage = {
-      count = nil,
-      capacity = nil,
-      firstItem = {},
-      firstItemInfo = {},
-    },
-  };
-
-  local function ProbeMethods(obj, methodNames)
-    local out = {};
-    if obj == nil then
-      out._isNil = true;
-      return out;
-    end
-    for _, m in ipairs(methodNames) do
-      out[m] = tostring(obj[m]);
-    end
-    return out;
-  end
-
-  probe.player = ProbeMethods(player, {
-    "GetBackpack",
-    "GetEquipment",
-    "GetVault",
-    "GetSharedStorage",
-    "GetSharedVault",
-    "GetInventory",
-  });
-
-  probe.backpack = ProbeMethods(backpack, {
-    "GetSize",
-    "GetCapacity",
-    "GetItem",
-    "GetBag",
-    "GetContainer",
-  });
-
-  probe.equipment = ProbeMethods(equipment, {
-    "GetItem",
-    "GetCount",
-    "GetSize",
-  });
-
-  probe.sharedStorage = ProbeMethods(sharedStorage, {
-    "IsAvailable",
-    "GetCount",
-    "GetCapacity",
-    "GetItem",
-    "GetChestName",
-    "GetChestCount",
-  });
-
-  probe.vault = ProbeMethods(vault, {
-    "IsAvailable",
-    "GetCount",
-    "GetCapacity",
-    "GetItem",
-    "GetChestName",
-    "GetChestCount",
-  });
-
-  -- sample: shared storage item 1 (if available)
-  if sharedStorage ~= nil and type(sharedStorage.IsAvailable) == "function" then
-    local okAvail, avail = pcall(function() return sharedStorage:IsAvailable(); end);
-    if okAvail and avail and type(sharedStorage.GetCount) == "function" then
-      local okC, c = pcall(function() return sharedStorage:GetCount(); end);
-      if okC then probe.sampleSharedStorage.count = c end
-      if type(sharedStorage.GetCapacity) == "function" then
-        local okCap, cap = pcall(function() return sharedStorage:GetCapacity(); end);
-        if okCap then probe.sampleSharedStorage.capacity = cap end
-      end
-
-      if type(sharedStorage.GetItem) == "function" and type(probe.sampleSharedStorage.count) == "number" and probe.sampleSharedStorage.count > 0 then
-        local okI, item = pcall(function() return sharedStorage:GetItem(1); end);
-        if okI and item ~= nil then
-          probe.sampleSharedStorage.firstItem = ProbeMethods(item, {
-            "GetName",
-            "GetItemInfo",
-            "GetQuantity",
-            "GetChest",
-          });
-
-          local info = GetItemInfoSafe(item);
-          probe.sampleSharedStorage.firstItemInfo = ProbeMethods(info, {
-            "GetName",
-            "GetCategory",
-            "GetQuality",
-            "GetDescription",
-          });
-
-          if type(item.GetChest) == "function" and type(sharedStorage.GetChestName) == "function" then
-            local okChest, chest = pcall(function() return item:GetChest(); end);
-            if okChest and chest ~= nil then
-              local okCN, cn = pcall(function() return sharedStorage:GetChestName(chest); end);
-              if okCN then
-                probe.sampleSharedStorage.firstItemResolvedChestName = cn;
-                probe.sampleSharedStorage.firstItemChest = chest;
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-
-  SaveAccount("lgo_probe", probe);
-  Print("probe: wrote probe file (check PluginData)");
-end
-
--- ── Shell command ────────────────────────────────────────────────────────────
+-- ── Shell command ─���──────────────────────────────────────────────────────────
 
 Thalya.lgo.Command = Thalya.lgo.Command or Turbine.ShellCommand();
 
@@ -598,7 +472,6 @@ function Thalya.lgo.Command:Execute(command, arguments)
 
   if arguments == "" then
     Print("Commands:");
-    Print("  /lgo probe");
     Print("  /lgo ss");
     Print("  /lgo ss chest <name>");
     Print("  /lgo ss chestindex <n>");
@@ -607,19 +480,15 @@ function Thalya.lgo.Command:Execute(command, arguments)
     Print("  /lgo export chest <name>");
     Print("");
     Print("Workflow:");
-    Print("  1) Put candidate items in Shared Storage chest named 'lgo'");
-    Print("  2) Run: /lgo export");
+    Print("  1) Open Shared Storage panel at least once");
+    Print("  2) Put candidate items in chest named 'lgo'");
+    Print("  3) Run: /lgo export");
     return;
   end
 
   local action, rest = arguments:match("^(%S+)%s*(.*)$");
   action = Lower(action);
   rest = rest or "";
-
-  if action == "probe" then
-    ProbeAPIs();
-    return;
-  end
 
   if action == "ss" then
     rest = Trim(rest);
