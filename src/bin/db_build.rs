@@ -42,7 +42,7 @@ enum Stat {
 enum Slot {
     Head, Chest, Legs, Hands, Feet, Shoulders, Back,
     Wrist1, Wrist2, Neck, Finger1, Finger2, Ear1, Ear2,
-    Pocket, OffHand, Ranged,
+    Pocket, MainHand, OffHand, Ranged, ClassItem,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,11 +243,20 @@ fn load_items(
 
                 match tag.as_str() {
                     "item" => {
-                        cur_name  = attrs.get("name").cloned();
-                        cur_level = attrs.get("level").and_then(|v| v.parse().ok());
-                        cur_slot  = attrs.get("slot").and_then(|s| parse_slot_key(s));
-                        cur_stats.clear();
-                        in_stats = false;
+                        let category = attrs.get("category").map(|s| s.as_str()).unwrap_or("");
+                        if category == "LEGENDARY_WEAPON" {
+                            cur_name  = None;
+                            cur_slot  = None;
+                            cur_level = None;
+                            cur_stats.clear();
+                            in_stats  = false;
+                        } else {
+                            cur_name  = attrs.get("name").cloned();
+                            cur_level = attrs.get("level").and_then(|v| v.parse().ok());
+                            cur_slot  = attrs.get("slot").and_then(|s| parse_slot_key(s));
+                            cur_stats.clear();
+                            in_stats  = false;
+                        }
                     }
                     "stats" => { in_stats = true; }
                     "stat" if in_stats => {
@@ -273,13 +282,11 @@ fn load_items(
                     "stats" => { in_stats = false; }
                     "item"  => {
                         if let (Some(name), Some(slot)) = (cur_name.take(), cur_slot.take()) {
-                            if !cur_stats.is_empty() {
-                                out.insert(name.clone(), CachedItem {
-                                    name,
-                                    slot,
-                                    stats: cur_stats.clone(),
-                                });
-                            }
+                            out.insert(name.clone(), CachedItem {
+                                name,
+                                slot,
+                                stats: cur_stats.clone(),
+                            });
                         }
                         cur_level = None;
                         cur_stats.clear();
@@ -358,8 +365,11 @@ fn parse_slot_key(s: &str) -> Option<Slot> {
         "EAR"   | "LEFT_EAR"
         | "RIGHT_EAR"                   => Some(Slot::Ear1),
         "POCKET"                        => Some(Slot::Pocket),
+        "MAIN_HAND"                     => Some(Slot::MainHand),
+        "EITHER_HAND"                   => Some(Slot::OffHand),
         "OFF_HAND"                      => Some(Slot::OffHand),
         "RANGED_ITEM"                   => Some(Slot::Ranged),
+        "CLASS_SLOT"                    => Some(Slot::ClassItem),
         _                               => None,
     }
 }

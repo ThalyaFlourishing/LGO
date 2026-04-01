@@ -21,6 +21,7 @@ mod plugindata;
 mod report;
 mod stat;
 mod wiki;
+mod db;
 
 use std::path::{Path, PathBuf};
 use std::process;
@@ -87,6 +88,13 @@ fn main() {
         }
     };
 
+    // Load the offline item database (primary item source).
+    let item_db = db::load_item_db(std::path::Path::new("data/lgo_items.json"))
+        .unwrap_or_else(|e| {
+            eprintln!("[lgo] Warning: could not load item db: {}", e);
+            None
+        });
+
     // Collect all item names that need wiki resolution.
     let equipped_names: Vec<String> = export.equipped.iter()
         .map(|i| i.name.clone())
@@ -102,8 +110,28 @@ fn main() {
         }
     }
 
-    // Resolve items via cache + wiki.
-    let resolved = wiki::resolve_items(&all_names, &mut item_cache);
+    // Resolve items: offline db first, then wiki cache for anything missing.
+    let mut resolved = resolve_items(&all_names, &item_db, &mut item_cache);
+
+    // Insert placeholders for any equipped item that resolved to empty stats
+    // (player-renamed LIs, un-renamed LI2s with no meaningful stats, etc.)
+    for item in &export.equipped {
+        let needs_placeholder = match resolved.get(&item.name) {
+            None => true,                        // not resolved at all
+            Some(ci) => ci.stats.is_empty(),     // resolved but no stats
+        };
+        if needs_placeholder {
+            let was_missing = !resolved.contains_key(&item.name);
+            resolved.insert(item.name.clone(), cache::CachedItem {
+                name:  item.name.clone(),
+                slot:  item.slot.unwrap(),
+                stats: std::collections::HashMap::new(),
+            });
+            if was_missing {
+                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", item.name);
+            }
+        }
+    }
 
     // Report any items that could not be resolved.
     for name in &all_names {
@@ -293,6 +321,52 @@ fn documents_dir() -> Result<PathBuf, String> {
     // Last resort: current directory (useful for testing).
     std::env::current_dir()
         .map_err(|e| format!("Cannot determine working directory: {}", e))
+}
+
+// -- Item resolution -----------------------------------------------------------
+
+/// Resolve item names to GearItems.
+/// Lookup order: offline db → wiki cache → wiki fetch.
+/// Items that cannot be resolved by any source are omitted from the result.
+fn resolve_items(
+    names:      &[String],
+    item_db:    &Option<std::collections::HashMap<String, cache::CachedItem>>,
+    item_cache: &mut cache::Cache,
+) -> std::collections::HashMap<String, cache::CachedItem> {
+    let mut resolved: std::collections::HashMap<String, cache::CachedItem> =
+        std::collections::HashMap::new();
+
+    let mut wiki_names: Vec<String> = Vec::new();
+
+    for name in names {
+        if let Some(db) = item_db {
+            if let Some(cached) = db.get(strip_level_suffix(name)) {
+                resolved.insert(name.clone(), cached.clone());
+                continue;
+            }
+        }
+        wiki_names.push(name.clone());
+    }
+
+    if !wiki_names.is_empty() {
+        let wiki_resolved = wiki::resolve_items(&wiki_names, item_cache);
+        for (name, item) in wiki_resolved {
+            resolved.insert(name, item);
+        }
+    }
+
+    resolved
+}
+
+/// Strip trailing " (Level NNN)" from crafted item names as exported by the plugin.
+/// e.g. "Kinta Sword of the Herbalist (Level 561)" -> "Kinta Sword of the Herbalist"
+fn strip_level_suffix(name: &str) -> &str {
+    if let Some(idx) = name.rfind(" (Level ") {
+        if name[idx..].ends_with(')') {
+            return &name[..idx];
+        }
+    }
+    name
 }
 
 // -- Usage ---------------------------------------------------------------------

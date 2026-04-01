@@ -183,9 +183,11 @@ fn slot_label(slot: Slot) -> &'static str {
         Slot::Finger2   => "Finger (2)",
         Slot::Ear1      => "Ear (1)",
         Slot::Ear2      => "Ear (2)",
-        Slot::Pocket    => "Pocket",
-        Slot::OffHand   => "Off-hand",
-        Slot::Ranged    => "Ranged",
+        Slot::Pocket     => "Pocket",
+        Slot::MainHand   => "Main-hand",
+        Slot::OffHand    => "Off-hand",
+        Slot::Ranged     => "Ranged",
+        Slot::ClassItem  => "Class Item",
     }
 }
 

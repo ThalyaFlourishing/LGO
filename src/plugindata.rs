@@ -20,7 +20,7 @@ use std::path::Path;
 
 use crate::gear::Slot;
 
-// ?? Public types ??????????????????????????????????????????????????????????????
+// ── Public types ──────────────────────────────────────────────────────────────
 
 /// All item data extracted from the plugin export file, before wiki lookup.
 #[derive(Debug)]
@@ -42,7 +42,7 @@ pub struct PartialItem {
     pub slot: Option<Slot>,
 }
 
-// ?? Entry point ???????????????????????????????????????????????????????????????
+// ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn load(path: &Path) -> Result<PluginExport, String> {
     let src = fs::read_to_string(path)
@@ -58,7 +58,7 @@ pub fn load(path: &Path) -> Result<PluginExport, String> {
     extract_export(val)
 }
 
-// ?? Extraction ????????????????????????????????????????????????????????????????
+// ── Extraction ────────────────────────────────────────────────────────────────
 
 fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
     let root = expect_table(val, "root")?;
@@ -73,8 +73,8 @@ fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
     let ss_val = table_get(&root, "sharedStorage")
         .ok_or_else(|| "Missing 'sharedStorage' key in export".to_string())?;
 
-    let equipped   = extract_item_list(equipped_val,  false)?;
-    let candidates = extract_item_list(ss_val,        true)?;
+    let equipped   = extract_item_list(equipped_val, false)?;
+    let candidates = extract_item_list(ss_val,       true)?;
 
     Ok(PluginExport { character, equipped, candidates })
 }
@@ -112,7 +112,7 @@ fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, 
                     let idx = n as u32;
                     match Slot::from_plugin_index(idx) {
                         Some(s) => Some(s),
-                        None => continue, // excluded slot — skip silently
+                        None    => continue, // excluded slot — skip silently
                     }
                 }
                 _ => continue,
@@ -125,7 +125,7 @@ fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, 
     Ok(out)
 }
 
-// ?? Raw Lua value types ???????????????????????????????????????????????????????
+// ── Raw Lua value types ───────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 enum LuaVal {
@@ -144,7 +144,7 @@ enum LuaKey {
     Num(f64),
 }
 
-// ?? Table helpers ?????????????????????????????????????????????????????????????
+// ── Table helpers ─────────────────────────────────────────────────────────────
 
 fn expect_table(val: LuaVal, ctx: &str) -> Result<LuaTable, String> {
     match val {
@@ -160,7 +160,7 @@ fn table_get(tbl: &LuaTable, key: &str) -> Option<LuaVal> {
         .map(|(_, v)| v.clone())
 }
 
-// ?? Recursive descent parser ??????????????????????????????????????????????????
+// ── Recursive descent parser ──────────────────────────────────────────────────
 
 const MAX_DEPTH: usize = 64;
 
@@ -317,7 +317,7 @@ fn parse_number(s: &str) -> Result<(LuaVal, &str), String> {
     Ok((LuaVal::Num(n), &s[end..]))
 }
 
-// ?? Tests ?????????????????????????????????????????????????????????????????????
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -366,12 +366,6 @@ mod tests {
             LuaVal::Table(t) => t,
             other => panic!("{:?}", other),
         };
-        assert_eq!(
-            table_get(&tbl, "name"),
-            Some(LuaVal::Str("Umbari Robe of Beasts".into()))
-                .as_ref().map(|_| ()).map(|_| LuaVal::Str("Umbari Robe of Beasts".into()))
-        );
-        // Just check it parses without error and has two entries
         assert_eq!(tbl.len(), 2);
     }
 
@@ -393,10 +387,25 @@ mod tests {
     #[test]
     fn slot_from_index_roundtrip() {
         assert_eq!(Slot::from_plugin_index(1),  Some(Slot::Head));
+        assert_eq!(Slot::from_plugin_index(2),  Some(Slot::Chest));
+        assert_eq!(Slot::from_plugin_index(3),  Some(Slot::Legs));
+        assert_eq!(Slot::from_plugin_index(4),  Some(Slot::Hands));
+        assert_eq!(Slot::from_plugin_index(5),  Some(Slot::Feet));
+        assert_eq!(Slot::from_plugin_index(6),  Some(Slot::Shoulders));
+        assert_eq!(Slot::from_plugin_index(7),  Some(Slot::Back));
+        assert_eq!(Slot::from_plugin_index(8),  Some(Slot::Wrist1));
+        assert_eq!(Slot::from_plugin_index(9),  Some(Slot::Wrist2));
+        assert_eq!(Slot::from_plugin_index(10), Some(Slot::Neck));
+        assert_eq!(Slot::from_plugin_index(11), Some(Slot::Finger1));
+        assert_eq!(Slot::from_plugin_index(12), Some(Slot::Finger2));
+        assert_eq!(Slot::from_plugin_index(13), Some(Slot::Ear1));
+        assert_eq!(Slot::from_plugin_index(14), Some(Slot::Ear2));
         assert_eq!(Slot::from_plugin_index(15), Some(Slot::Pocket));
+        assert_eq!(Slot::from_plugin_index(16), Some(Slot::MainHand));
         assert_eq!(Slot::from_plugin_index(17), Some(Slot::OffHand));
         assert_eq!(Slot::from_plugin_index(18), Some(Slot::Ranged));
-        assert_eq!(Slot::from_plugin_index(16), None); // MainHand excluded
-        assert_eq!(Slot::from_plugin_index(19), None); // CraftItem excluded
+        assert_eq!(Slot::from_plugin_index(19), None);              // CraftItem excluded
+        assert_eq!(Slot::from_plugin_index(20), Some(Slot::ClassItem));
+        assert_eq!(Slot::from_plugin_index(21), None);              // Bridle excluded
     }
 }

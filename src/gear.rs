@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::stat::Stat;
 
 /// Equipment slots that the optimizer considers.
-/// Excluded: MainHand (16), CraftItem (19), ClassItem (20), Bridle (21).
+/// Excluded: CraftItem (19), Bridle (21).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Slot {
     Head,
@@ -22,16 +22,19 @@ pub enum Slot {
     Ear1,
     Ear2,
     Pocket,
+    MainHand,
     OffHand,
     Ranged,
+    ClassItem,
 }
 
 impl Slot {
     pub const ALL: &'static [Slot] = &[
         Slot::Head, Slot::Chest, Slot::Legs, Slot::Hands, Slot::Feet,
-        Slot::Shoulders, Slot::Back, Slot::Wrist1, Slot::Wrist2, Slot::Neck,
-        Slot::Finger1, Slot::Finger2, Slot::Ear1, Slot::Ear2,
-        Slot::Pocket, Slot::OffHand, Slot::Ranged,
+        Slot::Shoulders, Slot::Back, Slot::Wrist1, Slot::Wrist2,
+        Slot::Neck, Slot::Finger1, Slot::Finger2, Slot::Ear1,
+        Slot::Ear2, Slot::Pocket, Slot::MainHand, Slot::OffHand,
+        Slot::Ranged, Slot::ClassItem
     ];
 
     /// Map the integer slot index returned by the LotRO plugin to a Slot.
@@ -54,9 +57,11 @@ impl Slot {
             13 => Some(Slot::Ear1),
             14 => Some(Slot::Ear2),
             15 => Some(Slot::Pocket),
+            16 => Some(Slot::MainHand),
             17 => Some(Slot::OffHand),
             18 => Some(Slot::Ranged),
-            // 16 = MainHand, 19 = CraftItem, 20 = ClassItem, 21 = Bridle — excluded
+            20 => Some(Slot::ClassItem),
+            // 19 = CraftItem, 21 = Bridle — excluded
             _  => None,
         }
     }
@@ -80,8 +85,10 @@ impl fmt::Display for Slot {
             Slot::Ear1      => "Ear (1)",
             Slot::Ear2      => "Ear (2)",
             Slot::Pocket    => "Pocket",
+            Slot::MainHand  => "Main-hand",
             Slot::OffHand   => "Off-hand",
             Slot::Ranged    => "Ranged",
+            Slot::ClassItem => "Class Item",
         };
         write!(f, "{}", s)
     }

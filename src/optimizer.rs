@@ -492,8 +492,10 @@ fn slot_display(slot: Slot) -> &'static str {
         Slot::Finger1 | Slot::Finger2 => "Finger",
         Slot::Ear1 | Slot::Ear2       => "Ear",
         Slot::Pocket    => "Pocket",
+        Slot::MainHand  => "Main-hand",
         Slot::OffHand   => "Off-hand",
         Slot::Ranged    => "Ranged",
+        Slot::ClassItem => "Class Item",
     }
 }
 
