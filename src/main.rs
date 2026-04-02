@@ -1,27 +1,21 @@
 //! LGO - LOTRO Gear Optimizer
 //!
 //! Usage:
-//!   lgo [--character <name>] [--cache <path>] <stat:minimum> [<stat:minimum> ...]
+//!   lgo --stats [options]                  Generate editable gear stats file
+//!   lgo [options] <stat:minimum> [...]     Run optimizer
 //!
-//! Examples:
-//!   lgo CritRating:450 TacticalMastery:450 FinesseRating:300 TacticalMitigation:200
-//!   lgo --character Thalya Vitality:500 Morale:800
-//!
-//! Stat names are case-insensitive and accept common aliases (e.g. TactMast,
-//! physmit, critrating). See stat.rs for the full alias list.
-//!
-//! The plugin data file is discovered automatically from:
+//! The plugin export file and gear stats file are discovered automatically from:
 //!   Documents\The Lord of the Rings Online\PluginData\<character>\AllServers\
-//! The most recent lgo_export_*.plugindata file is used.
 
 mod cache;
+mod db;
 mod gear;
+mod gearstats;
 mod optimizer;
 mod plugindata;
 mod report;
 mod stat;
 mod wiki;
-mod db;
 
 use std::path::{Path, PathBuf};
 use std::process;
@@ -49,13 +43,7 @@ fn main() {
         }
     };
 
-    if cli.goals.is_empty() {
-        eprintln!("Error: at least one stat goal is required.");
-        eprintln!("Run with --help for usage.");
-        process::exit(1);
-    }
-
-    // Discover the plugindata file.
+    // Discover the plugindata file and character name.
     let (plugindata_path, character) = match resolve_plugindata(&cli) {
         Ok(r) => r,
         Err(e) => {
@@ -76,74 +64,64 @@ fn main() {
         }
     };
 
-    // Load the cache.
-    let cache_path = cli.cache_path
-        .clone()
-        .unwrap_or_else(|| cache::default_cache_path(plugindata_path.parent()));
-    let mut item_cache = match Cache::load(&cache_path) {
-        Ok(c)  => c,
-        Err(e) => {
-            eprintln!("Warning: could not load cache ({}); starting empty.", e);
-            Cache::empty(&cache_path)
+    let char_dir = plugindata_path.parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf();
+
+    // -- Stats-file generation mode --------------------------------------------
+    // If --stats was passed: resolve items, write the gear stats file, exit.
+    if cli.write_stats {
+        let items = resolve_to_cached_items(&export, &char_dir, &cli);
+        let timestamp = gearstats::now_timestamp();
+        let out_path = gearstats::stats_file_path(&char_dir, &character, &timestamp);
+        match gearstats::write_stats_file(&items, &out_path, &character) {
+            Ok(()) => {
+                println!("[lgo] Gear stats file written: {}", out_path.display());
+                println!("[lgo] Edit it as needed, then run: lgo <stat:minimum> ...");
+            }
+            Err(e) => {
+                eprintln!("Error writing gear stats file: {}", e);
+                process::exit(1);
+            }
         }
-    };
+        process::exit(0);
+    }
 
-    // Load the offline item database (primary item source).
-    let item_db = db::load_item_db(std::path::Path::new("data/lgo_items.json"))
-        .unwrap_or_else(|e| {
-            eprintln!("[lgo] Warning: could not load item db: {}", e);
-            None
-        });
+    // -- Optimizer mode --------------------------------------------------------
+    if cli.goals.is_empty() {
+        eprintln!("Error: at least one stat goal is required.");
+        eprintln!("Run with --help for usage.");
+        process::exit(1);
+    }
 
-    // Collect all item names that need wiki resolution.
+    // Determine item stats source:
+    //   1. Explicit --stats-file path
+    //   2. Auto-detected most recent lgo_stats_*.toml in AllServers
+    //   3. db / wiki / cache pipeline
+    let resolved: std::collections::HashMap<String, cache::CachedItem> =
+        if let Some(sf_path) = stats_file_to_use(&cli, &char_dir, &character) {
+            eprintln!("[lgo] Using gear stats file — skipping db/wiki/cache lookup");
+            eprintln!("[lgo] Stats file: {}", sf_path.display());
+            match gearstats::read_stats_file(&sf_path) {
+                Ok(items) => items.into_iter().map(|i| (i.name.clone(), i)).collect(),
+                Err(e) => {
+                    eprintln!("Error reading gear stats file: {}", e);
+                    process::exit(1);
+                }
+            }
+        } else {
+            resolve_to_cached_items(&export, &char_dir, &cli)
+                .into_iter()
+                .map(|i| (i.name.clone(), i))
+                .collect()
+        };
+
     let equipped_names: Vec<String> = export.equipped.iter()
         .map(|i| i.name.clone())
         .collect();
     let candidate_names: Vec<String> = export.candidates.iter()
         .map(|i| i.name.clone())
         .collect();
-
-    let mut all_names = equipped_names.clone();
-    for n in &candidate_names {
-        if !all_names.contains(n) {
-            all_names.push(n.clone());
-        }
-    }
-
-    // Resolve items: offline db first, then wiki cache for anything missing.
-    let mut resolved = resolve_items(&all_names, &item_db, &mut item_cache);
-
-    // Insert placeholders for any equipped item that resolved to empty stats
-    // (player-renamed LIs, un-renamed LI2s with no meaningful stats, etc.)
-    for item in &export.equipped {
-        let needs_placeholder = match resolved.get(&item.name) {
-            None => true,                        // not resolved at all
-            Some(ci) => ci.stats.is_empty(),     // resolved but no stats
-        };
-        if needs_placeholder {
-            let was_missing = !resolved.contains_key(&item.name);
-            resolved.insert(item.name.clone(), cache::CachedItem {
-                name:  item.name.clone(),
-                slot:  item.slot.unwrap(),
-                stats: std::collections::HashMap::new(),
-            });
-            if was_missing {
-                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", item.name);
-            }
-        }
-    }
-
-    // Report any items that could not be resolved.
-    for name in &all_names {
-        if !resolved.contains_key(name) {
-            eprintln!("[lgo] WARN: '{}' could not be resolved - skipped.", name);
-        }
-    }
-
-    // Flush cache after wiki lookups.
-    if let Err(e) = item_cache.flush() {
-        eprintln!("[lgo] Warning: could not save cache: {}", e);
-    }
 
     // Run the optimizer.
     let result = optimizer::optimize(
@@ -167,20 +145,119 @@ fn main() {
     }
 }
 
+// -- Shared item resolution ----------------------------------------------------
+
+/// Resolve all items in the export via db/wiki/cache and return as a Vec
+/// in the order: equipped items first, then candidates (deduped).
+/// Inserts zero-stat placeholders for equipped items that could not be resolved.
+fn resolve_to_cached_items(
+    export:   &plugindata::PluginExport,
+    char_dir: &Path,
+    cli:      &Cli,
+) -> Vec<cache::CachedItem> {
+    // Load the cache.
+    let cache_path = cli.cache_path
+        .clone()
+        .unwrap_or_else(|| cache::default_cache_path(Some(char_dir)));
+    let mut item_cache = match Cache::load(&cache_path) {
+        Ok(c)  => c,
+        Err(e) => {
+            eprintln!("Warning: could not load cache ({}); starting empty.", e);
+            Cache::empty(&cache_path)
+        }
+    };
+
+    // Load the offline item database.
+    let item_db = db::load_item_db(Path::new("data/lgo_items.json"))
+        .unwrap_or_else(|e| {
+            eprintln!("[lgo] Warning: could not load item db: {}", e);
+            None
+        });
+
+    let equipped_names: Vec<String> = export.equipped.iter()
+        .map(|i| i.name.clone())
+        .collect();
+    let candidate_names: Vec<String> = export.candidates.iter()
+        .map(|i| i.name.clone())
+        .collect();
+
+    let mut all_names = equipped_names.clone();
+    for n in &candidate_names {
+        if !all_names.contains(n) {
+            all_names.push(n.clone());
+        }
+    }
+
+    let mut resolved = resolve_items(&all_names, &item_db, &mut item_cache);
+
+    // Insert zero-stat placeholders for equipped items with no stats.
+    for item in &export.equipped {
+        let needs_placeholder = match resolved.get(&item.name) {
+            None     => true,
+            Some(ci) => ci.stats.is_empty(),
+        };
+        if needs_placeholder {
+            let was_missing = !resolved.contains_key(&item.name);
+            resolved.insert(item.name.clone(), cache::CachedItem {
+                name:  item.name.clone(),
+                slot:  item.slot.unwrap(),
+                stats: std::collections::HashMap::new(),
+            });
+            if was_missing {
+                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", item.name);
+            }
+        }
+    }
+
+    // Report unresolved candidate items.
+    for name in &all_names {
+        if !resolved.contains_key(name) {
+            eprintln!("[lgo] WARN: '{}' could not be resolved — skipped.", name);
+        }
+    }
+
+    // Flush cache after any wiki lookups.
+    if let Err(e) = item_cache.flush() {
+        eprintln!("[lgo] Warning: could not save cache: {}", e);
+    }
+
+    // Return as a Vec in all_names order (equipped first, then candidates).
+    let mut items: Vec<cache::CachedItem> = Vec::new();
+    for name in &all_names {
+        if let Some(item) = resolved.remove(name) {
+            items.push(item);
+        }
+    }
+    items
+}
+
+/// Determine which gear stats file to use, if any.
+/// Priority: explicit --stats-file flag > auto-detected most recent file.
+fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<PathBuf> {
+    if let Some(ref p) = cli.stats_file {
+        return Some(p.clone());
+    }
+    gearstats::find_latest_stats_file(char_dir, character)
+}
+
 // -- CLI parsing ---------------------------------------------------------------
 
 struct Cli {
-    character:  Option<String>,
-    cache_path: Option<PathBuf>,
-    file:       Option<PathBuf>,
-    goals:      Vec<StatGoal>,
+    character:   Option<String>,
+    cache_path:  Option<PathBuf>,
+    file:        Option<PathBuf>,
+    stats_file:  Option<PathBuf>,
+    write_stats: bool,
+    goals:       Vec<StatGoal>,
 }
 
 fn parse_args(args: &[String]) -> Result<Cli, String> {
-    let mut character  = None;
-    let mut cache_path = None;
-    let mut file       = None;
-    let mut goals      = Vec::new();
+    let mut character   = None;
+    let mut cache_path  = None;
+    let mut file        = None;
+    let mut stats_file  = None;
+    let mut write_stats = false;
+    let mut goals       = Vec::new();
     let mut i = 0;
 
     while i < args.len() {
@@ -201,6 +278,14 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
                 file = Some(PathBuf::from(args.get(i)
                     .ok_or("--file requires a path")?));
             }
+            "--stats-file" | "-S" => {
+                i += 1;
+                stats_file = Some(PathBuf::from(args.get(i)
+                    .ok_or("--stats-file requires a path")?));
+            }
+            "--stats" | "-s" => {
+                write_stats = true;
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -213,13 +298,12 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
         i += 1;
     }
 
-    Ok(Cli { character, cache_path, file, goals })
+    Ok(Cli { character, cache_path, file, stats_file, write_stats, goals })
 }
 
 // -- File discovery ------------------------------------------------------------
 
 fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
-    // If an explicit file was given, extract the character name from the filename.
     if let Some(path) = &cli.file {
         if !path.exists() {
             return Err(format!("File not found: {}", path.display()));
@@ -227,11 +311,11 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
         let stem = path.file_stem()
             .and_then(|s| s.to_str())
             .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
-        // Expected pattern: lgo_export_{character}_{timestamp}
         let character = stem.strip_prefix("lgo_export_")
             .and_then(|s| s.rsplitn(2, '_').nth(1))
             .ok_or_else(|| format!(
-                "Filename '{}' does not match expected pattern lgo_export_{{character}}_{{timestamp}}",
+                "Filename '{}' does not match expected pattern \
+                 lgo_export_{{character}}_{{timestamp}}",
                 stem
             ))?
             .to_string();
@@ -250,7 +334,6 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
         ));
     }
 
-    // Determine character name.
     let character = match &cli.character {
         Some(c) => c.clone(),
         None    => discover_character(&plugin_root)?,
@@ -264,9 +347,7 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
         ));
     }
 
-    // Find the most recent lgo_export_*.plugindata file.
     let path = find_latest_export(&char_dir)?;
-
     Ok((path, character))
 }
 
@@ -291,14 +372,10 @@ fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
         ));
     }
 
-    // Sort lexicographically - timestamp format means latest is last.
     entries.sort();
     Ok(entries.into_iter().last().unwrap())
 }
 
-/// If no character is specified, scan the PluginData directory.
-/// If exactly one character subdirectory exists, use it.
-/// If multiple exist, list them and ask the user to specify.
 fn discover_character(plugin_root: &Path) -> Result<String, String> {
     let dirs: Vec<String> = std::fs::read_dir(plugin_root)
         .map_err(|e| format!("Cannot read PluginData directory: {}", e))?
@@ -322,35 +399,25 @@ fn discover_character(plugin_root: &Path) -> Result<String, String> {
     }
 }
 
-/// Return the path to the user's Documents folder.
-/// On Windows this is typically C:\Users\<name>\Documents.
 fn documents_dir() -> Result<PathBuf, String> {
-    // Try the USERPROFILE environment variable first (Windows).
     if let Ok(profile) = std::env::var("USERPROFILE") {
         let docs = PathBuf::from(profile).join("Documents");
         if docs.exists() {
             return Ok(docs);
         }
     }
-
-    // Try HOME (for cross-platform development / WSL testing).
     if let Ok(home) = std::env::var("HOME") {
         let docs = PathBuf::from(home).join("Documents");
         if docs.exists() {
             return Ok(docs);
         }
     }
-
-    // Last resort: current directory (useful for testing).
     std::env::current_dir()
         .map_err(|e| format!("Cannot determine working directory: {}", e))
 }
 
 // -- Item resolution -----------------------------------------------------------
 
-/// Resolve item names to GearItems.
-/// Lookup order: offline db → wiki cache → wiki fetch.
-/// Items that cannot be resolved by any source are omitted from the result.
 fn resolve_items(
     names:      &[String],
     item_db:    &Option<std::collections::HashMap<String, cache::CachedItem>>,
@@ -358,7 +425,6 @@ fn resolve_items(
 ) -> std::collections::HashMap<String, cache::CachedItem> {
     let mut resolved: std::collections::HashMap<String, cache::CachedItem> =
         std::collections::HashMap::new();
-
     let mut wiki_names: Vec<String> = Vec::new();
 
     for name in names {
@@ -381,8 +447,6 @@ fn resolve_items(
     resolved
 }
 
-/// Strip trailing " (Level NNN)" from crafted item names as exported by the plugin.
-/// e.g. "Kinta Sword of the Herbalist (Level 561)" -> "Kinta Sword of the Herbalist"
 fn strip_level_suffix(name: &str) -> &str {
     if let Some(idx) = name.rfind(" (Level ") {
         if name[idx..].ends_with(')') {
@@ -398,34 +462,40 @@ fn print_usage() {
     println!("LGO - LOTRO Gear Optimizer");
     println!();
     println!("Usage:");
-    println!("  lgo [options] <stat:minimum> [<stat:minimum> ...]");
+    println!("  lgo --stats [options]                  Generate editable gear stats file");
+    println!("  lgo [options] <stat:minimum> [...]     Run optimizer");
     println!();
     println!("Options:");
-    println!("  --character <name>   Character name (auto-detected if only one exists)");
-    println!("  --cache <path>       Path to the item cache JSON file");
-    println!("  --help               Show this message");
-    println!();
-    println!("Stat goals:");
-    println!("  Each goal is a stat name and a minimum value, separated by ':'.");
-    println!("  Goals are listed in priority order - the first stat is maximised");
-    println!("  first, with later stats used only as tiebreakers.");
-    println!("  A minimum of 0 means 'maximise but no floor required'.");
-    println!();
-    println!("  Examples:");
-    println!("    lgo CritRating:450 TacticalMastery:450 FinesseRating:300");
-    println!("    lgo --character Thalya Vitality:500 Morale:800 CritRating:0");
-    println!();
-    println!("Stat name aliases (case-insensitive):");
-    println!("  TactMast / TacticalMastery    PhysMast / PhysicalMastery");
-    println!("  TactMit  / TacticalMitigation PhysMit  / PhysicalMitigation");
-    println!("  CritRating                    DevRating");
-    println!("  Finesse  / FinesseRating      Armour / Armor");
-    println!("  CritDefence / CritDefense     IncMit / IncMitigations");
-    println!("  Vitality  Morale  Power  Might  Agility  Will  Fate");
-    println!("  IncomingHealing / IncHeal     OutgoingHealing / OutHeal");
+    println!("  --character  <name>   Character name (auto-detected if only one exists)");
+    println!("  --file       <path>   Explicit path to lgo_export_*.plugindata");
+    println!("  --stats-file <path>   Explicit path to lgo_stats_*.toml");
+    println!("  --cache      <path>   Path to the item cache JSON file");
+    println!("  --help                Show this message");
     println!();
     println!("Workflow:");
     println!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
     println!("  2) Run /lgo export in-game");
-    println!("  3) Run this program with your stat goals");
+    println!("  3) Run: lgo --stats");
+    println!("  4) Edit the generated lgo_stats_*.toml file as needed");
+    println!("  5) Run: lgo <stat:minimum> [<stat:minimum> ...]");
+    println!();
+    println!("Stat goals:");
+    println!("  Each goal is a stat name and a minimum value, separated by ':'.");
+    println!("  Goals are listed in priority order — the first stat is maximised");
+    println!("  first, with later stats used only as tiebreakers.");
+    println!("  A minimum of 0 means 'maximise but no floor required'.");
+    println!();
+    println!("  Examples:");
+    println!("    lgo TacticalMastery:450000 CriticalRating:350000 Finesse:0");
+    println!("    lgo tm:450000 cr:350000 fn:0");
+    println!("    lgo --character Thalya tm:450000 oh:100000");
+    println!();
+    println!("Stat names (case-insensitive, full name or two-letter abbreviation):");
+    println!("  am  Armor               cr  CriticalRating");
+    println!("  fn  Finesse             pm  PhysicalMastery");
+    println!("  tm  TacticalMastery     oh  OutgoingHealing");
+    println!("  rs  Resistance          cd  CriticalDefense");
+    println!("  ih  IncomingHealing     bl  Block");
+    println!("  pa  Parry               ev  Evade");
+    println!("  pt  PhysicalMitigation  tt  TacticalMitigation");
 }
