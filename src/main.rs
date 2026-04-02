@@ -172,12 +172,14 @@ fn main() {
 struct Cli {
     character:  Option<String>,
     cache_path: Option<PathBuf>,
+    file:       Option<PathBuf>,
     goals:      Vec<StatGoal>,
 }
 
 fn parse_args(args: &[String]) -> Result<Cli, String> {
     let mut character  = None;
     let mut cache_path = None;
+    let mut file       = None;
     let mut goals      = Vec::new();
     let mut i = 0;
 
@@ -194,6 +196,11 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
                 cache_path = Some(PathBuf::from(args.get(i)
                     .ok_or("--cache requires a path")?));
             }
+            "--file" | "-f" => {
+                i += 1;
+                file = Some(PathBuf::from(args.get(i)
+                    .ok_or("--file requires a path")?));
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -206,12 +213,31 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
         i += 1;
     }
 
-    Ok(Cli { character, cache_path, goals })
+    Ok(Cli { character, cache_path, file, goals })
 }
 
 // -- File discovery ------------------------------------------------------------
 
 fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
+    // If an explicit file was given, extract the character name from the filename.
+    if let Some(path) = &cli.file {
+        if !path.exists() {
+            return Err(format!("File not found: {}", path.display()));
+        }
+        let stem = path.file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
+        // Expected pattern: lgo_export_{character}_{timestamp}
+        let character = stem.strip_prefix("lgo_export_")
+            .and_then(|s| s.rsplitn(2, '_').nth(1))
+            .ok_or_else(|| format!(
+                "Filename '{}' does not match expected pattern lgo_export_{{character}}_{{timestamp}}",
+                stem
+            ))?
+            .to_string();
+        return Ok((path.clone(), character));
+    }
+
     let docs = documents_dir()?;
     let plugin_root = docs
         .join("The Lord of the Rings Online")
@@ -244,9 +270,6 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
     Ok((path, character))
 }
 
-/// Find the most recent `lgo_export_*.plugindata` file in `dir`.
-/// Since the filename contains a timestamp in YYYYMMDD_HHMMSS format,
-/// lexicographic ordering gives chronological ordering.
 fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
         .map_err(|e| format!("Cannot read directory {}: {}", dir.display(), e))?

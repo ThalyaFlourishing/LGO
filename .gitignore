@@ -9,3 +9,7 @@ Thumbs.db
 
 # VSCode
 .vscode/
+
+# Ultra-Edit project files
+LGO_project.prj
+LGO_project.SURROGATE.User.pui

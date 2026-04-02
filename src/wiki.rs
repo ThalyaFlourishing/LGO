@@ -221,18 +221,18 @@ fn parse_wiki_stat_name(s: &str) -> Option<Stat> {
         "fate"                                      => Some(Stat::Fate),
         "morale"                                    => Some(Stat::Morale),
         "power"                                     => Some(Stat::Power),
-        "criticalrating" | "critrating"             => Some(Stat::CritRating),
+        "criticalrating" | "critrating"             => Some(Stat::CriticalRating),
         "devastatingcriticalrating" | "devrating"   => Some(Stat::DevRating),
-        "finesserating" | "finesse"                 => Some(Stat::FinesseRating),
-        "tacticalmastery"                            => Some(Stat::TactMastery),
-        "physicalmastery"                            => Some(Stat::PhysMastery),
+        "finesserating" | "finesse"                 => Some(Stat::Finesse),
+        "tacticalmastery"                            => Some(Stat::TacticalMastery),
+        "physicalmastery"                            => Some(Stat::PhysicalMastery),
         "offensiveoverpower"                         => Some(Stat::OffensiveOverpower),
         "resistance"                                 => Some(Stat::Resistance),
         "criticaldefencerating" |
         "criticaldefense"       |
-        "critdefence"                                => Some(Stat::CritDefense),
-        "tacticalmitigation"                         => Some(Stat::TactMitigation),
-        "physicalmitigation"                         => Some(Stat::PhysMitigation),
+        "critdefence"                                => Some(Stat::CriticalDefense),
+        "tacticalmitigation"                         => Some(Stat::TacticalMitigation),
+        "physicalmitigation"                         => Some(Stat::PhysicalMitigation),
         "incominghealing"                            => Some(Stat::IncomingHealing),
         "outgoinghealing"                            => Some(Stat::OutgoingHealing),
         "incomingmitigations" |
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_parse_attrib_fragment_no_comma() {
         let (stat, val) = parse_attrib_fragment("+6140 Tactical Mitigation").unwrap();
-        assert_eq!(stat, Stat::TactMitigation);
+        assert_eq!(stat, Stat::TacticalMitigation);
         assert_eq!(val, 6140);
     }
 

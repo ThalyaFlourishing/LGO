@@ -7,60 +7,83 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Stat {
-    // Primary stats
+    // Primary stats (internal use / wiki parsing only — not tracked in stats file)
     Might,
     Agility,
     Vitality,
     Will,
     Fate,
-
-    // Defensive stats
-    Armor,
-    Resistance,
-    CritDefense,
-    IncMitigations,
-    PhysMitigation,
-    TactMitigation,
-
-    // Offensive stats
-    CritRating,
-    DevRating,
-    FinesseRating,
-    OffensiveOverpower,
-    TactMastery,
-    PhysMastery,
-
-    // Support stats
     Morale,
     Power,
-    IncomingHealing,
+    DevRating,
+    OffensiveOverpower,
+    IncMitigations,
+
+    // Tracked stats (appear in stats file and optimizer)
+    Armor,
+    CriticalRating,
+    Finesse,
+    PhysicalMastery,
+    TacticalMastery,
     OutgoingHealing,
+    Resistance,
+    CriticalDefense,
+    IncomingHealing,
+    Block,
+    Parry,
+    Evade,
+    PhysicalMitigation,
+    TacticalMitigation,
 }
+
+/// The 14 stats that appear in the stats file and are used by the optimizer,
+/// in canonical display order. Each entry is (Stat, PascalCase TOML key).
+pub const TRACKED_STATS: &[(Stat, &str)] = &[
+    (Stat::Armor,              "Armor"),
+    (Stat::CriticalRating,     "CriticalRating"),
+    (Stat::Finesse,            "Finesse"),
+    (Stat::PhysicalMastery,    "PhysicalMastery"),
+    (Stat::TacticalMastery,    "TacticalMastery"),
+    (Stat::OutgoingHealing,    "OutgoingHealing"),
+    (Stat::Resistance,         "Resistance"),
+    (Stat::CriticalDefense,    "CriticalDefense"),
+    (Stat::IncomingHealing,    "IncomingHealing"),
+    (Stat::Block,              "Block"),
+    (Stat::Parry,              "Parry"),
+    (Stat::Evade,              "Evade"),
+    (Stat::PhysicalMitigation, "PhysicalMitigation"),
+    (Stat::TacticalMitigation, "TacticalMitigation"),
+];
 
 impl fmt::Display for Stat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
+            // Internal stats
             Stat::Might              => "Might",
             Stat::Agility            => "Agility",
             Stat::Vitality           => "Vitality",
             Stat::Will               => "Will",
             Stat::Fate               => "Fate",
-            Stat::Armor              => "Armor",
-            Stat::Resistance         => "Resistance",
-            Stat::CritDefense        => "Crit Defense",
-            Stat::IncMitigations     => "Inc. Mitigations",
-            Stat::PhysMitigation     => "Phys. Mitigation",
-            Stat::TactMitigation     => "Tact. Mitigation",
-            Stat::CritRating         => "Crit Rating",
-            Stat::DevRating          => "Dev Rating",
-            Stat::FinesseRating      => "Finesse Rating",
-            Stat::OffensiveOverpower => "Offensive Overpower",
-            Stat::TactMastery        => "Tact. Mastery",
-            Stat::PhysMastery        => "Phys. Mastery",
             Stat::Morale             => "Morale",
             Stat::Power              => "Power",
-            Stat::IncomingHealing    => "Incoming Healing",
+            Stat::DevRating          => "Dev Rating",
+            Stat::OffensiveOverpower => "Offensive Overpower",
+            Stat::IncMitigations     => "Inc. Mitigations",
+            // Tracked stats
+            Stat::Armor              => "Armor",
+            Stat::CriticalRating     => "Critical Rating",
+            Stat::Finesse            => "Finesse",
+            Stat::PhysicalMastery    => "Physical Mastery",
+            Stat::TacticalMastery    => "Tactical Mastery",
             Stat::OutgoingHealing    => "Outgoing Healing",
+            Stat::Resistance         => "Resistance",
+            Stat::CriticalDefense    => "Critical Defense",
+            Stat::IncomingHealing    => "Incoming Healing",
+            Stat::Block              => "Block",
+            Stat::Parry              => "Parry",
+            Stat::Evade              => "Evade",
+            Stat::PhysicalMitigation => "Physical Mitigation",
+            Stat::TacticalMitigation => "Tactical Mitigation",
         };
         write!(f, "{}", name)
     }
@@ -71,29 +94,53 @@ impl FromStr for Stat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().replace([' ', '_', '-'], "").as_str() {
+            // Two-letter abbreviations
+            "am"                                             => Ok(Stat::Armor),
+            "cr"                                             => Ok(Stat::CriticalRating),
+            "fn"                                             => Ok(Stat::Finesse),
+            "pm"                                             => Ok(Stat::PhysicalMastery),
+            "tm"                                             => Ok(Stat::TacticalMastery),
+            "oh"                                             => Ok(Stat::OutgoingHealing),
+            "rs"                                             => Ok(Stat::Resistance),
+            "cd"                                             => Ok(Stat::CriticalDefense),
+            "ih"                                             => Ok(Stat::IncomingHealing),
+            "bl"                                             => Ok(Stat::Block),
+            "pa"                                             => Ok(Stat::Parry),
+            "ev"                                             => Ok(Stat::Evade),
+            "pt"                                             => Ok(Stat::PhysicalMitigation),
+            "tt"                                             => Ok(Stat::TacticalMitigation),
+
+            // Tracked stats — full and legacy names
+            "armor" | "armour"                               => Ok(Stat::Armor),
+            "criticalrating" | "critrating"                  => Ok(Stat::CriticalRating),
+            "finesse" | "finesserating"                      => Ok(Stat::Finesse),
+            "physicalmastery" | "physmastery" | "physmast"   => Ok(Stat::PhysicalMastery),
+            "tacticalmastery" | "tactmastery" | "tactmast"   => Ok(Stat::TacticalMastery),
+            "outgoinghealing" | "outheal"                    => Ok(Stat::OutgoingHealing),
+            "resistance"                                     => Ok(Stat::Resistance),
+            "criticaldefense" | "criticaldefence" |
+            "critdefense"     | "critdefence"                => Ok(Stat::CriticalDefense),
+            "incominghealing" | "incheal"                    => Ok(Stat::IncomingHealing),
+            "block"                                          => Ok(Stat::Block),
+            "parry"                                          => Ok(Stat::Parry),
+            "evade"                                          => Ok(Stat::Evade),
+            "physicalmitigation" | "physmitigation" |
+            "physmit"                                        => Ok(Stat::PhysicalMitigation),
+            "tacticalmitigation" | "tactmitigation" |
+            "tactmit"                                        => Ok(Stat::TacticalMitigation),
+
+            // Internal stats (wiki parsing / future use)
             "might"                                          => Ok(Stat::Might),
             "agility"                                        => Ok(Stat::Agility),
             "vitality"                                       => Ok(Stat::Vitality),
             "will"                                           => Ok(Stat::Will),
             "fate"                                           => Ok(Stat::Fate),
-            "armor" | "armour"                               => Ok(Stat::Armor),
-            "resistance"                                     => Ok(Stat::Resistance),
-            "critdefense" | "critdefence"                    => Ok(Stat::CritDefense),
-            "incmitigations" | "incmit"                      => Ok(Stat::IncMitigations),
-            "physmitigation" | "physicalmitigation" |
-            "physmit"                                        => Ok(Stat::PhysMitigation),
-            "tactmitigation" | "tacticalmitigation" |
-            "tactmit"                                        => Ok(Stat::TactMitigation),
-            "critrating"                                     => Ok(Stat::CritRating),
-            "devrating" | "devastatingcriticalrating"        => Ok(Stat::DevRating),
-            "finesserating" | "finesse"                      => Ok(Stat::FinesseRating),
-            "offensiveoverpower" | "overpower"               => Ok(Stat::OffensiveOverpower),
-            "tactmastery" | "tacticalmastery" | "tactmast"   => Ok(Stat::TactMastery),
-            "physmastery" | "physicalmastery" | "physmast"   => Ok(Stat::PhysMastery),
             "morale"                                         => Ok(Stat::Morale),
             "power"                                          => Ok(Stat::Power),
-            "incominghealing" | "incheal"                    => Ok(Stat::IncomingHealing),
-            "outgoinghealing" | "outheal"                    => Ok(Stat::OutgoingHealing),
+            "devrating" | "devastatingcriticalrating"        => Ok(Stat::DevRating),
+            "offensiveoverpower" | "overpower"               => Ok(Stat::OffensiveOverpower),
+            "incmitigations" | "incmit"                      => Ok(Stat::IncMitigations),
+
             _ => Err(format!("Unknown stat: '{}'", s)),
         }
     }
@@ -102,7 +149,7 @@ impl FromStr for Stat {
 // -- StatGoal ------------------------------------------------------------------
 
 /// A stat with an associated minimum value, parsed from CLI input.
-/// Format: `StatName:minimum`  e.g. `CritRating:450`
+/// Format: `StatName:minimum`  e.g. `CriticalRating:450000`
 /// A minimum of 0 means "maximise but no floor required".
 #[derive(Debug, Clone)]
 pub struct StatGoal {
@@ -122,7 +169,7 @@ impl FromStr for StatGoal {
                 Ok(StatGoal { stat, minimum })
             }
             None => {
-                // No colon - treat as stat name with minimum 0.
+                // No colon — treat as stat name with minimum 0.
                 let stat = s.parse::<Stat>()?;
                 Ok(StatGoal { stat, minimum: 0 })
             }
@@ -130,18 +177,3 @@ impl FromStr for StatGoal {
     }
 }
 
-// -- StatWeights ---------------------------------------------------------------
-
-/// A weighting map from stats to their relative importance (0.0-1.0).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatWeights(pub Vec<(Stat, f64)>);
-
-impl StatWeights {
-    pub fn weight_of(&self, stat: &Stat) -> f64 {
-        self.0
-            .iter()
-            .find(|(s, _)| s == stat)
-            .map(|(_, w)| *w)
-            .unwrap_or(0.0)
-    }
-}
