@@ -97,10 +97,12 @@ impl Cache {
     }
 
     /// How many items are currently cached.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }

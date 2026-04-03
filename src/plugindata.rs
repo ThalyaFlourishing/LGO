@@ -25,6 +25,7 @@ use crate::gear::Slot;
 /// All item data extracted from the plugin export file, before wiki lookup.
 #[derive(Debug)]
 pub struct PluginExport {
+    #[allow(dead_code)]
     pub character: String,
     /// Items currently worn by the character. Slot is known from plugin index.
     pub equipped: Vec<PartialItem>,
@@ -131,6 +132,7 @@ fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, 
 enum LuaVal {
     Str(String),
     Num(f64),
+    #[allow(dead_code)]
     Bool(bool),
     Table(LuaTable),
     Nil,
@@ -141,6 +143,7 @@ type LuaTable = Vec<(LuaKey, LuaVal)>;
 #[derive(Debug, Clone)]
 enum LuaKey {
     Str(String),
+    #[allow(dead_code)]
     Num(f64),
 }
 

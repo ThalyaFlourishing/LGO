@@ -148,8 +148,8 @@ fn main() {
 // -- Shared item resolution ----------------------------------------------------
 
 /// Resolve all items in the export via db/wiki/cache and return as a Vec
-/// in the order: equipped items first, then candidates (deduped).
-/// Inserts zero-stat placeholders for equipped items that could not be resolved.
+/// in slot order: equipped items first (one per slot, preserving duplicates),
+/// then candidates (deduped by name).
 fn resolve_to_cached_items(
     export:   &plugindata::PluginExport,
     char_dir: &Path,
@@ -174,60 +174,56 @@ fn resolve_to_cached_items(
             None
         });
 
-    let equipped_names: Vec<String> = export.equipped.iter()
-        .map(|i| i.name.clone())
-        .collect();
-    let candidate_names: Vec<String> = export.candidates.iter()
-        .map(|i| i.name.clone())
-        .collect();
-
-    let mut all_names = equipped_names.clone();
-    for n in &candidate_names {
-        if !all_names.contains(n) {
-            all_names.push(n.clone());
+    // Resolve unique names via db/wiki/cache.
+    let mut unique_names: Vec<String> = Vec::new();
+    for item in export.equipped.iter().chain(export.candidates.iter()) {
+        if !unique_names.contains(&item.name) {
+            unique_names.push(item.name.clone());
         }
     }
-
-    let mut resolved = resolve_items(&all_names, &item_db, &mut item_cache);
-
-    // Insert zero-stat placeholders for equipped items with no stats.
-    for item in &export.equipped {
-        let needs_placeholder = match resolved.get(&item.name) {
-            None     => true,
-            Some(ci) => ci.stats.is_empty(),
-        };
-        if needs_placeholder {
-            let was_missing = !resolved.contains_key(&item.name);
-            resolved.insert(item.name.clone(), cache::CachedItem {
-                name:  item.name.clone(),
-                slot:  item.slot.unwrap(),
-                stats: std::collections::HashMap::new(),
-            });
-            if was_missing {
-                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", item.name);
-            }
-        }
-    }
-
-    // Report unresolved candidate items.
-    for name in &all_names {
-        if !resolved.contains_key(name) {
-            eprintln!("[lgo] WARN: '{}' could not be resolved — skipped.", name);
-        }
-    }
+    let name_map = resolve_items(&unique_names, &item_db, &mut item_cache);
 
     // Flush cache after any wiki lookups.
     if let Err(e) = item_cache.flush() {
         eprintln!("[lgo] Warning: could not save cache: {}", e);
     }
 
-    // Return as a Vec in all_names order (equipped first, then candidates).
+    // Build output Vec in slot order, one entry per equipped slot.
+    // Two slots with the same item name each get their own entry with the
+    // correct slot — this is what was missing before.
     let mut items: Vec<cache::CachedItem> = Vec::new();
-    for name in &all_names {
-        if let Some(item) = resolved.remove(name) {
-            items.push(item);
+
+    for partial in &export.equipped {
+        let slot = match partial.slot {
+            Some(s) => s,
+            None    => continue,
+        };
+        let stats = name_map.get(&partial.name)
+            .map(|ci| ci.stats.clone())
+            .unwrap_or_else(|| {
+                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", partial.name);
+                std::collections::HashMap::new()
+            });
+        items.push(cache::CachedItem {
+            name:  partial.name.clone(),
+            slot,
+            stats,
+        });
+    }
+
+    // Append candidates (deduped by name, skipping those already equipped).
+    let equipped_names: std::collections::HashSet<&String> =
+        export.equipped.iter().map(|i| &i.name).collect();
+
+    for partial in &export.candidates {
+        if equipped_names.contains(&partial.name) { continue; }
+        if let Some(ci) = name_map.get(&partial.name) {
+            items.push(ci.clone());
+        } else {
+            eprintln!("[lgo] WARN: '{}' could not be resolved — skipped.", partial.name);
         }
     }
+
     items
 }
 
