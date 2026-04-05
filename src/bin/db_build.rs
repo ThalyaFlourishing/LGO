@@ -323,7 +323,7 @@ fn handle_stat_element(
                 if let Some(val) = prog.value_at(level) {
                     // Use ceil() to match LotRO's truncation behaviour,
                     // not round() which overshoots by 1 on half-values.
-                    *stats.entry(stat).or_insert(0) += val.ceil() as i64;
+                    *stats.entry(stat).or_insert(0) += val as i64;
                 } else {
                     eprintln!(
                         "[db_build] WARN: progression {} has no value at level {}",
@@ -340,7 +340,7 @@ fn handle_stat_element(
     let fixed = attrs.get("constant").or_else(|| attrs.get("value"));
     if let Some(val_str) = fixed {
         if let Ok(val) = val_str.parse::<f64>() {
-            *stats.entry(stat).or_insert(0) += val.ceil() as i64;
+            *stats.entry(stat).or_insert(0) += val as i64;
         }
     }
 }
