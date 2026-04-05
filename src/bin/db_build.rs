@@ -32,10 +32,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Stat {
-    Might, Agility, Vitality, Will, Fate,
-    Armor, Resistance, CritDefense, IncMitigations, PhysMitigation, TactMitigation,
-    CritRating, DevRating, FinesseRating, OffensiveOverpower, TactMastery, PhysMastery,
-    Morale, Power, IncomingHealing, OutgoingHealing,
+    Armor, CriticalRating, Finesse, PhysicalMastery, TacticalMastery,
+    OutgoingHealing, Resistance, CriticalDefense, IncomingHealing,
+    Block, Parry, Evade, PhysicalMitigation, TacticalMitigation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -378,26 +377,20 @@ fn parse_slot_key(s: &str) -> Option<Slot> {
 
 fn parse_stat_name(s: &str) -> Option<Stat> {
     match s {
-        "VITALITY"            => Some(Stat::Vitality),
-        "WILL"                => Some(Stat::Will),
-        "MIGHT"               => Some(Stat::Might),
-        "AGILITY"             => Some(Stat::Agility),
-        "FATE"                => Some(Stat::Fate),
-        "MORALE"              => Some(Stat::Morale),
-        "POWER"               => Some(Stat::Power),
         "ARMOUR"              => Some(Stat::Armor),
         "CRITICAL_RATING"     => Some(Stat::CriticalRating),
-        "DEVASTATE_RATING"    => Some(Stat::DevRating),
         "FINESSE"             => Some(Stat::Finesse),
-        "TACTICAL_MASTERY"    => Some(Stat::TacticalMastery),
         "PHYSICAL_MASTERY"    => Some(Stat::PhysicalMastery),
-        "OCMR"                => Some(Stat::OffensiveOverpower),
+        "TACTICAL_MASTERY"    => Some(Stat::TacticalMastery),
+        "OUTGOING_HEALING"    => Some(Stat::OutgoingHealing),
         "RESISTANCE"          => Some(Stat::Resistance),
         "CRITICAL_DEFENCE"    => Some(Stat::CriticalDefense),
-        "TACTICAL_MITIGATION" => Some(Stat::TacticalMitigation),
-        "PHYSICAL_MITIGATION" => Some(Stat::PhysicalMitigation),
         "INCOMING_HEALING"    => Some(Stat::IncomingHealing),
-        "OUTGOING_HEALING"    => Some(Stat::OutgoingHealing),
+        "BLOCK"               => Some(Stat::Block),
+        "PARRY"               => Some(Stat::Parry),
+        "EVADE"               => Some(Stat::Evade),
+        "PHYSICAL_MITIGATION" => Some(Stat::PhysicalMitigation),
+        "TACTICAL_MITIGATION" => Some(Stat::TacticalMitigation),
         _                     => None,
     }
 }

@@ -1,0 +1,404 @@
+# LGO gear stats file — character: Thalya
+# Edit stat values below, then run: lgo <stat:minimum> ...
+# All 14 tracked stats are listed for every item in canonical order.
+# Items with all zeros need manual entry before running the optimizer.
+
+[[item]]
+slot = "Head"
+name = "Veteran Sage's Hooded Helm"
+Armor                 = 6181
+CriticalRating        = 26089 <<26090>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Chest"
+name = "Grove-tender's Robe"
+Armor                 = 19004
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 2842 <<2843>>
+TacticalMitigation    = 9954  <<9955>>
+
+[[item]]
+slot = "Legs"
+name = "Veteran Sage's Leggings"
+Armor                 = 17440 <<17118>>
+CriticalRating        = 14889 <<14620>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 21630 <<21239>>
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Hands"
+name = "Veteran Sage's Bracers"
+Armor                 = 10391 <<10488>>
+CriticalRating        = 22334 <<22537>>
+Finesse               = 9874  <<9966>
+PhysicalMastery       = 0
+TacticalMastery       = 12408 <<12520>>
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Feet"
+name = "Ordâkhai Explorer's Boots"
+Armor                 = 7948
+CriticalRating        = 14889 <<14890>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 15459
+OutgoingHealing       = 0
+Resistance            = 10061
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Shoulders"
+name = "Veteran Sage's Shoulder-guard"
+Armor                 = 6181
+CriticalRating        = 16767
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Back"
+name = "Game Hunter's Cloak"
+Armor                 = 16471 <<16157>>
+CriticalRating        = 9302 <<9134>>
+Finesse               = 9874 <<9691>>
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Wrist (1)"
+name = "Keen Conscript's Bracelet"
+Armor                 = 0
+CriticalRating        = 18644 <<18812>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Wrist (2)"
+name = "Keen Conscript's Bracelet"
+Armor                 = 0
+CriticalRating        = 18644 <<18812>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Neck"
+name = "Hunter's Necklace of Lamentation"
+Armor                 = 0
+CriticalRating        = 18310
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 4547 <<4548>>
+OutgoingHealing       = 0
+Resistance            = 6579 
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Finger (1)"
+name = "Keen Pristine Madáshi Ring"
+Armor                 = 0
+CriticalRating        = 14081 <<14351>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Finger (2)"
+name = "Keen Pristine Madáshi Ring"
+Armor                 = 0
+CriticalRating        = 14081 <<14351>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Ear (1)"
+name = "Keen Pristine Madáshi Earring"
+Armor                 = 0
+CriticalRating        = 14081 <<14351>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Ear (2)"
+name = "Keen Pristine Madáshi Earring"
+Armor                 = 0
+CriticalRating        = 14081 <<14351>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Pocket"
+name = "Token of the Emerald Wood"
+Armor                 = 0
+CriticalRating        = 21930 <<21931>>
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 12575 <<12576>>
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 2928 <<2829>>
+
+[[item]]
+slot = "Main-hand"
+name = "Charlatan's Staff"
+# WARNING: all stats unknown — edit before running optimizer
+Armor                 = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Off-hand"
+name = "Kinta Sword of the Herbalist"
+Armor                 = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 10223 <<10422>>
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 4221 <<4307>>
+
+[[item]]
+slot = "Ranged"
+name = "Pristine Mûrai Stickpin of Nature's Glory"
+# WARNING: all stats unknown — edit before running optimizer
+Armor                 = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Class Item"
+name = "The Tome Of Chicanery"
+# WARNING: all stats unknown — edit before running optimizer
+Armor                 = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot = "Chest"
+name = "Umbari Robe of Beasts"
+Armor                 = 11484
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 6564
+
+[[item]]
+slot = "Chest"
+name = "Umbari Robe of the Nameless Deeps"
+Armor                 = 11484
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 3282
+TacticalMitigation    = 3282
+
+[[item]]
+slot = "Chest"
+name = "Umbari Robe of the Sudden Squall"
+Armor                 = 11484
+CriticalRating        = 8444
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
