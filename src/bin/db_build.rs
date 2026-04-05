@@ -236,7 +236,7 @@ fn load_items(
             Ok(Event::Eof) => break,
 
             Ok(Event::Start(ref e)) => {
-                let name_bytes = e.name();
+                let name_bytes = e.name();        
                 let tag = std::str::from_utf8(name_bytes.as_ref()).unwrap_or("").to_string();
                 let attrs = collect_attrs(e);
 
@@ -321,9 +321,9 @@ fn handle_stat_element(
             if let Some(prog) = progressions.get(&prog_id) {
                 let level = item_level.unwrap_or(1);
                 if let Some(val) = prog.value_at(level) {
-                    // Use floor() to match LotRO's truncation behaviour,
+                    // Use ceil() to match LotRO's truncation behaviour,
                     // not round() which overshoots by 1 on half-values.
-                    *stats.entry(stat).or_insert(0) += val.floor() as i64;
+                    *stats.entry(stat).or_insert(0) += val.ceil() as i64;
                 } else {
                     eprintln!(
                         "[db_build] WARN: progression {} has no value at level {}",
@@ -340,7 +340,7 @@ fn handle_stat_element(
     let fixed = attrs.get("constant").or_else(|| attrs.get("value"));
     if let Some(val_str) = fixed {
         if let Ok(val) = val_str.parse::<f64>() {
-            *stats.entry(stat).or_insert(0) += val.floor() as i64;
+            *stats.entry(stat).or_insert(0) += val.ceil() as i64;
         }
     }
 }

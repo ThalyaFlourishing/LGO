@@ -271,7 +271,7 @@ Block                 = 0
 Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
-TacticalMitigation    = 2928 <<2829>>
+TacticalMitigation    = 2928 <<2929>>
 
 [[item]]
 slot = "Main-hand"
