@@ -321,10 +321,14 @@ fn handle_stat_element(
             if let Some(prog) = progressions.get(&prog_id) {
                 let level = item_level.unwrap_or(1);
                 if let Some(val) = prog.value_at(level) {
-                    // Use ceil() to match LotRO's truncation behaviour,
-                    // not round() which overshoots by 1 on half-values.
-                    *stats.entry(stat).or_insert(0) += val as i64;
-                } else {
+                // LotRO uses truncation for Armor, and round() for all other stats.
+                   let converted = if stat == Stat::Armor {
+                      val as i64
+                   } else {
+                       val.round() as i64
+                   };
+                   *stats.entry(stat).or_insert(0) += converted;
+                 } else {
                     eprintln!(
                         "[db_build] WARN: progression {} has no value at level {}",
                         prog_id, level
