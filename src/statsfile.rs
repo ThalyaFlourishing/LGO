@@ -77,22 +77,51 @@ pub fn stats_file_path(dir: &Path, character: &str, timestamp: &str) -> PathBuf 
 }
 
 /// Generate a timestamp string in the same format as the plugin export:
-/// `YYYYMMDD_HHMMSS`
+/// `YYYYMMDD_HHMMSS` (UTC).
 pub fn now_timestamp() -> String {
-    // Use filesystem time to avoid pulling in a time crate dependency.
-    // Format: seconds since epoch encoded as a sortable string.
-    // We use the export file's naming convention: YYYYMMDD_HHMMSS.
-    // Since we have no time crate, we approximate with a fixed-format
-    // representation derived from SystemTime.
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    // Encode as a compact numeric string that sorts correctly.
-    // Not human-readable YYYYMMDD but sortable and unique.
-    // Replace with a proper time crate if added later.
-    format!("{}", secs)
+    let (year, month, day, hour, min, sec) = epoch_secs_to_utc(secs);
+    format!("{:04}{:02}{:02}_{:02}{:02}{:02}", year, month, day, hour, min, sec)
+}
+
+/// Convert seconds since the Unix epoch to `(year, month, day, hour, minute, second)` in UTC.
+/// Uses only integer arithmetic — no external crate required.
+fn epoch_secs_to_utc(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
+    let s   = (secs % 60) as u32;
+    let min = ((secs / 60) % 60) as u32;
+    let h   = ((secs / 3600) % 24) as u32;
+    let mut days = (secs / 86400) as u32;
+
+    let mut year = 1970u32;
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < days_in_year { break; }
+        days -= days_in_year;
+        year += 1;
+    }
+
+    let month_lengths = [
+        31u32,
+        if is_leap_year(year) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 1u32;
+    for &ml in &month_lengths {
+        if days < ml { break; }
+        days -= ml;
+        month += 1;
+    }
+    let day = days + 1;
+
+    (year, month, day, h, min, s)
+}
+
+fn is_leap_year(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
 }
 
 // -- Reader --------------------------------------------------------------------
