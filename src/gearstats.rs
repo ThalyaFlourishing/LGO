@@ -252,8 +252,8 @@ mod tests {
 
     #[test]
     fn known_timestamp_with_time_components() {
-        // 2024-03-15 12:34:56 UTC = 1710502496
-        assert_eq!(epoch_secs_to_utc(1710502496), (2024, 3, 15, 12, 34, 56));
+        // 2024-03-15 11:34:56 UTC = 1710502496
+        assert_eq!(epoch_secs_to_utc(1710502496), (2024, 3, 15, 11, 34, 56));
     }
 
     #[test]

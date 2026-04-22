@@ -533,35 +533,35 @@ mod tests {
     #[test]
     fn test_spec_run1_c2_wins() {
         // Run 1: all minima can be met.
-        // C2 should win: highest CritRating (500) among feasible candidates.
+        // C2 should win: highest CriticalRating (500) among feasible candidates.
         // C4 is excluded (TactMast 430 < 450).
         // C1 is excluded (TactMast 420 < 450, TactMit 190 < 200).
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C1".into(), make_cached("C1", Slot::Chest, &[
-            (Stat::CritRating, 480), (Stat::TacticalMastery, 420),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 190),
+            (Stat::CriticalRating, 480), (Stat::TacticalMastery, 420),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 190),
         ]));
         resolved.insert("C2".into(), make_cached("C2", Slot::Chest, &[
-            (Stat::CritRating, 500), (Stat::TacticalMastery, 450),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 200),
+            (Stat::CriticalRating, 500), (Stat::TacticalMastery, 450),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 200),
         ]));
         resolved.insert("C3".into(), make_cached("C3", Slot::Chest, &[
-            (Stat::CritRating, 490), (Stat::TacticalMastery, 450),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 230),
+            (Stat::CriticalRating, 490), (Stat::TacticalMastery, 450),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 230),
         ]));
         resolved.insert("C4".into(), make_cached("C4", Slot::Chest, &[
-            (Stat::CritRating, 520), (Stat::TacticalMastery, 430),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 230),
+            (Stat::CriticalRating, 520), (Stat::TacticalMastery, 430),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 230),
         ]));
         resolved.insert("C5".into(), make_cached("C5", Slot::Chest, &[
-            (Stat::CritRating, 460), (Stat::TacticalMastery, 450),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 230),
+            (Stat::CriticalRating, 460), (Stat::TacticalMastery, 450),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 230),
         ]));
 
         let goals = vec![
-            goal(Stat::CritRating, 450),
+            goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
-            goal(Stat::FinesseRating, 300),
+            goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
 
@@ -578,13 +578,13 @@ mod tests {
     fn test_spec_run1_feasible() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C2".into(), make_cached("C2", Slot::Chest, &[
-            (Stat::CritRating, 500), (Stat::TacticalMastery, 450),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 200),
+            (Stat::CriticalRating, 500), (Stat::TacticalMastery, 450),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 200),
         ]));
         let goals = vec![
-            goal(Stat::CritRating, 450),
+            goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
-            goal(Stat::FinesseRating, 300),
+            goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
         let result = optimize(&resolved, &[], &["C2".to_string()], &goals);
@@ -595,21 +595,21 @@ mod tests {
     #[test]
     fn test_spec_run2_c6_wins_infeasible() {
         // Run 2: no combination meets all minima.
-        // C6 wins because CritRating 440 > C7's 400.
+        // C6 wins because CriticalRating 440 > C7's 400.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C6".into(), make_cached("C6", Slot::Chest, &[
-            (Stat::CritRating, 440), (Stat::TacticalMastery, 200),
-            (Stat::FinesseRating, 200), (Stat::TacticalMitigation, 100),
+            (Stat::CriticalRating, 440), (Stat::TacticalMastery, 200),
+            (Stat::Finesse, 200), (Stat::TacticalMitigation, 100),
         ]));
         resolved.insert("C7".into(), make_cached("C7", Slot::Chest, &[
-            (Stat::CritRating, 400), (Stat::TacticalMastery, 440),
-            (Stat::FinesseRating, 290), (Stat::TacticalMitigation, 190),
+            (Stat::CriticalRating, 400), (Stat::TacticalMastery, 440),
+            (Stat::Finesse, 290), (Stat::TacticalMitigation, 190),
         ]));
 
         let goals = vec![
-            goal(Stat::CritRating, 450),
+            goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
-            goal(Stat::FinesseRating, 300),
+            goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
 
@@ -626,21 +626,21 @@ mod tests {
 
     #[test]
     fn test_c5_over_c4_same_slot() {
-        // C5 (feasible, CritRating=460) should beat C4 (infeasible, CritRating=520).
+        // C5 (feasible, CriticalRating=460) should beat C4 (infeasible, CriticalRating=520).
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C4".into(), make_cached("C4", Slot::Chest, &[
-            (Stat::CritRating, 520), (Stat::TacticalMastery, 430),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 230),
+            (Stat::CriticalRating, 520), (Stat::TacticalMastery, 430),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 230),
         ]));
         resolved.insert("C5".into(), make_cached("C5", Slot::Chest, &[
-            (Stat::CritRating, 460), (Stat::TacticalMastery, 450),
-            (Stat::FinesseRating, 310), (Stat::TacticalMitigation, 230),
+            (Stat::CriticalRating, 460), (Stat::TacticalMastery, 450),
+            (Stat::Finesse, 310), (Stat::TacticalMitigation, 230),
         ]));
 
         let goals = vec![
-            goal(Stat::CritRating, 450),
+            goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
-            goal(Stat::FinesseRating, 300),
+            goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
 
