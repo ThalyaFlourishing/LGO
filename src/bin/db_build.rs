@@ -426,3 +426,98 @@ fn parse_usize(attrs: &HashMap<String, String>, key: &str) -> Option<usize> {
 fn parse_f64(attrs: &HashMap<String, String>, key: &str) -> Option<f64> {
     attrs.get(key)?.parse().ok()
 }
+
+// ── Rounding tests ────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Build a single-entry array progression whose value at `level` is `val`.
+    fn prog_with_value(val: f64) -> HashMap<u32, Progression> {
+        let mut map = HashMap::new();
+        map.insert(1u32, Progression::Array { min_x: 1, values: vec![val] });
+        map
+    }
+
+    fn scaling_attrs(stat_name: &str) -> HashMap<String, String> {
+        let mut m = HashMap::new();
+        m.insert("name".to_string(),    stat_name.to_string());
+        m.insert("scaling".to_string(), "1".to_string());
+        m
+    }
+
+    fn fixed_attrs(stat_name: &str, val_str: &str) -> HashMap<String, String> {
+        let mut m = HashMap::new();
+        m.insert("name".to_string(),  stat_name.to_string());
+        m.insert("value".to_string(), val_str.to_string());
+        m
+    }
+
+    // ── Armor: progression value is truncated (not rounded) ───────────────────
+
+    #[test]
+    fn armor_scaling_truncates_fractional_part() {
+        // 123.9 → 123, not 124
+        let progs = prog_with_value(123.9);
+        let mut stats = HashMap::new();
+        handle_stat_element(&scaling_attrs("ARMOUR"), Some(1), &progs, &mut stats);
+        assert_eq!(stats[&Stat::Armor], 123);
+    }
+
+    #[test]
+    fn armor_scaling_truncates_at_exactly_half() {
+        // 123.5 → 123, not 124 (truncation, not round-half-up)
+        let progs = prog_with_value(123.5);
+        let mut stats = HashMap::new();
+        handle_stat_element(&scaling_attrs("ARMOUR"), Some(1), &progs, &mut stats);
+        assert_eq!(stats[&Stat::Armor], 123);
+    }
+
+    // ── Non-armor: progression value is rounded to nearest integer ────────────
+
+    #[test]
+    fn non_armor_scaling_rounds_up_at_exactly_half() {
+        // 123.5 → 124 (round-half-away-from-zero)
+        let progs = prog_with_value(123.5);
+        let mut stats = HashMap::new();
+        handle_stat_element(&scaling_attrs("CRITICAL_RATING"), Some(1), &progs, &mut stats);
+        assert_eq!(stats[&Stat::CriticalRating], 124);
+    }
+
+    #[test]
+    fn non_armor_scaling_rounds_up_above_half() {
+        // 123.9 → 124
+        let progs = prog_with_value(123.9);
+        let mut stats = HashMap::new();
+        handle_stat_element(&scaling_attrs("FINESSE"), Some(1), &progs, &mut stats);
+        assert_eq!(stats[&Stat::Finesse], 124);
+    }
+
+    #[test]
+    fn non_armor_scaling_rounds_down_below_half() {
+        // 123.4 → 123
+        let progs = prog_with_value(123.4);
+        let mut stats = HashMap::new();
+        handle_stat_element(&scaling_attrs("RESISTANCE"), Some(1), &progs, &mut stats);
+        assert_eq!(stats[&Stat::Resistance], 123);
+    }
+
+    // ── Fixed values: truncated for all stats ─────────────────────────────────
+
+    #[test]
+    fn fixed_value_armor_is_truncated() {
+        // "123.9" → 123 (truncation via `val as i64`)
+        let mut stats = HashMap::new();
+        handle_stat_element(&fixed_attrs("ARMOUR", "123.9"), None, &HashMap::new(), &mut stats);
+        assert_eq!(stats[&Stat::Armor], 123);
+    }
+
+    #[test]
+    fn fixed_value_non_armor_is_truncated() {
+        // "123.9" → 123 (truncation via `val as i64`)
+        let mut stats = HashMap::new();
+        handle_stat_element(&fixed_attrs("CRITICAL_RATING", "123.9"), None, &HashMap::new(), &mut stats);
+        assert_eq!(stats[&Stat::CriticalRating], 123);
+    }
+}
