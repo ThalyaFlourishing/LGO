@@ -349,7 +349,7 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
     Ok((path, character))
 }
 
-fn ensure_lgo_dir(all_servers_dir: &Path) -> Result<PathBuf, String> {
+fn ensure_lgo_dir(all_servers_dir: &Path) -> Result<(), String> {
     let lgo_dir = all_servers_dir.join("lgo");
     std::fs::create_dir_all(&lgo_dir).map_err(|e| {
         format!(
@@ -358,7 +358,7 @@ fn ensure_lgo_dir(all_servers_dir: &Path) -> Result<PathBuf, String> {
             e
         )
     })?;
-    Ok(lgo_dir)
+    Ok(())
 }
 
 fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
