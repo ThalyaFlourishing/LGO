@@ -238,6 +238,9 @@ fn parse_wiki_stat_name(s: &str) -> Option<Stat> {
         "incomingmitigations" |
         "incomitigations"     |
         "incmitigations"                             => Some(Stat::IncMitigations),
+        "block"                                      => Some(Stat::Block),
+        "parry"                                      => Some(Stat::Parry),
+        "evade"                                      => Some(Stat::Evade),
         _                                            => None,
     }
 }
