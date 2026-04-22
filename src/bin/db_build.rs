@@ -168,7 +168,7 @@ fn load_progressions(path: &str) -> Result<HashMap<u32, Progression>, String> {
                         if let Some((_, ref mut values)) = current_array {
                             let y     = parse_f64(&attrs, "y").unwrap_or(0.0);
                             let count = parse_usize(&attrs, "count").unwrap_or(0);
-                            for _ in 0..=count { values.push(y); }
+                            for _ in 0..count { values.push(y); }
                         } else if let Some(ref mut points) = current_linear {
                             let x = parse_f64(&attrs, "x").unwrap_or(0.0);
                             let y = parse_f64(&attrs, "y").unwrap_or(0.0);

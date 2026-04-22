@@ -1,4 +1,4 @@
-# LGO — LOTRO Gear Optimizer
+# LGO â€” LOTRO Gear Optimizer
 
 A command-line tool for Lord of the Rings Online players that finds the
 optimal combination of gear items for a given set of stat priorities and
@@ -14,7 +14,8 @@ minima.
    file to your Documents folder.
 3. You run this program from the command line with your stat goals.
 4. The optimizer fetches item stats from [lotro-wiki.com](https://lotro-wiki.com)
-   (cached locally after the first lookup) and finds the best gear set.
+   (cached locally after the first lookup) finds the best gear set, and presents
+   that information to the user.
 
 ---
 
@@ -49,7 +50,7 @@ lgo [options] <stat:minimum> [<stat:minimum> ...]
 
 Stats are listed in **priority order**. The optimizer maximises the first
 stat, uses the second as a tiebreaker, and so on. Each stat has an optional
-minimum — the gear set is only considered valid if every minimum is met.
+minimum â€” the gear set is only considered valid if every minimum is met.
 
 ### Options
 
@@ -134,10 +135,10 @@ much. The process exits with code `2` in this case.
 | Feet | |
 | Shoulders | |
 | Back | |
-| Wrist (×2) | Any wrist item is a candidate for either wrist slot |
+| Wrist (Ã—2) | Any wrist item is a candidate for either wrist slot |
 | Neck | |
-| Finger (×2) | Any ring is a candidate for either finger slot |
-| Ear (×2) | Any earring is a candidate for either ear slot |
+| Finger (Ã—2) | Any ring is a candidate for either finger slot |
+| Ear (Ã—2) | Any earring is a candidate for either ear slot |
 | Pocket | |
 | Off-hand | |
 | Ranged | |
