@@ -349,8 +349,8 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
     Ok((path, character))
 }
 
-fn ensure_lgo_dir(all_servers_dir: &Path) -> Result<(), String> {
-    let lgo_dir = all_servers_dir.join("lgo");
+fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
+    let lgo_dir = char_dir.join("lgo");
     std::fs::create_dir_all(&lgo_dir).map_err(|e| {
         format!(
             "Cannot create lgo directory {}: {}",
