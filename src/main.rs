@@ -1,7 +1,7 @@
 //! LGO - LOTRO Gear Optimizer
 //!
 //! Usage:
-//!   lgo --stats [options]                  Generate editable gear stats file
+//!   lgo --gearlist [options]               Generate editable gear stats file
 //!   lgo [options] <stat:minimum> [...]     Run optimizer
 //!
 //! The plugin export file and gear stats file are discovered automatically from:
@@ -69,7 +69,7 @@ fn main() {
         .to_path_buf();
 
     // -- Stats-file generation mode --------------------------------------------
-    // If --stats was passed: resolve items, write the gear stats file, exit.
+    // If --gearlist was passed: resolve items, write the gear stats file, exit.
     if cli.write_stats {
         let items = resolve_to_cached_items(&export, &char_dir, &cli);
         let timestamp = gearstats::now_timestamp();
@@ -279,7 +279,7 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
                 stats_file = Some(PathBuf::from(args.get(i)
                     .ok_or("--stats-file requires a path")?));
             }
-            "--stats" | "-s" => {
+            "--gearlist" | "-gl" => {
                 write_stats = true;
             }
             arg if arg.starts_with('-') => {
@@ -472,7 +472,7 @@ fn print_usage() {
     println!("LGO - LOTRO Gear Optimizer");
     println!();
     println!("Usage:");
-    println!("  lgo --stats [options]                  Generate editable gear stats file");
+    println!("  lgo --gearlist [options]               Generate editable gear stats file");
     println!("  lgo [options] <stat:minimum> [...]     Run optimizer");
     println!();
     println!("Options:");
@@ -485,7 +485,7 @@ fn print_usage() {
     println!("Workflow:");
     println!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
     println!("  2) Run /lgo export in-game");
-    println!("  3) Run: lgo --stats");
+    println!("  3) Run: lgo --gearlist");
     println!("  4) Edit the generated lgo_stats_*.toml file as needed");
     println!("  5) Run: lgo <stat:minimum> [<stat:minimum> ...]");
     println!();

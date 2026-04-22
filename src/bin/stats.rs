@@ -1,6 +1,6 @@
 //! `stats` — standalone binary that generates the editable TOML gear stats file.
 //!
-//! Equivalent to running `lgo --stats`.
+//! Equivalent to running `lgo --gearlist`.
 //!
 //! Usage:
 //!   stats [--character <name>] [--file <path>]
@@ -9,13 +9,13 @@
 //! alongside the plugin export file.
 
 fn main() {
-    // Prepend --stats to the user's arguments and delegate to lgo.
+    // Prepend --gearlist to the user's arguments and delegate to lgo.
     // This works because stats and lgo are built to the same target directory.
     //
     // TODO: once shared logic is extracted to src/lib.rs, call it directly
     // instead of re-exec.
     let mut args: Vec<String> = std::env::args().skip(1).collect();
-    args.insert(0, "--stats".to_string());
+    args.insert(0, "--gearlist".to_string());
 
     let exe = std::env::current_exe()
         .ok()
