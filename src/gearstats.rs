@@ -78,15 +78,52 @@ pub fn stats_file_path(dir: &Path, character: &str, timestamp: &str) -> PathBuf 
     dir.join(format!("lgo_stats_{}_{}.toml", character, timestamp))
 }
 
-/// Generate a sortable timestamp string (seconds since Unix epoch).
-/// Replace with a proper time crate call if one is added later.
+/// Generate a timestamp string in the same format as the plugin export:
+/// `YYYYMMDD_HHMMSS` (UTC).
 pub fn now_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    format!("{}", secs)
+    let (year, month, day, hour, min, sec) = epoch_secs_to_utc(secs);
+    format!("{:04}{:02}{:02}_{:02}{:02}{:02}", year, month, day, hour, min, sec)
+}
+
+/// Convert seconds since the Unix epoch to `(year, month, day, hour, minute, second)` in UTC.
+/// Uses only integer arithmetic — no external crate required.
+fn epoch_secs_to_utc(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
+    let s   = (secs % 60) as u32;
+    let min = ((secs / 60) % 60) as u32;
+    let h   = ((secs / 3600) % 24) as u32;
+    let mut days = (secs / 86400) as u32;
+
+    let mut year = 1970u32;
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < days_in_year { break; }
+        days -= days_in_year;
+        year += 1;
+    }
+
+    let month_lengths = [
+        31u32,
+        if is_leap_year(year) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 1u32;
+    for &ml in &month_lengths {
+        if days < ml { break; }
+        days -= ml;
+        month += 1;
+    }
+    let day = days + 1;
+
+    (year, month, day, h, min, s)
+}
+
+fn is_leap_year(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
 }
 
 // -- Reader --------------------------------------------------------------------
@@ -191,5 +228,74 @@ fn parse_slot_str(s: &str) -> Option<Slot> {
         "Ranged"     => Some(Slot::Ranged),
         "Class Item" => Some(Slot::ClassItem),
         _            => None,
+    }
+}
+
+// -- Tests ---------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // epoch_secs_to_utc ---
+
+    #[test]
+    fn epoch_zero_is_unix_epoch() {
+        assert_eq!(epoch_secs_to_utc(0), (1970, 1, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn known_timestamp_2000_01_01_midnight() {
+        // 2000-01-01 00:00:00 UTC = 946684800
+        assert_eq!(epoch_secs_to_utc(946684800), (2000, 1, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn known_timestamp_with_time_components() {
+        // 2024-03-15 12:34:56 UTC = 1710502496
+        assert_eq!(epoch_secs_to_utc(1710502496), (2024, 3, 15, 12, 34, 56));
+    }
+
+    #[test]
+    fn leap_day_feb_29() {
+        // 2000-02-29 00:00:00 UTC = 951782400
+        assert_eq!(epoch_secs_to_utc(951782400), (2000, 2, 29, 0, 0, 0));
+    }
+
+    #[test]
+    fn non_leap_year_skips_feb_29() {
+        // 1900 is NOT a leap year (div by 100 but not 400)
+        assert!(!is_leap_year(1900));
+        // 2100 is NOT a leap year
+        assert!(!is_leap_year(2100));
+    }
+
+    #[test]
+    fn leap_year_400_rule() {
+        assert!(is_leap_year(2000));
+        assert!(is_leap_year(2400));
+    }
+
+    #[test]
+    fn regular_leap_year() {
+        assert!(is_leap_year(2024));
+        assert!(!is_leap_year(2023));
+    }
+
+    // now_timestamp ---
+
+    #[test]
+    fn now_timestamp_format() {
+        let ts = now_timestamp();
+        // Must be exactly "YYYYMMDD_HHMMSS" = 15 chars
+        assert_eq!(ts.len(), 15, "unexpected length: {ts}");
+        // Underscore in position 8
+        assert_eq!(ts.chars().nth(8), Some('_'), "missing underscore: {ts}");
+        // All other chars are digits
+        for (i, c) in ts.chars().enumerate() {
+            if i != 8 {
+                assert!(c.is_ascii_digit(), "non-digit at position {i}: {ts}");
+            }
+        }
     }
 }
