@@ -11,6 +11,7 @@ mod cache;
 mod db;
 mod gear;
 mod gearstats;
+mod merge;
 mod optimizer;
 mod plugindata;
 mod report;
@@ -69,12 +70,41 @@ fn main() {
         .to_path_buf();
 
     // -- Stats-file generation mode --------------------------------------------
-    // If --gearlist was passed: resolve items, write the gear stats file, exit.
+    // If --gearlist was passed: resolve items, optionally merge with an
+    // existing stats file to preserve hand-edits, write the result, then exit.
     if cli.write_stats {
-        let items = resolve_to_cached_items(&export, &char_dir, &cli);
+        let new_items = resolve_to_cached_items(&export, &char_dir, &cli);
         let timestamp = gearstats::now_timestamp();
-        let out_path = gearstats::stats_file_path(&char_dir, &character, &timestamp);
-        match gearstats::write_stats_file(&items, &out_path, &character) {
+        let out_path  = gearstats::stats_file_path(&char_dir, &character, &timestamp);
+
+        // Try to merge with the most recent existing stats file.
+        let (final_items, maybe_edits) =
+            if !cli.forget_edits {
+                if let Some(old_path) = gearstats::find_latest_stats_file(&char_dir, &character) {
+                    eprintln!("[lgo] Found existing stats file — merging to preserve hand-edits.");
+                    eprintln!("[lgo] Existing file: {}", old_path.display());
+                    match merge::read_merge_context(&old_path) {
+                        Ok(ctx) => {
+                            let (merged, edits) = merge::merge_stats(new_items, &ctx);
+                            (merged, Some(edits))
+                        }
+                        Err(e) => {
+                            eprintln!("[lgo] Warning: could not read existing stats file \
+                                       for merge ({}); generating fresh file.", e);
+                            (resolve_to_cached_items(&export, &char_dir, &cli), None)
+                        }
+                    }
+                } else {
+                    (new_items, None)
+                }
+            } else {
+                eprintln!("[lgo] --forget-edits: generating fresh file, ignoring hand-edits.");
+                (new_items, None)
+            };
+
+        match gearstats::write_stats_file(
+            &final_items, &out_path, &character, maybe_edits.as_ref()
+        ) {
             Ok(()) => {
                 println!("[lgo] Gear stats file written: {}", out_path.display());
                 println!("[lgo] Edit it as needed, then run: lgo <stat:minimum> ...");
@@ -239,21 +269,23 @@ fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<Path
 // -- CLI parsing ---------------------------------------------------------------
 
 struct Cli {
-    character:   Option<String>,
-    cache_path:  Option<PathBuf>,
-    file:        Option<PathBuf>,
-    stats_file:  Option<PathBuf>,
-    write_stats: bool,
-    goals:       Vec<StatGoal>,
+    character:    Option<String>,
+    cache_path:   Option<PathBuf>,
+    file:         Option<PathBuf>,
+    stats_file:   Option<PathBuf>,
+    write_stats:  bool,
+    forget_edits: bool,
+    goals:        Vec<StatGoal>,
 }
 
 fn parse_args(args: &[String]) -> Result<Cli, String> {
-    let mut character   = None;
-    let mut cache_path  = None;
-    let mut file        = None;
-    let mut stats_file  = None;
-    let mut write_stats = false;
-    let mut goals       = Vec::new();
+    let mut character    = None;
+    let mut cache_path   = None;
+    let mut file         = None;
+    let mut stats_file   = None;
+    let mut write_stats  = false;
+    let mut forget_edits = false;
+    let mut goals        = Vec::new();
     let mut i = 0;
 
     while i < args.len() {
@@ -282,6 +314,9 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
             "--gearlist" | "-gl" => {
                 write_stats = true;
             }
+            "--forget-edits" => {
+                forget_edits = true;
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -294,7 +329,7 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
         i += 1;
     }
 
-    Ok(Cli { character, cache_path, file, stats_file, write_stats, goals })
+    Ok(Cli { character, cache_path, file, stats_file, write_stats, forget_edits, goals })
 }
 
 // -- File discovery ------------------------------------------------------------
@@ -472,14 +507,15 @@ fn print_usage() {
     println!("LGO - LOTRO Gear Optimizer");
     println!();
     println!("Usage:");
-    println!("  lgo --gearlist [options]               Generate editable gear stats file");
+    println!("  lgo --gearlist [options]               Generate/update editable gear stats file");
     println!("  lgo [options] <stat:minimum> [...]     Run optimizer");
     println!();
     println!("Options:");
-    println!("  --character  <name>   Character name (auto-detected if only one exists)");
-    println!("  --file       <path>   Explicit path to lgo_export_*.plugindata");
-    println!("  --stats-file <path>   Explicit path to lgo_stats_*.toml");
-    println!("  --cache      <path>   Path to the item cache JSON file");
+    println!("  --character   <name>  Character name (auto-detected if only one exists)");
+    println!("  --file        <path>  Explicit path to lgo_export_*.plugindata");
+    println!("  --stats-file  <path>  Explicit path to lgo_stats_*.toml");
+    println!("  --cache       <path>  Path to the item cache JSON file");
+    println!("  --forget-edits        Ignore hand-edit history; generate a fresh stats file");
     println!("  --help                Show this message");
     println!();
     println!("Workflow:");
@@ -488,6 +524,14 @@ fn print_usage() {
     println!("  3) Run: lgo --gearlist");
     println!("  4) Edit the generated lgo_stats_*.toml file as needed");
     println!("  5) Run: lgo <stat:minimum> [<stat:minimum> ...]");
+    println!();
+    println!("Hand-edit preservation (--gearlist):");
+    println!("  When a previous lgo_stats_*.toml exists, lgo merges it with the fresh");
+    println!("  export rather than overwriting it.  Fields you have hand-edited are");
+    println!("  detected and you are prompted to keep your value or accept the new");
+    println!("  exporter value.  Legendary Item stats (unknown to the exporter) are");
+    println!("  always preserved automatically with no prompt.");
+    println!("  Use --forget-edits to skip the merge and generate a clean slate.");
     println!();
     println!("Stat goals:");
     println!("  Each goal is a stat name and a minimum value, separated by ':'.");
