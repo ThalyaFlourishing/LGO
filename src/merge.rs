@@ -165,13 +165,20 @@ fn parse_user_edits(src: &str) -> Result<(UserEdits, bool), String> {
     match doc.get("__user_edits__") {
         None => Ok((UserEdits::new(), false)),
         Some(toml::Value::Table(t)) => {
-            let edits = t.iter()
-                .filter_map(|(k, v)| if v.as_bool().unwrap_or(false) {
-                    Some(k.clone())
-                } else {
-                    None
-                })
-                .collect();
+            let mut edits = UserEdits::new();
+            for (k, v) in t {
+                match v.as_bool() {
+                    Some(true)  => { edits.insert(k.clone()); }
+                    Some(false) => { /* false = not edited; skip */ }
+                    None => {
+                        eprintln!(
+                            "[lgo] Warning: unexpected value type for [__user_edits__] \
+                             key '{}' (expected boolean); ignoring.",
+                            k
+                        );
+                    }
+                }
+            }
             Ok((edits, true))
         }
         Some(_) => Ok((UserEdits::new(), true)), // unexpected type — treat as empty
