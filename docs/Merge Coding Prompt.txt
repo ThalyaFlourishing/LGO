@@ -1,0 +1,88 @@
+LotRO Gear Optimizer (.toml Merge Workflow) — Coding Agent Task Prompt
+
+Context:
+LGO (LotRO Gear Optimizer) allows users to export their gear data from LotRO (using an in-game plugin) and generate/edit a .toml file that represents their character’s available gear for optimization. Because the LotRO API does not always provide all the required stats, users must sometimes hand-edit values in the .toml file—most notably for Legendary Items (LIs) and other gaps.
+
+We want to avoid forcing users to re-enter or lose their hand-edits each time new gear data is exported, while still allowing them to update their gear list to reflect changes/additions.
+
+Objective:
+Implement an update and merging system for the .toml gear list files with these requirements:
+
+Automated Edit Tracking:
+
+Track user-made edits to fields (item stats) automatically, without cluttering main .toml bodies.
+Use a special clearly-labeled [__user_edits__] section at the bottom of the .toml (or a hidden sidecar file if preferable) to record item-stat pairs that have been hand-edited.
+At each merge, if a value in the “old” file differs from the last exporter output, consider it user-edited and track it.
+Interactive Merge/Reconciliation Process:
+
+When building a new .toml from a fresh export, compare each stat field:
+If it was previously user-edited (per metadata), prompt the user in the CLI:
+Code
+The value for [item_name.stat_name] changed: yours (old value) vs exporter (new value). Overwrite? (y/n)
+Provide up-front batch options like “accept all” and “accept none” to let the user quickly accept or preserve changes.
+For fields not marked user-edited, overwrite with the new value by default.
+For Legendary Items or other non-exportable stats (known gaps), always preserve user data with no prompt.
+Metadata Maintenance:
+
+When the merge completes, update the [__user_edits__] section to reflect fields kept as user-edited. Remove fields reset to exporter data.
+Optionally, add a CLI flag (e.g., --forget-edits) to clear all user-edit flags and start clean.
+User Experience:
+
+All edit tracking is invisible—users never need to manage any metadata directly.
+The primary .toml body remains clean and human-editable.
+Documentation:
+
+Briefly document the new update/merge behavior within the repo or in file comments so users understand how their hand-edits are preserved or reconciled.
+Examples:
+Suppose the .toml initially is:
+
+TOML
+[item.SomeRing]
+Will = 100
+Might = 120
+
+# --- DO NOT EDIT BELOW ---
+[__user_edits__]
+User hand-edits:
+
+TOML
+[item.SomeRing]
+Will = 200
+Might = 120
+
+# --- DO NOT EDIT BELOW ---
+[__user_edits__]
+"SomeRing.Will" = true
+On next export, new auto-export produces:
+
+TOML
+[item.SomeRing]
+Will = 110
+Might = 130
+
+# --- DO NOT EDIT BELOW ---
+[__user_edits__]
+"SomeRing.Will" = true
+CLI prompts:
+
+Code
+The value for [SomeRing.Will] changed: yours (200) vs exporter (110). Overwrite? (y/n)
+The value for [SomeRing.Might] was not manually edited. Overwriting with exporter value (130).
+User chooses n for Will, accepts Might overwrite.
+
+Final file:
+
+TOML
+[item.SomeRing]
+Will = 200
+Might = 130
+
+# --- DO NOT EDIT BELOW ---
+[__user_edits__]
+"SomeRing.Will" = true
+Benefits
+Invisible, friendly workflow: End users just edit fields; the tool silently tracks their hand-edits.
+No “marker” clutter in main item data.
+Easy recovery: Hard “reset” via batch accept or clearing metadata, without manual delete.
+Power user and novice-friendly: CLI prompts can be quick-skipped but allow precision.
+Legendary/support: Whole categories (like LI stats) can be globally marked as “always preserve.”
