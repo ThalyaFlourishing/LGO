@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cache::CachedItem;
 use crate::gear::Slot;
+use crate::merge::UserEdits;
 use crate::stat::{Stat, TRACKED_STATS};
 
 // -- Writer --------------------------------------------------------------------
@@ -30,10 +31,15 @@ use crate::stat::{Stat, TRACKED_STATS};
 /// order). All 14 tracked stats are emitted for every item in canonical order,
 /// with known values filled in and unknowns as 0.
 /// Items where every tracked stat is 0 receive a warning comment.
+///
+/// If `user_edits` is `Some`, a `[__user_edits__]` section is appended to the
+/// file so that the next merge can tell which fields the user has hand-edited.
+/// Pass `None` when generating a fresh file with no merge history.
 pub fn write_stats_file(
-    items:     &[CachedItem],
-    path:      &Path,
-    character: &str,
+    items:      &[CachedItem],
+    path:       &Path,
+    character:  &str,
+    user_edits: Option<&UserEdits>,
 ) -> Result<(), String> {
     let mut out = String::new();
 
@@ -63,6 +69,22 @@ pub fn write_stats_file(
             out.push_str(&format!("{:<22}= {}\n", format!("{} ", key), value));
         }
 
+        out.push('\n');
+    }
+
+    // Append the [__user_edits__] section when the caller provides one.
+    // This section is maintained automatically by lgo; users should not edit it.
+    if let Some(edits) = user_edits {
+        out.push_str("# --- DO NOT EDIT BELOW THIS LINE ---\n");
+        out.push_str("# This section is maintained automatically by lgo to track\n");
+        out.push_str("# hand-edited fields. Manual changes will be overwritten.\n");
+        out.push_str("[__user_edits__]\n");
+        // Sort keys for deterministic output.
+        let mut keys: Vec<&String> = edits.iter().collect();
+        keys.sort();
+        for key in keys {
+            out.push_str(&format!("\"{}\" = true\n", key));
+        }
         out.push('\n');
     }
 
