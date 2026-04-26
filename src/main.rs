@@ -3,6 +3,9 @@
 //! Usage:
 //!   lgo --gearlist [options]               Generate editable gear stats file
 //!   lgo [options] <stat:minimum> [...]     Run optimizer
+//!   lgo --test [<filename>] [options] <stat:minimum> [...]
+//!                                          Run optimizer using a test .toml from
+//!                                          AllServers\lgo\test data\
 //!
 //! The plugin export file and gear stats file are discovered automatically from:
 //!   Documents\The Lord of the Rings Online\PluginData\<character>\AllServers\
@@ -125,9 +128,27 @@ fn main() {
     }
 
     // Determine item stats source:
-    //   1. Explicit --stats-file path
-    //   2. Auto-detected most recent lgo_stats_*.toml in AllServers
-    //   3. db / wiki / cache pipeline
+    //   1. --test <file>  (test mode — bypasses all auto-detection)
+    //   2. Explicit --stats-file path
+    //   3. Auto-detected most recent lgo_stats_*.toml in AllServers
+    //   4. db / wiki / cache pipeline
+
+    // Validate and warn when running in test mode.
+    if let Some(ref tf_name) = cli.test_stats_file {
+        let tf = char_dir.join("lgo").join("test data").join(tf_name);
+        if !tf.exists() {
+            eprintln!(
+                "Error: test stats file not found: {}",
+                tf.display()
+            );
+            process::exit(1);
+        }
+        eprintln!(
+            "⚠️  TEST MODE: using {}. Results are based on explicit test file, not latest export.",
+            tf.display()
+        );
+    }
+
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
         if let Some(sf_path) = stats_file_to_use(&cli, &char_dir, &character) {
             eprintln!("[lgo] Using gear stats file — skipping db/wiki/cache lookup");
@@ -258,8 +279,11 @@ fn resolve_to_cached_items(
 }
 
 /// Determine which gear stats file to use, if any.
-/// Priority: explicit --stats-file flag > auto-detected most recent file.
+/// Priority: --test flag > explicit --stats-file flag > auto-detected most recent file.
 fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<PathBuf> {
+    if let Some(ref p) = cli.test_stats_file {
+        return Some(char_dir.join("lgo").join("test data").join(p));
+    }
     if let Some(ref p) = cli.stats_file {
         return Some(p.clone());
     }
@@ -269,23 +293,25 @@ fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<Path
 // -- CLI parsing ---------------------------------------------------------------
 
 struct Cli {
-    character:    Option<String>,
-    cache_path:   Option<PathBuf>,
-    file:         Option<PathBuf>,
-    stats_file:   Option<PathBuf>,
-    write_stats:  bool,
-    forget_edits: bool,
-    goals:        Vec<StatGoal>,
+    character:       Option<String>,
+    cache_path:      Option<PathBuf>,
+    file:            Option<PathBuf>,
+    stats_file:      Option<PathBuf>,
+    test_stats_file: Option<PathBuf>,
+    write_stats:     bool,
+    forget_edits:    bool,
+    goals:           Vec<StatGoal>,
 }
 
 fn parse_args(args: &[String]) -> Result<Cli, String> {
-    let mut character    = None;
-    let mut cache_path   = None;
-    let mut file         = None;
-    let mut stats_file   = None;
-    let mut write_stats  = false;
-    let mut forget_edits = false;
-    let mut goals        = Vec::new();
+    let mut character       = None;
+    let mut cache_path      = None;
+    let mut file            = None;
+    let mut stats_file      = None;
+    let mut test_stats_file = None;
+    let mut write_stats     = false;
+    let mut forget_edits    = false;
+    let mut goals           = Vec::new();
     let mut i = 0;
 
     while i < args.len() {
@@ -311,6 +337,20 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
                 stats_file = Some(PathBuf::from(args.get(i)
                     .ok_or("--stats-file requires a path")?));
             }
+            "--test" => {
+                // Optional filename argument: consume the next token only if it
+                // looks like a .toml filename (no leading '-' and ends with
+                // ".toml"), to avoid consuming stat goals such as "tm:450000".
+                let next = args.get(i + 1);
+                let filename = match next {
+                    Some(n) if !n.starts_with('-') && n.to_lowercase().ends_with(".toml") => {
+                        i += 1;
+                        n.clone()
+                    }
+                    _ => "lgo_stats_TEST.toml".to_string(),
+                };
+                test_stats_file = Some(PathBuf::from(filename));
+            }
             "--gearlist" | "-gl" => {
                 write_stats = true;
             }
@@ -329,7 +369,7 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
         i += 1;
     }
 
-    Ok(Cli { character, cache_path, file, stats_file, write_stats, forget_edits, goals })
+    Ok(Cli { character, cache_path, file, stats_file, test_stats_file, write_stats, forget_edits, goals })
 }
 
 // -- File discovery ------------------------------------------------------------
@@ -390,6 +430,14 @@ fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
         format!(
             "Cannot create lgo directory {}: {}",
             lgo_dir.display(),
+            e
+        )
+    })?;
+    let test_data_dir = lgo_dir.join("test data");
+    std::fs::create_dir_all(&test_data_dir).map_err(|e| {
+        format!(
+            "Cannot create test data directory {}: {}",
+            test_data_dir.display(),
             e
         )
     })?;
@@ -509,11 +557,15 @@ fn print_usage() {
     println!("Usage:");
     println!("  lgo --gearlist [options]               Generate/update editable gear stats file");
     println!("  lgo [options] <stat:minimum> [...]     Run optimizer");
+    println!("  lgo --test [<file>] [options] <stat:minimum> [...]");
+    println!("                                         Run optimizer with a test .toml from lgo\\test data\\");
     println!();
     println!("Options:");
     println!("  --character   <name>  Character name (auto-detected if only one exists)");
     println!("  --file        <path>  Explicit path to lgo_export_*.plugindata");
     println!("  --stats-file  <path>  Explicit path to lgo_stats_*.toml");
+    println!("  --test       [<file>] Use a test stats .toml from lgo\\test data\\");
+    println!("                        (default filename: lgo_stats_TEST.toml)");
     println!("  --cache       <path>  Path to the item cache JSON file");
     println!("  --forget-edits        Ignore hand-edit history; generate a fresh stats file");
     println!("  --help                Show this message");
