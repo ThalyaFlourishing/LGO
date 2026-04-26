@@ -4,7 +4,8 @@
 //!   lgo --gearlist [options]               Generate editable gear stats file
 //!   lgo [options] <stat:minimum> [...]     Run optimizer
 //!   lgo --test [<filename>] [options] <stat:minimum> [...]
-//!                                          Run optimizer using an explicit test .toml file
+//!                                          Run optimizer using a test .toml from
+//!                                          AllServers\lgo\test data\
 //!
 //! The plugin export file and gear stats file are discovered automatically from:
 //!   Documents\The Lord of the Rings Online\PluginData\<character>\AllServers\
@@ -133,7 +134,8 @@ fn main() {
     //   4. db / wiki / cache pipeline
 
     // Validate and warn when running in test mode.
-    if let Some(ref tf) = cli.test_stats_file {
+    if let Some(ref tf_name) = cli.test_stats_file {
+        let tf = char_dir.join("lgo").join("test data").join(tf_name);
         if !tf.exists() {
             eprintln!(
                 "Error: test stats file not found: {}",
@@ -280,7 +282,7 @@ fn resolve_to_cached_items(
 /// Priority: --test flag > explicit --stats-file flag > auto-detected most recent file.
 fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<PathBuf> {
     if let Some(ref p) = cli.test_stats_file {
-        return Some(p.clone());
+        return Some(char_dir.join("lgo").join("test data").join(p));
     }
     if let Some(ref p) = cli.stats_file {
         return Some(p.clone());
@@ -431,6 +433,14 @@ fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
             e
         )
     })?;
+    let test_data_dir = lgo_dir.join("test data");
+    std::fs::create_dir_all(&test_data_dir).map_err(|e| {
+        format!(
+            "Cannot create test data directory {}: {}",
+            test_data_dir.display(),
+            e
+        )
+    })?;
     Ok(())
 }
 
@@ -548,14 +558,14 @@ fn print_usage() {
     println!("  lgo --gearlist [options]               Generate/update editable gear stats file");
     println!("  lgo [options] <stat:minimum> [...]     Run optimizer");
     println!("  lgo --test [<file>] [options] <stat:minimum> [...]");
-    println!("                                         Run optimizer with an explicit test .toml");
+    println!("                                         Run optimizer with a test .toml from lgo\\test data\\");
     println!();
     println!("Options:");
     println!("  --character   <name>  Character name (auto-detected if only one exists)");
     println!("  --file        <path>  Explicit path to lgo_export_*.plugindata");
     println!("  --stats-file  <path>  Explicit path to lgo_stats_*.toml");
-    println!("  --test       [<path>] Use a test stats .toml (default: lgo_stats_TEST.toml)");
-    println!("                        Bypasses timestamp-based file selection.");
+    println!("  --test       [<file>] Use a test stats .toml from lgo\\test data\\");
+    println!("                        (default filename: lgo_stats_TEST.toml)");
     println!("  --cache       <path>  Path to the item cache JSON file");
     println!("  --forget-edits        Ignore hand-edit history; generate a fresh stats file");
     println!("  --help                Show this message");
