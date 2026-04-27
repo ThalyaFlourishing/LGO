@@ -51,10 +51,21 @@ pub fn write_stats_file(
     out.push_str("# Items with all zeros need manual entry before running the optimizer.\n");
     out.push('\n');
 
+    const SEPARATOR: &str = "# __________________________________________________\n";
+
+    let mut current_slot: Option<Slot> = None;
+
     for item in items {
         let all_zero = TRACKED_STATS.iter().all(|(stat, _)| {
             item.stats.get(stat).copied().unwrap_or(0) == 0
         });
+
+        // Emit a separator before the first item and whenever the slot group changes.
+        if current_slot.map_or(true, |s| s != item.slot) {
+            out.push_str(SEPARATOR);
+            out.push('\n');
+            current_slot = Some(item.slot);
+        }
 
         out.push_str("[[item]]\n");
         out.push_str(&format!("slot = \"{}\"\n", item.slot));
@@ -69,6 +80,12 @@ pub fn write_stats_file(
             out.push_str(&format!("{:<22}= {}\n", format!("{} ", key), value));
         }
 
+        out.push('\n');
+    }
+
+    // Emit a separator after the last item.
+    if !items.is_empty() {
+        out.push_str(SEPARATOR);
         out.push('\n');
     }
 
