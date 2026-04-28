@@ -56,7 +56,9 @@ fn main() {
         }
     };
 
-    eprintln!("[lgo] Using file : {}", plugindata_path.display());
+    if cli.write_stats {
+        eprintln!("[lgo] Reading plugindata : {}", plugindata_path.display());
+    }
     eprintln!("[lgo] Character  : {}", character);
 
     // Parse the plugin export.
@@ -149,11 +151,12 @@ fn main() {
         );
     }
 
+    let maybe_stats_file = stats_file_to_use(&cli, &char_dir, &character);
+
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
-        if let Some(sf_path) = stats_file_to_use(&cli, &char_dir, &character) {
-            eprintln!("[lgo] Using gear stats file — skipping db/wiki/cache lookup");
-            eprintln!("[lgo] Stats file: {}", sf_path.display());
-            match gearstats::read_stats_file(&sf_path) {
+        if let Some(ref sf_path) = maybe_stats_file {
+            eprintln!("[lgo] Using stats file: {}", sf_path.display());
+            match gearstats::read_stats_file(sf_path) {
                 Ok(items) => items.into_iter().map(|i| (i.name.clone(), i)).collect(),
                 Err(e) => {
                     eprintln!("Error reading gear stats file: {}", e);
@@ -182,12 +185,21 @@ fn main() {
         &cli.goals,
     );
 
+    // Choose the file label shown in the report: use the stats TOML when one is
+    // in use (the normal optimizer path).  When no stats file was found the
+    // optimizer falls back to the live db/wiki/cache pipeline, which derives
+    // items directly from the plugindata export — so reference that instead.
+    let report_input = maybe_stats_file
+        .as_ref()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| plugindata_path.display().to_string());
+
     // Print the report.
     report::print_report(
         &result,
         &cli.goals,
         &character,
-        &plugindata_path.display().to_string(),
+        &report_input,
     );
 
     // Exit with a non-zero code if infeasible, so shell scripts can detect it.
