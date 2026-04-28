@@ -135,7 +135,7 @@ fn main() {
     //   3. Auto-detected most recent lgo_stats_*.toml in AllServers
     //   4. db / wiki / cache pipeline
 
-    // Validate and warn when running in test mode.
+    // Validate test file exists before proceeding.
     if let Some(ref tf_name) = cli.test_stats_file {
         let tf = char_dir.join("lgo").join("test data").join(tf_name);
         if !tf.exists() {
@@ -145,13 +145,20 @@ fn main() {
             );
             process::exit(1);
         }
-        eprintln!(
-            "⚠️  TEST MODE: using {}. Results are based on explicit test file, not latest export.",
-            tf.display()
-        );
     }
 
     let maybe_stats_file = stats_file_to_use(&cli, &char_dir, &character);
+
+    // Bug 2 fix: emit the test-mode warning using the resolved path,
+    // not a separately-recomputed one (which had an 'llgo' typo).
+    if cli.test_stats_file.is_some() {
+        if let Some(ref p) = maybe_stats_file {
+            eprintln!(
+                "⚠️  TEST MODE: using {}. Results are based on explicit test file, not latest export.",
+                p.display()
+            );
+        }
+    }
 
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
         if let Some(ref sf_path) = maybe_stats_file {
@@ -170,12 +177,17 @@ fn main() {
                 .collect()
         };
 
-    let equipped_names: Vec<String> = export.equipped.iter()
-        .map(|i| i.name.clone())
-        .collect();
-    let candidate_names: Vec<String> = export.candidates.iter()
-        .map(|i| i.name.clone())
-        .collect();
+    // Bug 1 fix: when a stats file is in use, all items in it are candidates.
+    // The equipped/candidate distinction only applies to the live export path.
+    let (equipped_names, candidate_names): (Vec<String>, Vec<String>) =
+        if maybe_stats_file.is_some() {
+            (vec![], resolved.keys().cloned().collect())
+        } else {
+            (
+                export.equipped.iter().map(|i| i.name.clone()).collect(),
+                export.candidates.iter().map(|i| i.name.clone()).collect(),
+            )
+        };
 
     // Run the optimizer.
     let result = optimizer::optimize(
