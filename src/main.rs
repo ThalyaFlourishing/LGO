@@ -185,9 +185,10 @@ fn main() {
         &cli.goals,
     );
 
-    // Choose the file label shown in the report: prefer the stats TOML when
-    // one is in use; fall back to the plugindata path only when stats are
-    // resolved live via db/wiki/cache.
+    // Choose the file label shown in the report: use the stats TOML when one is
+    // in use (the normal optimizer path).  When no stats file was found the
+    // optimizer falls back to the live db/wiki/cache pipeline, which derives
+    // items directly from the plugindata export — so reference that instead.
     let report_input = maybe_stats_file
         .as_ref()
         .map(|p| p.display().to_string())
