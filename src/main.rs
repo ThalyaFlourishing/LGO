@@ -154,7 +154,7 @@ fn main() {
     if cli.test_stats_file.is_some() {
         if let Some(ref p) = maybe_stats_file {
             eprintln!(
-                "⚠️  TEST MODE: using {}. Results are based on explicit test file, not latest export.",
+                "TEST MODE: using {}. Results are based on explicit test file, not latest export.",
                 p.display()
             );
         }

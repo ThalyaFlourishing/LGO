@@ -40,7 +40,7 @@ pub fn print_report(
 
     if result.feasible {
         println!();
-        println!("  ?  All stat minima met.");
+        println!("  [Y]  All stat minima met.");
     } else {
         print_infeasible_banner(&result.failed_minima);
     }
@@ -51,7 +51,7 @@ pub fn print_report(
 // ?? Sections ??????????????????????????????????????????????????????????????????
 
 fn print_header(character: &str, input_file: &str) {
-    let divider = "?".repeat(COL_SLOT + COL_ITEM + 3);
+    let divider = "-".repeat(COL_SLOT + COL_ITEM + 3);
     println!();
     println!("  LGO — Gear Optimizer");
     println!("  Character : {}", character);
@@ -69,7 +69,7 @@ fn print_warnings(warnings: &[String]) {
 }
 
 fn print_gear_table(gear_set: &GearSet) {
-    let divider = "?".repeat(COL_SLOT + COL_ITEM + 3);
+    let divider = "-".repeat(COL_SLOT + COL_ITEM + 3);
 
     println!();
     println!("  {:<COL_SLOT$}  {}", "Slot", "Recommended Item", COL_SLOT = COL_SLOT);
@@ -102,7 +102,7 @@ fn print_stat_summary(
     let failed_stats: std::collections::HashSet<Stat> =
         failed_minima.iter().map(|(s, _, _)| *s).collect();
 
-    let divider = "?".repeat(COL_STAT + COL_VALUE + COL_MIN + COL_MET + 6);
+    let divider = "-".repeat(COL_STAT + COL_VALUE + COL_MIN + COL_MET + 6);
 
     println!();
     println!(
@@ -117,14 +117,14 @@ fn print_stat_summary(
         let minimum = goal.minimum;
         let met     = total >= minimum;
         let met_str = if minimum == 0 {
-            "  — ".to_string()
+            "  -  ".to_string()
         } else if met {
-            "  ? ".to_string()
+            "  Y  ".to_string()
         } else {
-            "  ? ".to_string()
+            "  N  ".to_string()
         };
 
-        let flag = if failed_stats.contains(&goal.stat) { " ?" } else { "" };
+        let flag = if failed_stats.contains(&goal.stat) { " !" } else { "" };
 
         println!(
             "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  {}{}",
@@ -142,9 +142,9 @@ fn print_stat_summary(
 
 fn print_infeasible_banner(failed_minima: &[(Stat, i64, i64)]) {
     println!();
-    println!("  ????????????????????????????????????????????????");
-    println!("  ?  INFEASIBLE — not all stat minima can be met ?");
-    println!("  ????????????????????????????????????????????????");
+    println!("  ================================================");
+    println!("  !  INFEASIBLE — not all stat minima can be met !");
+    println!("  ================================================");
     println!();
     println!("  The following stats could not reach their minima");
     println!("  with any combination of the available items:");

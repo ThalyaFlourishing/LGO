@@ -89,6 +89,7 @@ pub struct OptimizeResult {
 struct Candidate {
     name: String,
     stats: HashMap<Stat, i64>,
+    original_slot: Slot,
 }
 
 impl Candidate {
@@ -96,8 +97,8 @@ impl Candidate {
         self.stats.get(s).copied().unwrap_or(0)
     }
 
-    fn zero(name: impl Into<String>) -> Self {
-        Candidate { name: name.into(), stats: HashMap::new() }
+    fn zero(name: impl Into<String>, slot: Slot) -> Self {
+        Candidate { name: name.into(), stats: HashMap::new(), original_slot: slot }
     }
 }
 
@@ -159,7 +160,7 @@ pub fn optimize(
             None => continue,
         };
         let canonical = canonical_slot(cached.slot);
-        let cand = Candidate { name: name.clone(), stats: cached.stats.clone() };
+        let cand = Candidate { name: name.clone(), stats: cached.stats.clone(), original_slot: cached.slot };
         pools.entry(canonical).or_default().push(cand);
     }
 
@@ -182,7 +183,7 @@ pub fn optimize(
                 "Slot {}: no candidates found; using zero placeholder.",
                 slot_display(slot)
             ));
-            vec![Candidate::zero(format!("[empty {}]", slot_display(slot)))]
+            vec![Candidate::zero(format!("[empty {}]", slot_display(slot)), canonical)]
         });
     }
 
@@ -272,10 +273,22 @@ pub fn optimize(
         let chosen = pairs.first().expect("pair pool must not be empty");
         let slot1 = *canonical;
         let slot2 = paired_slot2(slot1);
-        gear_set.items.insert(slot1, candidate_to_gear_item(&chosen.a, slot1));
-        gear_set.items.insert(slot2, candidate_to_gear_item(&chosen.b, slot2));
-    }
 
+        // Assign each item to the slot matching its original_slot where possible.
+        let (item_for_slot1, item_for_slot2) =
+            if chosen.a.original_slot == slot1 && chosen.b.original_slot == slot2 {
+                (&chosen.a, &chosen.b)
+            } else if chosen.a.original_slot == slot2 && chosen.b.original_slot == slot1 {
+                (&chosen.b, &chosen.a)
+            } else {
+                // Both items from the same original slot (e.g. two Wrist (1) items),
+                // or zero placeholders — order is arbitrary.
+                (&chosen.a, &chosen.b)
+            };
+
+        gear_set.items.insert(slot1, candidate_to_gear_item(item_for_slot1, slot1));
+        gear_set.items.insert(slot2, candidate_to_gear_item(item_for_slot2, slot2));
+    }
     // ?? 8. Compute failed minima (actual achieved values) ?????????????????????
 
     let failed_minima: Vec<(Stat, i64, i64)> = if feasible {
