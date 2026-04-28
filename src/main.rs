@@ -96,7 +96,7 @@ fn main() {
                         Err(e) => {
                             eprintln!("[lgo] Warning: could not read existing stats file \
                                        for merge ({}); generating fresh file.", e);
-                            (resolve_to_cached_items(&export, &char_dir, &cli), None)
+                            (new_items, None)
                         }
                     }
                 } else {
