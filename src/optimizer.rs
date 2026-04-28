@@ -196,7 +196,7 @@ pub fn optimize(
 
     for (&slot, pool) in &pools {
         if paired_canonicals.contains(&slot) {
-            pair_pools.insert(slot, build_pairs(pool));
+            pair_pools.insert(slot, build_pairs(pool, slot, paired_slot2(slot)));
         } else {
             single_pools.insert(slot, pool.clone());
         }
@@ -465,15 +465,15 @@ fn paired_slot2(slot1: Slot) -> Slot {
     }
 }
 
-fn build_pairs(pool: &[Candidate]) -> Vec<PairCandidate> {
+fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidate> {
     if pool.is_empty() {
         return vec![PairCandidate::new(
-            Candidate::zero("[empty]"), Candidate::zero("[empty]"),
+            Candidate::zero("[empty]", slot1), Candidate::zero("[empty]", slot2),
         )];
     }
     if pool.len() == 1 {
         return vec![PairCandidate::new(
-            pool[0].clone(), Candidate::zero("[empty]"),
+            pool[0].clone(), Candidate::zero("[empty]", slot2),
         )];
     }
     let mut pairs = Vec::new();
