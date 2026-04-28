@@ -55,7 +55,7 @@ fn print_header(character: &str, input_file: &str) {
     println!();
     println!("  LGO — Gear Optimizer");
     println!("  Character : {}", character);
-    println!("  Input     : {}", input_file);
+    println!("  Stats file: {}", input_file);
     println!("  {}", divider);
 }
 
