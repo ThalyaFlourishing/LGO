@@ -53,7 +53,7 @@ pub fn print_report(
 fn print_header(character: &str, input_file: &str) {
     let divider = "-".repeat(COL_SLOT + COL_ITEM + 3);
     println!();
-    println!("  LGO — Gear Optimizer");
+    println!("  LGO — Thalya's Gear Optimizer");
     println!("  Character : {}", character);
     println!("  Stats file: {}", input_file);
     println!("  {}", divider);

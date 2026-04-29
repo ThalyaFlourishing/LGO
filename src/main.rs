@@ -59,7 +59,6 @@ fn main() {
     if cli.write_stats {
         eprintln!("[lgo] Reading plugindata : {}", plugindata_path.display());
     }
-    eprintln!("[lgo] Character  : {}", character);
 
     // Parse the plugin export.
     let export = match plugindata::load(&plugindata_path) {
@@ -155,14 +154,13 @@ fn main() {
         if let Some(ref p) = maybe_stats_file {
             eprintln!(
                 "TEST MODE: using {}. Results are based on explicit test file, not latest export.",
-                p.display()
+                p.file_name().and_then(|n| n.to_str()).unwrap_or("(unknown)")
             );
         }
     }
 
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
         if let Some(ref sf_path) = maybe_stats_file {
-            eprintln!("[lgo] Using stats file: {}", sf_path.display());
             match gearstats::read_stats_file(sf_path) {
                 Ok(items) => items.into_iter().map(|i| (i.name.clone(), i)).collect(),
                 Err(e) => {
@@ -203,7 +201,16 @@ fn main() {
     // items directly from the plugindata export — so reference that instead.
     let report_input = maybe_stats_file
         .as_ref()
-        .map(|p| p.display().to_string())
+        .map(|p| {
+            let s = p.to_string_lossy();
+            if let Some(idx) = s.find("lgo\\") {
+                s[idx..].to_string()
+            } else if let Some(idx) = s.find("lgo/") {
+                s[idx..].to_string()
+            } else {
+                s.to_string()
+            }
+        })
         .unwrap_or_else(|| plugindata_path.display().to_string());
 
     // Print the report.
@@ -215,10 +222,10 @@ fn main() {
     );
 
     // Exit with a non-zero code if infeasible, so shell scripts can detect it.
-    if !result.feasible {
-        process::exit(2);
-    }
-}
+    // if !result.feasible {
+    //    process::exit(2);
+    //}
+//}
 
 // -- Shared item resolution ----------------------------------------------------
 
@@ -576,7 +583,7 @@ fn strip_level_suffix(name: &str) -> &str {
 // -- Usage ---------------------------------------------------------------------
 
 fn print_usage() {
-    println!("LGO - LOTRO Gear Optimizer");
+    println!("LGO - Thalya's LOTRO Gear Optimizer");
     println!();
     println!("Usage:");
     println!("  lgo --gearlist [options]               Generate/update editable gear stats file");
