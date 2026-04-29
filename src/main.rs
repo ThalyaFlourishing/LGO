@@ -225,7 +225,7 @@ fn main() {
     // if !result.feasible {
     //    process::exit(2);
     //}
-//}
+}
 
 // -- Shared item resolution ----------------------------------------------------
 

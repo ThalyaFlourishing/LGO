@@ -471,17 +471,10 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
             Candidate::zero("[empty]", slot1), Candidate::zero("[empty]", slot2),
         )];
     }
-    if pool.len() == 1 {
-        return vec![PairCandidate::new(
-            pool[0].clone(), Candidate::zero("[empty]", slot2),
-        )];
-    }
     let mut pairs = Vec::new();
     for i in 0..pool.len() {
         for j in 0..pool.len() {
-            if i != j {
-                pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));
-            }
+            pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));
         }
     }
     pairs
