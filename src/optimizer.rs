@@ -399,16 +399,16 @@ fn safe_narrow_single(
     stat: &Stat,
     goals: &[StatGoal],
 ) {
-    // Snapshot maxima before narrowing any slot this round.
-    let single_maxima = compute_single_maxima(single_pools, goals);
-    let pair_maxima   = compute_pair_maxima(pair_pools, goals);
-    let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+for &slot in Slot::ALL {
+    if !single_pools.contains_key(&slot) { continue; }
+        // Recompute after each slot's narrowing so later slots see updated maxima.
+        let single_maxima = compute_single_maxima(single_pools, goals);
+        let pair_maxima   = compute_pair_maxima(pair_pools, goals);
+        let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+        let current_slot_max = single_maxima.get(&slot).cloned();
 
-    for slot in single_pools.keys().cloned().collect::<Vec<_>>() {
         let pool = single_pools.get(&slot).unwrap();
         if pool.is_empty() { continue; }
-
-        let current_slot_max = single_maxima.get(&slot);
 
         // Distinct values of `stat` in descending order.
         let mut thresholds: Vec<i64> = pool.iter().map(|c| c.stat(stat)).collect();
@@ -423,7 +423,7 @@ fn safe_narrow_single(
 
             goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
-                let old_best = current_slot_max
+                let old_best = current_slot_max.as_ref()
                     .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
                 let new_best = tentative.iter()
                     .map(|c| c.stat(&g.stat)).max().unwrap_or(0);
@@ -447,15 +447,16 @@ fn safe_narrow_pair(
     stat: &Stat,
     goals: &[StatGoal],
 ) {
-    let single_maxima = compute_single_maxima(single_pools, goals);
-    let pair_maxima   = compute_pair_maxima(pair_pools, goals);
-    let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+for &slot in Slot::ALL {
+    if !pair_pools.contains_key(&slot) { continue; }
+        // Recompute after each slot's narrowing so later slots see updated maxima.
+        let single_maxima = compute_single_maxima(single_pools, goals);
+        let pair_maxima   = compute_pair_maxima(pair_pools, goals);
+        let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+        let current_slot_max = pair_maxima.get(&slot).cloned();
 
-    for slot in pair_pools.keys().cloned().collect::<Vec<_>>() {
         let pool = pair_pools.get(&slot).unwrap();
         if pool.is_empty() { continue; }
-
-        let current_slot_max = pair_maxima.get(&slot);
 
         let mut thresholds: Vec<i64> = pool.iter().map(|p| p.stat(stat)).collect();
         thresholds.sort_unstable_by(|a, b| b.cmp(a));
@@ -468,7 +469,7 @@ fn safe_narrow_pair(
 
             goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
-                let old_best = current_slot_max
+                let old_best = current_slot_max.as_ref()
                     .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
                 let new_best = tentative.iter()
                     .map(|p| p.stat(&g.stat)).max().unwrap_or(0);
@@ -566,6 +567,30 @@ fn slot_display(slot: Slot) -> &'static str {
         Slot::OffHand   => "Off-hand",
         Slot::Ranged    => "Ranged",
         Slot::ClassItem => "Class Item",
+    }
+}
+
+fn slot_sort_key(slot: Slot) -> usize {
+    match slot {
+        Slot::Head      => 0,
+        Slot::Chest     => 1,
+        Slot::Legs      => 2,
+        Slot::Hands     => 3,
+        Slot::Feet      => 4,
+        Slot::Shoulders => 5,
+        Slot::Back      => 6,
+        Slot::Wrist1    => 7,
+        Slot::Wrist2    => 8,
+        Slot::Neck      => 9,
+        Slot::Finger1   => 10,
+        Slot::Finger2   => 11,
+        Slot::Ear1      => 12,
+        Slot::Ear2      => 13,
+        Slot::Pocket    => 14,
+        Slot::MainHand  => 15,
+        Slot::OffHand   => 16,
+        Slot::Ranged    => 17,
+        Slot::ClassItem => 18,
     }
 }
 
