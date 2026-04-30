@@ -162,7 +162,7 @@ fn main() {
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
         if let Some(ref sf_path) = maybe_stats_file {
             match gearstats::read_stats_file(sf_path) {
-                Ok(items) => items.into_iter().map(|i| (i.name.clone(), i)).collect(),
+                Ok(items) => items.into_iter().map(|i| (format!("{}::{}", i.slot, i.name), i)).collect(),
                 Err(e) => {
                     eprintln!("Error reading gear stats file: {}", e);
                     process::exit(1);

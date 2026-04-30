@@ -5,56 +5,43 @@
 //! Because gear stats are strictly additive across independent slots, the
 //! total of any stat S across a gear set is:
 //!
-//!     total(S) = ? item[slot].stat(S)   for all slots
+//!     total(S) = Σ item[slot].stat(S)   for all slots
 //!
 //! This means the global maximum of total(S) is achieved by independently
 //! maximising item[slot].stat(S) in every slot. The slots do not interact.
-//!
-//! Consequence: the lexicographic optimum can be found by processing one
-//! stat at a time, narrowing the candidate set per slot at each step:
-//!
-//!   Step 1: For each slot, keep only items achieving the maximum value of
-//!           Stat1 among all candidates for that slot. (May be >1 item if tied.)
-//!   Step 2: Among the survivors, keep only those achieving the maximum of
-//!           Stat2. Etc.
-//!
-//! This is O(goals ? slots ? candidates_per_slot) ? effectively free.
 //!
 //! ## Feasibility
 //!
 //! A result is *feasible* if every goal stat's total across all slots meets
 //! its user-supplied minimum.
 //!
-//! Feasibility is checked at the gear-set level, not per item. We use a
-//! two-phase approach:
+//! We use a two-phase approach:
 //!
-//! Phase 1 ? attempt feasible optimisation:
-//!   For each slot and each goal stat, a candidate is *compatible* if it
-//!   allows every minimum to potentially be met when the other slots each
-//!   contribute their best. Formally, candidate C in slot K is compatible if:
+//! Phase 1 — compatibility filtering:
+//!   For each slot K, a candidate C is *compatible* if it cannot prevent any
+//!   minimum from being met, i.e. for every goal stat S:
 //!
-//!     C.stat(S) + best_of_other_slots(S, K) >= minimum(S)   for all goals S
+//!     C.stat(S) + best_of_other_slots(S, K) >= minimum(S)
 //!
-//!   where best_of_other_slots(S, K) is the sum of per-slot maxima for S
-//!   across all slots except K.
+//!   Candidates failing this test are dropped. If any slot becomes empty,
+//!   no feasible solution exists and we fall through to Phase 2.
 //!
-//!   After filtering to compatible candidates only, run lexicographic
-//!   narrowing. If every slot still has at least one candidate, the result
-//!   is feasible.
+//! Phase 1 narrowing — safe lexicographic narrowing:
+//!   For each goal stat S in priority order, for each slot K, find the
+//!   highest threshold T such that retaining only candidates with stat(S) >= T
+//!   still allows all minima to be met (i.e. the resulting global maximum for
+//!   every goal stat still reaches its minimum). This prevents greedily
+//!   maximising stat1 from eliminating the candidates needed to meet stat2.
 //!
-//! Phase 2 ? infeasible fallback:
-//!   If Phase 1 empties any slot's pool (meaning no combination can satisfy
-//!   all minima), run lexicographic narrowing on the full unfiltered pools
-//!   and report which minima were missed.
+//! Phase 2 — infeasible fallback:
+//!   Run standard greedy lexicographic narrowing on the full unfiltered pools.
+//!   Reports which minima were missed.
 //!
 //! ## Paired slots (Wrist, Finger, Ear)
 //!
-//! Items tagged Wrist1/Finger1/Ear1 by the wiki are candidates for either
-//! slot in the pair. We resolve pairs before optimisation: given the candidate
-//! pool for a paired type, we enumerate all ordered pairs (a, b) with a ? b
-//! (using dummy zero-items to fill when only one real candidate exists) and
-//! treat the pair as a single combined "super-candidate" whose stats are the
-//! sum of a and b. The super-candidate is then handled like any other slot.
+//! Items for a paired slot type are combined into super-candidates whose stats
+//! are the sum of both items. All ordered pairs (including self-pairs, to
+//! support two items with the same name) are enumerated.
 
 use std::collections::HashMap;
 
@@ -62,13 +49,13 @@ use crate::cache::CachedItem;
 use crate::gear::{GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
 
-// ?? Constants ?????????????????????????????????????????????????????????????????
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Maximum candidates considered per slot. Excess items are dropped with a
-/// warning. Keeps the paired-slot enumeration bounded (max 6?5 = 30 pairs).
+/// warning. Keeps the paired-slot enumeration bounded (max 6×6 = 36 pairs).
 pub const MAX_CANDIDATES_PER_SLOT: usize = 6;
 
-// ?? Public types ??????????????????????????????????????????????????????????????
+// ── Public types ──────────────────────────────────────────────────────────────
 
 /// The result returned by the optimizer.
 #[derive(Debug)]
@@ -81,10 +68,9 @@ pub struct OptimizeResult {
     pub warnings: Vec<String>,
 }
 
-// ?? Internal types ????????????????????????????????????????????????????????????
+// ── Internal types ────────────────────────────────────────────────────────────
 
 /// A resolved item ready for the optimizer: name + stats only.
-/// Slot information has already been used to place it in the right pool.
 #[derive(Debug, Clone)]
 struct Candidate {
     name: String,
@@ -103,11 +89,11 @@ impl Candidate {
 }
 
 /// A "super-candidate" for a paired slot: holds the two constituent items
-/// (either of which may be the zero placeholder) and their combined stats.
+/// and their combined stats.
 #[derive(Debug, Clone)]
 struct PairCandidate {
-    a: Candidate, // goes into slot1
-    b: Candidate, // goes into slot2
+    a: Candidate,
+    b: Candidate,
     combined: HashMap<Stat, i64>,
 }
 
@@ -125,14 +111,8 @@ impl PairCandidate {
     }
 }
 
-// ?? Entry point ???????????????????????????????????????????????????????????????
+// ── Entry point ───────────────────────────────────────────────────────────────
 
-/// Run the optimizer.
-///
-/// `resolved`:   map of item name ? CachedItem (from wiki/cache lookup).
-/// `equipped`:   names of currently-equipped items.
-/// `candidates`: names of items in the 'lgo' chest.
-/// `goals`:      ordered list of stat goals with minima.
 pub fn optimize(
     resolved: &HashMap<String, CachedItem>,
     equipped: &[String],
@@ -141,7 +121,7 @@ pub fn optimize(
 ) -> OptimizeResult {
     let mut warnings: Vec<String> = Vec::new();
 
-    // ?? 1. Build per-slot candidate pools ?????????????????????????????????????
+    // ── 1. Build per-slot candidate pools ─────────────────────────────────────
 
     let all_names: Vec<String> = {
         let mut v: Vec<String> = equipped.to_vec();
@@ -151,7 +131,6 @@ pub fn optimize(
         v
     };
 
-    // pools: canonical_slot ? Vec<Candidate>
     let mut pools: HashMap<Slot, Vec<Candidate>> = HashMap::new();
 
     for name in &all_names {
@@ -160,7 +139,11 @@ pub fn optimize(
             None => continue,
         };
         let canonical = canonical_slot(cached.slot);
-        let cand = Candidate { name: name.clone(), stats: cached.stats.clone(), original_slot: cached.slot };
+        let cand = Candidate {
+            name: cached.name.clone(),
+            stats: cached.stats.clone(),
+            original_slot: cached.slot,
+        };
         pools.entry(canonical).or_default().push(cand);
     }
 
@@ -187,7 +170,7 @@ pub fn optimize(
         });
     }
 
-    // ?? 2. Build super-candidates for paired slots ????????????????????????????
+    // ── 2. Build super-candidates for paired slots ────────────────────────────
 
     let paired_canonicals = [Slot::Wrist1, Slot::Finger1, Slot::Ear1];
 
@@ -202,22 +185,13 @@ pub fn optimize(
         }
     }
 
-    // ?? 3. Compute per-slot, per-stat maxima (used for compatibility checks) ??
+    // ── 3. Compute per-slot, per-stat maxima ──────────────────────────────────
 
-    // slot_max(slot, stat) = max stat value achievable in that slot alone.
     let single_slot_maxima = compute_single_maxima(&single_pools, goals);
     let pair_slot_maxima   = compute_pair_maxima(&pair_pools, goals);
-
-    // global_max(stat) = sum of slot maxima across all slots.
     let global_max = compute_global_max(&single_slot_maxima, &pair_slot_maxima, goals);
 
-    // ?? 4. Phase 1: filter to feasibility-compatible candidates ???????????????
-    //
-    // A candidate C in slot K is compatible if, for every goal stat S:
-    //   C.stat(S) + (global_max(S) - slot_max(K, S)) >= minimum(S)
-    //
-    // i.e. even if every other slot contributes its absolute best for S,
-    // C still allows the minimum to be reached.
+    // ── 4. Phase 1: filter to feasibility-compatible candidates ──────────────
 
     let mut feasible_single = filter_compatible_single(
         &single_pools, &single_slot_maxima, &global_max, goals,
@@ -226,94 +200,91 @@ pub fn optimize(
         &pair_pools, &pair_slot_maxima, &global_max, goals,
     );
 
-    // Check whether Phase 1 produced a viable set (all slots non-empty).
     let phase1_viable = feasible_single.values().all(|p| !p.is_empty())
         && feasible_pair.values().all(|p| !p.is_empty());
 
-    // ?? 5. Choose working pools and feasibility flag ???????????????????????????
+    // ── 5. Choose working pools ───────────────────────────────────────────────
 
-    let feasible;
-    let working_single_ref: &mut HashMap<Slot, Vec<Candidate>>;
-    let working_pair_ref:   &mut HashMap<Slot, Vec<PairCandidate>>;
-
-    // We need owned working copies for narrowing.
     let mut fallback_single;
     let mut fallback_pair;
 
-    if phase1_viable {
-        feasible = true;
-        working_single_ref = &mut feasible_single;
-        working_pair_ref   = &mut feasible_pair;
+    let (working_single, working_pair): (
+        &mut HashMap<Slot, Vec<Candidate>>,
+        &mut HashMap<Slot, Vec<PairCandidate>>,
+    ) = if phase1_viable {
+        (&mut feasible_single, &mut feasible_pair)
     } else {
-        feasible = false;
-        // Fall back to full pools.
         fallback_single = single_pools.clone();
         fallback_pair   = pair_pools.clone();
-        working_single_ref = &mut fallback_single;
-        working_pair_ref   = &mut fallback_pair;
-    }
+        (&mut fallback_single, &mut fallback_pair)
+    };
 
-    // ?? 6. Lexicographic narrowing ????????????????????????????????????????????
+    // ── 6. Lexicographic narrowing ────────────────────────────────────────────
+    //
+    // Feasible path: safe narrowing — never drop candidates if doing so would
+    // make any minimum unreachable.
+    //
+    // Infeasible path: standard greedy narrowing — minima cannot be met anyway,
+    // so we simply maximise stats in priority order.
 
     for goal in goals {
-        narrow_single(working_single_ref, &goal.stat);
-        narrow_pair(working_pair_ref, &goal.stat);
+        if phase1_viable {
+            safe_narrow_single(working_single, working_pair, &goal.stat, goals);
+            safe_narrow_pair(working_pair, working_single, &goal.stat, goals);
+        } else {
+            narrow_single(working_single, &goal.stat);
+            narrow_pair(working_pair, &goal.stat);
+        }
     }
 
-    // ?? 7. Assemble the final GearSet ?????????????????????????????????????????
+    // ── 7. Assemble the final GearSet ─────────────────────────────────────────
 
     let mut gear_set = GearSet::new();
 
-    for (slot, pool) in working_single_ref.iter() {
+    for (slot, pool) in working_single.iter() {
         let chosen = pool.first().expect("pool must not be empty after narrowing");
         gear_set.items.insert(*slot, candidate_to_gear_item(chosen, *slot));
     }
 
-    for (canonical, pairs) in working_pair_ref.iter() {
+    for (canonical, pairs) in working_pair.iter() {
         let chosen = pairs.first().expect("pair pool must not be empty");
         let slot1 = *canonical;
         let slot2 = paired_slot2(slot1);
 
-        // Assign each item to the slot matching its original_slot where possible.
         let (item_for_slot1, item_for_slot2) =
             if chosen.a.original_slot == slot1 && chosen.b.original_slot == slot2 {
                 (&chosen.a, &chosen.b)
             } else if chosen.a.original_slot == slot2 && chosen.b.original_slot == slot1 {
                 (&chosen.b, &chosen.a)
             } else {
-                // Both items from the same original slot (e.g. two Wrist (1) items),
-                // or zero placeholders — order is arbitrary.
                 (&chosen.a, &chosen.b)
             };
 
         gear_set.items.insert(slot1, candidate_to_gear_item(item_for_slot1, slot1));
         gear_set.items.insert(slot2, candidate_to_gear_item(item_for_slot2, slot2));
     }
-    // ?? 8. Compute failed minima (actual achieved values) ?????????????????????
 
-    let failed_minima: Vec<(Stat, i64, i64)> = if feasible {
-        vec![]
-    } else {
-        goals.iter()
-            .filter(|g| g.minimum > 0)
-            .filter_map(|g| {
-                let achieved = gear_set.total(&g.stat);
-                if achieved < g.minimum {
-                    Some((g.stat, g.minimum, achieved))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    };
+    // ── 8. Compute actual feasibility from achieved totals ────────────────────
+
+    let failed_minima: Vec<(Stat, i64, i64)> = goals.iter()
+        .filter(|g| g.minimum > 0)
+        .filter_map(|g| {
+            let achieved = gear_set.total(&g.stat);
+            if achieved < g.minimum {
+                Some((g.stat, g.minimum, achieved))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let feasible = failed_minima.is_empty();
 
     OptimizeResult { gear_set, feasible, failed_minima, warnings }
 }
 
-// ?? Feasibility filtering ?????????????????????????????????????????????????????
+// ── Feasibility filtering ─────────────────────────────────────────────────────
 
-/// For each (slot, stat), the maximum stat value any candidate in that slot
-/// can contribute. Used in the compatibility formula.
 type SlotMaxima = HashMap<Slot, HashMap<Stat, i64>>;
 
 fn compute_single_maxima(
@@ -367,9 +338,6 @@ fn compute_global_max(
     out
 }
 
-/// Filter single-slot pools to only candidates compatible with all minima.
-/// A candidate C in slot K is compatible if:
-///   C.stat(S) + global_max(S) - slot_max(K, S) >= minimum(S)  for all S
 fn filter_compatible_single(
     pools: &HashMap<Slot, Vec<Candidate>>,
     slot_maxima: &SlotMaxima,
@@ -383,12 +351,9 @@ fn filter_compatible_single(
             goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
                 let slot_best = this_slot_max
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
                 let global_best = global_max.get(&g.stat).copied().unwrap_or(0);
-                let best_without_this_slot = global_best - slot_best;
-                c.stat(&g.stat) + best_without_this_slot >= g.minimum
+                c.stat(&g.stat) + (global_best - slot_best) >= g.minimum
             })
         }).cloned().collect();
         out.insert(slot, filtered);
@@ -409,12 +374,9 @@ fn filter_compatible_pair(
             goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
                 let slot_best = this_slot_max
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
                 let global_best = global_max.get(&g.stat).copied().unwrap_or(0);
-                let best_without_this_slot = global_best - slot_best;
-                p.stat(&g.stat) + best_without_this_slot >= g.minimum
+                p.stat(&g.stat) + (global_best - slot_best) >= g.minimum
             })
         }).cloned().collect();
         out.insert(slot, filtered);
@@ -422,11 +384,108 @@ fn filter_compatible_pair(
     out
 }
 
-// ?? Lexicographic narrowing ????????????????????????????????????????????????????
+// ── Safe lexicographic narrowing (feasible path) ──────────────────────────────
 
-/// For each slot, retain only candidates achieving the slot-maximum for
-/// this stat. Preserves at least one candidate (the pool cannot become empty
-/// because the maximum was drawn from the pool itself).
+/// Narrow single-slot pools on `stat` without breaking feasibility.
+///
+/// For each slot, finds the highest threshold T such that retaining only
+/// candidates with stat(S) >= T still allows all minima to be met globally.
+/// Uses a snapshot of the global max taken before any slot is narrowed this
+/// round, so each slot is evaluated independently and the result is
+/// order-independent.
+fn safe_narrow_single(
+    single_pools: &mut HashMap<Slot, Vec<Candidate>>,
+    pair_pools:   &HashMap<Slot, Vec<PairCandidate>>,
+    stat: &Stat,
+    goals: &[StatGoal],
+) {
+    // Snapshot maxima before narrowing any slot this round.
+    let single_maxima = compute_single_maxima(single_pools, goals);
+    let pair_maxima   = compute_pair_maxima(pair_pools, goals);
+    let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+
+    for slot in single_pools.keys().cloned().collect::<Vec<_>>() {
+        let pool = single_pools.get(&slot).unwrap();
+        if pool.is_empty() { continue; }
+
+        let current_slot_max = single_maxima.get(&slot);
+
+        // Distinct values of `stat` in descending order.
+        let mut thresholds: Vec<i64> = pool.iter().map(|c| c.stat(stat)).collect();
+        thresholds.sort_unstable_by(|a, b| b.cmp(a));
+        thresholds.dedup();
+
+        // Find the highest threshold that keeps all minima reachable.
+        let chosen = thresholds.iter().copied().find(|&t| {
+            let tentative: Vec<&Candidate> = pool.iter()
+                .filter(|c| c.stat(stat) >= t)
+                .collect();
+
+            goals.iter().all(|g| {
+                if g.minimum == 0 { return true; }
+                let old_best = current_slot_max
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
+                let new_best = tentative.iter()
+                    .map(|c| c.stat(&g.stat)).max().unwrap_or(0);
+                let new_global = global_max.get(&g.stat).copied().unwrap_or(0)
+                    - old_best + new_best;
+                new_global >= g.minimum
+            })
+        });
+
+        if let Some(t) = chosen {
+            single_pools.get_mut(&slot).unwrap().retain(|c| c.stat(stat) >= t);
+        }
+    }
+}
+
+/// Narrow pair-slot pools on `stat` without breaking feasibility.
+/// Same logic as `safe_narrow_single`.
+fn safe_narrow_pair(
+    pair_pools:   &mut HashMap<Slot, Vec<PairCandidate>>,
+    single_pools: &HashMap<Slot, Vec<Candidate>>,
+    stat: &Stat,
+    goals: &[StatGoal],
+) {
+    let single_maxima = compute_single_maxima(single_pools, goals);
+    let pair_maxima   = compute_pair_maxima(pair_pools, goals);
+    let global_max    = compute_global_max(&single_maxima, &pair_maxima, goals);
+
+    for slot in pair_pools.keys().cloned().collect::<Vec<_>>() {
+        let pool = pair_pools.get(&slot).unwrap();
+        if pool.is_empty() { continue; }
+
+        let current_slot_max = pair_maxima.get(&slot);
+
+        let mut thresholds: Vec<i64> = pool.iter().map(|p| p.stat(stat)).collect();
+        thresholds.sort_unstable_by(|a, b| b.cmp(a));
+        thresholds.dedup();
+
+        let chosen = thresholds.iter().copied().find(|&t| {
+            let tentative: Vec<&PairCandidate> = pool.iter()
+                .filter(|p| p.stat(stat) >= t)
+                .collect();
+
+            goals.iter().all(|g| {
+                if g.minimum == 0 { return true; }
+                let old_best = current_slot_max
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
+                let new_best = tentative.iter()
+                    .map(|p| p.stat(&g.stat)).max().unwrap_or(0);
+                let new_global = global_max.get(&g.stat).copied().unwrap_or(0)
+                    - old_best + new_best;
+                new_global >= g.minimum
+            })
+        });
+
+        if let Some(t) = chosen {
+            pair_pools.get_mut(&slot).unwrap().retain(|p| p.stat(stat) >= t);
+        }
+    }
+}
+
+// ── Standard greedy narrowing (infeasible fallback path) ──────────────────────
+
 fn narrow_single(pools: &mut HashMap<Slot, Vec<Candidate>>, stat: &Stat) {
     for pool in pools.values_mut() {
         if pool.is_empty() { continue; }
@@ -445,7 +504,7 @@ fn narrow_pair(pools: &mut HashMap<Slot, Vec<PairCandidate>>, stat: &Stat) {
     }
 }
 
-// ?? Other helpers ?????????????????????????????????????????????????????????????
+// ── Other helpers ─────────────────────────────────────────────────────────────
 
 fn canonical_slot(slot: Slot) -> Slot {
     match slot {
@@ -468,7 +527,8 @@ fn paired_slot2(slot1: Slot) -> Slot {
 fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidate> {
     if pool.is_empty() {
         return vec![PairCandidate::new(
-            Candidate::zero("[empty]", slot1), Candidate::zero("[empty]", slot2),
+            Candidate::zero("[empty]", slot1),
+            Candidate::zero("[empty]", slot2),
         )];
     }
     let mut pairs = Vec::new();
@@ -477,6 +537,10 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
             pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));
         }
     }
+    // Prefer natural slot assignments as a tiebreaker: a→slot1, b→slot2.
+    pairs.sort_by_key(|p| {
+        if p.a.original_slot == slot1 && p.b.original_slot == slot2 { 0 } else { 1 }
+    });
     pairs
 }
 
@@ -505,7 +569,7 @@ fn slot_display(slot: Slot) -> &'static str {
     }
 }
 
-// ?? Tests ?????????????????????????????????????????????????????????????????????
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -538,10 +602,6 @@ mod tests {
 
     #[test]
     fn test_spec_run1_c2_wins() {
-        // Run 1: all minima can be met.
-        // C2 should win: highest CriticalRating (500) among feasible candidates.
-        // C4 is excluded (TactMast 430 < 450).
-        // C1 is excluded (TactMast 420 < 450, TactMit 190 < 200).
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C1".into(), make_cached("C1", Slot::Chest, &[
             (Stat::CriticalRating, 480), (Stat::TacticalMastery, 420),
@@ -600,8 +660,6 @@ mod tests {
 
     #[test]
     fn test_spec_run2_c6_wins_infeasible() {
-        // Run 2: no combination meets all minima.
-        // C6 wins because CriticalRating 440 > C7's 400.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C6".into(), make_cached("C6", Slot::Chest, &[
             (Stat::CriticalRating, 440), (Stat::TacticalMastery, 200),
@@ -632,7 +690,6 @@ mod tests {
 
     #[test]
     fn test_c5_over_c4_same_slot() {
-        // C5 (feasible, CriticalRating=460) should beat C4 (infeasible, CriticalRating=520).
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C4".into(), make_cached("C4", Slot::Chest, &[
             (Stat::CriticalRating, 520), (Stat::TacticalMastery, 430),
@@ -683,6 +740,61 @@ mod tests {
         ]));
         let result = optimize(&resolved, &[], &["ItemA".to_string()], &[]);
         assert!(result.feasible);
+        assert!(result.failed_minima.is_empty());
+    }
+
+    #[test]
+    fn test_safe_narrowing_does_not_sacrifice_stat2_for_stat1() {
+        // Bad has higher CriticalRating but its low TacticalMitigation would
+        // prevent the TM minimum from being met if chosen.
+        // Safe narrowing must recognise this and keep Good instead.
+        //
+        //   Bad:  CR=400, TM=100
+        //   Ok:   CR=300, TM=300
+        //   Good: CR=300, TM=600
+        //
+        // Goals: CR≥300, TM≥600  →  Good must win.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("Bad".into(),  make_cached("Bad",  Slot::Head, &[
+            (Stat::CriticalRating, 400), (Stat::TacticalMitigation, 100),
+        ]));
+        resolved.insert("Ok".into(),   make_cached("Ok",   Slot::Head, &[
+            (Stat::CriticalRating, 300), (Stat::TacticalMitigation, 300),
+        ]));
+        resolved.insert("Good".into(), make_cached("Good", Slot::Head, &[
+            (Stat::CriticalRating, 300), (Stat::TacticalMitigation, 600),
+        ]));
+
+        let goals = vec![
+            goal(Stat::CriticalRating,    300),
+            goal(Stat::TacticalMitigation, 600),
+        ];
+
+        let winner = single_slot_result(
+            &resolved, &["Bad", "Ok", "Good"], goals, Slot::Head,
+        );
+        assert_eq!(winner, "Good", "Expected Good; got {}", winner);
+    }
+
+    #[test]
+    fn test_safe_narrowing_feasibility_flag_correct() {
+        // Companion to the above: result must be reported as feasible,
+        // not as infeasible with a spurious "all minima met" message.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("Bad".into(),  make_cached("Bad",  Slot::Head, &[
+            (Stat::CriticalRating, 400), (Stat::TacticalMitigation, 100),
+        ]));
+        resolved.insert("Good".into(), make_cached("Good", Slot::Head, &[
+            (Stat::CriticalRating, 300), (Stat::TacticalMitigation, 600),
+        ]));
+
+        let goals = vec![
+            goal(Stat::CriticalRating,    300),
+            goal(Stat::TacticalMitigation, 600),
+        ];
+
+        let result = optimize(&resolved, &[], &["Bad".to_string(), "Good".to_string()], &goals);
+        assert!(result.feasible, "Result should be feasible");
         assert!(result.failed_minima.is_empty());
     }
 }
