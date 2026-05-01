@@ -26,12 +26,14 @@
 //!   Candidates failing this test are dropped. If any slot becomes empty,
 //!   no feasible solution exists and we fall through to Phase 2.
 //!
-//! Phase 1 narrowing — safe lexicographic narrowing:
-//!   For each goal stat S in priority order, for each slot K, find the
+//!Phase 1 narrowing — safe lexicographic narrowing:
+//!   For each goal stat S in reverse priority order, for each slot K, find the
 //!   highest threshold T such that retaining only candidates with stat(S) >= T
 //!   still allows all minima to be met (i.e. the resulting global maximum for
-//!   every goal stat still reaches its minimum). This prevents greedily
-//!   maximising stat1 from eliminating the candidates needed to meet stat2.
+//!   every goal stat still reaches its minimum). Processing in reverse priority
+//!   order ensures lower-priority stats are maximised first, so higher-priority
+//!   stats narrow last and do not eliminate candidates needed by lower-priority
+//!   minima.
 //!
 //! Phase 2 — infeasible fallback:
 //!   Run standard greedy lexicographic narrowing on the full unfiltered pools.
@@ -221,11 +223,13 @@ pub fn optimize(
 
     // ── 6. Lexicographic narrowing ────────────────────────────────────────────
     //
-    // Feasible path: safe narrowing — never drop candidates if doing so would
-    // make any minimum unreachable.
+    // Feasible path: safe narrowing in reverse priority order — maximises
+    // lower-priority stats first, then narrows higher-priority stats last,
+    // while never making any minimum unreachable.
     //
-    // Infeasible path: standard greedy narrowing — minima cannot be met anyway,
-    // so we simply maximise stats in priority order.
+    // Infeasible path: standard greedy narrowing in forward priority order —
+    // minima cannot be met anyway, so we maximise stats in the user's stated
+    // priority order.
 
 if phase1_viable {
     for goal in goals.iter().rev() {
@@ -386,14 +390,12 @@ fn filter_compatible_pair(
     out
 }
 
-// ── Safe lexicographic narrowing (feasible path) ──────────────────────────────
+    // ── Safe lexicographic narrowing (feasible path) ──────────────────────────────
 
-/// Narrow single-slot pools on `stat` without breaking feasibility.
-///
-/// For each slot in canonical order, recomputes the global max from the
-/// current state of all pools (reflecting any narrowing already done this
-/// round), then finds the highest threshold T for `stat` that keeps all
-/// minima reachable.
+    /// Recomputes global maxima from the current pool state before each slot,
+    /// so each slot's narrowing decision reflects all previous narrowing in
+    /// this round.
+
 fn safe_narrow_single(
     single_pools: &mut HashMap<Slot, Vec<Candidate>>,
     pair_pools:   &HashMap<Slot, Vec<PairCandidate>>,
