@@ -388,19 +388,18 @@ fn filter_compatible_pair(
 
 /// Narrow single-slot pools on `stat` without breaking feasibility.
 ///
-/// For each slot, finds the highest threshold T such that retaining only
-/// candidates with stat(S) >= T still allows all minima to be met globally.
-/// Uses a snapshot of the global max taken before any slot is narrowed this
-/// round, so each slot is evaluated independently and the result is
-/// order-independent.
+/// For each slot in canonical order, recomputes the global max from the
+/// current state of all pools (reflecting any narrowing already done this
+/// round), then finds the highest threshold T for `stat` that keeps all
+/// minima reachable.
 fn safe_narrow_single(
     single_pools: &mut HashMap<Slot, Vec<Candidate>>,
     pair_pools:   &HashMap<Slot, Vec<PairCandidate>>,
     stat: &Stat,
     goals: &[StatGoal],
 ) {
-for &slot in Slot::ALL {
-    if !single_pools.contains_key(&slot) { continue; }
+    for &slot in Slot::ALL {
+        if !single_pools.contains_key(&slot) { continue; }
         // Recompute after each slot's narrowing so later slots see updated maxima.
         let single_maxima = compute_single_maxima(single_pools, goals);
         let pair_maxima   = compute_pair_maxima(pair_pools, goals);
@@ -447,8 +446,8 @@ fn safe_narrow_pair(
     stat: &Stat,
     goals: &[StatGoal],
 ) {
-for &slot in Slot::ALL {
-    if !pair_pools.contains_key(&slot) { continue; }
+    for &slot in Slot::ALL {
+        if !pair_pools.contains_key(&slot) { continue; }
         // Recompute after each slot's narrowing so later slots see updated maxima.
         let single_maxima = compute_single_maxima(single_pools, goals);
         let pair_maxima   = compute_pair_maxima(pair_pools, goals);
@@ -567,30 +566,6 @@ fn slot_display(slot: Slot) -> &'static str {
         Slot::OffHand   => "Off-hand",
         Slot::Ranged    => "Ranged",
         Slot::ClassItem => "Class Item",
-    }
-}
-
-fn slot_sort_key(slot: Slot) -> usize {
-    match slot {
-        Slot::Head      => 0,
-        Slot::Chest     => 1,
-        Slot::Legs      => 2,
-        Slot::Hands     => 3,
-        Slot::Feet      => 4,
-        Slot::Shoulders => 5,
-        Slot::Back      => 6,
-        Slot::Wrist1    => 7,
-        Slot::Wrist2    => 8,
-        Slot::Neck      => 9,
-        Slot::Finger1   => 10,
-        Slot::Finger2   => 11,
-        Slot::Ear1      => 12,
-        Slot::Ear2      => 13,
-        Slot::Pocket    => 14,
-        Slot::MainHand  => 15,
-        Slot::OffHand   => 16,
-        Slot::Ranged    => 17,
-        Slot::ClassItem => 18,
     }
 }
 
