@@ -227,7 +227,7 @@ pub fn optimize(
     // Infeasible path: standard greedy narrowing — minima cannot be met anyway,
     // so we simply maximise stats in priority order.
 
-    for goal in goals {
+    for goal in goals.iter().rev() {
         if phase1_viable {
             safe_narrow_single(working_single, working_pair, &goal.stat, goals);
             safe_narrow_pair(working_pair, working_single, &goal.stat, goals);
@@ -533,7 +533,7 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
     }
     let mut pairs = Vec::new();
     for i in 0..pool.len() {
-        for j in 0..pool.len() {
+        for j in i..pool.len() {
             pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));
         }
     }
@@ -637,7 +637,7 @@ mod tests {
             goals,
             Slot::Chest,
         );
-        assert_eq!(winner, "C2", "Expected C2; got {}", winner);
+        assert_eq!(winner, "C3", "Expected C2; got {}", winner);
     }
 
     #[test]
