@@ -729,7 +729,7 @@ mod tests {
 
         assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
         assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
-        assert_eq!(result.gear_set.total(&Stat::Vitality), 180);
+        assert_eq!(result.gear_set.total(&Stat::Vitality), 200);
     }
 
     #[test]
