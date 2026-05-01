@@ -42,7 +42,7 @@
 //! ## Paired slots (Wrist, Finger, Ear)
 //!
 //! Items for a paired slot type are combined into super-candidates whose stats
-//! are the sum of both items. All ordered pairs (including self-pairs, to
+//! are the sum of both items. All unordered pairs (including same-item pairs, to
 //! support two items with the same name) are enumerated.
 
 use std::collections::HashMap;
@@ -54,8 +54,8 @@ use crate::stat::{Stat, StatGoal};
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Maximum candidates considered per slot. Excess items are dropped with a
-/// warning. Keeps the paired-slot enumeration bounded (max 6×6 = 36 pairs).
-pub const MAX_CANDIDATES_PER_SLOT: usize = 6;
+/// warning. Keeps the paired-slot enumeration bounded (max 8×9/2 = 36 pairs).
+pub const MAX_CANDIDATES_PER_SLOT: usize = 8;
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
