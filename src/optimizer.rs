@@ -227,15 +227,17 @@ pub fn optimize(
     // Infeasible path: standard greedy narrowing — minima cannot be met anyway,
     // so we simply maximise stats in priority order.
 
+if phase1_viable {
     for goal in goals.iter().rev() {
-        if phase1_viable {
-            safe_narrow_single(working_single, working_pair, &goal.stat, goals);
-            safe_narrow_pair(working_pair, working_single, &goal.stat, goals);
-        } else {
-            narrow_single(working_single, &goal.stat);
-            narrow_pair(working_pair, &goal.stat);
-        }
+        safe_narrow_single(working_single, working_pair, &goal.stat, goals);
+        safe_narrow_pair(working_pair, working_single, &goal.stat, goals);
     }
+} else {
+    for goal in goals {
+        narrow_single(working_single, &goal.stat);
+        narrow_pair(working_pair, &goal.stat);
+    }
+}
 
     // ── 7. Assemble the final GearSet ─────────────────────────────────────────
 
