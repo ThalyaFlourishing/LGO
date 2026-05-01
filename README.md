@@ -48,9 +48,10 @@ copy target\release\lgo.exe C:\Users\<you>\bin\lgo.exe
 lgo [options] <stat:minimum> [<stat:minimum> ...]
 ```
 
-Stats are listed in **priority order**. The optimizer maximises the first
-stat, uses the second as a tiebreaker, and so on. Each stat has an optional
-minimum — the gear set is only considered valid if every minimum is met.
+Stats are listed in **priority order**. The optimizer maximises the last
+stat first, uses the second-to-last as a tiebreaker, then works backwards.
+Each stat has an optional minimum — the gear set is only considered valid
+if every minimum is met.
 
 ### Options
 
@@ -148,7 +149,7 @@ Class item, Bridle.
 
 ### Candidate limit
 
-No more than **6 candidates per slot** are considered. If your `lgo` chest
+No more than **8 candidates per slot** are considered. If your `lgo` chest
 contains more than 6 items for a single slot, only the first 6 will be
 used and a warning will be shown.
 

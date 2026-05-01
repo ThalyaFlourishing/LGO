@@ -26,7 +26,7 @@
 //!   Candidates failing this test are dropped. If any slot becomes empty,
 //!   no feasible solution exists and we fall through to Phase 2.
 //!
-//!Phase 1 narrowing — safe lexicographic narrowing:
+//! Phase 1 narrowing — safe lexicographic narrowing:
 //!   For each goal stat S in reverse priority order, for each slot K, find the
 //!   highest threshold T such that retaining only candidates with stat(S) >= T
 //!   still allows all minima to be met (i.e. the resulting global maximum for
@@ -641,7 +641,7 @@ mod tests {
             goals,
             Slot::Chest,
         );
-        assert_eq!(winner, "C3", "Expected C2; got {}", winner);
+        assert_eq!(winner, "C3", "Expected C3; got {}", winner);
     }
 
     #[test]
