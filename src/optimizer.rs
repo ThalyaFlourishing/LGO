@@ -395,7 +395,6 @@ fn filter_compatible_pair(
     /// Recomputes global maxima from the current pool state before each slot,
     /// so each slot's narrowing decision reflects all previous narrowing in
     /// this round.
-
 fn safe_narrow_single(
     single_pools: &mut HashMap<Slot, Vec<Candidate>>,
     pair_pools:   &HashMap<Slot, Vec<PairCandidate>>,
