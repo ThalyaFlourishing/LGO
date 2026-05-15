@@ -1022,7 +1022,82 @@ mod tests {
             Some("Helm"),
         );
     }
+    
+    #[test]
+    fn test_safe_narrowing_preserves_higher_priority_max_when_no_minimum() {
+        // ItemA: CR=200, TM=600   → meets TM≥600, better CR
+        // ItemB: CR=100, TM=700   → meets TM≥600, worse CR
+        //
+        // Goals (priority order): CR:0  then  TM:600
+        //
+        // Both items are feasible.  CR is priority-1; ItemA must win.
+        //
+        // Bug: safe_narrow processes TM first (reverse order).  With TM min=600,
+        // T=700 passes the feasibility check (700≥600), so ItemA is eliminated.
+        // CR then picks from {ItemB} only — result is CR=100 instead of 200.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("ItemA".into(), make_cached("ItemA", Slot::Head, &[
+            (Stat::CriticalRating, 200),
+            (Stat::TacticalMitigation, 600),
+        ]));
+        resolved.insert("ItemB".into(), make_cached("ItemB", Slot::Head, &[
+            (Stat::CriticalRating, 100),
+            (Stat::TacticalMitigation, 700),
+        ]));
 
+        let goals = vec![
+            goal(Stat::CriticalRating,     0),   // priority 1 — no floor
+            goal(Stat::TacticalMitigation, 600),  // priority 2 — floor = 600
+        ];
 
+        let winner = single_slot_result(
+            &resolved, &["ItemA", "ItemB"], goals, Slot::Head,
+        );
+        assert_eq!(winner, "ItemA",
+            "ItemA has higher CR (priority-1) and still meets TM≥600; it must win");
+    }
+
+    #[test]
+    fn test_safe_narrowing_paired_preserves_higher_priority_max_when_no_minimum() {
+        // EarA: CR=500, TM=100.   EarB: CR=100, TM=500.
+        // Pairs and combined stats:
+        //   (A,A): CR=1000, TM=200   — filtered in phase 1 (TM=200 < 600)
+        //   (A,B): CR=600,  TM=600   — feasible, best CR
+        //   (B,B): CR=200,  TM=1000  — feasible, worst CR
+        //
+        // Goals (priority order): CR:0  then  TM:600
+        //
+        // After phase-1 filtering: {(A,B), (B,B)}.
+        // Correct answer: (A,B) — CR=600 > CR=200 while both meet TM≥600.
+        //
+        // Bug: safe_narrow on TM sees T=1000 passes (1000≥600) and discards
+        // (A,B), leaving only (B,B) with CR=200.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("EarA".into(), make_cached("EarA", Slot::Ear1, &[
+            (Stat::CriticalRating, 500),
+            (Stat::TacticalMitigation, 100),
+        ]));
+        resolved.insert("EarB".into(), make_cached("EarB", Slot::Ear1, &[
+            (Stat::CriticalRating, 100),
+            (Stat::TacticalMitigation, 500),
+        ]));
+
+        let goals = vec![
+            goal(Stat::CriticalRating,     0),   // priority 1 — no floor
+            goal(Stat::TacticalMitigation, 600),  // priority 2 — floor = 600
+        ];
+
+        let result = optimize(
+            &resolved, &[], &["EarA".to_string(), "EarB".to_string()], &goals,
+        );
+
+        assert!(result.feasible,
+            "Pair (A,B) gives TM=600 ≥ 600; must be feasible");
+        assert_eq!(
+            result.gear_set.total(&Stat::CriticalRating), 600,
+            "CR should be 600 (pair A+B), not 200 (pair B+B); (A,B) must win",
+        );
+        assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 600);
+    }
 
 }
