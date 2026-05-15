@@ -643,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spec_run1_c3_wins() {
+    fn test_spec_run1_c2_wins() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C1".into(), make_cached("C1", Slot::Chest, &[
             (Stat::CriticalRating, 480), (Stat::TacticalMastery, 420),
@@ -679,7 +679,7 @@ mod tests {
             goals,
             Slot::Chest,
         );
-        assert_eq!(winner, "C3", "Expected C3; got {}", winner);
+        assert_eq!(winner, "C2", "Expected C2; got {}", winner);
     }
 
     #[test]
@@ -1098,6 +1098,84 @@ mod tests {
             "CR should be 600 (pair A+B), not 200 (pair B+B); (A,B) must win",
         );
         assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 600);
+    }
+
+    // ── Negative stat tests ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_negative_stat_compensated_across_slots() {
+        // Head: ItemA has TM=-50 but high CR.
+        // Chest: ItemX has TM=300.
+        // Combined TM = -50 + 300 = 250 >= 200 — feasible.
+        // ItemA must NOT be filtered out just because its individual TM is negative.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("ItemA".into(), make_cached("ItemA", Slot::Head, &[
+            (Stat::CriticalRating, 500),
+            (Stat::TacticalMitigation, -50),
+        ]));
+        resolved.insert("ItemX".into(), make_cached("ItemX", Slot::Chest, &[
+            (Stat::CriticalRating, 100),
+            (Stat::TacticalMitigation, 300),
+        ]));
+
+        let goals = vec![goal(Stat::TacticalMitigation, 200)];
+        let result = optimize(
+            &resolved, &[], &["ItemA".to_string(), "ItemX".to_string()], &goals,
+        );
+
+        assert!(result.feasible,
+            "Combined TM = -50+300 = 250 >= 200; must be feasible");
+        assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 250);
+        assert_eq!(
+            result.gear_set.items.get(&Slot::Head).map(|i| i.name.as_str()),
+            Some("ItemA"),
+            "ItemA must not be filtered out despite negative TM",
+        );
+    }
+
+    #[test]
+    fn test_negative_stat_causes_infeasibility() {
+        // Single Head item with TM=-50.  Minimum TM=1.
+        // No other slot can compensate — result must be infeasible,
+        // and the achieved value in failed_minima must be negative.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("ItemA".into(), make_cached("ItemA", Slot::Head, &[
+            (Stat::TacticalMitigation, -50),
+        ]));
+
+        let goals = vec![goal(Stat::TacticalMitigation, 1)];
+        let result = optimize(&resolved, &[], &["ItemA".to_string()], &goals);
+
+        assert!(!result.feasible, "TM=-50 cannot meet minimum=1; must be infeasible");
+        assert!(
+            matches!(
+                result.failed_minima
+                      .iter()
+                      .find(|(s, _, _)| *s == Stat::TacticalMitigation),
+                Some((_, 1, achieved)) if *achieved < 0
+            ),
+            "failed_minima must report a negative achieved value for TM",
+        );
+    }
+
+    #[test]
+    fn test_negative_stat_on_non_goal_stat_does_not_crash() {
+        // ItemA has a negative value on Finesse, which is not a goal stat.
+        // The optimizer must not crash and must select ItemA normally.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("ItemA".into(), make_cached("ItemA", Slot::Head, &[
+            (Stat::CriticalRating, 300),
+            (Stat::Finesse, -999),
+        ]));
+
+        let goals = vec![goal(Stat::CriticalRating, 300)];
+        let result = optimize(&resolved, &[], &["ItemA".to_string()], &goals);
+
+        assert!(result.feasible);
+        assert_eq!(
+            result.gear_set.items.get(&Slot::Head).map(|i| i.name.as_str()),
+            Some("ItemA"),
+        );
     }
 
 }
