@@ -232,9 +232,9 @@ pub fn optimize(
     // priority order.
 
 if phase1_viable {
-    for goal in goals.iter().rev() {
-        safe_narrow_single(working_single, working_pair, &goal.stat, goals);
-        safe_narrow_pair(working_pair, working_single, &goal.stat, goals);
+    for idx in (0..goals.len()).rev() {
+        safe_narrow_single(working_single, working_pair, idx, goals);
+        safe_narrow_pair(working_pair, working_single, idx, goals);
     }
 } else {
     for goal in goals {
@@ -392,15 +392,26 @@ fn filter_compatible_pair(
 
     // ── Safe lexicographic narrowing (feasible path) ──────────────────────────────
 
-    /// Recomputes global maxima from the current pool state before each slot,
-    /// so each slot's narrowing decision reflects all previous narrowing in
-    /// this round.
+/// Narrow single-slot pools on goals[goal_index].stat without breaking
+/// feasibility, and without reducing the achievable global maximum of any
+/// higher-priority stat (goals[..goal_index]).
+///
+/// For each slot, the highest threshold T is chosen such that retaining only
+/// candidates with stat >= T:
+///   (a) keeps every minimum reachable, AND
+///   (b) does not reduce the per-slot best of any higher-priority stat.
+///
+/// Recomputes global maxima after each individual slot's narrowing so that
+/// later slots in the same pass see the updated state.
 fn safe_narrow_single(
     single_pools: &mut HashMap<Slot, Vec<Candidate>>,
     pair_pools:   &HashMap<Slot, Vec<PairCandidate>>,
-    stat: &Stat,
-    goals: &[StatGoal],
+    goal_index:   usize,
+    goals:        &[StatGoal],
 ) {
+    let stat = &goals[goal_index].stat;
+    let higher_priority = &goals[..goal_index];
+
     for &slot in Slot::ALL {
         if !single_pools.contains_key(&slot) { continue; }
         // Recompute after each slot's narrowing so later slots see updated maxima.
@@ -417,13 +428,14 @@ fn safe_narrow_single(
         thresholds.sort_unstable_by(|a, b| b.cmp(a));
         thresholds.dedup();
 
-        // Find the highest threshold that keeps all minima reachable.
+        // Find the highest threshold that satisfies both checks.
         let chosen = thresholds.iter().copied().find(|&t| {
             let tentative: Vec<&Candidate> = pool.iter()
                 .filter(|c| c.stat(stat) >= t)
                 .collect();
 
-            goals.iter().all(|g| {
+            // (a) All minima remain reachable.
+            let minima_ok = goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
                 let old_best = current_slot_max.as_ref()
                     .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
@@ -432,6 +444,16 @@ fn safe_narrow_single(
                 let new_global = global_max.get(&g.stat).copied().unwrap_or(0)
                     - old_best + new_best;
                 new_global >= g.minimum
+            });
+            if !minima_ok { return false; }
+
+            // (b) Per-slot best of every higher-priority stat is preserved.
+            higher_priority.iter().all(|g| {
+                let old_best = current_slot_max.as_ref()
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
+                let new_best = tentative.iter()
+                    .map(|c| c.stat(&g.stat)).max().unwrap_or(0);
+                new_best >= old_best
             })
         });
 
@@ -441,14 +463,19 @@ fn safe_narrow_single(
     }
 }
 
-/// Narrow pair-slot pools on `stat` without breaking feasibility.
+/// Narrow pair-slot pools on goals[goal_index].stat without breaking
+/// feasibility, and without reducing the achievable global maximum of any
+/// higher-priority stat (goals[..goal_index]).
 /// Same logic as `safe_narrow_single`.
 fn safe_narrow_pair(
     pair_pools:   &mut HashMap<Slot, Vec<PairCandidate>>,
     single_pools: &HashMap<Slot, Vec<Candidate>>,
-    stat: &Stat,
-    goals: &[StatGoal],
+    goal_index:   usize,
+    goals:        &[StatGoal],
 ) {
+    let stat = &goals[goal_index].stat;
+    let higher_priority = &goals[..goal_index];
+
     for &slot in Slot::ALL {
         if !pair_pools.contains_key(&slot) { continue; }
         // Recompute after each slot's narrowing so later slots see updated maxima.
@@ -469,7 +496,8 @@ fn safe_narrow_pair(
                 .filter(|p| p.stat(stat) >= t)
                 .collect();
 
-            goals.iter().all(|g| {
+            // (a) All minima remain reachable.
+            let minima_ok = goals.iter().all(|g| {
                 if g.minimum == 0 { return true; }
                 let old_best = current_slot_max.as_ref()
                     .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
@@ -478,6 +506,16 @@ fn safe_narrow_pair(
                 let new_global = global_max.get(&g.stat).copied().unwrap_or(0)
                     - old_best + new_best;
                 new_global >= g.minimum
+            });
+            if !minima_ok { return false; }
+
+            // (b) Per-slot best of every higher-priority stat is preserved.
+            higher_priority.iter().all(|g| {
+                let old_best = current_slot_max.as_ref()
+                    .and_then(|m| m.get(&g.stat)).copied().unwrap_or(0);
+                let new_best = tentative.iter()
+                    .map(|p| p.stat(&g.stat)).max().unwrap_or(0);
+                new_best >= old_best
             })
         });
 
@@ -572,7 +610,190 @@ fn slot_display(slot: Slot) -> &'static str {
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ────────── TESTS ───────────────────────────────────────────────────────────
+
+// ── Same-item pair tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_same_item_pair_single_item_fills_both_slots() {
+    // Only one wrist item exists.  build_pairs must generate the pair (A, A),
+    // and the assembler must write it into both Wrist1 and Wrist2.
+    // The combined stat total must be 2 × the item's individual value.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("WristX".into(), make_cached("WristX", Slot::Wrist1, &[
+        (Stat::CriticalRating, 500),
+    ]));
+
+    let goals  = vec![goal(Stat::CriticalRating, 0)];
+    let result = optimize(&resolved, &[], &["WristX".to_string()], &goals);
+
+    assert!(result.gear_set.items.contains_key(&Slot::Wrist1), "Wrist1 must be filled");
+    assert!(result.gear_set.items.contains_key(&Slot::Wrist2), "Wrist2 must be filled");
+    assert_eq!(result.gear_set.items[&Slot::Wrist1].name, "WristX",
+               "Wrist1 should hold WristX");
+    assert_eq!(result.gear_set.items[&Slot::Wrist2].name, "WristX",
+               "Wrist2 should hold WristX");
+    assert_eq!(
+        result.gear_set.total(&Stat::CriticalRating), 1000,
+        "CR must be 500×2=1000 when the same item occupies both wrist slots",
+    );
+}
+
+#[test]
+fn test_same_item_pair_chosen_to_meet_tight_minimum() {
+    // RingA: CR=500.  RingB: CR=300.
+    // Pair combined CR:  (A,A)=1000,  (A,B)=800,  (B,B)=600.
+    // Minimum CR=900 — only the same-item pair (A,A) clears it.
+    // The optimizer must choose (A,A) and the result must be feasible.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
+        (Stat::CriticalRating, 500),
+    ]));
+    resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
+        (Stat::CriticalRating, 300),
+    ]));
+
+    let goals  = vec![goal(Stat::CriticalRating, 900)];
+    let result = optimize(
+        &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
+    );
+
+    assert!(result.feasible,
+            "(A,A) gives CR=1000 ≥ 900; result must be feasible");
+    assert!(result.failed_minima.is_empty());
+    assert_eq!(result.gear_set.items[&Slot::Finger1].name, "RingA",
+               "Finger1 should hold RingA");
+    assert_eq!(result.gear_set.items[&Slot::Finger2].name, "RingA",
+               "Finger2 should hold RingA");
+    assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000);
+}
+
+#[test]
+fn test_same_item_pair_infeasible_when_minimum_exceeds_best_pair() {
+    // Same two rings as above, but minimum=1001.
+    // Best possible pair is (A,A)=1000 < 1001 — no pair can meet it.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
+        (Stat::CriticalRating, 500),
+    ]));
+    resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
+        (Stat::CriticalRating, 300),
+    ]));
+
+    let goals  = vec![goal(Stat::CriticalRating, 1001)];
+    let result = optimize(
+        &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
+    );
+
+    assert!(!result.feasible,
+            "Best pair (A,A)=1000 < 1001; result must be infeasible");
+    let cr_fail = result.failed_minima
+        .iter()
+        .find(|(s, _, _)| *s == Stat::CriticalRating);
+    assert!(cr_fail.is_some(),
+            "CriticalRating must appear in failed_minima");
+    // Infeasible greedy should still pick the best available pair (A,A).
+    assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000,
+               "Infeasible result should still show the best achievable value");
+}
+
+// ── Feasibility boundary ────────────────────────────────────────────────────
+
+#[test]
+fn test_single_candidate_meets_minimum_exactly() {
+    // Stat == minimum exactly: must be feasible (no off-by-one).
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+        (Stat::TacticalMitigation, 300),
+    ]));
+
+    let goals  = vec![goal(Stat::TacticalMitigation, 300)];
+    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+
+    assert!(result.feasible, "300 ≥ 300 must be feasible");
+    assert!(result.failed_minima.is_empty());
+}
+
+#[test]
+fn test_single_candidate_one_below_minimum() {
+    // Stat is one below the minimum: must be infeasible with correct reporting.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+        (Stat::TacticalMitigation, 299),
+    ]));
+
+    let goals  = vec![goal(Stat::TacticalMitigation, 300)];
+    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+
+    assert!(!result.feasible, "299 < 300 must be infeasible");
+    assert!(
+        matches!(
+            result.failed_minima
+                  .iter()
+                  .find(|(s, _, _)| *s == Stat::TacticalMitigation),
+            Some((_, 300, 299))
+        ),
+        "failed_minima must report (TacticalMitigation, min=300, achieved=299)"
+    );
+}
+
+// ── Candidate pool truncation ───────────────────────────────────────────────
+
+#[test]
+fn test_truncation_warning_emitted_for_oversized_pool() {
+    // 9 head items — one above the limit of MAX_CANDIDATES_PER_SLOT (8).
+    // A truncation warning must be emitted; the result must still be valid.
+    // Note: items are added in order Head1…Head9.  Head9 (highest CR=90)
+    // is truncated, so Head8 (CR=80) wins — testing that the cap is
+    // enforced *and* that the warning message is correct.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    let mut names: Vec<String> = Vec::new();
+    for i in 1..=9usize {
+        let name = format!("Head{}", i);
+        resolved.insert(name.clone(), make_cached(&name, Slot::Head, &[
+            (Stat::CriticalRating, i as i64 * 10),
+        ]));
+        names.push(name);
+    }
+
+    let goals  = vec![goal(Stat::CriticalRating, 0)];
+    let result = optimize(&resolved, &[], &names, &goals);
+
+    assert!(
+        result.warnings.iter().any(|w| w.contains("9 candidates")),
+        "Expected a truncation warning mentioning '9 candidates'; got: {:?}",
+        result.warnings,
+    );
+    // The result must still be a complete, non-panicking gear set.
+    assert!(result.gear_set.items.contains_key(&Slot::Head),
+            "Head slot must be filled even after truncation");
+}
+
+// ── Placeholder / missing slot ──────────────────────────────────────────────
+
+#[test]
+fn test_missing_slot_emits_placeholder_warning() {
+    // Supply only a Head item; every other slot has no candidates.
+    // The optimizer must insert zero placeholders and emit warnings for them.
+    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+        (Stat::CriticalRating, 100),
+    ]));
+
+    let goals  = vec![goal(Stat::CriticalRating, 0)];
+    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+
+    assert!(
+        result.warnings.iter().any(|w| w.contains("no candidates found")),
+        "Expected placeholder warnings for empty slots; got: {:?}",
+        result.warnings,
+    );
+    // The real item must still win for Head.
+    assert_eq!(
+        result.gear_set.items.get(&Slot::Head).map(|i| i.name.as_str()),
+        Some("Helm"),
+    );
+}
 
 #[cfg(test)]
 mod tests {
@@ -604,7 +825,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spec_run1_c2_wins() {
+    fn test_spec_run1_c3_wins() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert("C1".into(), make_cached("C1", Slot::Chest, &[
             (Stat::CriticalRating, 480), (Stat::TacticalMastery, 420),
