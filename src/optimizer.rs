@@ -612,188 +612,6 @@ fn slot_display(slot: Slot) -> &'static str {
 
 // ────────── TESTS ───────────────────────────────────────────────────────────
 
-// ── Same-item pair tests ────────────────────────────────────────────────────
-
-#[test]
-fn test_same_item_pair_single_item_fills_both_slots() {
-    // Only one wrist item exists.  build_pairs must generate the pair (A, A),
-    // and the assembler must write it into both Wrist1 and Wrist2.
-    // The combined stat total must be 2 × the item's individual value.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("WristX".into(), make_cached("WristX", Slot::Wrist1, &[
-        (Stat::CriticalRating, 500),
-    ]));
-
-    let goals  = vec![goal(Stat::CriticalRating, 0)];
-    let result = optimize(&resolved, &[], &["WristX".to_string()], &goals);
-
-    assert!(result.gear_set.items.contains_key(&Slot::Wrist1), "Wrist1 must be filled");
-    assert!(result.gear_set.items.contains_key(&Slot::Wrist2), "Wrist2 must be filled");
-    assert_eq!(result.gear_set.items[&Slot::Wrist1].name, "WristX",
-               "Wrist1 should hold WristX");
-    assert_eq!(result.gear_set.items[&Slot::Wrist2].name, "WristX",
-               "Wrist2 should hold WristX");
-    assert_eq!(
-        result.gear_set.total(&Stat::CriticalRating), 1000,
-        "CR must be 500×2=1000 when the same item occupies both wrist slots",
-    );
-}
-
-#[test]
-fn test_same_item_pair_chosen_to_meet_tight_minimum() {
-    // RingA: CR=500.  RingB: CR=300.
-    // Pair combined CR:  (A,A)=1000,  (A,B)=800,  (B,B)=600.
-    // Minimum CR=900 — only the same-item pair (A,A) clears it.
-    // The optimizer must choose (A,A) and the result must be feasible.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
-        (Stat::CriticalRating, 500),
-    ]));
-    resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
-        (Stat::CriticalRating, 300),
-    ]));
-
-    let goals  = vec![goal(Stat::CriticalRating, 900)];
-    let result = optimize(
-        &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
-    );
-
-    assert!(result.feasible,
-            "(A,A) gives CR=1000 ≥ 900; result must be feasible");
-    assert!(result.failed_minima.is_empty());
-    assert_eq!(result.gear_set.items[&Slot::Finger1].name, "RingA",
-               "Finger1 should hold RingA");
-    assert_eq!(result.gear_set.items[&Slot::Finger2].name, "RingA",
-               "Finger2 should hold RingA");
-    assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000);
-}
-
-#[test]
-fn test_same_item_pair_infeasible_when_minimum_exceeds_best_pair() {
-    // Same two rings as above, but minimum=1001.
-    // Best possible pair is (A,A)=1000 < 1001 — no pair can meet it.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
-        (Stat::CriticalRating, 500),
-    ]));
-    resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
-        (Stat::CriticalRating, 300),
-    ]));
-
-    let goals  = vec![goal(Stat::CriticalRating, 1001)];
-    let result = optimize(
-        &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
-    );
-
-    assert!(!result.feasible,
-            "Best pair (A,A)=1000 < 1001; result must be infeasible");
-    let cr_fail = result.failed_minima
-        .iter()
-        .find(|(s, _, _)| *s == Stat::CriticalRating);
-    assert!(cr_fail.is_some(),
-            "CriticalRating must appear in failed_minima");
-    // Infeasible greedy should still pick the best available pair (A,A).
-    assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000,
-               "Infeasible result should still show the best achievable value");
-}
-
-// ── Feasibility boundary ────────────────────────────────────────────────────
-
-#[test]
-fn test_single_candidate_meets_minimum_exactly() {
-    // Stat == minimum exactly: must be feasible (no off-by-one).
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
-        (Stat::TacticalMitigation, 300),
-    ]));
-
-    let goals  = vec![goal(Stat::TacticalMitigation, 300)];
-    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
-
-    assert!(result.feasible, "300 ≥ 300 must be feasible");
-    assert!(result.failed_minima.is_empty());
-}
-
-#[test]
-fn test_single_candidate_one_below_minimum() {
-    // Stat is one below the minimum: must be infeasible with correct reporting.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
-        (Stat::TacticalMitigation, 299),
-    ]));
-
-    let goals  = vec![goal(Stat::TacticalMitigation, 300)];
-    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
-
-    assert!(!result.feasible, "299 < 300 must be infeasible");
-    assert!(
-        matches!(
-            result.failed_minima
-                  .iter()
-                  .find(|(s, _, _)| *s == Stat::TacticalMitigation),
-            Some((_, 300, 299))
-        ),
-        "failed_minima must report (TacticalMitigation, min=300, achieved=299)"
-    );
-}
-
-// ── Candidate pool truncation ───────────────────────────────────────────────
-
-#[test]
-fn test_truncation_warning_emitted_for_oversized_pool() {
-    // 9 head items — one above the limit of MAX_CANDIDATES_PER_SLOT (8).
-    // A truncation warning must be emitted; the result must still be valid.
-    // Note: items are added in order Head1…Head9.  Head9 (highest CR=90)
-    // is truncated, so Head8 (CR=80) wins — testing that the cap is
-    // enforced *and* that the warning message is correct.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    let mut names: Vec<String> = Vec::new();
-    for i in 1..=9usize {
-        let name = format!("Head{}", i);
-        resolved.insert(name.clone(), make_cached(&name, Slot::Head, &[
-            (Stat::CriticalRating, i as i64 * 10),
-        ]));
-        names.push(name);
-    }
-
-    let goals  = vec![goal(Stat::CriticalRating, 0)];
-    let result = optimize(&resolved, &[], &names, &goals);
-
-    assert!(
-        result.warnings.iter().any(|w| w.contains("9 candidates")),
-        "Expected a truncation warning mentioning '9 candidates'; got: {:?}",
-        result.warnings,
-    );
-    // The result must still be a complete, non-panicking gear set.
-    assert!(result.gear_set.items.contains_key(&Slot::Head),
-            "Head slot must be filled even after truncation");
-}
-
-// ── Placeholder / missing slot ──────────────────────────────────────────────
-
-#[test]
-fn test_missing_slot_emits_placeholder_warning() {
-    // Supply only a Head item; every other slot has no candidates.
-    // The optimizer must insert zero placeholders and emit warnings for them.
-    let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-    resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
-        (Stat::CriticalRating, 100),
-    ]));
-
-    let goals  = vec![goal(Stat::CriticalRating, 0)];
-    let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
-
-    assert!(
-        result.warnings.iter().any(|w| w.contains("no candidates found")),
-        "Expected placeholder warnings for empty slots; got: {:?}",
-        result.warnings,
-    );
-    // The real item must still win for Head.
-    assert_eq!(
-        result.gear_set.items.get(&Slot::Head).map(|i| i.name.as_str()),
-        Some("Helm"),
-    );
-}
 
 #[cfg(test)]
 mod tests {
@@ -1021,4 +839,190 @@ mod tests {
         assert!(result.feasible, "Result should be feasible");
         assert!(result.failed_minima.is_empty());
     }
+
+    // ── Same-item pair tests ────────────────────────────────────────────────────
+    
+    #[test]
+    fn test_same_item_pair_single_item_fills_both_slots() {
+        // Only one wrist item exists.  build_pairs must generate the pair (A, A),
+        // and the assembler must write it into both Wrist1 and Wrist2.
+        // The combined stat total must be 2 × the item's individual value.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("WristX".into(), make_cached("WristX", Slot::Wrist1, &[
+            (Stat::CriticalRating, 500),
+        ]));
+    
+        let goals  = vec![goal(Stat::CriticalRating, 0)];
+        let result = optimize(&resolved, &[], &["WristX".to_string()], &goals);
+    
+        assert!(result.gear_set.items.contains_key(&Slot::Wrist1), "Wrist1 must be filled");
+        assert!(result.gear_set.items.contains_key(&Slot::Wrist2), "Wrist2 must be filled");
+        assert_eq!(result.gear_set.items[&Slot::Wrist1].name, "WristX",
+                   "Wrist1 should hold WristX");
+        assert_eq!(result.gear_set.items[&Slot::Wrist2].name, "WristX",
+                   "Wrist2 should hold WristX");
+        assert_eq!(
+            result.gear_set.total(&Stat::CriticalRating), 1000,
+            "CR must be 500×2=1000 when the same item occupies both wrist slots",
+        );
+    }
+    
+    #[test]
+    fn test_same_item_pair_chosen_to_meet_tight_minimum() {
+        // RingA: CR=500.  RingB: CR=300.
+        // Pair combined CR:  (A,A)=1000,  (A,B)=800,  (B,B)=600.
+        // Minimum CR=900 — only the same-item pair (A,A) clears it.
+        // The optimizer must choose (A,A) and the result must be feasible.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
+            (Stat::CriticalRating, 500),
+        ]));
+        resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
+            (Stat::CriticalRating, 300),
+        ]));
+    
+        let goals  = vec![goal(Stat::CriticalRating, 900)];
+        let result = optimize(
+            &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
+        );
+    
+        assert!(result.feasible,
+                "(A,A) gives CR=1000 ≥ 900; result must be feasible");
+        assert!(result.failed_minima.is_empty());
+        assert_eq!(result.gear_set.items[&Slot::Finger1].name, "RingA",
+                   "Finger1 should hold RingA");
+        assert_eq!(result.gear_set.items[&Slot::Finger2].name, "RingA",
+                   "Finger2 should hold RingA");
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000);
+    }
+    
+    #[test]
+    fn test_same_item_pair_infeasible_when_minimum_exceeds_best_pair() {
+        // Same two rings as above, but minimum=1001.
+        // Best possible pair is (A,A)=1000 < 1001 — no pair can meet it.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("RingA".into(), make_cached("RingA", Slot::Finger1, &[
+            (Stat::CriticalRating, 500),
+        ]));
+        resolved.insert("RingB".into(), make_cached("RingB", Slot::Finger1, &[
+            (Stat::CriticalRating, 300),
+        ]));
+    
+        let goals  = vec![goal(Stat::CriticalRating, 1001)];
+        let result = optimize(
+            &resolved, &[], &["RingA".to_string(), "RingB".to_string()], &goals,
+        );
+    
+        assert!(!result.feasible,
+                "Best pair (A,A)=1000 < 1001; result must be infeasible");
+        let cr_fail = result.failed_minima
+            .iter()
+            .find(|(s, _, _)| *s == Stat::CriticalRating);
+        assert!(cr_fail.is_some(),
+                "CriticalRating must appear in failed_minima");
+        // Infeasible greedy should still pick the best available pair (A,A).
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000,
+                   "Infeasible result should still show the best achievable value");
+    }
+    
+    // ── Feasibility boundary ────────────────────────────────────────────────────
+    
+    #[test]
+    fn test_single_candidate_meets_minimum_exactly() {
+        // Stat == minimum exactly: must be feasible (no off-by-one).
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+            (Stat::TacticalMitigation, 300),
+        ]));
+    
+        let goals  = vec![goal(Stat::TacticalMitigation, 300)];
+        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+    
+        assert!(result.feasible, "300 ≥ 300 must be feasible");
+        assert!(result.failed_minima.is_empty());
+    }
+    
+    #[test]
+    fn test_single_candidate_one_below_minimum() {
+        // Stat is one below the minimum: must be infeasible with correct reporting.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+            (Stat::TacticalMitigation, 299),
+        ]));
+    
+        let goals  = vec![goal(Stat::TacticalMitigation, 300)];
+        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+    
+        assert!(!result.feasible, "299 < 300 must be infeasible");
+        assert!(
+            matches!(
+                result.failed_minima
+                      .iter()
+                      .find(|(s, _, _)| *s == Stat::TacticalMitigation),
+                Some((_, 300, 299))
+            ),
+            "failed_minima must report (TacticalMitigation, min=300, achieved=299)"
+        );
+    }
+    
+    // ── Candidate pool truncation ───────────────────────────────────────────────
+    
+    #[test]
+    fn test_truncation_warning_emitted_for_oversized_pool() {
+        // 9 head items — one above the limit of MAX_CANDIDATES_PER_SLOT (8).
+        // A truncation warning must be emitted; the result must still be valid.
+        // Note: items are added in order Head1…Head9.  Head9 (highest CR=90)
+        // is truncated, so Head8 (CR=80) wins — testing that the cap is
+        // enforced *and* that the warning message is correct.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=9usize {
+            let name = format!("Head{}", i);
+            resolved.insert(name.clone(), make_cached(&name, Slot::Head, &[
+                (Stat::CriticalRating, i as i64 * 10),
+            ]));
+            names.push(name);
+        }
+    
+        let goals  = vec![goal(Stat::CriticalRating, 0)];
+        let result = optimize(&resolved, &[], &names, &goals);
+    
+        assert!(
+            result.warnings.iter().any(|w| w.contains("9 candidates")),
+            "Expected a truncation warning mentioning '9 candidates'; got: {:?}",
+            result.warnings,
+        );
+        // The result must still be a complete, non-panicking gear set.
+        assert!(result.gear_set.items.contains_key(&Slot::Head),
+                "Head slot must be filled even after truncation");
+    }
+    
+    // ── Placeholder / missing slot ──────────────────────────────────────────────
+    
+    #[test]
+    fn test_missing_slot_emits_placeholder_warning() {
+        // Supply only a Head item; every other slot has no candidates.
+        // The optimizer must insert zero placeholders and emit warnings for them.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[
+            (Stat::CriticalRating, 100),
+        ]));
+    
+        let goals  = vec![goal(Stat::CriticalRating, 0)];
+        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+    
+        assert!(
+            result.warnings.iter().any(|w| w.contains("no candidates found")),
+            "Expected placeholder warnings for empty slots; got: {:?}",
+            result.warnings,
+        );
+        // The real item must still win for Head.
+        assert_eq!(
+            result.gear_set.items.get(&Slot::Head).map(|i| i.name.as_str()),
+            Some("Helm"),
+        );
+    }
+
+
+
 }
