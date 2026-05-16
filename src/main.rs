@@ -32,7 +32,11 @@ use stat::StatGoal;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         print_usage();
         process::exit(0);
     }
@@ -69,7 +73,8 @@ fn main() {
         }
     };
 
-    let char_dir = plugindata_path.parent()
+    let char_dir = plugindata_path
+        .parent()
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
 
@@ -79,36 +84,37 @@ fn main() {
     if cli.write_stats {
         let new_items = resolve_to_cached_items(&export, &char_dir, &cli);
         let timestamp = gearstats::now_timestamp();
-        let out_path  = gearstats::stats_file_path(&char_dir, &character, &timestamp);
+        let out_path = gearstats::stats_file_path(&char_dir, &character, &timestamp);
 
         // Try to merge with the most recent existing stats file.
-        let (final_items, maybe_edits) =
-            if !cli.forget_edits {
-                if let Some(old_path) = gearstats::find_latest_stats_file(&char_dir, &character) {
-                    eprintln!("[lgo] Found existing stats file — merging to preserve hand-edits.");
-                    eprintln!("[lgo] Existing file: {}", old_path.display());
-                    match merge::read_merge_context(&old_path) {
-                        Ok(ctx) => {
-                            let (merged, edits) = merge::merge_stats(new_items, &ctx);
-                            (merged, Some(edits))
-                        }
-                        Err(e) => {
-                            eprintln!("[lgo] Warning: could not read existing stats file \
-                                       for merge ({}); generating fresh file.", e);
-                            (new_items, None)
-                        }
+        let (final_items, maybe_edits) = if !cli.forget_edits {
+            if let Some(old_path) = gearstats::find_latest_stats_file(&char_dir, &character) {
+                eprintln!("[lgo] Found existing stats file — merging to preserve hand-edits.");
+                eprintln!("[lgo] Existing file: {}", old_path.display());
+                match merge::read_merge_context(&old_path) {
+                    Ok(ctx) => {
+                        let (merged, edits) = merge::merge_stats(new_items, &ctx);
+                        (merged, Some(edits))
                     }
-                } else {
-                    (new_items, None)
+                    Err(e) => {
+                        eprintln!(
+                            "[lgo] Warning: could not read existing stats file \
+                                       for merge ({}); generating fresh file.",
+                            e
+                        );
+                        (new_items, None)
+                    }
                 }
             } else {
-                eprintln!("[lgo] --forget-edits: generating fresh file, ignoring hand-edits.");
                 (new_items, None)
-            };
+            }
+        } else {
+            eprintln!("[lgo] --forget-edits: generating fresh file, ignoring hand-edits.");
+            (new_items, None)
+        };
 
-        match gearstats::write_stats_file(
-            &final_items, &out_path, &character, maybe_edits.as_ref()
-        ) {
+        match gearstats::write_stats_file(&final_items, &out_path, &character, maybe_edits.as_ref())
+        {
             Ok(()) => {
                 println!("[lgo] Gear stats file written: {}", out_path.display());
                 println!("[lgo] Edit it as needed, then run: lgo <stat:minimum> ...");
@@ -138,10 +144,7 @@ fn main() {
     if let Some(ref tf_name) = cli.test_stats_file {
         let tf = char_dir.join("lgo").join("test data").join(tf_name);
         if !tf.exists() {
-            eprintln!(
-                "Error: test stats file not found: {}",
-                tf.display()
-            );
+            eprintln!("Error: test stats file not found: {}", tf.display());
             process::exit(1);
         }
     }
@@ -154,7 +157,9 @@ fn main() {
         if let Some(ref p) = maybe_stats_file {
             eprintln!(
                 "TEST MODE: using {}. Results are based on explicit test file, not latest export.",
-                p.file_name().and_then(|n| n.to_str()).unwrap_or("(unknown)")
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("(unknown)")
             );
         }
     }
@@ -162,7 +167,10 @@ fn main() {
     let resolved: std::collections::HashMap<String, cache::CachedItem> =
         if let Some(ref sf_path) = maybe_stats_file {
             match gearstats::read_stats_file(sf_path) {
-                Ok(items) => items.into_iter().map(|i| (format!("{}::{}", i.slot, i.name), i)).collect(),
+                Ok(items) => items
+                    .into_iter()
+                    .map(|i| (format!("{}::{}", i.slot, i.name), i))
+                    .collect(),
                 Err(e) => {
                     eprintln!("Error reading gear stats file: {}", e);
                     process::exit(1);
@@ -188,12 +196,7 @@ fn main() {
         };
 
     // Run the optimizer.
-    let result = optimizer::optimize(
-        &resolved,
-        &equipped_names,
-        &candidate_names,
-        &cli.goals,
-    );
+    let result = optimizer::optimize(&resolved, &equipped_names, &candidate_names, &cli.goals);
 
     // Choose the file label shown in the report: use the stats TOML when one is
     // in use (the normal optimizer path).  When no stats file was found the
@@ -214,12 +217,7 @@ fn main() {
         .unwrap_or_else(|| plugindata_path.display().to_string());
 
     // Print the report.
-    report::print_report(
-        &result,
-        &cli.goals,
-        &character,
-        &report_input,
-    );
+    report::print_report(&result, &cli.goals, &character, &report_input);
 
     // Exit with a non-zero code if infeasible, so shell scripts can detect it.
     // if !result.feasible {
@@ -233,16 +231,17 @@ fn main() {
 /// in slot order: equipped items first (one per slot, preserving duplicates),
 /// then candidates (deduped by name).
 fn resolve_to_cached_items(
-    export:   &plugindata::PluginExport,
+    export: &plugindata::PluginExport,
     char_dir: &Path,
-    cli:      &Cli,
+    cli: &Cli,
 ) -> Vec<cache::CachedItem> {
     // Load the cache.
-    let cache_path = cli.cache_path
+    let cache_path = cli
+        .cache_path
         .clone()
         .unwrap_or_else(|| cache::default_cache_path(Some(char_dir)));
     let mut item_cache = match Cache::load(&cache_path) {
-        Ok(c)  => c,
+        Ok(c) => c,
         Err(e) => {
             eprintln!("Warning: could not load cache ({}); starting empty.", e);
             Cache::empty(&cache_path)
@@ -250,11 +249,10 @@ fn resolve_to_cached_items(
     };
 
     // Load the offline item database.
-    let item_db = db::load_item_db(Path::new("data/lgo_items.json"))
-        .unwrap_or_else(|e| {
-            eprintln!("[lgo] Warning: could not load item db: {}", e);
-            None
-        });
+    let item_db = db::load_item_db(Path::new("data/lgo_items.json")).unwrap_or_else(|e| {
+        eprintln!("[lgo] Warning: could not load item db: {}", e);
+        None
+    });
 
     // Resolve unique names via db/wiki/cache.
     let mut unique_names: Vec<String> = Vec::new();
@@ -278,16 +276,20 @@ fn resolve_to_cached_items(
     for partial in &export.equipped {
         let slot = match partial.slot {
             Some(s) => s,
-            None    => continue,
+            None => continue,
         };
-        let stats = name_map.get(&partial.name)
+        let stats = name_map
+            .get(&partial.name)
             .map(|ci| ci.stats.clone())
             .unwrap_or_else(|| {
-                eprintln!("[lgo] WARN: '{}' has no stats — manual entry required.", partial.name);
+                eprintln!(
+                    "[lgo] WARN: '{}' has no stats — manual entry required.",
+                    partial.name
+                );
                 std::collections::HashMap::new()
             });
         items.push(cache::CachedItem {
-            name:  partial.name.clone(),
+            name: partial.name.clone(),
             slot,
             stats,
         });
@@ -298,11 +300,16 @@ fn resolve_to_cached_items(
         export.equipped.iter().map(|i| &i.name).collect();
 
     for partial in &export.candidates {
-        if equipped_names.contains(&partial.name) { continue; }
+        if equipped_names.contains(&partial.name) {
+            continue;
+        }
         if let Some(ci) = name_map.get(&partial.name) {
             items.push(ci.clone());
         } else {
-            eprintln!("[lgo] WARN: '{}' could not be resolved — skipped.", partial.name);
+            eprintln!(
+                "[lgo] WARN: '{}' could not be resolved — skipped.",
+                partial.name
+            );
         }
     }
 
@@ -324,49 +331,46 @@ fn stats_file_to_use(cli: &Cli, char_dir: &Path, character: &str) -> Option<Path
 // -- CLI parsing ---------------------------------------------------------------
 
 struct Cli {
-    character:       Option<String>,
-    cache_path:      Option<PathBuf>,
-    file:            Option<PathBuf>,
-    stats_file:      Option<PathBuf>,
+    character: Option<String>,
+    cache_path: Option<PathBuf>,
+    file: Option<PathBuf>,
+    stats_file: Option<PathBuf>,
     test_stats_file: Option<PathBuf>,
-    write_stats:     bool,
-    forget_edits:    bool,
-    goals:           Vec<StatGoal>,
+    write_stats: bool,
+    forget_edits: bool,
+    goals: Vec<StatGoal>,
 }
 
 fn parse_args(args: &[String]) -> Result<Cli, String> {
-    let mut character       = None;
-    let mut cache_path      = None;
-    let mut file            = None;
-    let mut stats_file      = None;
+    let mut character = None;
+    let mut cache_path = None;
+    let mut file = None;
+    let mut stats_file = None;
     let mut test_stats_file = None;
-    let mut write_stats     = false;
-    let mut forget_edits    = false;
-    let mut goals           = Vec::new();
+    let mut write_stats = false;
+    let mut forget_edits = false;
+    let mut goals = Vec::new();
     let mut i = 0;
 
     while i < args.len() {
         match args[i].as_str() {
             "--character" | "-c" => {
                 i += 1;
-                character = Some(args.get(i)
-                    .ok_or("--character requires a value")?
-                    .clone());
+                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
             }
             "--cache" => {
                 i += 1;
-                cache_path = Some(PathBuf::from(args.get(i)
-                    .ok_or("--cache requires a path")?));
+                cache_path = Some(PathBuf::from(args.get(i).ok_or("--cache requires a path")?));
             }
             "--file" | "-f" => {
                 i += 1;
-                file = Some(PathBuf::from(args.get(i)
-                    .ok_or("--file requires a path")?));
+                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
             }
             "--stats-file" | "-S" => {
                 i += 1;
-                stats_file = Some(PathBuf::from(args.get(i)
-                    .ok_or("--stats-file requires a path")?));
+                stats_file = Some(PathBuf::from(
+                    args.get(i).ok_or("--stats-file requires a path")?,
+                ));
             }
             "--test" => {
                 // Optional filename argument: consume the next token only if it
@@ -392,7 +396,8 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
                 return Err(format!("Unknown option: '{}'", arg));
             }
             arg => {
-                let goal: StatGoal = arg.parse()
+                let goal: StatGoal = arg
+                    .parse()
                     .map_err(|e| format!("Invalid stat goal '{}': {}", arg, e))?;
                 goals.push(goal);
             }
@@ -400,7 +405,16 @@ fn parse_args(args: &[String]) -> Result<Cli, String> {
         i += 1;
     }
 
-    Ok(Cli { character, cache_path, file, stats_file, test_stats_file, write_stats, forget_edits, goals })
+    Ok(Cli {
+        character,
+        cache_path,
+        file,
+        stats_file,
+        test_stats_file,
+        write_stats,
+        forget_edits,
+        goals,
+    })
 }
 
 // -- File discovery ------------------------------------------------------------
@@ -410,24 +424,26 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
         if !path.exists() {
             return Err(format!("File not found: {}", path.display()));
         }
-        let stem = path.file_stem()
+        let stem = path
+            .file_stem()
             .and_then(|s| s.to_str())
             .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
-        let character = stem.strip_prefix("lgo_export_")
+        let character = stem
+            .strip_prefix("lgo_export_")
             .and_then(|s| s.rsplitn(2, '_').nth(1))
-            .ok_or_else(|| format!(
-                "Filename '{}' does not match expected pattern \
+            .ok_or_else(|| {
+                format!(
+                    "Filename '{}' does not match expected pattern \
                  lgo_export_{{character}}_{{timestamp}}",
-                stem
-            ))?
+                    stem
+                )
+            })?
             .to_string();
         return Ok((path.clone(), character));
     }
 
     let docs = documents_dir()?;
-    let plugin_root = docs
-        .join("The Lord of the Rings Online")
-        .join("PluginData");
+    let plugin_root = docs.join("The Lord of the Rings Online").join("PluginData");
 
     if !plugin_root.exists() {
         return Err(format!(
@@ -438,7 +454,7 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
 
     let character = match &cli.character {
         Some(c) => c.clone(),
-        None    => discover_character(&plugin_root)?,
+        None => discover_character(&plugin_root)?,
     };
 
     let char_dir = plugin_root.join(&character).join("AllServers");
@@ -457,13 +473,8 @@ fn resolve_plugindata(cli: &Cli) -> Result<(PathBuf, String), String> {
 
 fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
     let lgo_dir = char_dir.join("lgo");
-    std::fs::create_dir_all(&lgo_dir).map_err(|e| {
-        format!(
-            "Cannot create lgo directory {}: {}",
-            lgo_dir.display(),
-            e
-        )
-    })?;
+    std::fs::create_dir_all(&lgo_dir)
+        .map_err(|e| format!("Cannot create lgo directory {}: {}", lgo_dir.display(), e))?;
     let test_data_dir = lgo_dir.join("test data");
     std::fs::create_dir_all(&test_data_dir).map_err(|e| {
         format!(
@@ -512,9 +523,8 @@ fn discover_character(plugin_root: &Path) -> Result<String, String> {
         0 => Err("No character directories found in PluginData.".to_string()),
         1 => Ok(dirs.into_iter().next().unwrap()),
         _ => {
-            let mut msg = String::from(
-                "Multiple characters found. Specify one with --character:\n"
-            );
+            let mut msg =
+                String::from("Multiple characters found. Specify one with --character:\n");
             for d in &dirs {
                 msg.push_str(&format!("  {}\n", d));
             }
@@ -536,15 +546,14 @@ fn documents_dir() -> Result<PathBuf, String> {
             return Ok(docs);
         }
     }
-    std::env::current_dir()
-        .map_err(|e| format!("Cannot determine working directory: {}", e))
+    std::env::current_dir().map_err(|e| format!("Cannot determine working directory: {}", e))
 }
 
 // -- Item resolution -----------------------------------------------------------
 
 fn resolve_items(
-    names:      &[String],
-    item_db:    &Option<std::collections::HashMap<String, cache::CachedItem>>,
+    names: &[String],
+    item_db: &Option<std::collections::HashMap<String, cache::CachedItem>>,
     item_cache: &mut cache::Cache,
 ) -> std::collections::HashMap<String, cache::CachedItem> {
     let mut resolved: std::collections::HashMap<String, cache::CachedItem> =

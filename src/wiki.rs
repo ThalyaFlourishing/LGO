@@ -63,7 +63,10 @@ fn fetch_item(name: &str) -> Result<CachedItem, String> {
     eprintln!("[wiki] URL: {}", url);
 
     let response = ureq::get(&url)
-        .set("User-Agent", "lgo-optimizer/1.0 (github.com/ThalyaFlourishing/LGO)")
+        .set(
+            "User-Agent",
+            "lgo-optimizer/1.0 (github.com/ThalyaFlourishing/LGO)",
+        )
         .call()
         .map_err(|e| format!("HTTP error for '{}': {}", name, e))?;
 
@@ -71,17 +74,24 @@ fn fetch_item(name: &str) -> Result<CachedItem, String> {
         .into_string()
         .map_err(|e| format!("Failed to read response body for '{}': {}", name, e))?;
 
-    eprintln!("[wiki] Response (first 300 chars): {}", &body[..body.len().min(300)]);
+    eprintln!(
+        "[wiki] Response (first 300 chars): {}",
+        &body[..body.len().min(300)]
+    );
 
     parse_wiki_response(name, &body)
 }
 
 fn parse_wiki_response(name: &str, json: &str) -> Result<CachedItem, String> {
-    let v: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("Invalid JSON for '{}': {}", name, e))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("Invalid JSON for '{}': {}", name, e))?;
 
     // Check for API-level error.
-    if let Some(info) = v.get("error").and_then(|e| e.get("info")).and_then(|i| i.as_str()) {
+    if let Some(info) = v
+        .get("error")
+        .and_then(|e| e.get("info"))
+        .and_then(|i| i.as_str())
+    {
         return Err(format!("Wiki API error: {}", info));
     }
 
@@ -110,11 +120,16 @@ fn parse_wiki_response(name: &str, json: &str) -> Result<CachedItem, String> {
     if let Some(attrib) = template_field(&template, "attrib") {
         for fragment in attrib.split("<br>") {
             let fragment = fragment.trim();
-            if fragment.is_empty() { continue; }
+            if fragment.is_empty() {
+                continue;
+            }
             if let Some((stat, value)) = parse_attrib_fragment(fragment) {
                 *stats.entry(stat).or_insert(0) += value;
             } else {
-                eprintln!("[wiki] WARN: Could not parse attrib fragment '{}' for '{}'", fragment, name);
+                eprintln!(
+                    "[wiki] WARN: Could not parse attrib fragment '{}' for '{}'",
+                    fragment, name
+                );
             }
         }
     }
@@ -177,7 +192,9 @@ fn template_field(template: &str, field: &str) -> Option<String> {
 
     for line in template.lines() {
         let line_trimmed = line.trim();
-        if !line_trimmed.starts_with('|') { continue; }
+        if !line_trimmed.starts_with('|') {
+            continue;
+        }
         let rest = line_trimmed[1..].trim_start();
         let eq_pos = rest.find('=')?;
         let key = rest[..eq_pos].trim().to_lowercase();
@@ -196,11 +213,17 @@ fn template_field(template: &str, field: &str) -> Option<String> {
 fn parse_attrib_fragment(s: &str) -> Option<(Stat, i64)> {
     let s = s.trim();
     let sign: i64 = if s.starts_with('-') { -1 } else { 1 };
-    let s = s.trim_start_matches('+').trim_start_matches('-').trim_start();
+    let s = s
+        .trim_start_matches('+')
+        .trim_start_matches('-')
+        .trim_start();
 
-    let num_end = s.find(|c: char| !c.is_ascii_digit() && c != ',')
+    let num_end = s
+        .find(|c: char| !c.is_ascii_digit() && c != ',')
         .unwrap_or(s.len());
-    if num_end == 0 { return None; }
+    if num_end == 0 {
+        return None;
+    }
 
     let num_str = s[..num_end].replace(',', "");
     let value: i64 = num_str.parse().ok()?;
@@ -214,34 +237,30 @@ fn parse_attrib_fragment(s: &str) -> Option<(Stat, i64)> {
 /// Map the human-readable stat name from the wiki to our Stat enum.
 fn parse_wiki_stat_name(s: &str) -> Option<Stat> {
     match s.to_lowercase().replace([' ', '-'], "").as_str() {
-        "vitality"                                  => Some(Stat::Vitality),
-        "will"                                      => Some(Stat::Will),
-        "might"                                     => Some(Stat::Might),
-        "agility"                                   => Some(Stat::Agility),
-        "fate"                                      => Some(Stat::Fate),
-        "morale"                                    => Some(Stat::Morale),
-        "power"                                     => Some(Stat::Power),
-        "criticalrating" | "critrating"             => Some(Stat::CriticalRating),
-        "devastatingcriticalrating" | "devrating"   => Some(Stat::DevRating),
-        "finesserating" | "finesse"                 => Some(Stat::Finesse),
-        "tacticalmastery"                            => Some(Stat::TacticalMastery),
-        "physicalmastery"                            => Some(Stat::PhysicalMastery),
-        "offensiveoverpower"                         => Some(Stat::OffensiveOverpower),
-        "resistance"                                 => Some(Stat::Resistance),
-        "criticaldefencerating" |
-        "criticaldefense"       |
-        "critdefence"                                => Some(Stat::CriticalDefense),
-        "tacticalmitigation"                         => Some(Stat::TacticalMitigation),
-        "physicalmitigation"                         => Some(Stat::PhysicalMitigation),
-        "incominghealing"                            => Some(Stat::IncomingHealing),
-        "outgoinghealing"                            => Some(Stat::OutgoingHealing),
-        "incomingmitigations" |
-        "incomitigations"     |
-        "incmitigations"                             => Some(Stat::IncMitigations),
-        "block"                                      => Some(Stat::Block),
-        "parry"                                      => Some(Stat::Parry),
-        "evade"                                      => Some(Stat::Evade),
-        _                                            => None,
+        "vitality" => Some(Stat::Vitality),
+        "will" => Some(Stat::Will),
+        "might" => Some(Stat::Might),
+        "agility" => Some(Stat::Agility),
+        "fate" => Some(Stat::Fate),
+        "morale" => Some(Stat::Morale),
+        "power" => Some(Stat::Power),
+        "criticalrating" | "critrating" => Some(Stat::CriticalRating),
+        "devastatingcriticalrating" | "devrating" => Some(Stat::DevRating),
+        "finesserating" | "finesse" => Some(Stat::Finesse),
+        "tacticalmastery" => Some(Stat::TacticalMastery),
+        "physicalmastery" => Some(Stat::PhysicalMastery),
+        "offensiveoverpower" => Some(Stat::OffensiveOverpower),
+        "resistance" => Some(Stat::Resistance),
+        "criticaldefencerating" | "criticaldefense" | "critdefence" => Some(Stat::CriticalDefense),
+        "tacticalmitigation" => Some(Stat::TacticalMitigation),
+        "physicalmitigation" => Some(Stat::PhysicalMitigation),
+        "incominghealing" => Some(Stat::IncomingHealing),
+        "outgoinghealing" => Some(Stat::OutgoingHealing),
+        "incomingmitigations" | "incomitigations" | "incmitigations" => Some(Stat::IncMitigations),
+        "block" => Some(Stat::Block),
+        "parry" => Some(Stat::Parry),
+        "evade" => Some(Stat::Evade),
+        _ => None,
     }
 }
 
@@ -250,21 +269,21 @@ fn parse_wiki_stat_name(s: &str) -> Option<Stat> {
 /// Map the wiki slot string to our Slot enum.
 fn parse_slot(s: &str) -> Option<Slot> {
     match s.trim().to_lowercase().as_str() {
-        "head"                          => Some(Slot::Head),
-        "chest"                         => Some(Slot::Chest),
-        "legs"                          => Some(Slot::Legs),
-        "hands" | "gloves"              => Some(Slot::Hands),
-        "feet"  | "boots"               => Some(Slot::Feet),
-        "shoulders"                     => Some(Slot::Shoulders),
-        "back"  | "cloak"               => Some(Slot::Back),
+        "head" => Some(Slot::Head),
+        "chest" => Some(Slot::Chest),
+        "legs" => Some(Slot::Legs),
+        "hands" | "gloves" => Some(Slot::Hands),
+        "feet" | "boots" => Some(Slot::Feet),
+        "shoulders" => Some(Slot::Shoulders),
+        "back" | "cloak" => Some(Slot::Back),
         "wrist" | "wrist1" | "bracelet" => Some(Slot::Wrist1),
-        "neck"  | "necklace"            => Some(Slot::Neck),
-        "finger"| "ring"                => Some(Slot::Finger1),
-        "ear"   | "earring"             => Some(Slot::Ear1),
-        "pocket"                        => Some(Slot::Pocket),
-        "off-hand" | "offhand"          => Some(Slot::OffHand),
-        "ranged"                        => Some(Slot::Ranged),
-        _                               => None,
+        "neck" | "necklace" => Some(Slot::Neck),
+        "finger" | "ring" => Some(Slot::Finger1),
+        "ear" | "earring" => Some(Slot::Ear1),
+        "pocket" => Some(Slot::Pocket),
+        "off-hand" | "offhand" => Some(Slot::OffHand),
+        "ranged" => Some(Slot::Ranged),
+        _ => None,
     }
 }
 
@@ -275,15 +294,22 @@ fn url_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9'
-            | b'-' | b'_' | b'.' | b'~' | b':' | b'/' => {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b':' | b'/' => {
                 out.push(b as char);
             }
             b' ' => out.push('+'),
             _ => {
                 out.push('%');
-                out.push(char::from_digit((b >> 4) as u32, 16).unwrap().to_ascii_uppercase());
-                out.push(char::from_digit((b & 0xf) as u32, 16).unwrap().to_ascii_uppercase());
+                out.push(
+                    char::from_digit((b >> 4) as u32, 16)
+                        .unwrap()
+                        .to_ascii_uppercase(),
+                );
+                out.push(
+                    char::from_digit((b & 0xf) as u32, 16)
+                        .unwrap()
+                        .to_ascii_uppercase(),
+                );
             }
         }
     }
@@ -319,23 +345,28 @@ mod tests {
 
     #[test]
     fn test_parse_slot() {
-        assert_eq!(parse_slot("Chest"),   Some(Slot::Chest));
-        assert_eq!(parse_slot("Head"),    Some(Slot::Head));
-        assert_eq!(parse_slot("Pocket"),  Some(Slot::Pocket));
+        assert_eq!(parse_slot("Chest"), Some(Slot::Chest));
+        assert_eq!(parse_slot("Head"), Some(Slot::Head));
+        assert_eq!(parse_slot("Pocket"), Some(Slot::Pocket));
         assert_eq!(parse_slot("Unknown"), None);
     }
 
     #[test]
     fn test_template_field() {
         let template = "{{Item Tooltip\n| slot = Chest\n| attrib = +100 Vitality\n}}";
-        assert_eq!(template_field(template, "slot"),    Some("Chest".to_string()));
-        assert_eq!(template_field(template, "attrib"),  Some("+100 Vitality".to_string()));
+        assert_eq!(template_field(template, "slot"), Some("Chest".to_string()));
+        assert_eq!(
+            template_field(template, "attrib"),
+            Some("+100 Vitality".to_string())
+        );
         assert_eq!(template_field(template, "missing"), None);
     }
 
     #[test]
     fn test_url_encode() {
-        assert_eq!(url_encode("Item:Umbari Robe of Beasts"),
-                   "Item:Umbari+Robe+of+Beasts");
+        assert_eq!(
+            url_encode("Item:Umbari Robe of Beasts"),
+            "Item:Umbari+Robe+of+Beasts"
+        );
     }
 }

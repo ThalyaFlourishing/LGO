@@ -42,9 +42,13 @@ pub struct Cache {
 impl Cache {
     /// Create a new empty cache at the given path without reading from disk.
     pub fn empty(path: &Path) -> Self {
-        Cache { path: path.to_path_buf(), items: HashMap::new(), dirty: false }
-
-    }    /// Load the cache from `path`, or start empty if the file does not exist.
+        Cache {
+            path: path.to_path_buf(),
+            items: HashMap::new(),
+            dirty: false,
+        }
+    }
+    /// Load the cache from `path`, or start empty if the file does not exist.
     pub fn load(path: &Path) -> Result<Self, String> {
         if path.exists() {
             let src = fs::read_to_string(path)
@@ -56,10 +60,21 @@ impl Cache {
                 items.len(),
                 path.display()
             );
-            Ok(Cache { path: path.to_path_buf(), items, dirty: false })
+            Ok(Cache {
+                path: path.to_path_buf(),
+                items,
+                dirty: false,
+            })
         } else {
-            eprintln!("[cache] No cache file at {} — starting empty", path.display());
-            Ok(Cache { path: path.to_path_buf(), items: HashMap::new(), dirty: false })
+            eprintln!(
+                "[cache] No cache file at {} — starting empty",
+                path.display()
+            );
+            Ok(Cache {
+                path: path.to_path_buf(),
+                items: HashMap::new(),
+                dirty: false,
+            })
         }
     }
 
@@ -86,8 +101,7 @@ impl Cache {
         let tmp = self.path.with_extension("json.tmp");
         fs::write(&tmp, &json)
             .map_err(|e| format!("Cannot write cache temp file {}: {}", tmp.display(), e))?;
-        fs::rename(&tmp, &self.path)
-            .map_err(|e| format!("Cannot rename cache file: {}", e))?;
+        fs::rename(&tmp, &self.path).map_err(|e| format!("Cannot rename cache file: {}", e))?;
         eprintln!(
             "[cache] Saved {} item(s) to {}",
             self.items.len(),

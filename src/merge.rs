@@ -65,7 +65,11 @@ pub fn read_merge_context(path: &Path) -> Result<MergeContext, String> {
     let old_items = gearstats::read_stats_file(path)?;
     let (user_edits, had_user_edits_section) = parse_user_edits(&src)?;
 
-    Ok(MergeContext { old_items, user_edits, had_user_edits_section })
+    Ok(MergeContext {
+        old_items,
+        user_edits,
+        had_user_edits_section,
+    })
 }
 
 /// Merge freshly-exported items with the user's existing hand-edited file.
@@ -73,84 +77,87 @@ pub fn read_merge_context(path: &Path) -> Result<MergeContext, String> {
 /// Prompts the user interactively for any conflicts (unless a batch option is
 /// chosen up front).  Returns the merged item list and the updated
 /// `UserEdits` set that should be written back to the new stats file.
-pub fn merge_stats(
-    new_items: Vec<CachedItem>,
-    ctx: &MergeContext,
-) -> (Vec<CachedItem>, UserEdits) {
+pub fn merge_stats(new_items: Vec<CachedItem>, ctx: &MergeContext) -> (Vec<CachedItem>, UserEdits) {
     // Build name → item lookup for the old file.
-    let old_map: HashMap<&str, &CachedItem> = ctx.old_items.iter()
-        .map(|i| (i.name.as_str(), i))
-        .collect();
+    let old_map: HashMap<&str, &CachedItem> =
+        ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
 
     // Count fields that need user input.
-    let prompt_count = count_prompts(&new_items, &old_map, &ctx.user_edits,
-                                     ctx.had_user_edits_section);
+    let prompt_count = count_prompts(
+        &new_items,
+        &old_map,
+        &ctx.user_edits,
+        ctx.had_user_edits_section,
+    );
 
     // When nothing needs prompting we still need to carry forward preserved
     // and flagged fields, but we can skip the batch-option question.
     let batch = if prompt_count == 0 {
-        BatchOption::PromptEach   // won't actually be used
+        BatchOption::PromptEach // won't actually be used
     } else {
         ask_batch_option(prompt_count)
     };
 
     let mut new_edits = UserEdits::new();
 
-    let merged = new_items.into_iter().map(|mut item| {
-        if let Some(old_item) = old_map.get(item.name.as_str()) {
-            for (stat, key) in TRACKED_STATS {
-                let new_val = item.stats.get(stat).copied().unwrap_or(0);
-                let old_val = old_item.stats.get(stat).copied().unwrap_or(0);
-                let ekey    = edit_key(&item.name, key);
+    let merged = new_items
+        .into_iter()
+        .map(|mut item| {
+            if let Some(old_item) = old_map.get(item.name.as_str()) {
+                for (stat, key) in TRACKED_STATS {
+                    let new_val = item.stats.get(stat).copied().unwrap_or(0);
+                    let old_val = old_item.stats.get(stat).copied().unwrap_or(0);
+                    let ekey = edit_key(&item.name, key);
 
-                // ── Case 1: exporter gap / Legendary Item stat ──────────────
-                // The wiki/DB could not supply this value but the user has one.
-                // Always preserve silently.
-                if new_val == 0 && old_val != 0 {
-                    item.stats.insert(*stat, old_val);
-                    new_edits.insert(ekey);
-                    continue;
-                }
-
-                // ── Case 2: no change ───────────────────────────────────────
-                if old_val == new_val {
-                    // Carry the flag forward if it was set.
-                    if ctx.user_edits.contains(&ekey) {
-                        new_edits.insert(ekey);
-                    }
-                    continue;
-                }
-
-                // ── Cases 3-5: values differ ────────────────────────────────
-                let is_flagged     = ctx.user_edits.contains(&ekey);
-                let should_prompt  = is_flagged || !ctx.had_user_edits_section;
-
-                if should_prompt {
-                    let keep = match batch {
-                        BatchOption::KeepAll   => true,
-                        BatchOption::AcceptAll => false,
-                        BatchOption::PromptEach => {
-                            prompt_field(&item.name, key, old_val, new_val)
-                        }
-                    };
-                    if keep {
+                    // ── Case 1: exporter gap / Legendary Item stat ──────────────
+                    // The wiki/DB could not supply this value but the user has one.
+                    // Always preserve silently.
+                    if new_val == 0 && old_val != 0 {
                         item.stats.insert(*stat, old_val);
                         new_edits.insert(ekey);
+                        continue;
                     }
-                    // If not kept: new_val already in item.stats; no flag.
-                } else {
-                    // File has a user_edits section and this field is not in it
-                    // → the user previously accepted exporter data here.
-                    eprintln!(
-                        "[lgo]   [{}] {} not manually edited — updating to \
+
+                    // ── Case 2: no change ───────────────────────────────────────
+                    if old_val == new_val {
+                        // Carry the flag forward if it was set.
+                        if ctx.user_edits.contains(&ekey) {
+                            new_edits.insert(ekey);
+                        }
+                        continue;
+                    }
+
+                    // ── Cases 3-5: values differ ────────────────────────────────
+                    let is_flagged = ctx.user_edits.contains(&ekey);
+                    let should_prompt = is_flagged || !ctx.had_user_edits_section;
+
+                    if should_prompt {
+                        let keep = match batch {
+                            BatchOption::KeepAll => true,
+                            BatchOption::AcceptAll => false,
+                            BatchOption::PromptEach => {
+                                prompt_field(&item.name, key, old_val, new_val)
+                            }
+                        };
+                        if keep {
+                            item.stats.insert(*stat, old_val);
+                            new_edits.insert(ekey);
+                        }
+                        // If not kept: new_val already in item.stats; no flag.
+                    } else {
+                        // File has a user_edits section and this field is not in it
+                        // → the user previously accepted exporter data here.
+                        eprintln!(
+                            "[lgo]   [{}] {} not manually edited — updating to \
                          exporter value ({})",
-                        item.name, key, new_val
-                    );
+                            item.name, key, new_val
+                        );
+                    }
                 }
             }
-        }
-        item
-    }).collect();
+            item
+        })
+        .collect();
 
     (merged, new_edits)
 }
@@ -159,8 +166,7 @@ pub fn merge_stats(
 
 /// Parse the `[__user_edits__]` table from TOML source text.
 fn parse_user_edits(src: &str) -> Result<(UserEdits, bool), String> {
-    let doc: toml::Value = src.parse()
-        .map_err(|e| format!("Malformed TOML: {}", e))?;
+    let doc: toml::Value = src.parse().map_err(|e| format!("Malformed TOML: {}", e))?;
 
     match doc.get("__user_edits__") {
         None => Ok((UserEdits::new(), false)),
@@ -168,7 +174,9 @@ fn parse_user_edits(src: &str) -> Result<(UserEdits, bool), String> {
             let mut edits = UserEdits::new();
             for (k, v) in t {
                 match v.as_bool() {
-                    Some(true)  => { edits.insert(k.clone()); }
+                    Some(true) => {
+                        edits.insert(k.clone());
+                    }
                     Some(false) => { /* false = not edited; skip */ }
                     None => {
                         eprintln!(
@@ -193,8 +201,8 @@ fn edit_key(item_name: &str, stat_key: &str) -> String {
 /// Count how many fields will need an interactive prompt.
 fn count_prompts(
     new_items: &[CachedItem],
-    old_map:   &HashMap<&str, &CachedItem>,
-    edits:     &UserEdits,
+    old_map: &HashMap<&str, &CachedItem>,
+    edits: &UserEdits,
     had_section: bool,
 ) -> usize {
     let mut n = 0;
@@ -203,8 +211,12 @@ fn count_prompts(
             for (stat, key) in TRACKED_STATS {
                 let nv = item.stats.get(stat).copied().unwrap_or(0);
                 let ov = old.stats.get(stat).copied().unwrap_or(0);
-                if nv == 0 && ov != 0 { continue; } // auto-preserved
-                if nv == ov            { continue; } // no change
+                if nv == 0 && ov != 0 {
+                    continue;
+                } // auto-preserved
+                if nv == ov {
+                    continue;
+                } // no change
                 if edits.contains(&edit_key(&item.name, key)) || !had_section {
                     n += 1;
                 }
@@ -214,7 +226,11 @@ fn count_prompts(
     n
 }
 
-enum BatchOption { KeepAll, AcceptAll, PromptEach }
+enum BatchOption {
+    KeepAll,
+    AcceptAll,
+    PromptEach,
+}
 
 fn ask_batch_option(count: usize) -> BatchOption {
     eprintln!(
@@ -232,8 +248,8 @@ fn ask_batch_option(count: usize) -> BatchOption {
     match stdin.lock().read_line(&mut line) {
         Ok(_) => match line.trim().to_lowercase().as_str() {
             "a" | "accept" | "accept-all" => BatchOption::AcceptAll,
-            "k" | "keep"   | "keep-all"   => BatchOption::KeepAll,
-            _                              => BatchOption::PromptEach,
+            "k" | "keep" | "keep-all" => BatchOption::KeepAll,
+            _ => BatchOption::PromptEach,
         },
         Err(_) => BatchOption::PromptEach,
     }
@@ -259,15 +275,15 @@ fn prompt_field(item_name: &str, stat_key: &str, old_val: i64, new_val: i64) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::cache::CachedItem;
     use crate::gear::Slot;
     use crate::stat::Stat;
+    use std::collections::HashMap;
 
     fn make_item(name: &str, stats: &[(Stat, i64)]) -> CachedItem {
         CachedItem {
-            name:  name.to_string(),
-            slot:  Slot::Finger1,
+            name: name.to_string(),
+            slot: Slot::Finger1,
             stats: stats.iter().cloned().collect(),
         }
     }
@@ -288,8 +304,12 @@ mod tests {
         // Instead, call the internal count_prompts to verify gap is excluded.
         let old_map: HashMap<&str, &CachedItem> =
             ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
-        let prompts = count_prompts(&new_items, &old_map,
-                                    &ctx.user_edits, ctx.had_user_edits_section);
+        let prompts = count_prompts(
+            &new_items,
+            &old_map,
+            &ctx.user_edits,
+            ctx.had_user_edits_section,
+        );
         // Gap fields are excluded from prompts (auto-preserved).
         assert_eq!(prompts, 0);
     }
@@ -306,8 +326,12 @@ mod tests {
         let old_map: HashMap<&str, &CachedItem> =
             ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
         assert_eq!(
-            count_prompts(&new_items, &old_map, &ctx.user_edits,
-                          ctx.had_user_edits_section),
+            count_prompts(
+                &new_items,
+                &old_map,
+                &ctx.user_edits,
+                ctx.had_user_edits_section
+            ),
             0
         );
     }
@@ -325,8 +349,12 @@ mod tests {
         let old_map: HashMap<&str, &CachedItem> =
             ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
         assert_eq!(
-            count_prompts(&new_items, &old_map, &ctx.user_edits,
-                          ctx.had_user_edits_section),
+            count_prompts(
+                &new_items,
+                &old_map,
+                &ctx.user_edits,
+                ctx.had_user_edits_section
+            ),
             1
         );
     }
@@ -343,8 +371,12 @@ mod tests {
         let old_map: HashMap<&str, &CachedItem> =
             ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
         assert_eq!(
-            count_prompts(&new_items, &old_map, &ctx.user_edits,
-                          ctx.had_user_edits_section),
+            count_prompts(
+                &new_items,
+                &old_map,
+                &ctx.user_edits,
+                ctx.had_user_edits_section
+            ),
             1
         );
     }
@@ -361,8 +393,12 @@ mod tests {
         let old_map: HashMap<&str, &CachedItem> =
             ctx.old_items.iter().map(|i| (i.name.as_str(), i)).collect();
         assert_eq!(
-            count_prompts(&new_items, &old_map, &ctx.user_edits,
-                          ctx.had_user_edits_section),
+            count_prompts(
+                &new_items,
+                &old_map,
+                &ctx.user_edits,
+                ctx.had_user_edits_section
+            ),
             0
         );
     }

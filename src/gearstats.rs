@@ -36,15 +36,16 @@ use crate::stat::{Stat, TRACKED_STATS};
 /// file so that the next merge can tell which fields the user has hand-edited.
 /// Pass `None` when generating a fresh file with no merge history.
 pub fn write_stats_file(
-    items:      &[CachedItem],
-    path:       &Path,
-    character:  &str,
+    items: &[CachedItem],
+    path: &Path,
+    character: &str,
     user_edits: Option<&UserEdits>,
 ) -> Result<(), String> {
     let mut out = String::new();
 
     out.push_str(&format!(
-        "# LGO gear stats file — character: {}\n", character
+        "# LGO gear stats file — character: {}\n",
+        character
     ));
     out.push_str("# Edit stat values below, then run: lgo <stat:minimum> ...\n");
     out.push_str("# All 14 tracked stats are listed for every item in canonical order.\n");
@@ -56,9 +57,9 @@ pub fn write_stats_file(
     let mut current_slot: Option<Slot> = None;
 
     for item in items {
-        let all_zero = TRACKED_STATS.iter().all(|(stat, _)| {
-            item.stats.get(stat).copied().unwrap_or(0) == 0
-        });
+        let all_zero = TRACKED_STATS
+            .iter()
+            .all(|(stat, _)| item.stats.get(stat).copied().unwrap_or(0) == 0);
 
         // Emit a separator before the first item and whenever the slot group changes.
         if current_slot.map_or(true, |s| s != item.slot) {
@@ -126,21 +127,26 @@ pub fn now_timestamp() -> String {
         .unwrap_or_default()
         .as_secs();
     let (year, month, day, hour, min, sec) = epoch_secs_to_utc(secs);
-    format!("{:04}{:02}{:02}_{:02}{:02}{:02}", year, month, day, hour, min, sec)
+    format!(
+        "{:04}{:02}{:02}_{:02}{:02}{:02}",
+        year, month, day, hour, min, sec
+    )
 }
 
 /// Convert seconds since the Unix epoch to `(year, month, day, hour, minute, second)` in UTC.
 /// Uses only integer arithmetic — no external crate required.
 fn epoch_secs_to_utc(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
-    let s   = (secs % 60) as u32;
+    let s = (secs % 60) as u32;
     let min = ((secs / 60) % 60) as u32;
-    let h   = ((secs / 3600) % 24) as u32;
+    let h = ((secs / 3600) % 24) as u32;
     let mut days = (secs / 86400) as u32;
 
     let mut year = 1970u32;
     loop {
         let days_in_year = if is_leap_year(year) { 366 } else { 365 };
-        if days < days_in_year { break; }
+        if days < days_in_year {
+            break;
+        }
         days -= days_in_year;
         year += 1;
     }
@@ -148,11 +154,22 @@ fn epoch_secs_to_utc(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
     let month_lengths = [
         31u32,
         if is_leap_year(year) { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut month = 1u32;
     for &ml in &month_lengths {
-        if days < ml { break; }
+        if days < ml {
+            break;
+        }
         days -= ml;
         month += 1;
     }
@@ -175,7 +192,8 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<CachedItem>, String> {
     let src = fs::read_to_string(path)
         .map_err(|e| format!("Cannot read gear stats file {}: {}", path.display(), e))?;
 
-    let doc: toml::Value = src.parse()
+    let doc: toml::Value = src
+        .parse()
         .map_err(|e| format!("Malformed TOML in {}: {}", path.display(), e))?;
 
     let items_arr = doc
@@ -186,19 +204,19 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<CachedItem>, String> {
     let mut items = Vec::new();
 
     for (idx, entry) in items_arr.iter().enumerate() {
-        let slot_str = entry.get("slot")
+        let slot_str = entry
+            .get("slot")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'slot'", idx + 1))?;
 
-        let name = entry.get("name")
+        let name = entry
+            .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'name'", idx + 1))?
             .to_string();
 
         let slot = parse_slot_str(slot_str)
-            .ok_or_else(|| format!(
-                "[[item]] #{} unrecognised slot '{}'", idx + 1, slot_str
-            ))?;
+            .ok_or_else(|| format!("[[item]] #{} unrecognised slot '{}'", idx + 1, slot_str))?;
 
         let mut stats: HashMap<Stat, i64> = HashMap::new();
 
@@ -221,7 +239,8 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<CachedItem>, String> {
 pub fn find_latest_stats_file(dir: &Path, character: &str) -> Option<PathBuf> {
     let prefix = format!("lgo_stats_{}_", character);
 
-    let mut entries: Vec<PathBuf> = fs::read_dir(dir).ok()?
+    let mut entries: Vec<PathBuf> = fs::read_dir(dir)
+        .ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| {
@@ -247,26 +266,26 @@ pub fn find_latest_stats_file(dir: &Path, character: &str) -> Option<PathBuf> {
 /// Must match the Display impl in gear.rs exactly.
 fn parse_slot_str(s: &str) -> Option<Slot> {
     match s {
-        "Head"       => Some(Slot::Head),
-        "Chest"      => Some(Slot::Chest),
-        "Legs"       => Some(Slot::Legs),
-        "Hands"      => Some(Slot::Hands),
-        "Feet"       => Some(Slot::Feet),
-        "Shoulders"  => Some(Slot::Shoulders),
-        "Back"       => Some(Slot::Back),
-        "Wrist (1)"  => Some(Slot::Wrist1),
-        "Wrist (2)"  => Some(Slot::Wrist2),
-        "Neck"       => Some(Slot::Neck),
+        "Head" => Some(Slot::Head),
+        "Chest" => Some(Slot::Chest),
+        "Legs" => Some(Slot::Legs),
+        "Hands" => Some(Slot::Hands),
+        "Feet" => Some(Slot::Feet),
+        "Shoulders" => Some(Slot::Shoulders),
+        "Back" => Some(Slot::Back),
+        "Wrist (1)" => Some(Slot::Wrist1),
+        "Wrist (2)" => Some(Slot::Wrist2),
+        "Neck" => Some(Slot::Neck),
         "Finger (1)" => Some(Slot::Finger1),
         "Finger (2)" => Some(Slot::Finger2),
-        "Ear (1)"    => Some(Slot::Ear1),
-        "Ear (2)"    => Some(Slot::Ear2),
-        "Pocket"     => Some(Slot::Pocket),
-        "Main-hand"  => Some(Slot::MainHand),
-        "Off-hand"   => Some(Slot::OffHand),
-        "Ranged"     => Some(Slot::Ranged),
+        "Ear (1)" => Some(Slot::Ear1),
+        "Ear (2)" => Some(Slot::Ear2),
+        "Pocket" => Some(Slot::Pocket),
+        "Main-hand" => Some(Slot::MainHand),
+        "Off-hand" => Some(Slot::OffHand),
+        "Ranged" => Some(Slot::Ranged),
         "Class Item" => Some(Slot::ClassItem),
-        _            => None,
+        _ => None,
     }
 }
 

@@ -11,9 +11,7 @@ fn main() {
 
     println!("Requesting URL:\n  {}\n", url);
 
-    let response = ureq::get(&url)
-        .set("User-Agent", "lgo-wikitest/1.0")
-        .call();
+    let response = ureq::get(&url).set("User-Agent", "lgo-wikitest/1.0").call();
 
     match response {
         Err(e) => {

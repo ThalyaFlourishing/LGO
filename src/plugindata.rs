@@ -46,15 +46,15 @@ pub struct PartialItem {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn load(path: &Path) -> Result<PluginExport, String> {
-    let src = fs::read_to_string(path)
-        .map_err(|e| format!("Cannot read {}: {}", path.display(), e))?;
+    let src =
+        fs::read_to_string(path).map_err(|e| format!("Cannot read {}: {}", path.display(), e))?;
 
     // Files start with "return " followed by the table literal.
     let src = src.trim();
     let src = src.strip_prefix("return").unwrap_or(src).trim_start();
 
-    let (val, _) = parse_value(src, 0)
-        .map_err(|e| format!("Parse error in {}: {}", path.display(), e))?;
+    let (val, _) =
+        parse_value(src, 0).map_err(|e| format!("Parse error in {}: {}", path.display(), e))?;
 
     extract_export(val)
 }
@@ -74,17 +74,21 @@ fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
     let ss_val = table_get(&root, "sharedStorage")
         .ok_or_else(|| "Missing 'sharedStorage' key in export".to_string())?;
 
-    let equipped   = extract_item_list(equipped_val, false)?;
-    let candidates = extract_item_list(ss_val,       true)?;
+    let equipped = extract_item_list(equipped_val, false)?;
+    let candidates = extract_item_list(ss_val, true)?;
 
-    Ok(PluginExport { character, equipped, candidates })
+    Ok(PluginExport {
+        character,
+        equipped,
+        candidates,
+    })
 }
 
 fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, String> {
     let tbl = expect_table(val, "equipped/sharedStorage block")?;
 
-    let items_val = table_get(&tbl, "items")
-        .ok_or_else(|| "Missing 'items' key in block".to_string())?;
+    let items_val =
+        table_get(&tbl, "items").ok_or_else(|| "Missing 'items' key in block".to_string())?;
     let items_tbl = expect_table(items_val, "items array")?;
 
     let mut out = Vec::new();
@@ -113,7 +117,7 @@ fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, 
                     let idx = n as u32;
                     match Slot::from_plugin_index(idx) {
                         Some(s) => Some(s),
-                        None    => continue, // excluded slot — skip silently
+                        None => continue, // excluded slot — skip silently
                     }
                 }
                 _ => continue,
@@ -174,7 +178,7 @@ fn skip_ws_and_comments(s: &str) -> &str {
         if s.starts_with("--") {
             s = match s.find('\n') {
                 Some(i) => &s[i + 1..],
-                None    => "",
+                None => "",
             };
         } else {
             break;
@@ -251,7 +255,8 @@ fn parse_key(s: &str) -> Result<(LuaKey, &str), String> {
         if inner.starts_with('"') {
             let (val, rest) = parse_quoted_string(inner)?;
             let rest = skip_ws_and_comments(rest);
-            let rest = rest.strip_prefix(']')
+            let rest = rest
+                .strip_prefix(']')
                 .ok_or_else(|| "Expected ']' after string key".to_string())?;
             if let LuaVal::Str(k) = val {
                 return Ok((LuaKey::Str(k), rest));
@@ -260,7 +265,8 @@ fn parse_key(s: &str) -> Result<(LuaKey, &str), String> {
         } else {
             let (val, rest) = parse_number(inner)?;
             let rest = skip_ws_and_comments(rest);
-            let rest = rest.strip_prefix(']')
+            let rest = rest
+                .strip_prefix(']')
                 .ok_or_else(|| "Expected ']' after numeric key".to_string())?;
             if let LuaVal::Num(n) = val {
                 return Ok((LuaKey::Num(n), rest));
@@ -270,7 +276,8 @@ fn parse_key(s: &str) -> Result<(LuaKey, &str), String> {
     }
 
     // Bare identifier key (e.g. `version = ...`)
-    let end = s.find(|c: char| !c.is_alphanumeric() && c != '_')
+    let end = s
+        .find(|c: char| !c.is_alphanumeric() && c != '_')
         .unwrap_or(s.len());
     if end == 0 {
         return Err(format!("Expected key, found: {:?}", &s[..s.len().min(30)]));
@@ -293,12 +300,15 @@ fn parse_quoted_string(s: &str) -> Result<(LuaVal, &str), String> {
                 return Ok((LuaVal::Str(result), remaining));
             }
             Some((_, '\\')) => match iter.next() {
-                Some((_, 'n'))  => result.push('\n'),
-                Some((_, 'r'))  => result.push('\r'),
-                Some((_, 't'))  => result.push('\t'),
-                Some((_, '"'))  => result.push('"'),
+                Some((_, 'n')) => result.push('\n'),
+                Some((_, 'r')) => result.push('\r'),
+                Some((_, 't')) => result.push('\t'),
+                Some((_, '"')) => result.push('"'),
                 Some((_, '\\')) => result.push('\\'),
-                Some((_, c))    => { result.push('\\'); result.push(c); }
+                Some((_, c)) => {
+                    result.push('\\');
+                    result.push(c);
+                }
                 None => return Err("Unterminated escape sequence".into()),
             },
             Some((_, c)) => result.push(c),
@@ -308,14 +318,20 @@ fn parse_quoted_string(s: &str) -> Result<(LuaVal, &str), String> {
 
 fn parse_number(s: &str) -> Result<(LuaVal, &str), String> {
     // Consume an optional leading minus then digits, dot, exponent.
-    let end = s.find(|c: char| {
-        !c.is_ascii_digit() && c != '.' && c != '-' && c != 'e' && c != 'E' && c != '+'
-    }).unwrap_or(s.len());
+    let end = s
+        .find(|c: char| {
+            !c.is_ascii_digit() && c != '.' && c != '-' && c != 'e' && c != 'E' && c != '+'
+        })
+        .unwrap_or(s.len());
 
     if end == 0 {
-        return Err(format!("Expected number, found: {:?}", &s[..s.len().min(30)]));
+        return Err(format!(
+            "Expected number, found: {:?}",
+            &s[..s.len().min(30)]
+        ));
     }
-    let n: f64 = s[..end].parse()
+    let n: f64 = s[..end]
+        .parse()
         .map_err(|_| format!("Invalid number literal: '{}'", &s[..end]))?;
     Ok((LuaVal::Num(n), &s[end..]))
 }
@@ -358,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_bool() {
-        assert!(matches!(parse("true"),  LuaVal::Bool(true)));
+        assert!(matches!(parse("true"), LuaVal::Bool(true)));
         assert!(matches!(parse("false"), LuaVal::Bool(false)));
     }
 
@@ -389,15 +405,15 @@ mod tests {
 
     #[test]
     fn slot_from_index_roundtrip() {
-        assert_eq!(Slot::from_plugin_index(1),  Some(Slot::Head));
-        assert_eq!(Slot::from_plugin_index(2),  Some(Slot::Chest));
-        assert_eq!(Slot::from_plugin_index(3),  Some(Slot::Legs));
-        assert_eq!(Slot::from_plugin_index(4),  Some(Slot::Hands));
-        assert_eq!(Slot::from_plugin_index(5),  Some(Slot::Feet));
-        assert_eq!(Slot::from_plugin_index(6),  Some(Slot::Shoulders));
-        assert_eq!(Slot::from_plugin_index(7),  Some(Slot::Back));
-        assert_eq!(Slot::from_plugin_index(8),  Some(Slot::Wrist1));
-        assert_eq!(Slot::from_plugin_index(9),  Some(Slot::Wrist2));
+        assert_eq!(Slot::from_plugin_index(1), Some(Slot::Head));
+        assert_eq!(Slot::from_plugin_index(2), Some(Slot::Chest));
+        assert_eq!(Slot::from_plugin_index(3), Some(Slot::Legs));
+        assert_eq!(Slot::from_plugin_index(4), Some(Slot::Hands));
+        assert_eq!(Slot::from_plugin_index(5), Some(Slot::Feet));
+        assert_eq!(Slot::from_plugin_index(6), Some(Slot::Shoulders));
+        assert_eq!(Slot::from_plugin_index(7), Some(Slot::Back));
+        assert_eq!(Slot::from_plugin_index(8), Some(Slot::Wrist1));
+        assert_eq!(Slot::from_plugin_index(9), Some(Slot::Wrist2));
         assert_eq!(Slot::from_plugin_index(10), Some(Slot::Neck));
         assert_eq!(Slot::from_plugin_index(11), Some(Slot::Finger1));
         assert_eq!(Slot::from_plugin_index(12), Some(Slot::Finger2));
@@ -407,8 +423,8 @@ mod tests {
         assert_eq!(Slot::from_plugin_index(16), Some(Slot::MainHand));
         assert_eq!(Slot::from_plugin_index(17), Some(Slot::OffHand));
         assert_eq!(Slot::from_plugin_index(18), Some(Slot::Ranged));
-        assert_eq!(Slot::from_plugin_index(19), None);              // CraftItem excluded
+        assert_eq!(Slot::from_plugin_index(19), None); // CraftItem excluded
         assert_eq!(Slot::from_plugin_index(20), Some(Slot::ClassItem));
-        assert_eq!(Slot::from_plugin_index(21), None);              // Bridle excluded
+        assert_eq!(Slot::from_plugin_index(21), None); // Bridle excluded
     }
 }
