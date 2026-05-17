@@ -61,9 +61,10 @@ pub fn write_stats_file(
             .iter()
             .all(|(stat, _)| item.stats.get(stat).copied().unwrap_or(0) == 0);
 
-        // Emit a separator before the first item and whenever the slot group changes.
+        // Emit a separator and slot heading before the first item and whenever the slot changes.
         if current_slot.map_or(true, |s| s != item.slot) {
             out.push_str(SEPARATOR);
+            out.push_str(&format!("# {}\n", item.slot));
             out.push('\n');
             current_slot = Some(item.slot);
         }
@@ -81,6 +82,12 @@ pub fn write_stats_file(
             out.push_str(&format!("{:<22}= {}\n", format!("{} ", key), value));
         }
 
+        out.push('\n');
+    }
+
+    // Emit a closing separator after the last item.
+    if !items.is_empty() {
+        out.push_str(SEPARATOR);
         out.push('\n');
     }
 
@@ -286,6 +293,43 @@ fn parse_slot_str(s: &str) -> Option<Slot> {
         "Ranged" => Some(Slot::Ranged),
         "Class Item" => Some(Slot::ClassItem),
         _ => None,
+    }
+}
+
+/// Return the canonical slot for grouping purposes.
+/// Wrist2→Wrist1, Finger2→Finger1, Ear2→Ear1, all others unchanged.
+fn slot_group(slot: Slot) -> Slot {
+    match slot {
+        Slot::Wrist2  => Slot::Wrist1,
+        Slot::Finger2 => Slot::Finger1,
+        Slot::Ear2    => Slot::Ear1,
+        other         => other,
+    }
+}
+
+/// Human-readable name for a slot group heading.
+fn slot_group_name(group: Slot) -> &'static str {
+    match group {
+        Slot::Head      => "Head",
+        Slot::Chest     => "Chest",
+        Slot::Legs      => "Legs",
+        Slot::Hands     => "Hands",
+        Slot::Feet      => "Feet",
+        Slot::Shoulders => "Shoulders",
+        Slot::Back      => "Back",
+        Slot::Wrist1    => "Wrist",
+        Slot::Neck      => "Neck",
+        Slot::Finger1   => "Finger",
+        Slot::Ear1      => "Ear",
+        Slot::Pocket    => "Pocket",
+        Slot::MainHand  => "Main-hand",
+        Slot::OffHand   => "Off-hand",
+        Slot::Ranged    => "Ranged",
+        Slot::ClassItem => "Class Item",
+        // Paired slot2 variants are never passed here, but must be exhaustive.
+        Slot::Wrist2    => "Wrist",
+        Slot::Finger2   => "Finger",
+        Slot::Ear2      => "Ear",
     }
 }
 
