@@ -54,19 +54,21 @@ pub fn write_stats_file(
 
     const SEPARATOR: &str = "# __________________________________________________\n";
 
-    let mut current_slot: Option<Slot> = None;
+    let mut current_group: Option<Slot> = None;
 
     for item in items {
         let all_zero = TRACKED_STATS
             .iter()
             .all(|(stat, _)| item.stats.get(stat).copied().unwrap_or(0) == 0);
 
-        // Emit a separator and slot heading before the first item and whenever the slot changes.
-        if current_slot.map_or(true, |s| s != item.slot) {
+        let group = slot_group(item.slot);
+
+        // Emit a separator and group heading only when the slot group changes.
+        if current_group.map_or(true, |g| g != group) {
             out.push_str(SEPARATOR);
-            out.push_str(&format!("# {}\n", item.slot));
+            out.push_str(&format!("# {}\n", slot_group_name(group)));
             out.push('\n');
-            current_slot = Some(item.slot);
+            current_group = Some(group);
         }
 
         out.push_str("[[item]]\n");
@@ -86,12 +88,6 @@ pub fn write_stats_file(
     }
 
     // Emit a closing separator after the last item.
-    if !items.is_empty() {
-        out.push_str(SEPARATOR);
-        out.push('\n');
-    }
-
-    // Emit a separator after the last item.
     if !items.is_empty() {
         out.push_str(SEPARATOR);
         out.push('\n');
