@@ -122,31 +122,6 @@ local function CharacterClass()
   return map[cls] or ("Class_" .. tostring(cls));
 end
 
--- ── Base primary stats ─────────────────────────────────────────────────────────
-
-local function GetBaseStats()
-  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
-  if player == nil or type(player.GetAttributes) ~= "function" then return nil end
-  local ok, attrs = pcall(function() return player:GetAttributes(); end);
-  if not ok or attrs == nil then return nil end
-
-  local stats = {};
-  local methods = {
-    "GetBaseMight",
-    "GetBaseAgility",
-    "GetBaseVitality",
-    "GetBaseWill",
-    "GetBaseFate",
-  };
-  for _, m in ipairs(methods) do
-    local v, existed, sok = TryCall0(attrs, m);
-    if existed and sok and v ~= nil then
-      stats[m] = tonumber(v);
-    end
-  end
-  return stats;
-end
-
 local function SaveAccount(prefix, data)
   local key = prefix .. "_" .. CharacterName() .. "_" .. NowKeySuffix();
   Turbine.PluginData.Save(Turbine.DataScope.Account, key, data);
@@ -177,6 +152,33 @@ local function TryCall0(obj, methodName)
   local ok, val = pcall(function() return m(obj); end);
   return val, true, ok
 end
+
+-- ── Base primary stats ─────────────────────────────────────────────────────────
+
+local function GetBaseStats()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil or type(player.GetAttributes) ~= "function" then return nil end
+  local ok, attrs = pcall(function() return player:GetAttributes(); end);
+  if not ok or attrs == nil then return nil end
+
+  local stats = {};
+  local methods = {
+    "GetBaseMight",
+    "GetBaseAgility",
+    "GetBaseVitality",
+    "GetBaseWill",
+    "GetBaseFate",
+  };
+  for _, m in ipairs(methods) do
+    local v, existed, sok = TryCall0(attrs, m);
+    if existed and sok and v ~= nil then
+      stats[m] = tonumber(v);
+    end
+  end
+  return stats;
+end
+
+
 
 local function ExtractItemRecord(item, indexOrSlot)
   local rec = { slot = indexOrSlot };
