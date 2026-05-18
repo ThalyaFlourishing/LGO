@@ -17,7 +17,7 @@
 
 use std::fs;
 use std::path::Path;
-
+use std::collections::HashMap;
 use crate::gear::Slot;
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -27,6 +27,10 @@ use crate::gear::Slot;
 pub struct PluginExport {
     #[allow(dead_code)]
     pub character: String,
+    /// Character class string, e.g. "Lore-master" or "Guardian".
+    pub class: String,
+    /// Base primary stats (Might/Agility/Vitality/Will/Fate) before gear bonuses.
+    pub base_stats: HashMap<String, i64>,
     /// Items currently worn by the character. Slot is known from plugin index.
     pub equipped: Vec<PartialItem>,
     /// Candidate items from the 'lgo' shared storage chest.
@@ -69,6 +73,13 @@ fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
         _ => "Unknown".to_string(),
     };
 
+    let class = match table_get(&root, "class") {
+        Some(LuaVal::Str(s)) => s,
+        _ => "Unknown".to_string(),
+    };
+
+    let base_stats = extract_base_stats(&root);
+
     let equipped_val = table_get(&root, "equipped")
         .ok_or_else(|| "Missing 'equipped' key in export".to_string())?;
     let ss_val = table_get(&root, "sharedStorage")
@@ -79,9 +90,37 @@ fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
 
     Ok(PluginExport {
         character,
+        class,
+        base_stats,
         equipped,
         candidates,
     })
+}
+
+fn extract_base_stats(root: &LuaTable) -> HashMap<String, i64> {
+    let mut map = HashMap::new();
+
+    let bs_tbl = match table_get(root, "baseStats") {
+        Some(LuaVal::Table(t)) => t,
+        _ => return map,
+    };
+
+    // Keys are the Lua method names; map them to clean stat names.
+    let method_to_name = [
+        ("GetBaseMight",    "Might"),
+        ("GetBaseAgility",  "Agility"),
+        ("GetBaseVitality", "Vitality"),
+        ("GetBaseWill",     "Will"),
+        ("GetBaseFate",     "Fate"),
+    ];
+
+    for (method, stat_name) in &method_to_name {
+        if let Some(LuaVal::Num(n)) = table_get(&bs_tbl, method) {
+            map.insert(stat_name.to_string(), n as i64);
+        }
+    }
+
+    map
 }
 
 fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, String> {

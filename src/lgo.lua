@@ -93,6 +93,60 @@ local function CharacterName()
   return "Unknown";
 end
 
+-- ── Character class ────────────────────────────────────────────────────────────
+
+local function CharacterClass()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil or type(player.GetClass) ~= "function" then return "Unknown" end
+  local ok, cls = pcall(function() return player:GetClass(); end);
+  if not ok or cls == nil then return "Unknown" end
+
+  -- Build map from Turbine.Gameplay.Class enum constants (wrapped in pcall
+  -- so that missing entries on older clients fail gracefully).
+  local map = {};
+  pcall(function()
+    map[Turbine.Gameplay.Class.Burglar]     = "Burglar";
+    map[Turbine.Gameplay.Class.Captain]     = "Captain";
+    map[Turbine.Gameplay.Class.Champion]    = "Champion";
+    map[Turbine.Gameplay.Class.Guardian]    = "Guardian";
+    map[Turbine.Gameplay.Class.Hunter]      = "Hunter";
+    map[Turbine.Gameplay.Class.LoreMaster]  = "Lore-master";
+    map[Turbine.Gameplay.Class.Minstrel]    = "Minstrel";
+    map[Turbine.Gameplay.Class.RuneKeeper]  = "Rune-keeper";
+    map[Turbine.Gameplay.Class.Warden]      = "Warden";
+    map[Turbine.Gameplay.Class.Beorning]    = "Beorning";
+    map[Turbine.Gameplay.Class.Brawler]     = "Brawler";
+    map[Turbine.Gameplay.Class.Mariner]     = "Mariner";
+  end);
+
+  return map[cls] or ("Class_" .. tostring(cls));
+end
+
+-- ── Base primary stats ─────────────────────────────────────────────────────────
+
+local function GetBaseStats()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil or type(player.GetAttributes) ~= "function" then return nil end
+  local ok, attrs = pcall(function() return player:GetAttributes(); end);
+  if not ok or attrs == nil then return nil end
+
+  local stats = {};
+  local methods = {
+    "GetBaseMight",
+    "GetBaseAgility",
+    "GetBaseVitality",
+    "GetBaseWill",
+    "GetBaseFate",
+  };
+  for _, m in ipairs(methods) do
+    local v, existed, sok = TryCall0(attrs, m);
+    if existed and sok and v ~= nil then
+      stats[m] = tonumber(v);
+    end
+  end
+  return stats;
+end
+
 local function SaveAccount(prefix, data)
   local key = prefix .. "_" .. CharacterName() .. "_" .. NowKeySuffix();
   Turbine.PluginData.Save(Turbine.DataScope.Account, key, data);
@@ -451,8 +505,10 @@ local function ExportCombined(sharedChestName)
   end
 
   local out = {
-    version = "lgo-export-3",
+    version = "lgo-export-4",
     character = CharacterName(),
+    class = CharacterClass(),
+    baseStats = GetBaseStats(),
     selectedSharedStorageChestName = sharedChestName,
     equipped = equip,
     sharedStorage = ss,

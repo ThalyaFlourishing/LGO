@@ -113,8 +113,14 @@ fn main() {
             (new_items, None)
         };
 
-        match gearstats::write_stats_file(&final_items, &out_path, &character, maybe_edits.as_ref())
-        {
+        match gearstats::write_stats_file(
+            &final_items,
+            &out_path,
+            &character,
+            &export.class,
+            &export.base_stats,
+            maybe_edits.as_ref(),
+        ) {
             Ok(()) => {
                 println!("[lgo] Gear stats file written: {}", out_path.display());
                 println!("[lgo] Edit it as needed, then run: lgo <stat:minimum> ...");
@@ -217,7 +223,7 @@ fn main() {
         .unwrap_or_else(|| plugindata_path.display().to_string());
 
     // Print the report.
-    report::print_report(&result, &cli.goals, &character, &report_input);
+    report::print_report(&result, &cli.goals, &character, &export.class, &report_input);
 
     // Exit with a non-zero code if infeasible, so shell scripts can detect it.
     // if !result.feasible {

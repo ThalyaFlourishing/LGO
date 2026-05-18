@@ -27,9 +27,10 @@ pub fn print_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
+    class: &str,
     input_file: &str,
 ) {
-    print_header(character, input_file);
+    print_header(character, class, input_file);
 
     if !result.warnings.is_empty() {
         print_warnings(&result.warnings);
@@ -48,13 +49,11 @@ pub fn print_report(
     println!();
 }
 
-// ?? Sections ??????????????????????????????????????????????????????????????????
-
-fn print_header(character: &str, input_file: &str) {
+fn print_header(character: &str, class: &str, input_file: &str) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     println!();
     println!("  LGO — Thalya's Gear Optimizer");
-    println!("  Character : {}", character);
+    println!("  Character : {} ({})", character, class);
     println!("  Stats file: {}", input_file);
     println!("  {}", divider);
 }

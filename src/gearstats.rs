@@ -39,24 +39,50 @@ pub fn write_stats_file(
     items: &[CachedItem],
     path: &Path,
     character: &str,
+    class: &str,
+    base_stats: &HashMap<String, i64>,
     user_edits: Option<&UserEdits>,
 ) -> Result<(), String> {
     let mut out = String::new();
 
     out.push_str(&format!(
-        "# LGO gear stats file — character: {}\n",
-        character
+        "# LGO gear stats file — character: {} ({})\n",
+        character, class
     ));
     out.push_str("# Edit stat values below, then run: lgo <stat:minimum> ...\n");
     out.push_str("# All 14 tracked stats are listed for every item in canonical order.\n");
     out.push_str("# Items with all zeros need manual entry before running the optimizer.\n");
     out.push('\n');
 
+    // Write the [character] section with class and base primary stats.
+    out.push_str("[character]\n");
+    out.push_str(&format!("name  = \"{}\"\n", character));
+    out.push_str(&format!("class = \"{}\"\n", class));
+    out.push('\n');
+
+    if !base_stats.is_empty() {
+        out.push_str("[base_stats]\n");
+        // Emit in a fixed canonical order.
+        for stat_name in &["Might", "Agility", "Vitality", "Will", "Fate"] {
+            if let Some(val) = base_stats.get(*stat_name) {
+                out.push_str(&format!("{:<10}= {}\n", format!("{} ", stat_name), val));
+            }
+        }
+        out.push('\n');
+    }
+
     const SEPARATOR: &str = "# __________________________________________________\n";
+
+    // Sort items into canonical slot order before writing.
+    let slot_order = |slot: &Slot| -> usize {
+        Slot::ALL.iter().position(|s| s == slot).unwrap_or(usize::MAX)
+    };
+    let mut sorted_items: Vec<&CachedItem> = items.iter().collect();
+    sorted_items.sort_by_key(|item| slot_order(&item.slot));
 
     let mut current_group: Option<Slot> = None;
 
-    for item in items {
+    for item in &sorted_items {
         let all_zero = TRACKED_STATS
             .iter()
             .all(|(stat, _)| item.stats.get(stat).copied().unwrap_or(0) == 0);
@@ -88,7 +114,7 @@ pub fn write_stats_file(
     }
 
     // Emit a closing separator after the last item.
-    if !items.is_empty() {
+    if !sorted_items.is_empty() {
         out.push_str(SEPARATOR);
         out.push('\n');
     }
