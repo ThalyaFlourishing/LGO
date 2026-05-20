@@ -264,6 +264,9 @@ fn load_items(
     reader.config_mut().trim_text(true);
 
     let mut out: HashMap<String, CachedItem> = HashMap::new();
+    // Tracks the highest item level stored for each name, so that when the
+    // same item name appears at multiple levels we always keep the highest.
+    let mut out_levels: HashMap<String, i32> = HashMap::new();
 
     let mut cur_name: Option<String> = None;
     let mut cur_slot: Option<Slot> = None;
@@ -333,14 +336,19 @@ fn load_items(
                     }
                     "item" => {
                         if let (Some(name), Some(slot)) = (cur_name.take(), cur_slot.take()) {
-                            out.insert(
-                                name.clone(),
-                                CachedItem {
-                                    name,
-                                    slot,
-                                    stats: cur_stats.clone(),
-                                },
-                            );
+                            let new_level = cur_level.unwrap_or(0);
+                            let best_level = out_levels.get(&name).copied().unwrap_or(-1);
+                            if new_level > best_level {
+                                out_levels.insert(name.clone(), new_level);
+                                out.insert(
+                                    name.clone(),
+                                    CachedItem {
+                                        name,
+                                        slot,
+                                        stats: cur_stats.clone(),
+                                    },
+                                );
+                            }
                         }
                         cur_level = None;
                         cur_stats.clear();
@@ -594,5 +602,73 @@ mod tests {
             &mut stats,
         );
         assert_eq!(stats[&Stat::CriticalRating], 123);
+    }
+
+    // ── Level preference: highest item level wins on name collision ───────────
+
+    #[test]
+    fn highest_level_entry_wins() {
+        // Simulate two XML entries for the same item name at different levels.
+        // The higher-level entry should be the one kept in the output map.
+        let progressions = HashMap::new();
+
+        // Low-level entry: CriticalRating = 50
+        let mut low_stats = HashMap::new();
+        low_stats.insert(Stat::CriticalRating, 50i64);
+
+        // High-level entry: CriticalRating = 8713
+        let mut high_stats = HashMap::new();
+        high_stats.insert(Stat::CriticalRating, 8713i64);
+
+        let mut out: HashMap<String, CachedItem> = HashMap::new();
+        let mut out_levels: HashMap<String, i32> = HashMap::new();
+
+        // Insert low-level entry first (level 122).
+        let name = "Wilful Bracer of the Bear in Winter".to_string();
+        let level_low = 122i32;
+        let best = out_levels.get(&name).copied().unwrap_or(-1);
+        if level_low > best {
+            out_levels.insert(name.clone(), level_low);
+            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+        }
+
+        // Insert high-level entry second (level 160).
+        let level_high = 160i32;
+        let best = out_levels.get(&name).copied().unwrap_or(-1);
+        if level_high > best {
+            out_levels.insert(name.clone(), level_high);
+            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+        }
+
+        assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
+    }
+
+    #[test]
+    fn lower_level_entry_does_not_overwrite_higher() {
+        // Same as above but insertion order reversed: high first, then low.
+        let mut out: HashMap<String, CachedItem> = HashMap::new();
+        let mut out_levels: HashMap<String, i32> = HashMap::new();
+
+        let name = "Test Item".to_string();
+
+        let mut high_stats = HashMap::new();
+        high_stats.insert(Stat::CriticalRating, 8713i64);
+        let level_high = 160i32;
+        let best = out_levels.get(&name).copied().unwrap_or(-1);
+        if level_high > best {
+            out_levels.insert(name.clone(), level_high);
+            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+        }
+
+        let mut low_stats = HashMap::new();
+        low_stats.insert(Stat::CriticalRating, 50i64);
+        let level_low = 122i32;
+        let best = out_levels.get(&name).copied().unwrap_or(-1);
+        if level_low > best {
+            out_levels.insert(name.clone(), level_low);
+            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+        }
+
+        assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
     }
 }
