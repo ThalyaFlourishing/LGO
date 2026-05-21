@@ -629,7 +629,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_low > best {
             out_levels.insert(name.clone(), level_low);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: low_stats,
+                },
+            );
         }
 
         // Insert high-level entry second (level 160).
@@ -637,7 +644,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_high > best {
             out_levels.insert(name.clone(), level_high);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: high_stats,
+                },
+            );
         }
 
         assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
@@ -657,7 +671,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_high > best {
             out_levels.insert(name.clone(), level_high);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: high_stats,
+                },
+            );
         }
 
         let mut low_stats = HashMap::new();
@@ -666,7 +687,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_low > best {
             out_levels.insert(name.clone(), level_low);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: low_stats,
+                },
+            );
         }
 
         assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
