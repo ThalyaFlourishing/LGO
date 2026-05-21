@@ -486,6 +486,25 @@ local function ExportEquipped()
   Print("equip: exported " .. tostring(#data.items) .. " equipped items");
 end
 
+local function CollectItemNames(equip, ss)
+  local seen = {};
+  local names = {};
+  local function addName(rec)
+    local n = rec.infoName or rec.name;
+    if n ~= nil and n ~= "" and not seen[n] then
+      seen[n] = true;
+      table.insert(names, n);
+    end
+  end
+  if equip ~= nil and equip.items ~= nil then
+    for _, rec in ipairs(equip.items) do addName(rec) end
+  end
+  if ss ~= nil and ss.items ~= nil then
+    for _, rec in ipairs(ss.items) do addName(rec) end
+  end
+  return names;
+end
+
 -- ── Combined export (equipped + shared storage chest) ───────────────────────
 
 local function ExportCombined(sharedChestName)
@@ -519,6 +538,16 @@ local function ExportCombined(sharedChestName)
   SaveAccount("lgo_export", out);
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
+  
+  local itemNames = CollectItemNames(equip, ss);
+  local namesData = {
+    version = "lgo-itemnames-1",
+    character = CharacterName(),
+    names = itemNames,
+  };
+  SaveAccount("lgo_itemnames", namesData);
+  Print("export: saved " .. tostring(#itemNames) .. " unique item names for wiki lookup");
+  
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────
