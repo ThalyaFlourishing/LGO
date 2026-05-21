@@ -610,7 +610,7 @@ mod tests {
     fn highest_level_entry_wins() {
         // Simulate two XML entries for the same item name at different levels.
         // The higher-level entry should be the one kept in the output map.
-        let progressions = HashMap::new();
+        let _progressions: HashMap<u32, Progression> = HashMap::new();
 
         // Low-level entry: CriticalRating = 50
         let mut low_stats = HashMap::new();
