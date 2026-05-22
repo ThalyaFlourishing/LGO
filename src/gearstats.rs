@@ -133,4 +133,26 @@ mod tests {
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }
+
+    #[test]
+    fn finds_latest_across_different_character_prefixes() {
+        let dir = std::env::temp_dir().join(format!(
+            "lgo_gearstats_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        let older = dir.join("lgo_stats_CharA_20260101_000000.toml");
+        let newer = dir.join("lgo_stats_CharB_20270101_000000.toml");
+        std::fs::write(&older, "").expect("write older");
+        std::fs::write(&newer, "").expect("write newer");
+
+        let found = find_latest_stats_file(&dir).expect("latest file not found");
+        assert_eq!(found, newer);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
 }

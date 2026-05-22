@@ -118,7 +118,6 @@ pub struct GearItem {
     pub stats: HashMap<Stat, i64>,
 }
 
-#[allow(dead_code)]
 pub type CachedItem = GearItem;
 
 impl GearItem {
