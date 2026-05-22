@@ -35,34 +35,4 @@ so it serializes exactly as the variant name (PascalCase).
 | 19           | CraftItem  | Not gear        |
 | 21           | Bridle     | Mount equipment |
 
-## XML slot names (items.xml → Slot mapping, used in db_build)
-
-| XML slot value  | Maps to enum variant |
-|-----------------|----------------------|
-| `HEAD`          | `Head`               |
-| `CHEST`         | `Chest`              |
-| `LEGS`          | `Legs`               |
-| `HAND`          | `Hands`              |
-| `FEET`          | `Feet`               |
-| `SHOULDER`      | `Shoulders`          |
-| `BACK`          | `Back`               |
-| `WRIST`         | `Wrist1`             |
-| `LEFT_WRIST`    | `Wrist1`             |
-| `RIGHT_WRIST`   | `Wrist1`             |
-| `NECK`          | `Neck`               |
-| `FINGER`        | `Finger1`            |
-| `LEFT_FINGER`   | `Finger1`            |
-| `RIGHT_FINGER`  | `Finger1`            |
-| `EAR`           | `Ear1`               |
-| `LEFT_EAR`      | `Ear1`               |
-| `RIGHT_EAR`     | `Ear1`               |
-| `POCKET`        | `Pocket`             |
-| `MAIN_HAND`     | `MainHand`           |
-| `EITHER_HAND`   | `OffHand`            |
-| `OFF_HAND`      | `OffHand`            |
-| `RANGED_ITEM`   | `Ranged`             |
-| `CLASS_SLOT`    | `ClassItem`          |
-
-Note: All wrist, finger, and ear XML slots map to the `1` variant
-(canonical). The optimizer's paired-slot logic handles assignment
-to slot 1 vs slot 2 at runtime.
+Note: Wrist, Finger, and Ear are paired slots handled by optimizer logic.

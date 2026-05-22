@@ -47,8 +47,7 @@
 
 use std::collections::HashMap;
 
-use crate::cache::CachedItem;
-use crate::gear::{GearItem, GearSet, Slot};
+use crate::gear::{CachedItem, GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
