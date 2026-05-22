@@ -118,6 +118,9 @@ pub struct GearItem {
     pub stats: HashMap<Stat, i64>,
 }
 
+#[allow(dead_code)]
+pub type CachedItem = GearItem;
+
 impl GearItem {
     /// Return the value of a stat, or 0 if not present.
     pub fn stat(&self, s: &Stat) -> i64 {

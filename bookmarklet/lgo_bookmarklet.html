@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LGO Bookmarklet</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.25rem; line-height: 1.45; }
+    code { background: #f3f3f3; padding: 0.1rem 0.3rem; }
+    textarea { width: 100%; min-height: 40rem; box-sizing: border-box; }
+    .status { margin: 0.75rem 0; font-weight: 600; }
+    .summary { margin: 0.75rem 0; }
+  </style>
+</head>
+<body>
+  <h1>LGO Bookmarklet</h1>
+  <p>Drag the link below to your bookmarks bar, then navigate to https://lotro-wiki.com and click it.</p>
+  <p><a id="bookmarklet-link" href="javascript:void(0)">LGO Stats</a></p>
+  <p><strong>Workflow:</strong> export item names in-game, click the bookmarklet on lotro-wiki.com, paste itemnames data, then copy/save the generated TOML into your AllServers directory.</p>
+  <p><em>Note: the bookmarklet only works when you are already on lotro-wiki.com.</em></p>
+
+  <script>
+    (function () {
+      function runBookmarklet() {
+        const TRACKED = [
+          "Armor", "CriticalRating", "Finesse", "PhysicalMastery", "TacticalMastery",
+          "OutgoingHealing", "Resistance", "CriticalDefense", "IncomingHealing", "Block",
+          "Parry", "Evade", "PhysicalMitigation", "TacticalMitigation"
+        ];
+
+        const STAT_MAP = {
+          "armor": "Armor",
+          "armour": "Armor",
+          "critical rating": "CriticalRating",
+          "finesse": "Finesse",
+          "finesse rating": "Finesse",
+          "physical mastery": "PhysicalMastery",
+          "tactical mastery": "TacticalMastery",
+          "outgoing healing": "OutgoingHealing",
+          "resistance": "Resistance",
+          "critical defence rating": "CriticalDefense",
+          "critical defense rating": "CriticalDefense",
+          "incoming healing": "IncomingHealing",
+          "block": "Block",
+          "parry": "Parry",
+          "evade": "Evade",
+          "physical mitigation": "PhysicalMitigation",
+          "tactical mitigation": "TacticalMitigation"
+        };
+
+        const SLOT_MAP = {
+          "head": "Head",
+          "chest": "Chest",
+          "legs": "Legs",
+          "hands": "Hands",
+          "gloves": "Hands",
+          "feet": "Feet",
+          "boots": "Feet",
+          "shoulders": "Shoulders",
+          "back": "Back",
+          "cloak": "Back",
+          "wrist": "Wrist (1)",
+          "bracelet": "Wrist (1)",
+          "neck": "Neck",
+          "necklace": "Neck",
+          "finger": "Finger (1)",
+          "ring": "Finger (1)",
+          "ear": "Ear (1)",
+          "earring": "Ear (1)",
+          "pocket": "Pocket",
+          "main-hand": "Main-hand",
+          "main hand": "Main-hand",
+          "staff": "Main-hand",
+          "one-handed sword": "Main-hand",
+          "staves": "Main-hand",
+          "off-hand": "Off-hand",
+          "offhand": "Off-hand",
+          "ranged": "Ranged",
+          "class item": "Class Item",
+          "class slot": "Class Item"
+        };
+
+        function zeroStats() {
+          const out = {};
+          for (const k of TRACKED) out[k] = 0;
+          return out;
+        }
+
+        function parseNamesFromPlugindata(src) {
+          const blockMatch = src.match(/\["names"\]\s*=\s*\{([\s\S]*?)\}\s*\}/m);
+          if (!blockMatch) throw new Error("Could not find [\"names\"] table in pasted data.");
+          const namesBlock = blockMatch[1];
+          const names = [];
+          const re = /\[[^\]]+\]\s*=\s*"((?:\\.|[^"])*)"/g;
+          let m;
+          while ((m = re.exec(namesBlock)) !== null) {
+            names.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+          }
+          return names;
+        }
+
+        function extractTooltipTemplate(wikitext) {
+          const idx = wikitext.indexOf("{{Item Tooltip");
+          if (idx < 0) return null;
+          let depth = 0;
+          for (let i = idx; i < wikitext.length - 1; i++) {
+            const two = wikitext.slice(i, i + 2);
+            if (two === "{{") {
+              depth += 1;
+              i += 1;
+              continue;
+            }
+            if (two === "}}") {
+              depth -= 1;
+              i += 1;
+              if (depth === 0) {
+                return wikitext.slice(idx, i + 1);
+              }
+            }
+          }
+          return null;
+        }
+
+        function extractField(template, key) {
+          const re = new RegExp("\\\\|\\\\s*" + key + "\\\\s*=([\\\\s\\\\S]*?)(?=\\\\n\\\\||\\\\n\\\\}\\\\})", "i");
+          const m = template.match(re);
+          return m ? m[1].trim() : "";
+        }
+
+        function parseAttribs(attribText) {
+          const stats = zeroStats();
+          const parts = attribText
+            .split(/<br\s*\/?\s*>/i)
+            .map(s => s.replace(/<[^>]+>/g, "").trim())
+            .filter(Boolean);
+
+          for (const part of parts) {
+            const m = part.match(/([+-]?\d[\d,]*)\s+(.+)/);
+            if (!m) continue;
+            const value = parseInt(m[1].replace(/,/g, ""), 10);
+            if (!Number.isFinite(value)) continue;
+            const statName = m[2].trim().toLowerCase();
+            const key = STAT_MAP[statName];
+            if (key) stats[key] += value;
+          }
+          return stats;
+        }
+
+        function padKey(key) {
+          return (key + " ").padEnd(22, " ");
+        }
+
+        function mapSlot(raw) {
+          const cleaned = String(raw || "").trim();
+          if (!cleaned) return "Unknown";
+          const mapped = SLOT_MAP[cleaned.toLowerCase()];
+          return mapped || cleaned;
+        }
+
+        function buildToml(items) {
+          let out = "";
+          out += "# LGO gear stats file — generated by bookmarklet\\n";
+          out += "# Edit stat values below, then run: lgo <stat:minimum> ...\\n";
+          out += "# All 14 tracked stats are listed for every item in canonical order.\\n";
+          out += "# Items with all zeros need manual entry before running the optimizer.\\n\\n";
+
+          for (const item of items) {
+            out += "[[item]]\\n";
+            out += `slot               = \"${item.slot}\"\\n`;
+            out += `name               = \"${item.name.replace(/"/g, '\\\\"')}\"\\n`;
+            const allZero = TRACKED.every(k => item.stats[k] === 0);
+            if (allZero) {
+              out += "# WARNING: all stats unknown — edit before running optimizer\\n";
+            }
+            for (const key of TRACKED) {
+              out += `${padKey(key)}= ${item.stats[key]}\\n`;
+            }
+            out += "\\n";
+          }
+
+          return out;
+        }
+
+        function renderResult(resolvedCount, unresolved) {
+          const prior = document.getElementById("lgo-bookmarklet-output");
+          if (prior) prior.remove();
+
+          const wrap = document.createElement("div");
+          wrap.id = "lgo-bookmarklet-output";
+
+          const summary = document.createElement("div");
+          summary.className = "summary";
+          summary.innerHTML = `<strong>Done.</strong> Resolved: ${resolvedCount}, Unresolved: ${unresolved.length}`;
+          wrap.appendChild(summary);
+
+          if (unresolved.length > 0) {
+            const list = document.createElement("ul");
+            for (const name of unresolved) {
+              const li = document.createElement("li");
+              li.textContent = name;
+              list.appendChild(li);
+            }
+            const title = document.createElement("div");
+            title.textContent = "Unresolved items:";
+            wrap.appendChild(title);
+            wrap.appendChild(list);
+          }
+
+          const btn = document.createElement("button");
+          btn.textContent = "Select All";
+
+          const ta = document.createElement("textarea");
+          ta.rows = 40;
+
+          btn.addEventListener("click", function () {
+            ta.focus();
+            ta.select();
+          });
+
+          wrap.appendChild(btn);
+          wrap.appendChild(document.createElement("br"));
+          wrap.appendChild(ta);
+          document.body.appendChild(wrap);
+
+          return ta;
+        }
+
+        async function fetchItem(name) {
+          const stats = zeroStats();
+          const pageName = "Item:" + name.replace(/ /g, "_").replace(/'/g, "%27");
+          const url = `https://lotro-wiki.com/api.php?action=parse&page=${pageName}&prop=wikitext&format=json`;
+
+          const resp = await fetch(url, { credentials: "include" });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+          const json = await resp.json();
+          const wikitext = json && json.parse && json.parse.wikitext && json.parse.wikitext["*"];
+          if (!wikitext) throw new Error("No wikitext payload");
+
+          const tpl = extractTooltipTemplate(wikitext);
+          if (!tpl) throw new Error("No Item Tooltip template");
+
+          const slotRaw = extractField(tpl, "slot");
+          const attribRaw = extractField(tpl, "attrib");
+          const armourRaw = extractField(tpl, "armour") || extractField(tpl, "armor");
+
+          Object.assign(stats, parseAttribs(attribRaw));
+          if (armourRaw) {
+            const m = armourRaw.replace(/<[^>]+>/g, "").match(/\d[\d,]*/);
+            if (m) stats.Armor += parseInt(m[0].replace(/,/g, ""), 10) || 0;
+          }
+
+          return {
+            name,
+            slot: mapSlot(slotRaw),
+            stats
+          };
+        }
+
+        async function run() {
+          if (!/lotro-wiki\.com$/i.test(location.hostname)) {
+            alert("LGO bookmarklet only works on lotro-wiki.com.");
+            return;
+          }
+
+          const pasted = prompt("Paste your lgo_itemnames_*.plugindata contents:");
+          if (!pasted) return;
+
+          let names;
+          try {
+            names = parseNamesFromPlugindata(pasted);
+          } catch (e) {
+            alert("Could not parse item names: " + e.message);
+            return;
+          }
+
+          if (!names.length) {
+            alert("No item names found in pasted data.");
+            return;
+          }
+
+          const status = document.createElement("div");
+          status.className = "status";
+          status.id = "lgo-bookmarklet-status";
+          document.body.appendChild(status);
+
+          const items = [];
+          const unresolved = [];
+          let resolvedCount = 0;
+
+          for (let i = 0; i < names.length; i++) {
+            const name = names[i];
+            status.textContent = `Fetching item ${i + 1} of ${names.length}: ${name}...`;
+
+            try {
+              const item = await fetchItem(name);
+              const allZero = TRACKED.every(k => item.stats[k] === 0);
+              if (allZero) unresolved.push(name); else resolvedCount += 1;
+              items.push(item);
+            } catch (_err) {
+              unresolved.push(name);
+              items.push({ name, slot: "Unknown", stats: zeroStats() });
+            }
+          }
+
+          status.textContent = "Done fetching items.";
+
+          const toml = buildToml(items);
+          const ta = renderResult(resolvedCount, unresolved);
+          ta.value = toml;
+        }
+
+        run().catch(err => alert("LGO bookmarklet failed: " + err));
+      }
+
+      const bookmarkletLink = document.getElementById("bookmarklet-link");
+      const code = "(" + runBookmarklet.toString() + ")();";
+      bookmarkletLink.href = "javascript:" + code;
+    })();
+  </script>
+</body>
+</html>

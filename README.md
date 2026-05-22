@@ -1,204 +1,73 @@
 # LGO — LOTRO Gear Optimizer
 
-A command-line tool for Lord of the Rings Online players that finds the
-optimal combination of gear items for a given set of stat priorities and
-minima.
+LGO is a command-line optimizer for **Lord of the Rings Online** gear. It picks the best item combination by lexicographic stat priority, using a user-edited `lgo_stats_*.toml` file as input.
 
----
-
-## How it works
-
-1. You place candidate gear items into a Shared Storage chest named **`lgo`**
-   in-game.
-2. You run the `/lgo export` command in-game, which writes a `.plugindata`
-   file to your Documents folder.
-3. You run this program from the command line with your stat goals.
-4. The optimizer fetches item stats from [lotro-wiki.com](https://lotro-wiki.com)
-   (cached locally after the first lookup) finds the best gear set, and presents
-   that information to the user.
-
----
-
-## Installation
-
-### Prerequisites
+## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable toolchain)
-- The **LGO** in-game plugin installed and configured
+- The **LGO** in-game plugin (`src/lgo.lua` + `src/lgo.plugin`)
 
-### Build
+## Build
 
-```
+```bash
 cargo build --release
 ```
 
-The binary will be at `target\release\lgo.exe`.
+Binary output:
+- Windows: `target\release\lgo.exe`
+- Linux/macOS: `target/release/lgo`
 
-Optionally, copy it somewhere on your `PATH`:
+## Workflow (browser method)
 
-```
-copy target\release\lgo.exe C:\Users\<you>\bin\lgo.exe
-```
+1. Place candidate items in a Shared Storage chest named **`lgo`**.
+2. Run `/lgo export` in-game.
+3. Open <https://lotro-wiki.com> in your browser.
+4. Click the **LGO Stats** bookmarklet.
+5. Paste your `lgo_itemnames_*.plugindata` contents when prompted.
+6. Copy the generated `.toml` and save it to your character’s `AllServers` directory.
+7. Run LGO with stat goals:
 
----
-
-## Usage
-
-```
-lgo [options] <stat:minimum> [<stat:minimum> ...]
-```
-
-Stats are listed in **priority order**. The optimizer maximises the last
-stat first, uses the second-to-last as a tiebreaker, then works backwards.
-Each stat has an optional minimum — the gear set is only considered valid
-if every minimum is met.
-
-### Options
-
-| Option | Description |
-|---|---|
-| `--character <name>` | Character name (auto-detected if only one exists) |
-| `--cache <path>` | Path to the item cache JSON file |
-| `--help` | Show usage information |
-
-### Examples
-
-```
-lgo CritRating:450 TacticalMastery:450 FinesseRating:300 TacticalMitigation:200
+```bash
+lgo <stat:minimum> [<stat:minimum> ...]
 ```
 
+If any item is unresolved by the bookmarklet, it is written with all-zero stats; fill those values manually before running the optimizer (this is common for legendary items).
+
+## Stat goal syntax
+
+Each goal is `stat:minimum`.
+
+- Goals are ordered by priority (left to right)
+- Minimum `0` means “maximise this stat but require no floor”
+
+Examples:
+
+```bash
+lgo TacticalMastery:450000 CriticalRating:350000 Finesse:0
+lgo tm:450000 cr:350000 fn:0
+lgo --character Thalya tm:450000 oh:100000
 ```
-lgo --character Thalya Vitality:500 Morale:800 CritRating:0
-```
 
-A minimum of `0` means "maximise this stat but impose no floor."
+## Stat abbreviations (tracked stats)
 
----
-
-## Stat names
-
-Stat names are case-insensitive and accept common aliases.
-
-| Canonical name | Aliases |
-|---|---|
-| `Vitality` | |
-| `Morale` | |
-| `Power` | |
-| `Might` | |
-| `Agility` | |
-| `Will` | |
-| `Fate` | |
-| `CritRating` | |
-| `DevRating` | |
-| `FinesseRating` | `Finesse` |
-| `TacticalMastery` | `TactMast`, `TactMastery` |
-| `PhysicalMastery` | `PhysMast`, `PhysMastery` |
-| `OffensiveOverpower` | `Overpower` |
-| `Armour` | `Armor` |
-| `Resistance` | |
-| `CritDefence` | `CritDefense` |
-| `TacticalMitigation` | `TactMit` |
-| `PhysicalMitigation` | `PhysMit` |
-| `IncMitigations` | `IncMit` |
-| `IncomingHealing` | `IncHeal` |
-| `OutgoingHealing` | `OutHeal` |
-
----
+| Abbrev | Stat key | Abbrev | Stat key |
+|---|---|---|---|
+| `am` | `Armor` | `cd` | `CriticalDefense` |
+| `cr` | `CriticalRating` | `ih` | `IncomingHealing` |
+| `fn` | `Finesse` | `bl` | `Block` |
+| `pm` | `PhysicalMastery` | `pa` | `Parry` |
+| `tm` | `TacticalMastery` | `ev` | `Evade` |
+| `oh` | `OutgoingHealing` | `pt` | `PhysicalMitigation` |
+| `rs` | `Resistance` | `tt` | `TacticalMitigation` |
 
 ## Optimization logic
 
-### Lexicographic priority
+LGO optimizes by strict lexicographic priority:
 
-The optimizer selects the gear set that maximises stats in strict priority
-order:
+1. Maximise the first stat.
+2. Break ties using the second stat.
+3. Continue through the goal list.
 
-- Among all valid gear sets, pick the one with the highest total for Stat 1.
-- Among those tied on Stat 1, pick the one with the highest total for Stat 2.
-- And so on.
+A solution is **feasible** only if all minima are met.
 
-A gear set is **valid** if every stat meets its user-supplied minimum.
-
-### Infeasible results
-
-If no combination of available items can meet all minima simultaneously, the
-program returns the best available result anyway (using the same priority
-order, ignoring minima) and clearly reports which stats fell short and by how
-much. The process exits with code `2` in this case.
-
-### Slots considered
-
-| Slot | Notes |
-|---|---|
-| Head | |
-| Chest | |
-| Legs | |
-| Hands | |
-| Feet | |
-| Shoulders | |
-| Back | |
-| Wrist (×2) | Any wrist item is a candidate for either wrist slot |
-| Neck | |
-| Finger (×2) | Any ring is a candidate for either finger slot |
-| Ear (×2) | Any earring is a candidate for either ear slot |
-| Pocket | |
-| Off-hand | |
-| Ranged | |
-
-The following slots are **not** considered: Main-hand, Craft item,
-Class item, Bridle.
-
-### Candidate limit
-
-No more than **8 candidates per slot** are considered. If your `lgo` chest
-contains more than 6 items for a single slot, only the first 6 will be
-used and a warning will be shown.
-
----
-
-## Item data
-
-Item stats are fetched from [lotro-wiki.com](https://lotro-wiki.com) via
-its MediaWiki API. Fetched data is cached locally in `lgo_cache.json`
-(in the same directory as your `.plugindata` file) so that subsequent
-runs do not need to re-query the wiki for items already seen.
-
-To force a fresh lookup for all items, delete `lgo_cache.json`.
-
----
-
-## Workflow summary
-
-```
-[In-game]
-  1. Put candidate items in a Shared Storage chest named 'lgo'
-  2. /lgo export
-
-[Command line]
-  3. lgo CritRating:450 TactMast:450 Finesse:300 TactMit:200
-
-[Output]
-  Slot            Recommended Item
-  ----------------------------------------------
-  Head            Umbari Hat of Beasts
-  Chest           Umbari Robe of Beasts
-  ...
-
-  Stat                    Total    Minimum  Met?
-  ----------------------------------------------
-  CritRating             12,480     10,000   ✓
-  TacticalMastery        11,200     10,000   ✓
-  FinesseRating           8,300      8,000   ✓
-  TacticalMitigation     15,400     14,000   ✓
-```
-
----
-
-## Comments
-
-
-
----
-
-## License
-
-None. Do what thou wilt.
+If no feasible set exists, LGO still returns the best available lexicographic result and reports which minima were missed.

@@ -7,21 +7,7 @@ edition = "2021"
 name = "lgo"
 path = "src/main.rs"
 
-[[bin]]
-name = "wikitest"
-path = "src/wikitest.rs"
-
-[[bin]]
-name = "db_build"
-path = "src/bin/db_build.rs"
-
-[[bin]]
-name = "stats"
-path = "src/bin/stats.rs"
-
 [dependencies]
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
-ureq        = "2"
-quick-xml   = "0.36"
 toml        = "0.8"
