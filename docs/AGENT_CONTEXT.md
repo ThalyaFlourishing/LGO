@@ -30,6 +30,8 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 7. Save the `.toml` to the `AllServers` directory.
 8. Run `lgo tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` and `.plugindata`, runs the optimizer, prints the result.
 
+*(Note: a `resolve-slots` subcommand will be inserted between steps 7 and 8 — see `docs/RESOLVER_DESIGN.md`. Once shipped, the optimizer will require a `-Optimize` keyword in front of stat goals.)*
+
 ---
 
 ## 3. Repo layout (relevant)
@@ -39,12 +41,12 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `parse_slot_str` enforces the canonical 19-string slot allow-list.
 - `src/optimizer.rs` — two-phase compatibility-filter + safe lexicographic narrowing; super-candidates for paired Wrist/Finger/Ear slots; `MAX_CANDIDATES_PER_SLOT = 8`; infeasible-greedy fallback.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (14, canonical order), CLI abbrev parsing, `StatGoal`.
-- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_plugin_index`, `Display` impl, `GearItem`, `GearSet`.
+- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_plugin_index`, `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page (under active debugging).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
-- `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`).
+- `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `AGENT_CONTEXT.md`, `RESOLVER_DESIGN.md`).
 - `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigating, use a CLI script or a separate scraping pass and commit a distilled UTF-8 Markdown summary instead. This is a hard rule, not a guideline.
 - `GaranStuff/` — ignore for now.
 
@@ -82,6 +84,8 @@ Two-letter CLI abbreviations: `am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
 The Rust code is vocabulary #3. The bookmarklet currently translates #2 → #3 via a hand-maintained `SLOT_MAP` in `lgo_bookmarklet.html`. `data/items.xml` (#1) is the game's source of truth for which slot an item belongs to. Names in `items.xml` and `lgo_items.json` match the in-game item names exactly (same source as the plugin's name export).
 
+**A fourth representation** also exists: `data/lgo_items.json`'s `slot` values use bare PascalCase variant names (`Head`, `Wrist1`, `MainHand`, `ClassItem`, etc.) — this is Rust's *default* enum serialization, not the Display form. It is **not** identical to vocabulary #3 above; the resolver translates it into vocabulary #3 via `Slot::from_json_variant`. Same `Slot` enum at the type level; different string representations.
+
 ---
 
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
@@ -113,7 +117,9 @@ TacticalMitigation = 0
 
 `mapSlot()` line 157: `return mapped || cleaned;` — when a slot string isn't in `SLOT_MAP`, returns the raw wiki value, which will fail `parse_slot_str` later. **Currently latent**: no observed failures via this code path in the test TOML. The wiki has no enforced slot allow-list ({{Item Tooltip}} doc treats `slot=` as free-text), so misses *can* happen, but we have no observational evidence yet. Defer until/unless a real symptom appears. If we do fix it, the change is one line: return `"Unknown"` instead of `cleaned`. (Do **not** duplicate the Rust 19-slot allow-list in JS — that creates drift.)
 
-### Bug 3 — Items with parsed stats emit `slot = "Unknown"` 🔴 NEXT
+*(Largely moot once the resolver lands: the bookmarklet stops being trusted for slots at all, so even raw wiki text leaking through `mapSlot` will be overwritten by `resolve-slots`.)*
+
+### Bug 3 — Items with parsed stats emit `slot = "Unknown"` 🔴 IN PROGRESS
 
 Observed examples:
 - `Faded Watcher's Bracers` — Armor 8631, Finesse 6583 — slot Unknown.
@@ -124,19 +130,15 @@ Observed examples:
 - Weapons (and some other categories) carry their slot info in `type=` instead (e.g. `"One-Handed Axe"`, `"Heavy Armour"`, `"Resource"`).
 - The bookmarklet only reads `slot=`, so for weapons it gets an empty string and `mapSlot("")` returns `"Unknown"` via the empty-input early return on line 155.
 
-**Open question — user's proposal, NOT YET DECIDED:**
+**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. See `docs/RESOLVER_DESIGN.md` for the full design. Implementation underway:
 
-> Since the bookmarklet is far better at extracting **names** than **slots**, rely on `data/lgo_items.json` (or `data/items.xml`) for slot resolution. The slot names there are consistent and reliable, and the canonical slot list derives from them. Add a post-processing CLI step (after pasting the bookmarklet's `.toml`) that looks up each item's slot by name from the canonical data file.
-
-The user asked for the agent's opinion on this; it has not been committed to. Things to decide before implementing:
-
-- Use `lgo_items.json` (8 MB, JSON, easy to load in Rust) rather than `items.xml` (71 MB, XML).
-- Map items.xml vocabulary (`HEAD`, `SHOULDER`, `HAND`, etc.) → canonical vocabulary (`Head`, `Shoulders`, `Hands`, etc.).
-- How to handle items that legitimately fit multiple slots (rings, earrings, bracelets, one-hand weapons).
-- How to disambiguate name collisions (same name across tiers/variants — use item id if available, else itemlevel/quality, else accept any match).
-- Behaviour for unknown names: error / warn-and-skip / write `Unknown` for human fix.
-- Build a one-time `name → slot(s)` index (in-memory or precomputed `data/name_to_slots.json`) so the step is O(1) per item.
-- A separate, larger architectural question: the in-game plugin already knows the slot of equipped items (via `Slot::from_plugin_index`); the Turbine Lua API *may* also expose slot-type for chest items. If so, slot detection could move entirely into the plugin and the wiki would only be consulted for stats. **Do not pursue this now** — investigating the Turbine Lua API in chat caused the context-loss event that motivated writing this file. Flag for later, investigate only via out-of-chat scripts.
+- ✅ Step 1 — JSON schema verified (matches `RESOLVER_DESIGN.md` §3).
+- ✅ Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip + rejection tests.
+- ⏳ Step 3 — `ItemsDb::load_default` + `lookup`.
+- ⏳ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
+- ⏳ Step 5 — wire `-Optimize` / `resolve-slots` subcommands into `main.rs`.
+- ⏳ Step 6 — integration test against the 66-item bookmarklet output.
+- ⏳ Step 7 — sync `docs/User Workflow.txt` and `docs/AGENT_CONTEXT.md` to the new CLI.
 
 ### Bug 4 — Many wiki pages fail to resolve
 
@@ -147,7 +149,7 @@ The bookmarklet writes `# WARNING: all stats unknown` for items whose pages *do*
 
 ### Bug 5 — TOML output is no longer slot-grouped
 
-The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is regressed. Restore it.
+The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is regressed. Will be fixed as a side effect of `resolve-slots` (which has to rewrite the file anyway).
 
 ---
 
@@ -155,6 +157,7 @@ The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order wit
 
 - The `bing-search` tool returns LLM-summarized results, not raw page content. It is the **wrong instrument** for "what does this wiki template actually say." For wiki source, ask the user to open `https://lotro-wiki.com/index.php?title=Template:Item_Tooltip&action=edit` (or `&action=raw`) and paste the source.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
+- `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions, ask the user to grep locally and paste.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.** If the Turbine Lua API needs surveying, do it via a CLI script that emits a clean UTF-8 Markdown summary committed to the repo.
 - Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 14-stat list. Do not invent or paraphrase.
 - The bookmarklet's `SLOT_MAP` is a translation table between two free-text vocabularies and a rigid one. There is **no canonical translation table** between the wiki's free-text `slot=`/`type=` values and the Rust 19-slot enum. Do **not** speculate about what wiki pages contain — either inspect the actual page (via the user) or instrument the bookmarklet for one diagnostic run.
@@ -176,3 +179,13 @@ The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order wit
 - HTML report output (currently terminal-only).
 - Architectural review of where slot detection should live (plugin vs wiki vs canonical data file — see Bug 3 open question).
 - Others as they come up.
+
+---
+
+## 10. Deferred work (don't lose track of these)
+
+These are known, decided-but-not-urgent items. Do **not** silently fold them into other PRs; track and address explicitly.
+
+- **Restore `src/bin/db_build.rs`.** Was deleted in the bookmarklet pivot. Still recoverable from git history (commit `3a0fc23d` on the pre-pivot branch). It reads `data/items.xml` + `data/progressions.xml` and writes `data/lgo_items.json`. Needed eventually so we can regenerate `lgo_items.json` whenever `items.xml` is refreshed from the player community source. **Not urgent** until the existing JSON snapshot starts feeling stale (i.e., many items missing from real runs). When restoring, also re-add it as a `[[bin]]` entry in `Cargo.toml`.
+- **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother before the resolver work is done — the resolver removes much of the slot-handling logic that would have been the most valuable thing to test. Revisit after resolver lands; the integration test against a real 66-item input is what actually matters.
+- **Bug 2 (`mapSlot()` fallback).** Latent, no observed symptom. Largely moot once the resolver overrides slot decisions anyway. Leave alone unless it produces a real failure.
