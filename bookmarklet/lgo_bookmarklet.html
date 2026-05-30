@@ -48,37 +48,27 @@
           "tactical mitigation": "TacticalMitigation"
         };
 
+        // Slot resolution is now handled by the `resolve-slots` Rust subcommand
+        // (see docs/RESOLVER_DESIGN.md). The bookmarklet only does a best-effort
+        // direct mapping here; anything unrecognised is emitted as "Unknown" and
+        // the resolver fixes it from data/lgo_items.json.
         const SLOT_MAP = {
           "head": "Head",
           "chest": "Chest",
           "legs": "Legs",
           "hands": "Hands",
-          "gloves": "Hands",
           "feet": "Feet",
-          "boots": "Feet",
           "back": "Back",
-          "cloak": "Back",
-          "shoulder": "Shoulders",
           "shoulders": "Shoulders",
           "wrist": "Wrist (1)",
-          "bracelet": "Wrist (1)",
           "neck": "Neck",
-          "necklace": "Neck",
           "finger": "Finger (1)",
-          "ring": "Finger (1)",
           "ear": "Ear (1)",
-          "earring": "Ear (1)",
           "pocket": "Pocket",
           "main-hand": "Main-hand",
-          "main hand": "Main-hand",
-          "staff": "Main-hand",
-          "one-handed sword": "Main-hand",
-          "staves": "Main-hand",
           "off-hand": "Off-hand",
-          "offhand": "Off-hand",
           "ranged": "Ranged",
-          "class item": "Class Item",
-          "class slot": "Class Item"
+          "class item": "Class Item"
         };
 
         function zeroStats() {
