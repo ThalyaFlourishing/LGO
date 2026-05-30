@@ -5,6 +5,7 @@ mod gearstats;
 mod optimizer;
 mod plugindata;
 mod report;
+mod slot_resolver;
 mod stat;
 
 use std::collections::HashMap;
