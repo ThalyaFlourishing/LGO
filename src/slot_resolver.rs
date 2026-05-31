@@ -13,12 +13,6 @@
 //!
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
-// `pub` items below are not yet called from `main.rs`; they will be wired in
-// by step 5 of the resolver work (the `resolve-slots` subcommand). Until then,
-// suppress dead-code warnings so the module compiles cleanly. Remove this
-// attribute when step 5 lands.
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
