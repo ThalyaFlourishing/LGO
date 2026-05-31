@@ -379,13 +379,15 @@ pub fn resolve_toml_str(
         let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
 
         // Rebuild the array in canonical family order with divider comments.
+        // Dividers use plain ASCII so the resolved file renders cleanly in
+        // any terminal/editor (no Unicode box-drawing dependency).
         let mut new_arr = ArrayOfTables::new();
         for family in slot_family_order() {
             if let Some(group_items) = buckets.remove(&family) {
                 if group_items.is_empty() {
                     continue;
                 }
-                let header = format!("\n# \u2500\u2500\u2500 {} \u2500\u2500\u2500\n", slot_family_label(family));
+                let header = format!("\n# --- {} ---\n", slot_family_label(family));
                 push_group(&mut new_arr, group_items, &header);
             }
         }
@@ -393,7 +395,7 @@ pub fn resolve_toml_str(
             push_group(
                 &mut new_arr,
                 unknowns,
-                "\n# \u2500\u2500\u2500 Unknown (not in items DB) \u2500\u2500\u2500\n",
+                "\n# --- Unknown (not in items DB) ---\n",
             );
         }
 
@@ -788,14 +790,19 @@ name = \"Test Sword\"\n\
 slot = \"Unknown\"\n\
 name = \"Test Bracelet\"\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
-        assert!(out.contains("Head"), "Head divider missing:\n{}", out);
-        assert!(out.contains("Wrist"), "Wrist divider missing:\n{}", out);
-        assert!(out.contains("Main-hand"), "Main-hand divider missing:\n{}", out);
-        // The divider format includes box-drawing characters; presence of the
-        // family label inside a comment line is the substantive check.
         assert!(
-            out.contains("# "),
-            "expected at least one comment line in output:\n{}",
+            out.contains("# --- Head ---"),
+            "Head divider missing:\n{}",
+            out
+        );
+        assert!(
+            out.contains("# --- Wrist ---"),
+            "Wrist divider missing:\n{}",
+            out
+        );
+        assert!(
+            out.contains("# --- Main-hand ---"),
+            "Main-hand divider missing:\n{}",
             out
         );
     }
@@ -822,7 +829,7 @@ name = \"Mystery Renamed Legendary\"\n";
             out
         );
         assert!(
-            out.contains("Unknown (not in items DB)"),
+            out.contains("# --- Unknown (not in items DB) ---"),
             "unknown-section divider missing:\n{}",
             out
         );
