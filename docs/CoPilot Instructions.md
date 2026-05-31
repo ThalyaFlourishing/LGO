@@ -64,9 +64,9 @@ apply across all sessions:
 
 The `lgo` binary uses an explicit subcommand verb:
 
-- `lgo -Optimize <stat:minimum> [...]` — runs the gear optimizer.
 - `lgo resolve-slots [--file PATH]` — resolves slot fields against
   `data/lgo_items.json` (see `RESOLVER_DESIGN.md`).
+- `lgo -Optimize <stat:minimum> [...]` — runs the gear optimizer.
 
 When updating CLI behaviour, also update:
 - `docs/AGENT_CONTEXT.md` (workflow examples)
