@@ -381,14 +381,21 @@ pub fn resolve_toml_str(
         // Rebuild the array in canonical family order with divider comments.
         // Dividers use plain ASCII so the resolved file renders cleanly in
         // any terminal/editor (no Unicode box-drawing dependency).
+        //
+        // `next_pos` is threaded through push_group so each table receives a
+        // monotonically increasing `position`, overriding the original-source
+        // positions that toml_edit attached at parse time. Without this, the
+        // renderer emits tables in original-source order regardless of the
+        // order we push them into the new ArrayOfTables.
         let mut new_arr = ArrayOfTables::new();
+        let mut next_pos: usize = 0;
         for family in slot_family_order() {
             if let Some(group_items) = buckets.remove(&family) {
                 if group_items.is_empty() {
                     continue;
                 }
                 let header = format!("\n# --- {} ---\n", slot_family_label(family));
-                push_group(&mut new_arr, group_items, &header);
+                push_group(&mut new_arr, group_items, &header, &mut next_pos);
             }
         }
         if !unknowns.is_empty() {
@@ -396,6 +403,7 @@ pub fn resolve_toml_str(
                 &mut new_arr,
                 unknowns,
                 "\n# --- Unknown (not in items DB) ---\n",
+                &mut next_pos,
             );
         }
 
@@ -461,8 +469,10 @@ fn bucket_items(
 
 /// Push a slot group onto the new array of tables, prepending `header` to
 /// the prefix decor of the first table so it appears as a divider comment
-/// above the group.
-fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, header: &str) {
+/// above the group. Each table is also assigned a fresh sequential
+/// `position` (via `next_pos`) so the renderer emits the rebuilt array in
+/// the order we constructed it, ignoring the original-source positions.
+fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, header: &str, next_pos: &mut usize) {
     for (i, mut table) in items.into_iter().enumerate() {
         if i == 0 {
             let existing_prefix = table
@@ -475,6 +485,8 @@ fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, header: &str) {
                 .decor_mut()
                 .set_prefix(format!("{}{}", header, existing_prefix));
         }
+        table.set_position(*next_pos);
+        *next_pos += 1;
         arr.push(table);
     }
 }
@@ -752,10 +764,15 @@ name = \"Lore-master's Staff of Legends\"\n";
         );
     }
 
+    /// Verifies the contract: items appear in the output in the same order
+    /// their (resolved) slot families appear in `slot_family_order()`. Does
+    /// not hard-code "Head before Main-hand" or any other specific pairing;
+    /// if the canonical order ever changes, this test still passes as long
+    /// as the resolver continues to honour whatever order is declared.
     #[test]
-    fn output_groups_items_by_canonical_slot_order() {
+    fn output_orders_items_by_slot_family_order() {
         let db = fixture_db();
-        // Provide items in scrambled order: Sword (MainHand) before Helm (Head).
+        // Provide items in scrambled order, all four fixture slots present.
         let input = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
@@ -763,15 +780,92 @@ name = \"Test Sword\"\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
-name = \"Test Helm\"\n";
+name = \"Test Tome\"\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Bracelet\"\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
-        let helm_pos = out.find("Test Helm").expect("Test Helm in output");
-        let sword_pos = out.find("Test Sword").expect("Test Sword in output");
-        assert!(
-            helm_pos < sword_pos,
-            "Head group should come before Main-hand group:\n{}",
-            out
-        );
+
+        // For each fixture item, what family does its slot resolve to?
+        let item_to_family: Vec<(&str, Slot)> = vec![
+            ("Test Helm",     slot_family(Slot::Head)),
+            ("Test Bracelet", slot_family(Slot::Wrist1)),
+            ("Test Sword",    slot_family(Slot::MainHand)),
+            ("Test Tome",     slot_family(Slot::ClassItem)),
+        ];
+
+        // Walk slot_family_order(); for each family that has a fixture item,
+        // collect that item's name. The result is the expected sequence of
+        // item appearances in the output.
+        let order = slot_family_order();
+        let expected_sequence: Vec<&str> = order
+            .iter()
+            .filter_map(|fam| {
+                item_to_family
+                    .iter()
+                    .find(|(_, f)| f == fam)
+                    .map(|(name, _)| *name)
+            })
+            .collect();
+
+        // Find each expected item's position in the output, and assert that
+        // those positions are strictly increasing.
+        let positions: Vec<(&str, usize)> = expected_sequence
+            .iter()
+            .map(|name| {
+                let pos = out
+                    .find(name)
+                    .unwrap_or_else(|| panic!("'{}' missing from output:\n{}", name, out));
+                (*name, pos)
+            })
+            .collect();
+
+        for window in positions.windows(2) {
+            let (a_name, a_pos) = window[0];
+            let (b_name, b_pos) = window[1];
+            assert!(
+                a_pos < b_pos,
+                "'{}' (pos {}) should appear before '{}' (pos {}) per slot_family_order():\n{}",
+                a_name,
+                a_pos,
+                b_name,
+                b_pos,
+                out
+            );
+        }
+    }
+
+    /// Pin the canonical family order itself, so that an unexpected change
+    /// in `Slot::ALL` or `slot_family` (the inputs to `slot_family_order`)
+    /// is caught directly, with a clear failure, rather than via a cascade
+    /// of failures in higher-level tests.
+    #[test]
+    fn slot_family_order_is_canonical() {
+        let order = slot_family_order();
+        let expected = vec![
+            Slot::Head,
+            Slot::Chest,
+            Slot::Legs,
+            Slot::Hands,
+            Slot::Feet,
+            Slot::Shoulders,
+            Slot::Back,
+            Slot::Wrist1,
+            Slot::Neck,
+            Slot::Finger1,
+            Slot::Ear1,
+            Slot::Pocket,
+            Slot::MainHand,
+            Slot::OffHand,
+            Slot::Ranged,
+            Slot::ClassItem,
+        ];
+        assert_eq!(order, expected);
     }
 
     #[test]
