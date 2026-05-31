@@ -159,11 +159,13 @@ impl ItemsDb {
     }
 
     /// Number of unique item names in the index.
+    #[allow(dead_code)] // Public API; exercised by tests only — `main.rs` doesn't need it yet.
     pub fn len(&self) -> usize {
         self.by_name.len()
     }
 
     /// True if no items were loaded.
+    #[allow(dead_code)] // Public API; exercised by tests only — `main.rs` doesn't need it yet.
     pub fn is_empty(&self) -> bool {
         self.by_name.is_empty()
     }
