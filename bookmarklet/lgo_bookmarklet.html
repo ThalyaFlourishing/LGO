@@ -218,8 +218,18 @@
 
         async function fetchItem(name) {
           const stats = zeroStats();
-          const pageName = "Item:" + name.replace(/ /g, "_").replace(/'/g, "%27");
-          const url = `https://lotro-wiki.com/api.php?action=parse&page=${pageName}&prop=wikitext&format=json`;
+          // Encode the title portion (after the "Item:" namespace prefix) so non-ASCII
+          // characters like á, â, û, ó round-trip correctly. MediaWiki accepts spaces
+          // as either "_" or "%20"; we keep the underscore form for readability in
+          // network logs, then encodeURIComponent the result. The "Item:" prefix is a
+          // namespace and must remain literal — it must not be URL-encoded.
+          const titlePart = encodeURIComponent(name.replace(/ /g, "_"));
+          const pageName = "Item:" + titlePart;
+          // redirects=1 tells the API to follow MediaWiki redirects to the canonical
+          // page; lotro-wiki uses redirect pages heavily as item-name aliases, and
+          // without this flag the API returns the redirect page itself (no Item Tooltip
+          // template) instead of the target.
+          const url = `https://lotro-wiki.com/api.php?action=parse&page=${pageName}&prop=wikitext&format=json&redirects=1`;
 
           const resp = await fetch(url, { credentials: "include" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
