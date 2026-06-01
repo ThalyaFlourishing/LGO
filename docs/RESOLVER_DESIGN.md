@@ -1,6 +1,8 @@
 # `resolve-slots` Subcommand — Design / Scoping Doc
 
-**Status:** Approved scope, not yet implemented.
+**Status (now historical):** This design has shipped. The `resolve-slots` subcommand and the `optimize` / `resolve-slots` CLI split are live on `The-Browser-Method` (CLI wiring in PR #18, integration tests in PR #19). This document is preserved for reference but is no longer an active spec.
+
+**Original status:** Approved scope, not yet implemented.
 **Branch:** `The-Browser-Method`
 **Related:** `docs/AGENT_CONTEXT.md` (project-wide context — read first).
 
@@ -115,6 +117,8 @@ Currently `lgo` takes stat goals as positional args (`lgo tm:450000 cr:350000`).
 - `lgo resolve-slots [--file PATH]` — runs the resolver.
 
 The user has approved requiring `-Optimize` to keep the two uses consistent. This is a **breaking change** to the CLI surface; all existing usage examples in `docs/AGENT_CONTEXT.md` and `docs/User Workflow.txt` must be updated.
+
+> **Implementation note (post-ship):** the actual CLI uses bare verbs `optimize` and `resolve-slots`, case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` as aliases. The `-Optimize` form shown above is not what shipped. See `src/main.rs::parse_command`.
 
 (If we ever want a third subcommand later, this scales cleanly.)
 
@@ -235,11 +239,11 @@ Some items share names across tiers (same name, different `item_level`/`quality`
 
 A short list of "do not assume; check" items pulled together from the body of this doc:
 
-- [ ] Actual JSON schema of `data/lgo_items.json` matches §3 (probe and verify).
-- [ ] `src/optimizer.rs` super-candidate logic for paired slots really does draw from the union pool, not the `(1)`/`(2)`-tagged subsets (re-read and confirm in writing — see §5).
-- [ ] `find_latest_stats_file` sort order puts `_resolved` files after their originals (verify; if not, switch to a fresh timestamp — see §7).
-- [ ] `toml_edit` is not heavyweight or invasive enough to merit pulling in (verify before adding; surface concerns if found — see §7).
-- [ ] No reused-name-across-different-slots cases exist in `data/lgo_items.json` that would invalidate the first-match-wins decision in §9 (spot-check during integration testing).
+- [x] Actual JSON schema of `data/lgo_items.json` matches §3 — verified by `slot_resolver`'s real-DB tests.
+- [x] `src/optimizer.rs` super-candidate logic for paired slots really does draw from the union pool, not the `(1)`/`(2)`-tagged subsets — verified: `canonical_slot()` in `src/optimizer.rs` collapses `Wrist2`/`Finger2`/`Ear2` into their `*1` counterparts before the per-slot `pools` HashMap is keyed, and `build_pairs` enumerates all `i ≤ j` pairings over that union pool; `original_slot` is used only as a sort tiebreaker (preferring `a→slot1, b→slot2`), never as a filter.
+- [x] `find_latest_stats_file` sort order puts `_resolved` files after their originals — verified by the `resolved_path_sorts_after_original_lexicographically` test in `src/slot_resolver.rs`.
+- [x] `toml_edit` is not heavyweight or invasive enough to merit pulling in — verified: used cleanly throughout `src/slot_resolver.rs`.
+- [x] No reused-name-across-different-slots cases exist in `data/lgo_items.json` that would invalidate the first-match-wins decision in §9 — verified by `no_item_name_maps_to_multiple_slots_in_lgo_items_json` in `tests/resolve_slots_integration.rs`.
 
 ## 12. Out of scope for this work
 

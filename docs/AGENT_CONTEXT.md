@@ -28,9 +28,8 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 5. Paste the contents of `lgo_itemnames_*.plugindata` when prompted.
 6. The bookmarklet builds a `.toml`. Unresolvable items (legendary/renamed) are written with all stats `= 0` for the user to fill in by hand.
 7. Save the `.toml` to the `AllServers` directory.
-8. Run `lgo tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` and `.plugindata`, runs the optimizer, prints the result.
-
-*(Note: a `resolve-slots` subcommand will be inserted between steps 7 and 8 — see `docs/RESOLVER_DESIGN.md`. Once shipped, the optimizer will require a `-Optimize` keyword in front of stat goals.)*
+8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped formatting. Items not in the DB (legendary or renamed) keep `slot = "Unknown"` and are listed on stderr for manual fix-up.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` (the `_resolved` one) and `.plugindata`, runs the optimizer, prints the result.
 
 ---
 
@@ -119,7 +118,9 @@ TacticalMitigation = 0
 
 *(Largely moot once the resolver lands: the bookmarklet stops being trusted for slots at all, so even raw wiki text leaking through `mapSlot` will be overwritten by `resolve-slots`.)*
 
-### Bug 3 — Items with parsed stats emit `slot = "Unknown"` 🔴 IN PROGRESS
+### Bug 3 — Items with parsed stats emit `slot = "Unknown"` ✅ FIXED
+
+Fixed by the `resolve-slots` subcommand (see `docs/RESOLVER_DESIGN.md`). Wired into the CLI in PR #18 and integration-tested against the 66-item bookmarklet fixture in PR #19.
 
 Observed examples:
 - `Faded Watcher's Bracers` — Armor 8631, Finesse 6583 — slot Unknown.
@@ -134,11 +135,11 @@ Observed examples:
 
 - ✅ Step 1 — JSON schema verified (matches `RESOLVER_DESIGN.md` §3).
 - ✅ Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip + rejection tests.
-- ⏳ Step 3 — `ItemsDb::load_default` + `lookup`.
-- ⏳ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
-- ⏳ Step 5 — wire `-Optimize` / `resolve-slots` subcommands into `main.rs`.
-- ⏳ Step 6 — integration test against the 66-item bookmarklet output.
-- ⏳ Step 7 — sync `docs/User Workflow.txt` and `docs/AGENT_CONTEXT.md` to the new CLI.
+- ✅ Step 3 — `ItemsDb::load_default` + `lookup`.
+- ✅ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
+- ✅ Step 5 — wired `optimize` / `resolve-slots` subcommands into `main.rs` (bare verbs, case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` aliases). [PR #18]
+- ✅ Step 6 — integration test against the 66-item bookmarklet output (`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
+- ✅ Step 7 — synced `docs/AGENT_CONTEXT.md` and `docs/RESOLVER_DESIGN.md` to the new CLI. (`docs/User Workflow.txt` requires a full revision and is tracked separately.)
 
 ### Bug 4 — Many wiki pages fail to resolve
 
@@ -147,7 +148,9 @@ The bookmarklet writes `# WARNING: all stats unknown` for items whose pages *do*
 1. The page-name builder (line 230) only encodes spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) go into the URL raw. They should be `encodeURIComponent`'d after the `Item:` prefix and underscore substitution.
 2. The API call (line 231) is missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, a redirect page (no `{{Item Tooltip}}`) is returned and the item is wrongly reported as unresolved.
 
-### Bug 5 — TOML output is no longer slot-grouped
+### Bug 5 — TOML output is no longer slot-grouped ✅ FIXED
+
+Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer the file the optimizer reads.
 
 The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is regressed. Will be fixed as a side effect of `resolve-slots` (which has to rewrite the file anyway).
 
