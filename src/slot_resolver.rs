@@ -390,15 +390,19 @@ pub fn resolve_toml_str(
                 if group_items.is_empty() {
                     continue;
                 }
-                let header = format!("\n# --- {} ---\n", slot_family_label(family));
-                push_group(&mut new_arr, group_items, &header, &mut next_pos);
+                push_group(
+                    &mut new_arr,
+                    group_items,
+                    slot_family_label(family),
+                    &mut next_pos,
+                );
             }
         }
         if !unknowns.is_empty() {
             push_group(
                 &mut new_arr,
                 unknowns,
-                "\n# --- Unknown (not in items DB) ---\n",
+                "Unknown (not in items DB)",
                 &mut next_pos,
             );
         }
@@ -463,23 +467,26 @@ fn bucket_items(
     (buckets, unknowns, outcomes)
 }
 
-/// Push a slot group onto the new array of tables, prepending `header` to
-/// the prefix decor of the first table so it appears as a divider comment
-/// above the group. Each table is also assigned a fresh sequential
+/// Push a slot group onto the new array of tables, inserting a divider
+/// comment on the first table after any pre-existing prefix decor.
+/// Each table is also assigned a fresh sequential
 /// `position` (via `next_pos`) so the renderer emits the rebuilt array in
 /// the order we constructed it, ignoring the original-source positions.
-fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, header: &str, next_pos: &mut usize) {
+fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, label: &str, next_pos: &mut usize) {
     for (i, mut table) in items.into_iter().enumerate() {
         if i == 0 {
-            let existing_prefix = table
+            let existing = table
                 .decor()
                 .prefix()
                 .and_then(|s| s.as_str())
-                .unwrap_or("")
-                .to_string();
-            table
-                .decor_mut()
-                .set_prefix(format!("{}{}", header, existing_prefix));
+                .unwrap_or("");
+            let base = existing.trim_end_matches('\n');
+            let new_prefix = if base.is_empty() {
+                format!("\n# --- {} ---\n\n", label)
+            } else {
+                format!("{}\n\n# --- {} ---\n\n", base, label)
+            };
+            table.decor_mut().set_prefix(new_prefix);
         }
         table.set_position(*next_pos);
         *next_pos += 1;
@@ -941,6 +948,26 @@ Armor = 0\n";
         assert!(
             out.contains("# WARNING: all stats unknown"),
             "per-item warning comment was lost:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn document_header_comments_precede_first_group_divider() {
+        let db = fixture_db();
+        let input = "\
+# Doc header line 1\n\
+# Doc header line 2\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        let hdr = out.find("# Doc header line 1").expect("doc header preserved");
+        let div = out.find("# --- Head ---").expect("divider present");
+        assert!(
+            hdr < div,
+            "doc header must precede first divider, got:\n{}",
             out
         );
     }
