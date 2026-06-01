@@ -108,6 +108,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     PhysicalMitigation pt
     TacticalMitigation tt
 
+  Note: pt and tt are the parser's canonical two-letter abbreviations for
+  PhysicalMitigation and TacticalMitigation.
+
   Examples:
     lgo optimize tm:450000 cr:350000 fn:0
     lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0
