@@ -1,0 +1,142 @@
+     Running unittests src\lib.rs (target\debug\deps\lgo-eede917a42056792.exe)
+
+running 56 tests
+test gear::tests::from_json_variant_rejects_unknown_inputs ... ok
+test gear::tests::punctuation_variants_translate_correctly ... ok
+test gear::tests::from_json_variant_round_trips_for_all_slots ... ok
+test optimizer::tests::test_negative_stat_causes_infeasibility ... ok
+test optimizer::tests::test_no_goals_returns_first_candidates ... ok
+test optimizer::tests::test_negative_stat_compensated_across_slots ... ok
+test optimizer::tests::test_negative_stat_on_non_goal_stat_does_not_crash ... ok
+test optimizer::tests::test_same_item_pair_infeasible_when_minimum_exceeds_best_pair ... ok
+test optimizer::tests::test_missing_slot_emits_placeholder_warning ... ok
+test optimizer::tests::test_same_item_pair_chosen_to_meet_tight_minimum ... ok
+test optimizer::tests::test_paired_slots_both_filled_and_summed ... ok
+test gearstats::tests::finds_latest_across_different_character_prefixes ... ok
+test gearstats::tests::finds_latest_stats_file_by_name_order ... ok
+test optimizer::tests::test_safe_narrowing_paired_preserves_higher_priority_max_when_no_minimum ... ok
+test optimizer::tests::test_same_item_pair_single_item_fills_both_slots ... ok
+test optimizer::tests::test_single_candidate_one_below_minimum ... ok
+test optimizer::tests::test_safe_narrowing_feasibility_flag_correct ... ok
+test optimizer::tests::test_single_candidate_meets_minimum_exactly ... ok
+test optimizer::tests::test_safe_narrowing_does_not_sacrifice_stat2_for_stat1 ... ok
+test optimizer::tests::test_safe_narrowing_preserves_higher_priority_max_when_no_minimum ... ok
+test optimizer::tests::test_spec_run2_c6_wins_infeasible ... ok
+test plugindata::tests::slot_from_index_roundtrip ... ok
+test plugindata::tests::test_bool ... ok
+test optimizer::tests::test_truncation_warning_emitted_for_oversized_pool ... ok
+test plugindata::tests::test_nested_table ... ok
+test plugindata::tests::test_number_float ... ok
+test plugindata::tests::test_simple_table ... ok
+test plugindata::tests::test_string ... ok
+test plugindata::tests::test_string_escape ... ok
+test report::tests::test_format_number ... ok
+test report::tests::test_truncate ... ok
+test slot_resolver::tests::compute_resolved_path_appends_resolved_before_extension ... ok
+test optimizer::tests::test_c5_over_c4_same_slot ... ok
+test slot_resolver::tests::empty_object_yields_empty_db ... ok
+test slot_resolver::tests::document_header_comments_precede_first_group_divider ... ok
+test slot_resolver::tests::excluded_lotro_slot_is_an_error ... ok
+test slot_resolver::tests::extra_fields_in_entry_are_ignored ... ok
+test slot_resolver::tests::loads_fixture_and_resolves_known_items ... ok
+test slot_resolver::tests::group_dividers_are_inserted_per_family ... ok
+test slot_resolver::tests::loads_real_items_db_smoke_test ... ignored, requires data/lgo_items.json on disk; run with `cargo test -- --ignored`
+test slot_resolver::tests::lookup_is_case_sensitive ... ok
+test optimizer::tests::test_spec_run1_feasible ... ok
+test slot_resolver::tests::lookup_returns_none_for_unknown_name ... ok
+test optimizer::tests::test_spec_run1_c2_wins ... ok
+test slot_resolver::tests::malformed_json_is_an_error ... ok
+test slot_resolver::tests::missing_item_array_surfaces_as_no_items_array ... ok
+test slot_resolver::tests::output_orders_items_by_slot_family_order ... ok
+test slot_resolver::tests::parse_error_surfaces_as_parse_error ... ok
+test slot_resolver::tests::report_counts_resolved_and_unknown_correctly ... ok
+test slot_resolver::tests::resolved_path_sorts_after_original_lexicographically ... ok
+test slot_resolver::tests::resolves_known_item_to_canonical_slot ... ok
+test slot_resolver::tests::slot_family_order_is_canonical ... ok
+test slot_resolver::tests::unknown_item_keeps_original_slot_and_records_outcome ... ok
+test slot_resolver::tests::unknown_items_get_their_own_section_at_end ... ok
+test slot_resolver::tests::unknown_slot_value_is_an_error ... ok
+test slot_resolver::tests::warning_comments_inside_items_are_preserved ... ok
+
+test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src\main.rs (target\debug\deps\lgo-9be884e56b39c2b1.exe)
+
+running 62 tests
+test gear::tests::from_json_variant_rejects_unknown_inputs ... ok
+test gear::tests::from_json_variant_round_trips_for_all_slots ... ok
+test gear::tests::punctuation_variants_translate_correctly ... ok
+test optimizer::tests::test_negative_stat_causes_infeasibility ... ok
+test optimizer::tests::test_no_goals_returns_first_candidates ... ok
+test optimizer::tests::test_negative_stat_compensated_across_slots ... ok
+test optimizer::tests::test_paired_slots_both_filled_and_summed ... ok
+test optimizer::tests::test_same_item_pair_infeasible_when_minimum_exceeds_best_pair ... ok
+test optimizer::tests::test_same_item_pair_chosen_to_meet_tight_minimum ... ok
+test optimizer::tests::test_missing_slot_emits_placeholder_warning ... ok
+test optimizer::tests::test_negative_stat_on_non_goal_stat_does_not_crash ... ok
+test gearstats::tests::finds_latest_across_different_character_prefixes ... ok
+test gearstats::tests::finds_latest_stats_file_by_name_order ... ok
+test optimizer::tests::test_single_candidate_one_below_minimum ... ok
+test optimizer::tests::test_same_item_pair_single_item_fills_both_slots ... ok
+test optimizer::tests::test_single_candidate_meets_minimum_exactly ... ok
+test optimizer::tests::test_safe_narrowing_feasibility_flag_correct ... ok
+test optimizer::tests::test_safe_narrowing_paired_preserves_higher_priority_max_when_no_minimum ... ok
+test optimizer::tests::test_safe_narrowing_preserves_higher_priority_max_when_no_minimum ... ok
+test optimizer::tests::test_safe_narrowing_does_not_sacrifice_stat2_for_stat1 ... ok
+test optimizer::tests::test_spec_run2_c6_wins_infeasible ... ok
+test plugindata::tests::slot_from_index_roundtrip ... ok
+test plugindata::tests::test_bool ... ok
+test optimizer::tests::test_truncation_warning_emitted_for_oversized_pool ... ok
+test plugindata::tests::test_nested_table ... ok
+test plugindata::tests::test_number_float ... ok
+test plugindata::tests::test_simple_table ... ok
+test plugindata::tests::test_string ... ok
+test plugindata::tests::test_string_escape ... ok
+test report::tests::test_format_number ... ok
+test report::tests::test_truncate ... ok
+test slot_resolver::tests::compute_resolved_path_appends_resolved_before_extension ... ok
+test optimizer::tests::test_c5_over_c4_same_slot ... ok
+test slot_resolver::tests::empty_object_yields_empty_db ... ok
+test slot_resolver::tests::document_header_comments_precede_first_group_divider ... ok
+test slot_resolver::tests::excluded_lotro_slot_is_an_error ... ok
+test slot_resolver::tests::extra_fields_in_entry_are_ignored ... ok
+test slot_resolver::tests::group_dividers_are_inserted_per_family ... ok
+test slot_resolver::tests::loads_fixture_and_resolves_known_items ... ok
+test slot_resolver::tests::loads_real_items_db_smoke_test ... ignored, requires data/lgo_items.json on disk; run with `cargo test -- --ignored`
+test slot_resolver::tests::lookup_is_case_sensitive ... ok
+test optimizer::tests::test_spec_run1_feasible ... ok
+test slot_resolver::tests::lookup_returns_none_for_unknown_name ... ok
+test optimizer::tests::test_spec_run1_c2_wins ... ok
+test slot_resolver::tests::malformed_json_is_an_error ... ok
+test slot_resolver::tests::missing_item_array_surfaces_as_no_items_array ... ok
+test slot_resolver::tests::output_orders_items_by_slot_family_order ... ok
+test slot_resolver::tests::parse_error_surfaces_as_parse_error ... ok
+test slot_resolver::tests::resolved_path_sorts_after_original_lexicographically ... ok
+test slot_resolver::tests::report_counts_resolved_and_unknown_correctly ... ok
+test slot_resolver::tests::resolves_known_item_to_canonical_slot ... ok
+test slot_resolver::tests::slot_family_order_is_canonical ... ok
+test slot_resolver::tests::unknown_item_keeps_original_slot_and_records_outcome ... ok
+test slot_resolver::tests::unknown_items_get_their_own_section_at_end ... ok
+test slot_resolver::tests::unknown_slot_value_is_an_error ... ok
+test slot_resolver::tests::warning_comments_inside_items_are_preserved ... ok
+test tests::help_tokens_parse_as_help_command ... ok
+test tests::old_style_goal_invocation_is_missing_subcommand_error ... ok
+test tests::optimize_verb_is_case_insensitive_across_aliases ... ok
+test tests::resolve_slots_accepts_shared_flags_only ... ok
+test tests::resolve_slots_rejects_positional_arguments ... ok
+test tests::resolve_slots_verb_is_case_insensitive_across_aliases ... ok
+
+test result: ok. 61 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\resolve_slots_integration.rs (target\debug\deps\resolve_slots_integration-64320c616f263b19.exe)
+
+running 7 tests
+test document_header_precedes_first_divider_in_real_fixture ... ok
+test resolves_full_bookmarklet_output_matches_known_summary ... ok
+test bookmarklet_typo_slot_strings_are_canonicalized_when_name_is_known ... ok
+test bookmarklet_warning_comments_survive_resolution ... ok
+test divider_comments_appear_in_canonical_family_order ... ok
+test resolved_output_round_trips_through_gearstats_reader ... ok
+test no_item_name_maps_to_multiple_slots_in_lgo_items_json ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
