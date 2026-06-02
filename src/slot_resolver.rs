@@ -74,18 +74,12 @@ pub enum ItemsDbError {
 impl std::fmt::Display for ItemsDbError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ItemsDbError::Io { path, source } => write!(
-                f,
-                "Cannot read items DB '{}': {}",
-                path.display(),
-                source
-            ),
-            ItemsDbError::ParseJson { path, source } => write!(
-                f,
-                "Cannot parse items DB '{}': {}",
-                path.display(),
-                source
-            ),
+            ItemsDbError::Io { path, source } => {
+                write!(f, "Cannot read items DB '{}': {}", path.display(), source)
+            }
+            ItemsDbError::ParseJson { path, source } => {
+                write!(f, "Cannot parse items DB '{}': {}", path.display(), source)
+            }
             ItemsDbError::UnknownSlot {
                 item_name,
                 slot_string,
@@ -140,19 +134,15 @@ impl ItemsDb {
             // Trust the inner `name` field; the outer key is identical in the
             // real file but the inner field is what `db_build` was guaranteed
             // to write and is thus the authoritative copy.
-            let slot = Slot::from_json_variant(&entry.slot).ok_or_else(|| {
-                ItemsDbError::UnknownSlot {
+            let slot =
+                Slot::from_json_variant(&entry.slot).ok_or_else(|| ItemsDbError::UnknownSlot {
                     item_name: entry.name.clone(),
                     slot_string: entry.slot.clone(),
-                }
-            })?;
-            by_name
-                .entry(entry.name.clone())
-                .or_default()
-                .push(DbItem {
-                    name: entry.name,
-                    slot,
-                });
+                })?;
+            by_name.entry(entry.name.clone()).or_default().push(DbItem {
+                name: entry.name,
+                slot,
+            });
         }
 
         Ok(ItemsDb { by_name })
@@ -541,10 +531,7 @@ fn compute_resolved_path(input: &Path) -> PathBuf {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("lgo_stats");
-    let ext = input
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("toml");
+    let ext = input.extension().and_then(|s| s.to_str()).unwrap_or("toml");
     let parent = input.parent().unwrap_or_else(|| Path::new("."));
     parent.join(format!("{}_resolved.{}", stem, ext))
 }
@@ -599,10 +586,10 @@ mod tests {
         assert_eq!(db.len(), 4);
         assert!(!db.is_empty());
 
-        assert_eq!(db.lookup("Test Helm"),     Some(Slot::Head));
+        assert_eq!(db.lookup("Test Helm"), Some(Slot::Head));
         assert_eq!(db.lookup("Test Bracelet"), Some(Slot::Wrist1));
-        assert_eq!(db.lookup("Test Sword"),    Some(Slot::MainHand));
-        assert_eq!(db.lookup("Test Tome"),     Some(Slot::ClassItem));
+        assert_eq!(db.lookup("Test Sword"), Some(Slot::MainHand));
+        assert_eq!(db.lookup("Test Tome"), Some(Slot::ClassItem));
     }
 
     #[test]
@@ -621,8 +608,8 @@ mod tests {
                 "stats": {}
             }
         }"#;
-        let err = ItemsDb::from_json_str(bad, dummy_path())
-            .expect_err("unknown slot string must error");
+        let err =
+            ItemsDb::from_json_str(bad, dummy_path()).expect_err("unknown slot string must error");
         match err {
             ItemsDbError::UnknownSlot {
                 item_name,
@@ -644,8 +631,7 @@ mod tests {
                 "stats": {}
             }
         }"#;
-        let err = ItemsDb::from_json_str(bad, dummy_path())
-            .expect_err("excluded slot must error");
+        let err = ItemsDb::from_json_str(bad, dummy_path()).expect_err("excluded slot must error");
         assert!(matches!(err, ItemsDbError::UnknownSlot { .. }));
     }
 
@@ -682,8 +668,8 @@ mod tests {
                 "future_field": "some new thing"
             }
         }"#;
-        let db = ItemsDb::from_json_str(extra, dummy_path())
-            .expect("extra fields must be tolerated");
+        let db =
+            ItemsDb::from_json_str(extra, dummy_path()).expect("extra fields must be tolerated");
         assert_eq!(db.lookup("Future Item"), Some(Slot::Head));
     }
 
@@ -796,10 +782,10 @@ name = \"Test Bracelet\"\n";
 
         // For each fixture item, what family does its slot resolve to?
         let item_to_family: Vec<(&str, Slot)> = vec![
-            ("Test Helm",     slot_family(Slot::Head)),
+            ("Test Helm", slot_family(Slot::Head)),
             ("Test Bracelet", slot_family(Slot::Wrist1)),
-            ("Test Sword",    slot_family(Slot::MainHand)),
-            ("Test Tome",     slot_family(Slot::ClassItem)),
+            ("Test Sword", slot_family(Slot::MainHand)),
+            ("Test Tome", slot_family(Slot::ClassItem)),
         ];
 
         // Walk slot_family_order(); for each family that has a fixture item,
@@ -963,7 +949,9 @@ Armor = 0\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
-        let hdr = out.find("# Doc header line 1").expect("doc header preserved");
+        let hdr = out
+            .find("# Doc header line 1")
+            .expect("doc header preserved");
         let div = out.find("# --- Head ---").expect("divider present");
         assert!(
             hdr < div,
@@ -992,9 +980,7 @@ name = \"Test Helm\"\n";
 
     #[test]
     fn compute_resolved_path_appends_resolved_before_extension() {
-        let p = compute_resolved_path(Path::new(
-            "/tmp/lgo_stats_Char_20260101_000000.toml",
-        ));
+        let p = compute_resolved_path(Path::new("/tmp/lgo_stats_Char_20260101_000000.toml"));
         assert_eq!(
             p,
             PathBuf::from("/tmp/lgo_stats_Char_20260101_000000_resolved.toml")

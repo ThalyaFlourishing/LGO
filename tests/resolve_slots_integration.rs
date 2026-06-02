@@ -89,7 +89,11 @@ fn resolved_output_round_trips_through_gearstats_reader() {
     let parsed_len = lgo::gearstats::read_stats_file(&tmp).map(|v| v.len());
     let _ = std::fs::remove_file(&tmp);
 
-    assert_eq!(parsed_len, Ok(64), "resolved canonical-slot subset must parse");
+    assert_eq!(
+        parsed_len,
+        Ok(64),
+        "resolved canonical-slot subset must parse"
+    );
 }
 
 #[test]

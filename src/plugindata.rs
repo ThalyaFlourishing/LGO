@@ -15,10 +15,10 @@
 //!   - equipped:    items currently worn; slot resolved from plugin index
 //!   - candidates:  items from the 'lgo' chest; slot resolved later by wiki
 
+use crate::gear::Slot;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::collections::HashMap;
-use crate::gear::Slot;
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -107,11 +107,11 @@ fn extract_base_stats(root: &LuaTable) -> HashMap<String, i64> {
 
     // Keys are the Lua method names; map them to clean stat names.
     let method_to_name = [
-        ("GetBaseMight",    "Might"),
-        ("GetBaseAgility",  "Agility"),
+        ("GetBaseMight", "Might"),
+        ("GetBaseAgility", "Agility"),
         ("GetBaseVitality", "Vitality"),
-        ("GetBaseWill",     "Will"),
-        ("GetBaseFate",     "Fate"),
+        ("GetBaseWill", "Will"),
+        ("GetBaseFate", "Fate"),
     ];
 
     for (method, stat_name) in &method_to_name {

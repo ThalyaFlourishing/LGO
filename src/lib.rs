@@ -4,8 +4,8 @@
 //! these modules privately for itself.
 pub mod gear;
 pub mod gearstats;
+pub mod optimizer;
 pub mod plugindata;
+pub mod report;
 pub mod slot_resolver;
 pub mod stat;
-pub mod optimizer;
-pub mod report;
