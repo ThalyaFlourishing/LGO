@@ -1,0 +1,39 @@
+-- Hand-curated probe set for bookmarklet stat-coverage diagnostics.
+-- Not real plugin output. Not a regression fixture.
+-- See docs/AGENT_CONTEXT.md section 6, Bug 6.
+--
+-- Stats targeted (one+ items per stat the Lore-master 66-item fixture
+-- cannot exercise):
+--   PhysicalMastery     : items 1-3
+--   IncomingHealing     : items 4-6
+--   CriticalDefense     : items 5, 7-8   (item 5 covers two stats)
+--   Parry               : items 9-11
+--   Evade               : items 12-14
+--   Block               : items 15-17
+--   PhysicalMitigation  : items 9, 18-19 (item 9 covers two stats)
+
+return {
+  ["character"] = "StatProbe",
+  ["timestamp"] = "20260603_000000",
+  ["names"] = {
+    [1]  = "Invader's Gold Bracelet",
+    [2]  = "Pain's Promise",
+    [3]  = "Gold Bracer of the Dwarf-Holds",
+    [4]  = "Sea-Bound Warrior's Braid",
+    [5]  = "Elvish Hero's Leggings",
+    [6]  = "Faded Guard's Rerebraces",
+    [7]  = "Skarháld Band of Preparation",
+    [8]  = "Mighty Helm of the Carrock",
+    [9]  = "Elvish Hero's Pauldrons",
+    [10] = "Worn Cuff",
+    [11] = "Hunter's Necklace of Victory",
+    [12] = "Elvish Hero's Greaves",
+    [13] = "Hardened Polished Tooth",
+    [14] = "Kinta Warrior's Leggings",
+    [15] = "Wave Ward",
+    [16] = "Simple Kinta Guardian's Shield",
+    [17] = "Pristine Broad Umbari Targe",
+    [18] = "Heavy Amethyst and Gold Cuff",
+    [19] = "Golden Lion Pommel",
+  },
+}
