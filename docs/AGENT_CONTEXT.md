@@ -154,6 +154,41 @@ Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits 
 
 The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is regressed. Will be fixed as a side effect of `resolve-slots` (which has to rewrite the file anyway).
 
+### Bug 6 — Bookmarklet drops most stats from successfully-fetched pages 🔴 OPEN
+
+**Symptom:** For some items whose wiki page is fetched successfully (page exists, no Bug 4 redirect/encoding issue), the bookmarklet emits the `.toml` with only a subset of stats populated and the rest set to `0`. The item is *not* flagged with `# WARNING: all stats unknown` because *some* stats parsed — the failure is silent.
+
+**Observed example:** `Kinta Sage's Shoulder-guards`.
+
+| Stat        | Should be | Bookmarklet emitted |
+|-------------|-----------|---------------------|
+| Armour      | 4893      | 4893 ✅             |
+| Vitality    | 1949      | 0 ❌                |
+| Will        | 3509      | 0 ❌                |
+| TMastery    | 7915      | 0 ❌                |
+| Resistance  | 8592      | 0 ❌                |
+
+(Stat names in the table above were altered by the user when reporting the bug, for readability. The real run uses the canonical 14 stat names from `src/stat.rs` — see §4.2.)
+
+**What this is *not*:**
+- Not Bug 4. The page was fetched; one stat (Armour) was successfully extracted from `{{Item Tooltip}}`.
+- Not a missing-page failure. Pages with no tooltip at all produce all-zero stats *and* the `# WARNING: all stats unknown` comment. This bug produces partial parses, *no warning*.
+
+**Hypotheses to investigate (in order):**
+
+1. **Stat-name alias mismatch in the parser.** The bookmarklet's tooltip parser may recognise some `{{Item Tooltip}}` parameter names but not others. lotro-wiki's tooltip template historically accepts multiple aliases per stat. Compare the parameter names actually present in the affected page's wikitext against the keys the bookmarklet's parser looks up.
+2. **Tooltip-row format the parser doesn't handle.** The `{{Item Tooltip}}` template has multiple internal forms (combat stats vs. resistance vs. on-equip effects). The parser may handle one and not others.
+3. **Number-parsing failure on specific value formats.** Comma thousands separators (`1,949`), bonus-form values (`+ 1949`), or wrapped templates (`{{Stat|1949}}`) could cause the regex to fail and silently default to 0.
+
+**Diagnostic next steps (recommended order for a new session):**
+
+1. Open the actual wiki page for one affected item (e.g. via `https://lotro-wiki.com/index.php?title=<Item_Name>&action=raw`) and paste the `{{Item Tooltip}}` block into the new session.
+2. Cross-reference the parameter names in that tooltip against the stat-extraction code in `bookmarklet/lgo_bookmarklet.html` (the function that parses tooltip body — likely `parseTooltip()` or similar).
+3. Identify the specific reason Armour succeeds while the four others fail on the same page. The asymmetry is the diagnostic lever — whatever Armour has that the others don't is the answer.
+
+**Out of scope for this bug:** items genuinely missing from the wiki, items affected by Bug 4 (URL encoding / redirects), and legendary items that have no fixed stats by design. Those are separate failure modes.
+
+**Discovered:** trial run after PRs #21 (Bug 4 fix) and #22 (command reference) merged.
 ---
 
 ## 7. Honest tool / methodology notes for the agent
