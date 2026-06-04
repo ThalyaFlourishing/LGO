@@ -28,25 +28,37 @@
           "Parry", "Evade", "PhysicalMitigation", "TacticalMitigation"
         ];
 
+        // Wiki attrib field uses inconsistent suffixes: some stats appear
+        // as "X Rating", some as just "X", sometimes both on the same page
+        // (e.g. Wave Ward has "Critical Defence" bare AND "Block Rating"
+        // suffixed). parseAttribs() strips a trailing " rating" before
+        // lookup, so this map only contains the bare forms.
+        // Defence/Defense and Armor/Armour spelling pairs must still be
+        // listed explicitly — they are not suffix variants.
         const STAT_MAP = {
-          "armor": "Armor",
-          "armour": "Armor",
-          "critical rating": "CriticalRating",
-          "finesse": "Finesse",
-          "finesse rating": "Finesse",
-          "physical mastery": "PhysicalMastery",
-          "tactical mastery": "TacticalMastery",
-          "outgoing healing": "OutgoingHealing",
-          "resistance": "Resistance",
-          "critical defence rating": "CriticalDefense",
-          "critical defense rating": "CriticalDefense",
-          "incoming healing": "IncomingHealing",
-          "block": "Block",
-          "parry": "Parry",
-          "evade": "Evade",
+          "armor":               "Armor",
+          "armour":              "Armor",
+          "critical":            "CriticalRating",
+          "finesse":             "Finesse",
+          "physical mastery":    "PhysicalMastery",
+          "tactical mastery":    "TacticalMastery",
+          "outgoing healing":    "OutgoingHealing",
+          "resistance":          "Resistance",
+          "critical defence":    "CriticalDefense",
+          "critical defense":    "CriticalDefense",
+          "incoming healing":    "IncomingHealing",
+          "block":               "Block",
+          "parry":               "Parry",
+          "evade":               "Evade",
           "physical mitigation": "PhysicalMitigation",
           "tactical mitigation": "TacticalMitigation"
         };
+
+        // Diagnostic accumulator: any tooltip-attrib stat name not found in
+        // STAT_MAP after the rating-strip is recorded here, deduped, and
+        // shown in the result panel. Helps surface new wiki vocabulary
+        // (or genuinely-new stats) without a silent drop. See Bug 6.
+        const unknownStatNames = new Set();
 
         // Slot resolution is now handled by the `resolve-slots` Rust subcommand
         // (see docs/RESOLVER_DESIGN.md). The bookmarklet only does a best-effort
@@ -130,9 +142,20 @@
             if (!m) continue;
             const value = parseInt(m[1].replace(/,/g, ""), 10);
             if (!Number.isFinite(value)) continue;
-            const statName = m[2].trim().toLowerCase();
+            const rawName = m[2].trim().toLowerCase();
+            // Strip a trailing " rating" so the wiki's inconsistent
+            // "X" / "X Rating" forms collapse to a single STAT_MAP entry.
+            const statName = rawName.replace(/\s+rating$/, "");
             const key = STAT_MAP[statName];
-            if (key) stats[key] += value;
+            if (key) {
+              stats[key] += value;
+            } else {
+              // Record (deduped) for the diagnostic panel. Most entries here
+              // will be base stats (Vitality, Will, Might, Agility, Fate)
+              // which the bookmarklet intentionally does not track; genuine
+              // STAT_MAP misses also surface here.
+              unknownStatNames.add(rawName);
+            }
           }
           return stats;
         }
@@ -194,6 +217,20 @@
             const title = document.createElement("div");
             title.textContent = "Unresolved items:";
             wrap.appendChild(title);
+            wrap.appendChild(list);
+          }
+
+          if (unknownStatNames.size > 0) {
+            const title = document.createElement("div");
+            title.textContent = "Unrecognised stat names (not added to TOML — likely base stats or a missing STAT_MAP alias):";
+            wrap.appendChild(title);
+            const list = document.createElement("ul");
+            const sorted = Array.from(unknownStatNames).sort();
+            for (const name of sorted) {
+              const li = document.createElement("li");
+              li.textContent = name;
+              list.appendChild(li);
+            }
             wrap.appendChild(list);
           }
 
