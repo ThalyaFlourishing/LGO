@@ -1,0 +1,28 @@
+Detailed user workflow:
+
+After obtaining and installing our plug-in and our stand-alone application which we are making:
+
+  1. Run the LotRO client
+  
+  2. Enter the game world on the character for which you want to optimize gear.
+
+  3. Re-name one of the 'chests' in the shared-storage space to 'lgo' or 'LGO'.
+  
+  4. Assemble the relevant gear items by equipping them and putting additional items in the shared-storage 'lgo'-named container. Alternately, all items can be put in the 'lgo' container. (i.e. it is not required that any items be equipped, although any equipped items *will* be included in the end result.
+  
+  5. Run the 'lgo' plug-in with this command: `/lgo export`.
+
+  6. Switch to a Windows command-line interface and run our optimizer application using a command line such as `lgo --gearlist` to generate the new or updated .toml file.
+
+  7. Visually verify and if desired, manually edit the .toml file to make it more accurate.
+
+  8. Run our optimizer application with target stats using a command line such as: `lgo -- TacticalMastery:450000 CritRating:350000 FinesseRating:100000`
+
+  9. View results in an HTML browser.
+
+Iteration:
+A. To change the set of items being optimized, the user equips different items and/or places/removes items from the 'LGO' container in shared storage, then re-runs steps 5 through 9.
+
+B. To change the manual .toml tweaks, the user edits the .toml file and then re-runs the 'lgo' application with the desired stat targets.
+
+C. To change the stat target, the user re-runs the 'lgo' application with different stat switches on the command line.
