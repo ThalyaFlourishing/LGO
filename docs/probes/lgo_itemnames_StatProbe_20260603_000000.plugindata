@@ -11,6 +11,10 @@
 --   Evade               : items 12-14
 --   Block               : items 15-17
 --   PhysicalMitigation  : items 9, 18-19 (item 9 covers two stats)
+--
+-- Note: the closing `}` of the `names` table must NOT have a trailing
+-- comma before the outer `}`. The bookmarklet's parser regex requires
+-- `}\s*}` and rejects `},\n}`.
 
 return {
   ["character"] = "StatProbe",
@@ -35,5 +39,5 @@ return {
     [17] = "Pristine Broad Umbari Targe",
     [18] = "Heavy Amethyst and Gold Cuff",
     [19] = "Golden Lion Pommel",
-  },
+  }
 }
