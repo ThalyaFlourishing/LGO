@@ -28,13 +28,13 @@
           "Parry", "Evade", "PhysicalMitigation", "TacticalMitigation"
         ];
 
-        // Wiki attrib field uses inconsistent suffixes: some stats appear
-        // as "X Rating", some as just "X", sometimes both on the same page
-        // (e.g. Wave Ward has "Critical Defence" bare AND "Block Rating"
-        // suffixed). parseAttribs() strips a trailing " rating" before
-        // lookup, so this map only contains the bare forms.
-        // Defence/Defense and Armor/Armour spelling pairs must still be
-        // listed explicitly — they are not suffix variants.
+        /* Wiki attrib field uses inconsistent suffixes: some stats appear
+           as "X Rating", some as just "X", sometimes both on the same page
+           (e.g. Wave Ward has "Critical Defence" bare AND "Block Rating"
+           suffixed). parseAttribs() strips a trailing " rating" before
+           lookup, so this map only contains the bare forms.
+           Defence/Defense and Armor/Armour spelling pairs must still be
+           listed explicitly — they are not suffix variants.*/
         const STAT_MAP = {
           "armor":               "Armor",
           "armour":              "Armor",
@@ -54,16 +54,16 @@
           "tactical mitigation": "TacticalMitigation"
         };
 
-        // Diagnostic accumulator: any tooltip-attrib stat name not found in
-        // STAT_MAP after the rating-strip is recorded here, deduped, and
-        // shown in the result panel. Helps surface new wiki vocabulary
-        // (or genuinely-new stats) without a silent drop. See Bug 6.
+        /* Diagnostic accumulator: any tooltip-attrib stat name not found in
+           STAT_MAP after the rating-strip is recorded here, deduped, and
+           shown in the result panel. Helps surface new wiki vocabulary
+           (or genuinely-new stats) without a silent drop. See Bug 6.*/
         const unknownStatNames = new Set();
 
-        // Slot resolution is now handled by the `resolve-slots` Rust subcommand
-        // (see docs/RESOLVER_DESIGN.md). The bookmarklet only does a best-effort
-        // direct mapping here; anything unrecognised is emitted as "Unknown" and
-        // the resolver fixes it from data/lgo_items.json.
+        /* Slot resolution is now handled by the `resolve-slots` Rust subcommand
+           (see docs/RESOLVER_DESIGN.md). The bookmarklet only does a best-effort
+           direct mapping here; anything unrecognised is emitted as "Unknown" and
+           the resolver fixes it from data/lgo_items.json.*/
         const SLOT_MAP = {
           "head": "Head",
           "chest": "Chest",
@@ -143,17 +143,17 @@
             const value = parseInt(m[1].replace(/,/g, ""), 10);
             if (!Number.isFinite(value)) continue;
             const rawName = m[2].trim().toLowerCase();
-            // Strip a trailing " rating" so the wiki's inconsistent
-            // "X" / "X Rating" forms collapse to a single STAT_MAP entry.
+            /* Strip a trailing " rating" so the wiki's inconsistent
+               "X" / "X Rating" forms collapse to a single STAT_MAP entry.*/
             const statName = rawName.replace(/\s+rating$/, "");
             const key = STAT_MAP[statName];
             if (key) {
               stats[key] += value;
             } else {
-              // Record (deduped) for the diagnostic panel. Most entries here
-              // will be base stats (Vitality, Will, Might, Agility, Fate)
-              // which the bookmarklet intentionally does not track; genuine
-              // STAT_MAP misses also surface here.
+              /* Record (deduped) for the diagnostic panel. Most entries here
+                 will be base stats (Vitality, Will, Might, Agility, Fate)
+                 which the bookmarklet intentionally does not track; genuine
+                 STAT_MAP misses also surface here.*/
               unknownStatNames.add(rawName);
             }
           }
@@ -255,17 +255,17 @@
 
         async function fetchItem(name) {
           const stats = zeroStats();
-          // Encode the title portion (after the "Item:" namespace prefix) so non-ASCII
-          // characters like á, â, û, ó round-trip correctly. MediaWiki accepts spaces
-          // as either "_" or "%20"; we keep the underscore form for readability in
-          // network logs, then encodeURIComponent the result. The "Item:" prefix is a
-          // namespace and must remain literal — it must not be URL-encoded.
+          /* Encode the title portion (after the "Item:" namespace prefix) so non-ASCII
+             characters like á, â, û, ó round-trip correctly. MediaWiki accepts spaces
+             as either "_" or "%20"; we keep the underscore form for readability in
+             network logs, then encodeURIComponent the result. The "Item:" prefix is a
+             namespace and must remain literal — it must not be URL-encoded.*/
           const titlePart = encodeURIComponent(name.replace(/ /g, "_"));
           const pageName = "Item:" + titlePart;
-          // redirects=1 tells the API to follow MediaWiki redirects to the canonical
-          // page; lotro-wiki uses redirect pages heavily as item-name aliases, and
-          // without this flag the API returns the redirect page itself (no Item Tooltip
-          // template) instead of the target.
+          /* redirects=1 tells the API to follow MediaWiki redirects to the canonical
+             page; lotro-wiki uses redirect pages heavily as item-name aliases, and
+             without this flag the API returns the redirect page itself (no Item Tooltip
+             template) instead of the target.*/
           const url = `https://lotro-wiki.com/api.php?action=parse&page=${pageName}&prop=wikitext&format=json&redirects=1`;
 
           const resp = await fetch(url, { credentials: "include" });
