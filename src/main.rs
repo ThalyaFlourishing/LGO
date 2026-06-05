@@ -1,5 +1,7 @@
 //! LGO - LOTRO Gear Optimizer
 
+#![allow(dead_code)]
+
 mod gear;
 mod gearstats;
 mod optimizer;

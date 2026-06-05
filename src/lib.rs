@@ -2,6 +2,9 @@
 //! reach the resolver, gearstats reader, and gear types directly. The
 //! `lgo` binary still lives in `src/main.rs` and continues to declare
 //! these modules privately for itself.
+
+#![allow(dead_code)]
+
 pub mod gear;
 pub mod gearstats;
 pub mod optimizer;
