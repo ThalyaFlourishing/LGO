@@ -141,12 +141,14 @@ Observed examples:
 - ✅ Step 6 — integration test against the 66-item bookmarklet output (`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
 - ✅ Step 7 — synced `docs/AGENT_CONTEXT.md` and `docs/RESOLVER_DESIGN.md` to the new CLI. (`docs/User Workflow.txt` requires a full revision and is tracked separately.)
 
-### Bug 4 — Many wiki pages fail to resolve
+### Bug 4 — Many wiki pages fail to resolve ✅ FIXED
 
-The bookmarklet writes `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki (e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`, `Keen Pristine Madáshi Earring`, `Pristine Mûrai Stickpin of …`, likely `Grove-tender's Robe`). Two confirmed code defects in `fetchItem()` (lines 228–258):
+The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki (e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`). Two confounding causes:
 
-1. The page-name builder (line 230) only encodes spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) go into the URL raw. They should be `encodeURIComponent`'d after the `Item:` prefix and underscore substitution.
-2. The API call (line 231) is missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, a redirect page (no `{{Item Tooltip}}`) is returned and the item is wrongly reported as unresolved.
+1. The page-name builder only encoded spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) went into the URL raw.
+2. The API call was missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, the API returned the redirect page itself (no `{{Item Tooltip}}`) instead of the target.
+
+**Fix (PR #21):** `encodeURIComponent` the title portion (after the `Item:` prefix), and add `&redirects=1` to the API call. Both `bookmarklet/lgo_bookmarklet.html` lines 263 and 269 reflect the fix.
 
 ### Bug 5 — TOML output is no longer slot-grouped ✅ FIXED
 
@@ -173,6 +175,16 @@ The bookmarklet's `# WARNING: all stats unknown — edit before running optimize
 **Discovered:** while diagnosing Bug 6. After the Bug 6 fix the warning fires less often, but the underlying ambiguity remains.
 
 **Optional fix.** Not blocking any current workflow. The resolver and optimizer still run. Defer until a user is confused by it in practice.
+
+### Bug 8 — `//` line comments inside `runBookmarklet` break the `javascript:` URL ✅ FIXED
+
+**Symptom:** after PR #24 (Bug 6 fix) merged, clicking the bookmarklet on lotro-wiki.com produced no dialog. The browser console showed `Uncaught SyntaxError: Unexpected end of input`.
+
+**Root cause:** the bookmarklet wiring at the bottom of `bookmarklet/lgo_bookmarklet.html` (lines 354–356) serialises `runBookmarklet.toString()` and puts the result into the link's `href` as a `javascript:` URL. When the user drags that link to the bookmarks bar, browsers collapse newlines out of the stored URL. PR #24 added several `//` line comments inside `runBookmarklet`. After newline collapse, every `//` ate from itself to the end of the URL, including the function's closing `}`. The parser hit URL-end still expecting a `}` and threw the SyntaxError.
+
+**Fix:** all `//` line comments inside `runBookmarklet` converted to `/* ... */` block comments. Block comments survive newline collapse intact. Done by hand on top of PR #24 and already pushed to `The-Browser-Method`.
+
+**⚠ Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside `runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** The IIFE wrapper outside `runBookmarklet` is exempt — its content is not serialised into the `javascript:` URL.
 ---
 
 ## 7. Honest tool / methodology notes for the agent
