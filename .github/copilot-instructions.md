@@ -35,8 +35,8 @@ wins — it is the more frequently maintained document.
 ## Commit and PR conventions
 
 - **Commit messages:** imperative mood, optional scope prefix
-  (e.g. `slot_resolver: fix table position`). First line ?72 chars;
-  body explains *why* if non-obvious.
+  (e.g. `slot_resolver: fix table position`). First line less than or 
+  equal to 72 chars; body explains *why* if non-obvious.
 - **PR descriptions:** reference the relevant section of
   `AGENT_CONTEXT.md` or a design doc when applicable.
 - **`Cargo.lock`** is committed (the crate produces a binary). Commit
