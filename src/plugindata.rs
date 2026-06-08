@@ -11,11 +11,9 @@
 //! We use a hand-written recursive descent parser. No full Lua runtime is
 //! needed because the PluginData subset is small and well-defined.
 //!
-//! Output: a `PluginExport` containing two flat lists of `PartialItem`:
-//!   - equipped:    items currently worn; slot resolved from plugin index
-//!   - candidates:  items from the 'lgo' chest; slot resolved later by wiki
+//! Output: a `PluginExport` extracted from `lgo_gearlist_*.plugindata`,
+//! containing character metadata used by the optimizer.
 
-use crate::gear::Slot;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -25,26 +23,11 @@ use std::path::Path;
 /// All item data extracted from the plugin export file, before wiki lookup.
 #[derive(Debug)]
 pub struct PluginExport {
-    #[allow(dead_code)]
     pub character: String,
     /// Character class string, e.g. "Lore-master" or "Guardian".
     pub class: String,
     /// Base primary stats (Might/Agility/Vitality/Will/Fate) before gear bonuses.
     pub base_stats: HashMap<String, i64>,
-    /// Items currently worn by the character. Slot is known from plugin index.
-    pub equipped: Vec<PartialItem>,
-    /// Candidate items from the 'lgo' shared storage chest.
-    /// Slot is None here — filled in by wiki lookup.
-    pub candidates: Vec<PartialItem>,
-}
-
-/// One item as it comes out of the plugin file, before stat resolution.
-#[derive(Debug, Clone)]
-pub struct PartialItem {
-    pub name: String,
-    /// Some for equipped items (resolved from plugin slot index).
-    /// None for storage candidates (resolved later from wiki data).
-    pub slot: Option<Slot>,
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -80,20 +63,10 @@ fn extract_export(val: LuaVal) -> Result<PluginExport, String> {
 
     let base_stats = extract_base_stats(&root);
 
-    let equipped_val = table_get(&root, "equipped")
-        .ok_or_else(|| "Missing 'equipped' key in export".to_string())?;
-    let ss_val = table_get(&root, "sharedStorage")
-        .ok_or_else(|| "Missing 'sharedStorage' key in export".to_string())?;
-
-    let equipped = extract_item_list(equipped_val, false)?;
-    let candidates = extract_item_list(ss_val, true)?;
-
     Ok(PluginExport {
         character,
         class,
         base_stats,
-        equipped,
-        candidates,
     })
 }
 
@@ -121,52 +94,6 @@ fn extract_base_stats(root: &LuaTable) -> HashMap<String, i64> {
     }
 
     map
-}
-
-fn extract_item_list(val: LuaVal, is_storage: bool) -> Result<Vec<PartialItem>, String> {
-    let tbl = expect_table(val, "equipped/sharedStorage block")?;
-
-    let items_val =
-        table_get(&tbl, "items").ok_or_else(|| "Missing 'items' key in block".to_string())?;
-    let items_tbl = expect_table(items_val, "items array")?;
-
-    let mut out = Vec::new();
-
-    for (_, item_val) in items_tbl {
-        let item_tbl = match item_val {
-            LuaVal::Table(t) => t,
-            _ => continue,
-        };
-
-        // Name is required.
-        let name = match table_get(&item_tbl, "name") {
-            Some(LuaVal::Str(s)) if !s.is_empty() => s,
-            _ => continue,
-        };
-
-        let slot = if is_storage {
-            // Storage items: the 'slot' field is the storage array index,
-            // not the equipment slot. Actual slot comes from wiki lookup.
-            None
-        } else {
-            // Equipped items: 'slot' is the LotRO equipment slot index (1–21),
-            // stored as a float (e.g. 12.000000).
-            match table_get(&item_tbl, "slot") {
-                Some(LuaVal::Num(n)) => {
-                    let idx = n as u32;
-                    match Slot::from_plugin_index(idx) {
-                        Some(s) => Some(s),
-                        None => continue, // excluded slot — skip silently
-                    }
-                }
-                _ => continue,
-            }
-        };
-
-        out.push(PartialItem { name, slot });
-    }
-
-    Ok(out)
 }
 
 // ── Raw Lua value types ───────────────────────────────────────────────────────
@@ -443,27 +370,26 @@ mod tests {
     }
 
     #[test]
-    fn slot_from_index_roundtrip() {
-        assert_eq!(Slot::from_plugin_index(1), Some(Slot::Head));
-        assert_eq!(Slot::from_plugin_index(2), Some(Slot::Chest));
-        assert_eq!(Slot::from_plugin_index(3), Some(Slot::Legs));
-        assert_eq!(Slot::from_plugin_index(4), Some(Slot::Hands));
-        assert_eq!(Slot::from_plugin_index(5), Some(Slot::Feet));
-        assert_eq!(Slot::from_plugin_index(6), Some(Slot::Shoulders));
-        assert_eq!(Slot::from_plugin_index(7), Some(Slot::Back));
-        assert_eq!(Slot::from_plugin_index(8), Some(Slot::Wrist1));
-        assert_eq!(Slot::from_plugin_index(9), Some(Slot::Wrist2));
-        assert_eq!(Slot::from_plugin_index(10), Some(Slot::Neck));
-        assert_eq!(Slot::from_plugin_index(11), Some(Slot::Finger1));
-        assert_eq!(Slot::from_plugin_index(12), Some(Slot::Finger2));
-        assert_eq!(Slot::from_plugin_index(13), Some(Slot::Ear1));
-        assert_eq!(Slot::from_plugin_index(14), Some(Slot::Ear2));
-        assert_eq!(Slot::from_plugin_index(15), Some(Slot::Pocket));
-        assert_eq!(Slot::from_plugin_index(16), Some(Slot::MainHand));
-        assert_eq!(Slot::from_plugin_index(17), Some(Slot::OffHand));
-        assert_eq!(Slot::from_plugin_index(18), Some(Slot::Ranged));
-        assert_eq!(Slot::from_plugin_index(19), None); // CraftItem excluded
-        assert_eq!(Slot::from_plugin_index(20), Some(Slot::ClassItem));
-        assert_eq!(Slot::from_plugin_index(21), None); // Bridle excluded
+    fn extracts_minimal_gearlist_export() {
+        let src = r#"{
+            ["version"] = "lgo-gearlist-1",
+            ["character"] = "Thalya",
+            ["class"] = "Lore-master",
+            ["baseStats"] = {
+                ["GetBaseMight"] = 5300.000000,
+                ["GetBaseWill"] = 7950.000000,
+            },
+            ["names"] = {
+                [1.000000] = "Item A",
+                [2.000000] = "Item B",
+            },
+        }"#;
+        let val = parse(src);
+        let export = extract_export(val).expect("extract export");
+
+        assert_eq!(export.character, "Thalya");
+        assert_eq!(export.class, "Lore-master");
+        assert_eq!(export.base_stats.get("Might"), Some(&5300));
+        assert_eq!(export.base_stats.get("Will"), Some(&7950));
     }
 }
