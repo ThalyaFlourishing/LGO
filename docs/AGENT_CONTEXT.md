@@ -245,7 +245,6 @@ The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored
 
 ## 9. Likely next features (after the bookmarklet bugs)
 
-- Restore deleted file 'db_build.rs'
 - Combine the two exported .plugindata files into one
 - Optimizer --toml-file flag (specify input .toml)
 
@@ -255,7 +254,6 @@ The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored
 
 These are known, decided-but-not-urgent items. Do **not** silently fold them into other PRs; track and address explicitly.
 
-- **Restore `src/bin/db_build.rs`.** Was deleted in the bookmarklet pivot. Still recoverable from git history (commit `3a0fc23d` on the pre-pivot branch). It reads `data/items.xml` + `data/progressions.xml` and emits `data/lgo_items.json`. Needed whenever the upstream game data is refreshed.
 - **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Bug 2 (`mapSlot()` fallback).** Latent, no observed symptom. Largely moot once the resolver overrides slot decisions anyway. Leave alone unless it produces a real failure.
 - **Hand-edit preservation across `resolve-slots` re-runs.** The pre-pivot `src/merge.rs` implemented a `[__user_edits__]` metadata section that tracked user hand-edits in the `.toml` and prompted on conflicts. The current `resolve-slots` does not preserve hand-edited stats if the user re-runs it after a fresh bookmarklet export. See `docs/User Story & Hand-Edit-Tracking Approach.txt` for the original design. Address if and when a user actually gets bitten by losing edits.
