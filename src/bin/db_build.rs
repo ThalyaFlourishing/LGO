@@ -7,7 +7,6 @@
 //! Writes:
 //!   data/lgo_items.json   — flat resolved stat cache
 //!                           (JSON object: item name -> {name, slot, stats})
-//!                           Same shape as lgo_cache.json; loadable by src/db.rs.
 //!
 //! Usage (defaults shown):
 //!   cargo run --bin db_build
