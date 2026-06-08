@@ -245,9 +245,9 @@ The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored
 
 ## 9. Likely next features (after the bookmarklet bugs)
 
-- HTML report output (currently terminal-only).
-- Architectural review of where slot detection should live (plugin vs wiki vs canonical data file — see Bug 3 open question).
-- Others as they come up.
+- Restore deleted file 'db_build.rs'
+- Combine the two exported .plugindata files into one
+- Optimizer --toml-file flag (specify input .toml)
 
 ---
 
