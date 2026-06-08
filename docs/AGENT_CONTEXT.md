@@ -2,7 +2,7 @@
 
 **Purpose:** A durable, in-repo brief so an AI coding agent can resume work on LGO without losing context across sessions. Read this first at the start of every session.
 
-**Working branch:** `The-Browser-Method`
+**Working branch:** `main`. (The previous `The-Browser-Method` working branch has been merged in and retired.)
 
 ---
 
@@ -10,12 +10,12 @@
 
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*:
 
-1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing two files to `Documents\The Lord of the Rings Online\PluginData\<character>\AllServers\`:
+1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing two files to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
    - `lgo_export_<character>_<timestamp>.plugindata` — equipped + chest items with slot/category data.
    - `lgo_itemnames_<character>_<timestamp>.plugindata` — flat list of all item names (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
 
-Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com in a browser, clicks the bookmarklet, pastes the contents of `lgo_itemnames_*.plugindata`, and the bookmarklet fetches each item via the wiki API, parses `{{Item Tooltip}}`, and produces a `.toml` of stats.
+Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the itemnames data, and gets back a `.toml` they save into the AllServers directory.
 
 ---
 
@@ -26,9 +26,9 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 3. Open https://lotro-wiki.com in a browser.
 4. Click the **LGO Stats** bookmarklet.
 5. Paste the contents of `lgo_itemnames_*.plugindata` when prompted.
-6. The bookmarklet builds a `.toml`. Unresolvable items (legendary/renamed) are written with all stats `= 0` for the user to fill in by hand.
+6. The bookmarklet builds a `.toml`. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
 7. Save the `.toml` to the `AllServers` directory.
-8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped formatting. Items not in the DB (legendary or renamed) keep `slot = "Unknown"` and are listed on stderr for manual fix-up.
+8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped output.
 9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` (the `_resolved` one) and `.plugindata`, runs the optimizer, prints the result.
 
 ---
@@ -43,10 +43,11 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_plugin_index`, `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
-- `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page (under active debugging).
+- `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), and outcome-typed reporting (see Bug 9).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
-- `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `AGENT_CONTEXT.md`, `RESOLVER_DESIGN.md`).
-- `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigating, use a CLI script or a separate scraping pass and commit a distilled UTF-8 Markdown summary instead. This is a hard rule, not a guideline.
+- `TestData/` — committed test fixtures: bookmarklet input (`lgo_itemnames_Thalya_*.plugindata`), bookmarklet output (`lgo_stats_Thalya_*.toml`), and a one-off plugin-API probe dump (`lgo_probe_Thalya_20260607_205655.plugindata` — historical reference for what the Turbine API exposes per item; see Bug 9 and §7).
+- `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `Test_Output_01.txt`, `RESOLVER_DESIGN.md`, plus `probes/` for one-off diagnostic plugin-data inputs).
+- `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigation, ask the user to paste a representative snippet.
 - `GaranStuff/` — ignore for now.
 
 ---
@@ -81,9 +82,9 @@ Two-letter CLI abbreviations: `am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 | 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` field | Free-text, editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders` |
 | 3 | `src/gear.rs` `Slot::Display` (canonical) | Curated display strings | `Wrist (1)`, `Main-hand`, `Class Item` |
 
-The Rust code is vocabulary #3. The bookmarklet currently translates #2 → #3 via a hand-maintained `SLOT_MAP` in `lgo_bookmarklet.html`. `data/items.xml` (#1) is the game's source of truth for which slot an item belongs to. Names in `items.xml` and `lgo_items.json` match the in-game item names exactly (same source as the plugin's name export).
+The Rust code is vocabulary #3. The bookmarklet currently translates #2 → #3 via a hand-maintained `SLOT_MAP` in `lgo_bookmarklet.html`. `data/items.xml` (#1) is the game's source of truth for which slot an item goes in.
 
-**A fourth representation** also exists: `data/lgo_items.json`'s `slot` values use bare PascalCase variant names (`Head`, `Wrist1`, `MainHand`, `ClassItem`, etc.) — this is Rust's *default* enum serialization, not the Display form. It is **not** identical to vocabulary #3 above; the resolver translates it into vocabulary #3 via `Slot::from_json_variant`. Same `Slot` enum at the type level; different string representations.
+**A fourth representation** also exists: `data/lgo_items.json`'s `slot` values use bare PascalCase variant names (`Head`, `Wrist1`, `MainHand`, `ClassItem`, etc.) — this is Rust's *default* enum serialization. The `resolve-slots` subcommand bridges #4 → #3 via `Slot::from_json_variant`.
 
 ---
 
@@ -99,10 +100,26 @@ CriticalRating     = 12345
 TacticalMitigation = 0
 ```
 
-### Formatting decisions the bookmarklet must honour (regressed — see Bug 5)
+### Outcome-typed comments emitted by the bookmarklet
+
+The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. Five forms exist:
+
+```
+# AUTO-PICKED highest-item-level variant: Item:Foo (Item Level 563)
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+# UNRESOLVED: wiki page has no Item Tooltip (likely legendary) — you should hand-edit stats
+# UNRESOLVED: no wiki page found — you should hand-edit stats
+# UNRESOLVED: fetch error — retry or you should hand-edit stats
+```
+
+See Bug 7 / Bug 9 for the rationale. The downstream `resolve-slots` step preserves these comments via `toml_edit`.
+
+### Formatting decisions (now handled by `resolve-slots`)
 
 - Group `[[item]]` entries by slot, in canonical `Slot::ALL` order.
 - Insert a visible divider comment between slot groups.
+
+The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ---
 
@@ -110,11 +127,11 @@ TacticalMitigation = 0
 
 ### Bug 1 — `Shoulder` vs `Shoulders` ✅ FIXED
 
-`SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both `"shoulder": "Shoulders"` and `"shoulders": "Shoulders"` to `SLOT_MAP`. Verified: all six shoulder items in the test run now emit `slot = "Shoulders"`.
+`SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both `"shoulder"` and `"shoulders"` (lower-cased keys) to `SLOT_MAP`.
 
 ### Bug 2 — `mapSlot()` fallback leaks raw wiki text ⏸ DEFERRED
 
-`mapSlot()` line 157: `return mapped || cleaned;` — when a slot string isn't in `SLOT_MAP`, returns the raw wiki value, which will fail `parse_slot_str` later. **Currently latent**: no observed failures via this code path in the test TOML. The wiki has no enforced slot allow-list ({{Item Tooltip}} doc treats `slot=` as free-text), so misses *can* happen, but we have no observational evidence yet. Defer until/unless a real symptom appears. If we do fix it, the change is one line: return `"Unknown"` instead of `cleaned`. (Do **not** duplicate the Rust 19-slot allow-list in JS — that creates drift.)
+`mapSlot()` line 157: `return mapped || cleaned;` — when a slot string isn't in `SLOT_MAP`, returns the raw wiki value, which will fail `parse_slot_str` later. **Currently latent**: no observed example of raw wiki text reaching the TOML output.
 
 *(Largely moot once the resolver lands: the bookmarklet stops being trusted for slots at all, so even raw wiki text leaking through `mapSlot` will be overwritten by `resolve-slots`.)*
 
@@ -146,56 +163,72 @@ Observed examples:
 The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki (e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`). Two confounding causes:
 
 1. The page-name builder only encoded spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) went into the URL raw.
-2. The API call was missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, the API returned the redirect page itself (no `{{Item Tooltip}}`) instead of the target.
+2. The API call was missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, the API returned the redirect page itself (no `{{Item Tooltip}}`) instead of following to the canonical target.
 
 **Fix (PR #21):** `encodeURIComponent` the title portion (after the `Item:` prefix), and add `&redirects=1` to the API call. Both `bookmarklet/lgo_bookmarklet.html` lines 263 and 269 reflect the fix.
 
 ### Bug 5 — TOML output is no longer slot-grouped ✅ FIXED
 
-Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer the file the optimizer reads.
+Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer expected to be slot-grouped.
 
-The bookmarklet's `buildToml()` (lines 160–182) emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is regressed. Will be fixed as a side effect of `resolve-slots` (which has to rewrite the file anyway).
+The bookmarklet's `buildToml()` emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is now produced downstream.
 
 ### Bug 6 — Bookmarklet drops most stats from successfully-fetched pages ✅ FIXED
 
-**Symptom:** for some items whose wiki page was fetched successfully (page exists, no Bug 4 redirect/encoding issue), the bookmarklet emitted the `.toml` with only a subset of stats populated and the rest silently zero — and, crucially, *without* the `# WARNING: all stats unknown` line that would normally accompany an unparseable item.
+**Symptom:** for some items whose wiki page was fetched successfully (page exists, no Bug 4 redirect/encoding issue), the bookmarklet emitted the `.toml` with only a subset of stats populated and silently dropped the rest.
 
-**Root cause:** the bookmarklet's `STAT_MAP` had aliases for some "X Rating" suffix forms but not others (`finesse rating` and `critical defence rating` were present, but `tactical mastery rating`, `physical mastery rating`, `parry rating`, `evade rating`, `block rating`, `incoming healing rating`, `outgoing healing rating`, and `resistance rating` were missing). The wiki itself is internally inconsistent on the same page — `Wave Ward`'s `attrib` field has `Critical Defence` bare AND `Block Rating` suffixed — so a literal-alias approach would have stayed brittle. Confirmed against eight raw `{{Item Tooltip}}` blocks: Kinta Sage's Shoulder-guards, Elvish Hero's Pauldrons, Pain's Promise, Hunter's Necklace of Victory, Elvish Hero's Greaves, Wave Ward, Faded Guard's Rerebraces, Token of the Emerald Wood.
+**Root cause:** the bookmarklet's `STAT_MAP` had aliases for some "X Rating" suffix forms but not others (`finesse rating` and `critical defence rating` were present, but `tactical mastery rating` was missing, etc.).
 
-**Fix:** `parseAttribs()` now strips a trailing `" rating"` from the lowercased stat name before `STAT_MAP` lookup. `STAT_MAP` simplified to bare forms only; the `Armor`/`Armour` and `Defence`/`Defense` spelling pairs are kept explicit (they are not suffix variants).
+**Fix:** `parseAttribs()` now strips a trailing `" rating"` from the lowercased stat name before `STAT_MAP` lookup. `STAT_MAP` simplified to bare forms only; the `Armor`/`Armour` and `Defence`/`Defense` spelling pairs remain listed explicitly because they aren't suffix variants.
 
-**Also added:** an unrecognised-stat-name diagnostic. Any attrib line whose stat name does not resolve through `STAT_MAP` after the rating-strip is recorded in a deduped `Set` and shown in the result panel. Surfaces future wiki vocabulary changes (and base stats like Vitality / Will / Might / Agility / Fate) without silent drops.
+**Also added:** an unrecognised-stat-name diagnostic. Any attrib line whose stat name does not resolve through `STAT_MAP` after the rating-strip is recorded in a deduped `Set` and shown in the result panel. Most entries will be base stats (Vitality, Will, Might, Agility, Fate) the bookmarklet intentionally does not track; genuine `STAT_MAP` misses also surface here.
 
-**Probe input** (cross-class items chosen to exercise stats the 66-item Lore-master fixture cannot reach): `docs/probes/lgo_itemnames_StatProbe_20260603_000000.plugindata`. Manual diagnostic — re-run the bookmarklet against this file after merge to confirm.
+**Probe input** (cross-class items chosen to exercise stats the 66-item Lore-master fixture cannot reach): `docs/probes/lgo_itemnames_StatProbe_20260603_000000.plugindata`. Manual diagnostic — does not have an automated test.
 
-### Bug 7 — `# WARNING: all stats unknown` is misleading ⏸ DEFERRED (optional)
+### Bug 7 — `# WARNING: all stats unknown` is misleading ✅ FIXED
 
-The bookmarklet's `# WARNING: all stats unknown — edit before running optimizer` line fires whenever zero tracked stats parse from the tooltip. It does not distinguish between (a) HTTP / page-not-found failure, (b) page exists but has no `{{Item Tooltip}}` template, (c) tooltip exists but every `attrib` line falls outside `STAT_MAP` after the rating-strip (the Bug 6 silent-drop family), and (d) tooltip genuinely has no combat stats (e.g. cosmetic gear, off-piece pockets). Cases (c) and (d) are visually identical in the TOML output.
-
-**Discovered:** while diagnosing Bug 6. After the Bug 6 fix the warning fires less often, but the underlying ambiguity remains.
-
-**Optional fix.** Not blocking any current workflow. The resolver and optimizer still run. Defer until a user is confused by it in practice.
+Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an `outcome` (`resolved`, `auto-picked`, `needs-pick`, `no-tooltip`, `missing`, `fetch-error`) and emits a distinct TOML comment for each non-`resolved` outcome (see §5). The generic "WARNING: all stats unknown" line is gone; the user can now tell at a glance *why* any given item needs hand-editing.
 
 ### Bug 8 — `//` line comments inside `runBookmarklet` break the `javascript:` URL ✅ FIXED
 
 **Symptom:** after PR #24 (Bug 6 fix) merged, clicking the bookmarklet on lotro-wiki.com produced no dialog. The browser console showed `Uncaught SyntaxError: Unexpected end of input`.
 
-**Root cause:** the bookmarklet wiring at the bottom of `bookmarklet/lgo_bookmarklet.html` (lines 354–356) serialises `runBookmarklet.toString()` and puts the result into the link's `href` as a `javascript:` URL. When the user drags that link to the bookmarks bar, browsers collapse newlines out of the stored URL. PR #24 added several `//` line comments inside `runBookmarklet`. After newline collapse, every `//` ate from itself to the end of the URL, including the function's closing `}`. The parser hit URL-end still expecting a `}` and threw the SyntaxError.
+**Root cause:** the bookmarklet wiring at the bottom of `bookmarklet/lgo_bookmarklet.html` serialises `runBookmarklet.toString()` and puts the result into the link's `href` as a `javascript:` URL. The browser collapses that string into a single line; any `//` line comment inside swallows everything that follows.
 
-**Fix:** all `//` line comments inside `runBookmarklet` converted to `/* ... */` block comments. Block comments survive newline collapse intact. Done by hand on top of PR #24 and already pushed to `The-Browser-Method`.
+**Fix:** all `//` line comments inside `runBookmarklet` converted to `/* ... */` block comments. Block comments survive newline collapse intact.
 
-**⚠ Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside `runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** The IIFE wrapper outside `runBookmarklet` is exempt — its content is not serialised into the `javascript:` URL.
+**⚠ Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside `runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** A second offence will be much harder to notice in review.
+
+### Bug 9 — Crafted items always emit `# WARNING: all stats unknown` ✅ FIXED
+
+**Symptom:** items like `Keen Pristine Madáshi Earring`, the three `Pristine Mûrai Stickpin of ...` variants, `Elegant Blade of the Adventurer`, `Grove-tender's Robe`, and `Kinta Sword of the Herbalist` consistently failed to resolve through the bookmarklet, even though they exist on lotro-wiki. Roughly one item per crafted recipe was affected.
+
+**Root cause:** lotro-wiki disambiguates near-duplicate item pages by suffixing the URL. `Keen Pristine Madáshi Earring` exists in two forms (Item Level 561 and Item Level 563) and lives at `Item:Keen_Pristine_Madáshi_Earring_(Item_Level_561)` / `_(Item_Level_563)`. The bare `Item:Keen_Pristine_Madáshi_Earring` page is a non-existent stub. Same pattern for nearly all player-crafted items. Weapon variants like `Elegant Blade of the Adventurer` are disambiguated by class/role (`_(DPS)`, `_(Heal)`) rather than item level.
+
+**Investigated and rejected:** distinguishing crafted from non-crafted at plugin-extract time. A temporary `/lgo probe` subcommand was added to `src/lgo.lua` to dump the full Turbine API surface for selected items, and the recorded data (`TestData/lgo_probe_Thalya_20260607_205655.plugindata`) confirmed the API exposes no field that distinguishes the two — `GetCategory`, `GetQuality`, `IsUnique`, `GetMaxStackSize` are byte-identical between a crafted earring and a non-crafted earring; `GetItemClass`, `GetItemLevel`, `GetLevel`, `IsBound`, etc. simply don't exist on this API version; `GetDescription` returns engine error tokens for all gear; `__implementation` is opaque userdata with no enumerable methods. The probe code was removed once the investigation was complete; the data file is kept as historical reference.
+
+**Fix:** the bookmarklet now uses MediaWiki's `prefixsearch` API (in namespace 100, the wiki's `Item` namespace) as a fallback when a direct page lookup yields `missing-page` or `no-tooltip`. The fallback behaviour:
+
+- If prefixsearch returns variants and *all* are tagged with `_(Item_Level_NNN)`, the bookmarklet parses out the integer levels, sorts descending, and auto-picks the highest — the equip-target for an end-game character. The chosen variant is recorded in the item record as `pickedTitle` + `pickedItemLevel` and surfaced in the result panel's "Auto-resolved via disambiguation (informational)" list and as an `# AUTO-PICKED ...` TOML comment so the user can audit the choice.
+- If any variant is non-numeric (`_(DPS)`, `_(Heal)`, `_(Burglar)`, etc.) — even if other variants are numeric — the bookmarklet declines to auto-pick. The item is reported as `needs-pick`, included in the "Multiple variants exist; auto-pick declined" sub-list of the result panel, and emitted into the TOML with all-zero stats and a `# UNRESOLVED: ...` comment.
+- If prefixsearch returns no variants, the item is reported as `no-tooltip` (bare page existed but had no tooltip — the legendary case) or `missing` (bare page didn't exist either).
+
+The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored `fetchItem` in `bookmarklet/lgo_bookmarklet.html`. `buildToml` and `renderResult` switch on the per-item `outcome` field to produce the typed TOML comments and the three-sub-list summary panel.
+
 ---
 
 ## 7. Honest tool / methodology notes for the agent
 
-- The `bing-search` tool returns LLM-summarized results, not raw page content. It is the **wrong instrument** for "what does this wiki template actually say." For wiki source, ask the user to open `https://lotro-wiki.com/index.php?title=Template:Item_Tooltip&action=edit` (or `&action=raw`) and paste the source.
+- The `bing-search` tool returns LLM-summarized results, not raw page content. It is the **wrong instrument** for "what does this wiki template actually say." For wiki source, ask the user to open the page in a browser and view source.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
-- `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions, ask the user to grep locally and paste.
-- `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.** If the Turbine Lua API needs surveying, do it via a CLI script that emits a clean UTF-8 Markdown summary committed to the repo.
+- `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
+- `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
 - Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 14-stat list. Do not invent or paraphrase.
-- The bookmarklet's `SLOT_MAP` is a translation table between two free-text vocabularies and a rigid one. There is **no canonical translation table** between the wiki's free-text `slot=`/`type=` values and the Rust 19-slot enum. Do **not** speculate about what wiki pages contain — either inspect the actual page (via the user) or instrument the bookmarklet for one diagnostic run.
-- When the agent finds itself unsure what was previously decided, **ask the user** rather than reconstructing from inference. Reconstruction from inference is what produced the speculative "Cloak"/"Shield" claims that wasted a previous session.
+- The bookmarklet's `SLOT_MAP` is a translation table between two free-text vocabularies and a rigid one. There is **no canonical translation table** between the wiki's free-text `slot=`/`type=` and the Rust `Slot` enum — every entry in `SLOT_MAP` was added by hand in response to a discovered mismatch.
+- **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. The resulting `TestData/lgo_probe_Thalya_20260607_205655.plugindata` is the empirical evidence. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).
+- **`GetDescription()` on `ItemInfo` returns `<string table error; tableDID [...] token [...]>` for *all* gear items** on the current client. This is a long-standing wiki-side or engine-side string-table failure, not something the plugin can fix. The probe confirmed it succeeds for non-gear items (e.g. fireworks) but fails uniformly across gear.
+- **`info.__implementation` is engine-private userdata:** no enumerable metatable methods, no addressable fields. Don't try to use it.
+- When the agent finds itself unsure what was previously decided, **ask the user** rather than reconstructing from inference. Reconstruction from inference is what produced the speculative "Cloakroom of Dol Amroth" episode in earlier sessions; the user's tolerance for it is low and rightly so.
 
 ---
 
@@ -204,7 +237,9 @@ The bookmarklet's `# WARNING: all stats unknown — edit before running optimize
 - Character: **Thalya**
 - Class: **Lore-master**
 - Base stats: Might 5300, Agility 2650, Vitality 10200, Will 7950, Fate 4000.
-- Test input: `lgo_itemnames_Thalya_20260521_221120.plugindata` (66 items: first 20 equipped, items 21–66 from the `lgo` chest; several legendary/renamed items expected to be unresolvable).
+- Test input: `TestData/lgo_itemnames_Thalya_20260521_221120.plugindata` (66 items: first 20 equipped, items 21–66 from the `lgo` chest; several legendary/renamed items expected to be unresolvable).
+- Bookmarklet fixture: `TestData/lgo_stats_Thalya_20260525_215012.toml` — the bookmarklet's TOML output for the test input above; used by `tests/resolve_slots_integration.rs` (6 of 7 tests depend on it).
+- Probe data (historical reference, see Bug 9): `TestData/lgo_probe_Thalya_20260607_205655.plugindata` — per-item Turbine API dump for a hand-picked set of 7 items (3 paired crafted/non-crafted comparisons plus one ignorable fireworks).
 
 ---
 
@@ -220,7 +255,7 @@ The bookmarklet's `# WARNING: all stats unknown — edit before running optimize
 
 These are known, decided-but-not-urgent items. Do **not** silently fold them into other PRs; track and address explicitly.
 
-- **Restore `src/bin/db_build.rs`.** Was deleted in the bookmarklet pivot. Still recoverable from git history (commit `3a0fc23d` on the pre-pivot branch). It reads `data/items.xml` + `data/progressions.xml` and writes `data/lgo_items.json`. Needed eventually so we can regenerate `lgo_items.json` whenever `items.xml` is refreshed from the player community source. **Not urgent** until the existing JSON snapshot starts feeling stale (i.e., many items missing from real runs). When restoring, also re-add it as a `[[bin]]` entry in `Cargo.toml`. Note: under the current architecture `progressions.xml` is no longer needed — the slot resolver only consumes the `slot` field from each entry, so a restored `db_build` can read just `items.xml` and emit slot-only entries (or empty stat blocks). Stats now come from the bookmarklet's wiki lookups.
-- **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother before the resolver work is done — the resolver removes much of the slot-handling logic that would have been the most valuable thing to test. Revisit after resolver lands; the integration test against a real 66-item input is what actually matters.
+- **Restore `src/bin/db_build.rs`.** Was deleted in the bookmarklet pivot. Still recoverable from git history (commit `3a0fc23d` on the pre-pivot branch). It reads `data/items.xml` + `data/progressions.xml` and emits `data/lgo_items.json`. Needed whenever the upstream game data is refreshed.
+- **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Bug 2 (`mapSlot()` fallback).** Latent, no observed symptom. Largely moot once the resolver overrides slot decisions anyway. Leave alone unless it produces a real failure.
-- **Hand-edit preservation across `resolve-slots` re-runs.** The pre-pivot `src/merge.rs` implemented a `[__user_edits__]` metadata section that tracked user hand-edits in the `.toml` and prompted before overwriting them on re-export. That file was deleted in the bookmarklet pivot. Under the current architecture, re-running `resolve-slots` clobbers hand-edited slot values in the `_resolved.toml` (and clobbers stat edits too, if `resolve-slots` is run against the original `.toml` rather than the `_resolved.toml`). Restoring the feature is desirable but not urgent: the design in `docs/User Story & Hand-Edit-Tracking Approach.txt` and `docs/Merge Coding Prompt.txt` predates the pivot and would need to be adapted to the new two-file (`.toml` → `_resolved.toml`) flow. `src/gearstats.rs` retains the `user_edits: Option<&UserEdits>` writer parameter, so the output side is partially in place; the parser and reconciliation logic need to be rebuilt. Recoverable from commit `3a0fc23d`.
+- **Hand-edit preservation across `resolve-slots` re-runs.** The pre-pivot `src/merge.rs` implemented a `[__user_edits__]` metadata section that tracked user hand-edits in the `.toml` and prompted on conflicts. The current `resolve-slots` does not preserve hand-edited stats if the user re-runs it after a fresh bookmarklet export. See `docs/User Story & Hand-Edit-Tracking Approach.txt` for the original design. Address if and when a user actually gets bitten by losing edits.
