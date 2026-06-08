@@ -182,9 +182,16 @@
             out += "[[item]]\n";
             out += `slot               = \"${item.slot}\"\n`;
             out += `name               = \"${item.name.replace(/"/g, '\\\\"')}\"\n`;
-            const allZero = TRACKED.every(k => item.stats[k] === 0);
-            if (allZero) {
-              out += "# WARNING: all stats unknown — edit before running optimizer\n";
+            if (item.outcome === "auto-picked") {
+              out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+            } else if (item.outcome === "needs-pick") {
+              out += "# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats\n";
+            } else if (item.outcome === "no-tooltip") {
+              out += "# UNRESOLVED: wiki page has no Item Tooltip (likely legendary) — you should hand-edit stats\n";
+            } else if (item.outcome === "missing") {
+              out += "# UNRESOLVED: no wiki page found — you should hand-edit stats\n";
+            } else if (item.outcome === "fetch-error") {
+              out += "# UNRESOLVED: fetch error — retry or you should hand-edit stats\n";
             }
             for (const key of TRACKED) {
               out += `${padKey(key)}= ${item.stats[key]}\n`;
@@ -195,7 +202,15 @@
           return out;
         }
 
-        function renderResult(resolvedCount, unresolved) {
+        function renderResult(items) {
+          /* Categorises items by outcome and renders summary panels. */
+          const resolved   = items.filter(i => i.outcome === "resolved");
+          const autoPicked = items.filter(i => i.outcome === "auto-picked");
+          const needsPick  = items.filter(i => i.outcome === "needs-pick");
+          const noUsable   = items.filter(i =>
+            i.outcome === "missing" || i.outcome === "no-tooltip" || i.outcome === "fetch-error"
+          );
+
           const prior = document.getElementById("lgo-bookmarklet-output");
           if (prior) prior.remove();
 
@@ -204,21 +219,42 @@
 
           const summary = document.createElement("div");
           summary.className = "summary";
-          summary.innerHTML = `<strong>Done.</strong> Resolved: ${resolvedCount}, Unresolved: ${unresolved.length}`;
+          summary.innerHTML =
+            `<strong>Done.</strong> Resolved directly: ${resolved.length}, ` +
+            `auto-picked from disambiguation: ${autoPicked.length}, ` +
+            `you should hand-edit stats: ${needsPick.length + noUsable.length}`;
           wrap.appendChild(summary);
 
-          if (unresolved.length > 0) {
+          function appendList(titleText, entries, formatEntry) {
+            if (entries.length === 0) return;
+            const title = document.createElement("div");
+            title.textContent = titleText;
+            title.style.marginTop = "1rem";
+            wrap.appendChild(title);
             const list = document.createElement("ul");
-            for (const name of unresolved) {
+            for (const e of entries) {
               const li = document.createElement("li");
-              li.textContent = name;
+              li.textContent = formatEntry(e);
               list.appendChild(li);
             }
-            const title = document.createElement("div");
-            title.textContent = "Unresolved items:";
-            wrap.appendChild(title);
             wrap.appendChild(list);
           }
+
+          appendList(
+            "Auto-resolved via disambiguation (informational):",
+            autoPicked,
+            e => `${e.name} → ${e.pickedTitle}`
+          );
+          appendList(
+            "Multiple variants exist; auto-pick declined — you should hand-edit stats:",
+            needsPick,
+            e => e.name
+          );
+          appendList(
+            "No usable wiki page — you should hand-edit stats:",
+            noUsable,
+            e => `${e.name} (${e.outcome})`
+          );
 
           if (unknownStatNames.size > 0) {
             const title = document.createElement("div");
@@ -226,9 +262,9 @@
             wrap.appendChild(title);
             const list = document.createElement("ul");
             const sorted = Array.from(unknownStatNames).sort();
-            for (const name of sorted) {
+            for (const n of sorted) {
               const li = document.createElement("li");
-              li.textContent = name;
+              li.textContent = n;
               list.appendChild(li);
             }
             wrap.appendChild(list);
@@ -253,46 +289,127 @@
           return ta;
         }
 
-        async function fetchItem(name) {
-          const stats = zeroStats();
-          /* Encode the title portion (after the "Item:" namespace prefix) so non-ASCII
-             characters like á, â, û, ó round-trip correctly. MediaWiki accepts spaces
-             as either "_" or "%20"; we keep the underscore form for readability in
-             network logs, then encodeURIComponent the result. The "Item:" prefix is a
-             namespace and must remain literal — it must not be URL-encoded.*/
-          const titlePart = encodeURIComponent(name.replace(/ /g, "_"));
-          const pageName = "Item:" + titlePart;
-          /* redirects=1 tells the API to follow MediaWiki redirects to the canonical
-             page; lotro-wiki uses redirect pages heavily as item-name aliases, and
-             without this flag the API returns the redirect page itself (no Item Tooltip
-             template) instead of the target.*/
-          const url = `https://lotro-wiki.com/api.php?action=parse&page=${pageName}&prop=wikitext&format=json&redirects=1`;
-
+        async function fetchByTitle(title) {
+          /* Fetches the wiki page identified by full title (including
+             namespace prefix, e.g. "Item:Foo (Item Level 563)"), extracts
+             the {{Item Tooltip}} template, and returns { slot, stats }.
+             Throws an Error with a `.code` property identifying the failure:
+               "missing-page" — page does not exist or has empty wikitext
+               "no-tooltip"   — page exists but has no {{Item Tooltip}}
+               "http"         — non-2xx response
+               "api-error"    — MediaWiki API error other than missingtitle */
+          const titlePart = encodeURIComponent(title.replace(/ /g, "_"));
+          const url = `https://lotro-wiki.com/api.php?action=parse&page=${titlePart}&prop=wikitext&format=json&redirects=1`;
           const resp = await fetch(url, { credentials: "include" });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
+          if (!resp.ok) {
+            const e = new Error(`HTTP ${resp.status}`);
+            e.code = "http";
+            throw e;
+          }
           const json = await resp.json();
+          if (json && json.error) {
+            const e = new Error(json.error.info || json.error.code);
+            e.code = json.error.code === "missingtitle" ? "missing-page" : "api-error";
+            throw e;
+          }
           const wikitext = json && json.parse && json.parse.wikitext && json.parse.wikitext["*"];
-          if (!wikitext) throw new Error("No wikitext payload");
-
+          if (!wikitext) {
+            const e = new Error("No wikitext payload");
+            e.code = "missing-page";
+            throw e;
+          }
           const tpl = extractTooltipTemplate(wikitext);
-          if (!tpl) throw new Error("No Item Tooltip template");
-
+          if (!tpl) {
+            const e = new Error("No Item Tooltip template");
+            e.code = "no-tooltip";
+            throw e;
+          }
           const slotRaw = extractField(tpl, "slot");
           const attribRaw = extractField(tpl, "attrib");
           const armourRaw = extractField(tpl, "armour") || extractField(tpl, "armor");
-
-          Object.assign(stats, parseAttribs(attribRaw));
+          const stats = parseAttribs(attribRaw);
           if (armourRaw) {
             const m = armourRaw.replace(/<[^>]+>/g, "").match(/\d[\d,]*/);
             if (m) stats.Armor += parseInt(m[0].replace(/,/g, ""), 10) || 0;
           }
+          return { slot: mapSlot(slotRaw), stats };
+        }
 
-          return {
-            name,
-            slot: mapSlot(slotRaw),
-            stats
-          };
+        async function findDisambigVariants(name) {
+          /* Calls the MediaWiki prefixsearch API for "Item:<name>" within
+             LotRO-wiki's Item namespace (id=100). Returns an array of:
+               { title: "Item:Foo (Item Level 563)", itemLevel: 563 }
+               { title: "Item:Foo (DPS)", itemLevel: null }
+             Returns [] on any failure; the caller treats empty as
+             "no variants found". */
+          const search = encodeURIComponent("Item:" + name);
+          const url = `https://lotro-wiki.com/api.php?action=query&list=prefixsearch&pssearch=${search}&psnamespace=100&format=json&pslimit=50`;
+          let resp;
+          try {
+            resp = await fetch(url, { credentials: "include" });
+          } catch (_) {
+            return [];
+          }
+          if (!resp.ok) return [];
+          let json;
+          try {
+            json = await resp.json();
+          } catch (_) {
+            return [];
+          }
+          const results = (json && json.query && json.query.prefixsearch) || [];
+          return results.map(r => {
+            const m = r.title && r.title.match(/\(Item Level (\d+)\)$/);
+            return { title: r.title, itemLevel: m ? parseInt(m[1], 10) : null };
+          });
+        }
+
+        async function fetchItem(name) {
+          /* Resolves a single item name to { name, slot, stats, outcome, ... }.
+             outcome is one of:
+               "resolved"    — direct page lookup succeeded
+               "auto-picked" — bare name failed; auto-picked highest-IL variant
+               "needs-pick"  — variants exist but at least one is non-numeric
+               "missing"     — no usable wiki page found
+               "no-tooltip"  — page exists but has no Item Tooltip (legendary)
+               "fetch-error" — transport-level failure (HTTP / network) */
+          let directResult = null;
+          let directCode = null;
+          try {
+            directResult = await fetchByTitle("Item:" + name);
+          } catch (e) {
+            directCode = e.code || "fetch-error";
+          }
+          if (directResult) {
+            return { name, slot: directResult.slot, stats: directResult.stats, outcome: "resolved" };
+          }
+          if (directCode !== "missing-page" && directCode !== "no-tooltip") {
+            return { name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" };
+          }
+
+          /* Direct lookup failed in a way disambiguation might rescue. */
+          const variants = await findDisambigVariants(name);
+          if (variants.length === 0) {
+            return {
+              name, slot: "Unknown", stats: zeroStats(),
+              outcome: directCode === "no-tooltip" ? "no-tooltip" : "missing"
+            };
+          }
+          if (variants.some(v => v.itemLevel === null)) {
+            return { name, slot: "Unknown", stats: zeroStats(), outcome: "needs-pick" };
+          }
+
+          variants.sort((a, b) => b.itemLevel - a.itemLevel);
+          const pick = variants[0];
+          try {
+            const result = await fetchByTitle(pick.title);
+            return {
+              name, slot: result.slot, stats: result.stats,
+              outcome: "auto-picked", pickedTitle: pick.title, pickedItemLevel: pick.itemLevel
+            };
+          } catch (_) {
+            return { name, slot: "Unknown", stats: zeroStats(), outcome: "missing" };
+          }
         }
 
         async function run() {
@@ -323,28 +440,23 @@
           document.body.appendChild(status);
 
           const items = [];
-          const unresolved = [];
-          let resolvedCount = 0;
 
           for (let i = 0; i < names.length; i++) {
             const name = names[i];
             status.textContent = `Fetching item ${i + 1} of ${names.length}: ${name}...`;
-
             try {
               const item = await fetchItem(name);
-              const allZero = TRACKED.every(k => item.stats[k] === 0);
-              if (allZero) unresolved.push(name); else resolvedCount += 1;
               items.push(item);
             } catch (_err) {
-              unresolved.push(name);
-              items.push({ name, slot: "Unknown", stats: zeroStats() });
+              /* fetchItem is supposed to never throw — defensive guard. */
+              items.push({ name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" });
             }
           }
 
           status.textContent = "Done fetching items.";
 
           const toml = buildToml(items);
-          const ta = renderResult(resolvedCount, unresolved);
+          const ta = renderResult(items);
           ta.value = toml;
         }
 
