@@ -10,9 +10,8 @@
 
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*:
 
-1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing two files to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_export_<character>_<timestamp>.plugindata` — equipped + chest items with slot/category data.
-   - `lgo_itemnames_<character>_<timestamp>.plugindata` — flat list of all item names (input for the bookmarklet).
+1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing a file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
+   - `lgo_gearlist_<character>_<timestamp>.plugindata` — equipped + chest items with slot data and a flat list of all item names (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the itemnames data, and gets back a `.toml` they save into the AllServers directory.
