@@ -1,0 +1,1074 @@
+return 
+{
+	["character"] = "Thalya",
+	["version"] = "lgo-export-4",
+	["sharedStorage"] = 
+	{
+		["items"] = 
+		{
+			[1.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Kinta Sage's Shoulder-guards",
+				["slot"] = 55.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Kinta Sage's Shoulder-guards",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[2.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ordâkhai Merchant's Boots",
+				["slot"] = 71.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ordâkhai Merchant's Boots",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[3.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Common Ring",
+				["slot"] = 72.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Common Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[4.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Dull Earring",
+				["slot"] = 73.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Dull Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[5.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Subtle Conscript's Ring",
+				["slot"] = 74.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Subtle Conscript's Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[6.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Subtle Conscript's Earring",
+				["slot"] = 75.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Subtle Conscript's Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[7.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ordâkhai Wanderer's Threadbare Shoulder-guard",
+				["slot"] = 76.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ordâkhai Wanderer's Threadbare Shoulder-guard",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[8.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Enlightened Mantle of Remembered Rivals",
+				["slot"] = 77.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Enlightened Mantle of Remembered Rivals",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[9.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Faded Watcher's Bracers",
+				["slot"] = 78.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Faded Watcher's Bracers",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[10.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Pristine Mûrai Stickpin of Ancient Wisdom",
+				["slot"] = 79.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Pristine Mûrai Stickpin of Ancient Wisdom",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "19",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[11.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ornate Conscript's Earring",
+				["slot"] = 80.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ornate Conscript's Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "4"
+				}
+			},
+			[12.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Tournament Sage's Band",
+				["slot"] = 82.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Tournament Sage's Band",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "7",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[13.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Gold Teardrop Earring",
+				["slot"] = 83.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Gold Teardrop Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[14.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ornate Ordâkhai Necklace",
+				["slot"] = 84.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ornate Ordâkhai Necklace",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[15.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Token of the Emerald Wood",
+				["slot"] = 85.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Token of the Emerald Wood",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[16.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Tournament Sage's Robe",
+				["slot"] = 86.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Tournament Sage's Robe",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "3",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[17.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Keen Pristine Madáshi Ring",
+				["slot"] = 88.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Keen Pristine Madáshi Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[18.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Subtle Ordâkhai Bracelet",
+				["slot"] = 89.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Subtle Ordâkhai Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[19.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Strong Ordâkhai Bauble",
+				["slot"] = 90.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Strong Ordâkhai Bauble",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[20.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Resolute Sword of Old Eregion",
+				["slot"] = 91.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Resolute Sword of Old Eregion",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "44",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[21.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Pristine Mûrai Stickpin of Bestial Strength",
+				["slot"] = 92.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Pristine Mûrai Stickpin of Bestial Strength",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "19",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[22.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Shoes of the Tempest",
+				["slot"] = 93.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Shoes of the Tempest",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[23.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ornate Ordâkhai Bracelet",
+				["slot"] = 94.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ornate Ordâkhai Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[24.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Kinta Sword of the Herbalist",
+				["slot"] = 95.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Kinta Sword of the Herbalist",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "44",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[25.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Gloves of the Tempest",
+				["slot"] = 96.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Gloves of the Tempest",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[26.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Keen Flame-licked Necklace",
+				["slot"] = 97.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Keen Flame-licked Necklace",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[27.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Resonant Brilliant Elvish Ring",
+				["slot"] = 98.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Resonant Brilliant Elvish Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[28.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Wilful Bracer of the Bear in Winter",
+				["slot"] = 99.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Wilful Bracer of the Bear in Winter",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[29.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ordâkhai Explorer's Boots",
+				["slot"] = 100.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ordâkhai Explorer's Boots",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[30.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Brass Earring",
+				["slot"] = 101.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Brass Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[31.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ordâkhai Explorer's Leggings",
+				["slot"] = 102.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ordâkhai Explorer's Leggings",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "15",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[32.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ornate Ordâkhai Ring",
+				["slot"] = 103.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ornate Ordâkhai Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[33.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Subtle Ordâkhai Bracelet",
+				["slot"] = 104.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Subtle Ordâkhai Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[34.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Shoulder-guards of the Herbalist",
+				["slot"] = 105.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Shoulder-guards of the Herbalist",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[35.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Shoes of the Herbalist",
+				["slot"] = 106.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Shoes of the Herbalist",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[36.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Blighted Gloves of the Herbalist",
+				["slot"] = 107.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Blighted Gloves of the Herbalist",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[37.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Brass Alchemist's Bracelet",
+				["slot"] = 108.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Brass Alchemist's Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[38.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Ordâkhai Merchant's Coat",
+				["slot"] = 109.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Ordâkhai Merchant's Coat",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "3",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[39.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Grove-tender's Robe",
+				["slot"] = 110.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Grove-tender's Robe",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "3",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[40.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Game Hunter's Cloak",
+				["slot"] = 111.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Game Hunter's Cloak",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "45",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[41.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Merchant's Thick Cloak",
+				["slot"] = 112.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Merchant's Thick Cloak",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "45",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[42.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Umbari Veteran's Shoes",
+				["slot"] = 113.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Umbari Veteran's Shoes",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[43.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Umbari Veteran's Cloth Leggings",
+				["slot"] = 114.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Umbari Veteran's Cloth Leggings",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "15",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[44.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Umbari Veteran's Circlet",
+				["slot"] = 115.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Umbari Veteran's Circlet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "7",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[45.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Umbari Veteran's Cops",
+				["slot"] = 116.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Umbari Veteran's Cops",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[46.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Umbari Veteran's Bracers",
+				["slot"] = 117.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Umbari Veteran's Bracers",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[47.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Forgotten Elvish Healer's Leggings",
+				["slot"] = 118.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Forgotten Elvish Healer's Leggings",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "15",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[48.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Forgotten Elvish Healer's Hood",
+				["slot"] = 119.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Forgotten Elvish Healer's Hood",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "7",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[49.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Forgotten Elvish Healer's Shoulder-pads",
+				["slot"] = 120.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Forgotten Elvish Healer's Shoulder-pads",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[50.000000] = 
+			{
+				["chest"] = 10.000000,
+				["quantity"] = 1.000000,
+				["name"] = "Forgotten Elvish Healer's Cuffs",
+				["slot"] = 121.000000,
+				["chestName"] = "lgo",
+				["infoName"] = "Forgotten Elvish Healer's Cuffs",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			}
+		},
+		["character"] = "Thalya",
+		["version"] = "shared-storage-export-3",
+		["chestsSeen"] = 
+		{
+			["1"] = "Transfer To Fishhook",
+			["0"] = "Keep In Shared",
+			["3"] = "Transfer To Thalya",
+			["2"] = "The Larder",
+			["5"] = "Murai Raid Sets",
+			["4"] = "Transfer To Cust or Kleid",
+			["7"] = "Red LM",
+			["6"] = "Blue LM",
+			["9"] = "MK Armor",
+			["8"] = "Yellow LM",
+			["10"] = "lgo"
+		},
+		["storage"] = 
+		{
+			["count"] = 125.000000,
+			["capacity"] = 160.000000
+		}
+	},
+	["baseStats"] = 
+	{
+		["GetBaseWill"] = 7950.000000,
+		["GetBaseVitality"] = 10200.000000,
+		["GetBaseAgility"] = 2650.000000,
+		["GetBaseFate"] = 4000.000000,
+		["GetBaseMight"] = 5300.000000
+	},
+	["class"] = "Lore-master",
+	["equipped"] = 
+	{
+		["items"] = 
+		{
+			[1.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Veteran Sage's Hooded Helm",
+				["slot"] = 1.000000,
+				["infoName"] = "Veteran Sage's Hooded Helm",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "7",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[2.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Forgotten Elvish Healer's Robe",
+				["slot"] = 2.000000,
+				["infoName"] = "Forgotten Elvish Healer's Robe",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "3",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[3.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Veteran Sage's Leggings",
+				["slot"] = 3.000000,
+				["infoName"] = "Veteran Sage's Leggings",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "15",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[4.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Veteran Sage's Bracers",
+				["slot"] = 4.000000,
+				["infoName"] = "Veteran Sage's Bracers",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "5",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[5.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Veteran Sage's Shoes",
+				["slot"] = 5.000000,
+				["infoName"] = "Veteran Sage's Shoes",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "23",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[6.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Veteran Sage's Shoulder-guard",
+				["slot"] = 6.000000,
+				["infoName"] = "Veteran Sage's Shoulder-guard",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "6",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[7.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Zajâni Scholar's Cloak",
+				["slot"] = 7.000000,
+				["infoName"] = "Zajâni Scholar's Cloak",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "45",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[8.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Keen Ordâkhai Bracelet",
+				["slot"] = 8.000000,
+				["infoName"] = "Keen Ordâkhai Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[9.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Ornate Ordâkhai Bracelet",
+				["slot"] = 9.000000,
+				["infoName"] = "Ornate Ordâkhai Bracelet",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[10.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Hunter's Necklace of Lamentation",
+				["slot"] = 10.000000,
+				["infoName"] = "Hunter's Necklace of Lamentation",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[11.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Tri-colour Gemstone Ring",
+				["slot"] = 11.000000,
+				["infoName"] = "Tri-colour Gemstone Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[12.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Keen Pristine Madáshi Ring",
+				["slot"] = 12.000000,
+				["infoName"] = "Keen Pristine Madáshi Ring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[13.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Keen Pristine Madáshi Earring",
+				["slot"] = 13.000000,
+				["infoName"] = "Keen Pristine Madáshi Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[14.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Keen Pristine Madáshi Earring",
+				["slot"] = 14.000000,
+				["infoName"] = "Keen Pristine Madáshi Earring",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[15.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Golden Scroll Case",
+				["slot"] = 15.000000,
+				["infoName"] = "Golden Scroll Case",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "49",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[16.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Legendary Lore-keeper's Staff",
+				["slot"] = 16.000000,
+				["infoName"] = "Legendary Lore-keeper's Staff",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "34",
+					["IsUnique"] = "false",
+					["GetQuality"] = "1"
+				}
+			},
+			[17.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Elegant Blade of the Adventurer",
+				["slot"] = 17.000000,
+				["infoName"] = "Elegant Blade of the Adventurer",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "44",
+					["IsUnique"] = "false",
+					["GetQuality"] = "3"
+				}
+			},
+			[18.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Pristine Mûrai Stickpin of Nature's Glory",
+				["slot"] = 18.000000,
+				["infoName"] = "Pristine Mûrai Stickpin of Nature's Glory",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "19",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			},
+			[19.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Extraordinary Elf Prospector's Pickaxe",
+				["slot"] = 19.000000,
+				["infoName"] = "Extraordinary Elf Prospector's Pickaxe",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "32",
+					["IsUnique"] = "false",
+					["GetQuality"] = "1"
+				}
+			},
+			[20.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "The Tome Of Chicanery",
+				["slot"] = 20.000000,
+				["infoName"] = "Lore-master's Book",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "19",
+					["IsUnique"] = "false",
+					["GetQuality"] = "1"
+				}
+			},
+			[21.000000] = 
+			{
+				["quantity"] = 1.000000,
+				["name"] = "Scholar's Light Bridle",
+				["slot"] = 21.000000,
+				["infoName"] = "Scholar's Light Bridle",
+				["itemInfo"] = 
+				{
+					["GetCategory"] = "218",
+					["IsUnique"] = "false",
+					["GetQuality"] = "2"
+				}
+			}
+		},
+		["character"] = "Thalya",
+		["version"] = "equip-export-3",
+		["count"] = 21.000000
+	},
+	["selectedSharedStorageChestName"] = "lgo"
+}
