@@ -10,9 +10,8 @@
 
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*:
 
-1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing two files to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_export_<character>_<timestamp>.plugindata` — equipped + chest items with slot/category data.
-   - `lgo_itemnames_<character>_<timestamp>.plugindata` — flat list of all item names (input for the bookmarklet).
+1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
+   - `lgo_gearlist_<character>_<timestamp>.plugindata` — top-level `character`/`class`/`baseStats` plus a flat `names` list (input for the bookmarklet and metadata for the CLI).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the itemnames data, and gets back a `.toml` they save into the AllServers directory.
@@ -22,10 +21,10 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 ## 2. User workflow (current, end-to-end)
 
 1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
-2. Run `/lgo export` in-game → two `.plugindata` files are written.
+2. Run `/lgo export` in-game → one `lgo_gearlist_*.plugindata` file is written.
 3. Open https://lotro-wiki.com in a browser.
 4. Click the **LGO Stats** bookmarklet.
-5. Paste the contents of `lgo_itemnames_*.plugindata` when prompted.
+5. Paste the contents of `lgo_gearlist_*.plugindata` when prompted.
 6. The bookmarklet builds a `.toml`. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
 7. Save the `.toml` to the `AllServers` directory.
 8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped output.
@@ -36,11 +35,11 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 ## 3. Repo layout (relevant)
 
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
-- `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats, equipped, candidates }`.
+- `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `parse_slot_str` enforces the canonical 19-string slot allow-list.
 - `src/optimizer.rs` — two-phase compatibility-filter + safe lexicographic narrowing; super-candidates for paired Wrist/Finger/Ear slots; `MAX_CANDIDATES_PER_SLOT = 8`; infeasible-greedy fallback.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (14, canonical order), CLI abbrev parsing, `StatGoal`.
-- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_plugin_index`, `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
+- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), and outcome-typed reporting (see Bug 9).
@@ -245,7 +244,6 @@ The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored
 
 ## 9. Likely next features (after the bookmarklet bugs)
 
-- Combine the two exported .plugindata files into one
 - Optimizer --toml-file flag (specify input .toml)
 
 ---

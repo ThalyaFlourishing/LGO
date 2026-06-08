@@ -19,11 +19,10 @@ Steps
 
        /lgo export
 
-   The plugin writes two files into your character's plugin-data
+   The plugin writes one file into your character's plugin-data
    directory:
 
-       lgo_export_<character>_<timestamp>.plugindata
-       lgo_itemnames_<character>_<timestamp>.plugindata
+       lgo_gearlist_<character>_<timestamp>.plugindata
 
 3. Open https://lotro-wiki.com in your web browser. You must be on
    lotro-wiki.com before clicking the bookmarklet; it will refuse to
@@ -32,7 +31,7 @@ Steps
 4. Click the 'LGO Stats' bookmarklet in your bookmarks bar.
 
 5. When prompted, paste the entire contents of the
-   lgo_itemnames_<character>_<timestamp>.plugindata file you just
+   lgo_gearlist_<character>_<timestamp>.plugindata file you just
    generated.
 
 6. Wait while the bookmarklet looks each item up on the wiki. Progress

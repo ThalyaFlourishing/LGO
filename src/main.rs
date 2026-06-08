@@ -86,7 +86,7 @@ fn run_optimize(cli: &OptimizeCli) {
             eprintln!("  2) Run /lgo export in-game");
             eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
             eprintln!("  4) Click the LGO bookmarklet");
-            eprintln!("  5) Paste lgo_itemnames_*.plugindata when prompted");
+            eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
             eprintln!("  6) Save the generated .toml to your AllServers directory");
             eprintln!("  7) Run: lgo resolve-slots");
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
@@ -109,7 +109,7 @@ fn run_optimize(cli: &OptimizeCli) {
         .collect();
 
     let candidate_names: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimizer::optimize(&resolved, &[], &candidate_names, &cli.goals);
+    let result = optimizer::optimize(&resolved, &candidate_names, &cli.goals);
 
     report::print_report(
         &result,
@@ -295,11 +295,11 @@ fn resolve_plugindata(cli: &OptimizeCli) -> Result<(PathBuf, String), String> {
             .and_then(|s| s.to_str())
             .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
         let character = stem
-            .strip_prefix("lgo_export_")
+            .strip_prefix("lgo_gearlist_")
             .and_then(|s| s.rsplitn(2, '_').nth(1))
             .ok_or_else(|| {
                 format!(
-                    "Filename '{}' does not match expected pattern lgo_export_{{character}}_{{timestamp}}",
+                    "Filename '{}' does not match expected pattern lgo_gearlist_{{character}}_{{timestamp}}",
                     stem
                 )
             })?
@@ -356,14 +356,14 @@ fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
             p.extension().and_then(|e| e.to_str()) == Some("plugindata")
                 && p.file_name()
                     .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("lgo_export_"))
+                    .map(|n| n.starts_with("lgo_gearlist_"))
                     .unwrap_or(false)
         })
         .collect();
 
     if entries.is_empty() {
         return Err(format!(
-            "No lgo_export_*.plugindata files found in {}",
+            "No lgo_gearlist_*.plugindata files found in {}",
             dir.display()
         ));
     }
@@ -430,7 +430,7 @@ fn print_usage() {
     println!("  2) Run /lgo export in-game");
     println!("  3) Navigate to https://lotro-wiki.com in your browser");
     println!("  4) Click the LGO bookmarklet");
-    println!("  5) Paste the contents of lgo_itemnames_*.plugindata when prompted");
+    println!("  5) Paste the contents of lgo_gearlist_*.plugindata when prompted");
     println!("  6) Copy the generated .toml and save it to your AllServers directory");
     println!("  7) Run: lgo resolve-slots");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");

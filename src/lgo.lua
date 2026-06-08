@@ -8,26 +8,27 @@
 -- Commands:
 --   /lgo
 --     -> help
---   /lgo ss
---     -> export ALL items in Shared Storage (debug)
---   /lgo ss chest <name>
---     -> export items in Shared Storage chest <name>
---   /lgo ss chestindex <n>
---     -> export items in Shared Storage chest index <n>
---   /lgo equip
---     -> export equipped items
 --   /lgo export
---     -> export (equipped) + (shared storage chest 'lgo')
+--     -> export item names from (equipped) + (shared storage chest 'lgo')
 --   /lgo export chest <name>
---     -> export (equipped) + (shared storage chest <name>)
+--     -> export item names from (equipped) + (shared storage chest <name>)
 --
 -- Data is written via Turbine.PluginData.Save(Turbine.DataScope.Account, key, table)
+--   - lgo_gearlist_<character>_<timestamp>.plugindata
+--   - top-level shape:
+--       {
+--         version = "lgo-gearlist-1",
+--         character = "...",
+--         class = "...",
+--         baseStats = { GetBaseMight=..., GetBaseAgility=..., ... },
+--         names = { [1.000000]="...", [2.000000]="...", ... },
+--       }
 --
 -- Notes on gear stats:
 --   The LotRO plugin API does not expose numeric stat values.
 --   GetDescription() returns an unserializable engine token.
 --   GetLevel/GetRequiredLevel/GetItemClass are absent on this API version.
---   Per-item data exported: name, category, quality, IsUnique.
+--   Per-item data exported: item names only (for wiki lookup).
 --   The Rust optimizer looks up stats externally by item name.
 
 import "Turbine";
@@ -181,7 +182,7 @@ end
 
 
 local function ExtractItemRecord(item, indexOrSlot)
-  local rec = { slot = indexOrSlot };
+  local rec = {};
 
   -- Item-level name (may be a custom rename; falls back to info name)
   local name = nil;
@@ -196,42 +197,6 @@ local function ExtractItemRecord(item, indexOrSlot)
 
   rec.name = name;
   rec.infoName = infoName;
-
-  -- Quantity (stack size of this instance)
-  if item ~= nil and type(item.GetQuantity) == "function" then
-    local ok, q = pcall(function() return item:GetQuantity(); end);
-    if ok then rec.quantity = q end
-  end
-
-  -- Shared Storage chest index (only present on shared-storage items)
-  if item ~= nil and type(item.GetChest) == "function" then
-    local ok, c = pcall(function() return item:GetChest(); end);
-    if ok then rec.chest = c end
-  end
-
-  if info ~= nil then
-    rec.itemInfo = {};
-
-    -- Only confirmed-serializable ItemInfo fields on this API version.
-    -- GetLevel / GetRequiredLevel / GetItemClass are absent.
-    -- GetDescription returns an unserializable engine token.
-    local scalarFields = {
-      "GetCategory",  -- Turbine.Gameplay.ItemCategory enum integer
-      "GetQuality",   -- Turbine.Gameplay.ItemQuality enum integer
-    };
-    for _, methodName in ipairs(scalarFields) do
-      local v, existed, ok = TryCall0(info, methodName);
-      if existed and ok and v ~= nil then
-        rec.itemInfo[methodName] = tostring(v);
-      end
-    end
-
-    -- IsUnique: optimizer must not suggest equipping two of the same unique
-    local v, existed, ok = TryCall0(info, "IsUnique");
-    if existed and ok and v ~= nil then
-      rec.itemInfo["IsUnique"] = tostring(v);
-    end
-  end
 
   return rec;
 end
@@ -266,14 +231,6 @@ local function GetSharedStorage()
   return ss, nil;
 end
 
-local function GetSharedStorageChestName(ss, chestIndex)
-  if ss == nil then return nil end
-  if type(ss.GetChestName) ~= "function" then return nil end
-  local ok, n = pcall(function() return ss:GetChestName(chestIndex); end);
-  if ok and n ~= nil and n ~= "" then return n end
-  return nil
-end
-
 local function EnumerateSharedStorageItems(filterFn)
   local ss, err = GetSharedStorage();
   if err ~= nil then return nil, err end
@@ -292,21 +249,7 @@ local function EnumerateSharedStorageItems(filterFn)
     return nil, "sharedStorage:GetCount() did not return a number";
   end
 
-  local cap = nil;
-  if type(ss.GetCapacity) == "function" then
-    local okCap, c = Try("sharedStorage:GetCapacity()", function()
-      return ss:GetCapacity();
-    end);
-    if okCap then cap = c end
-  end
-
-  local out = {
-    version = "shared-storage-export-3",
-    character = CharacterName(),
-    storage = { count = count, capacity = cap },
-    items = {},
-    chestsSeen = {},
-  };
+  local out = { items = {} };
 
   for i = 1, count do
     local okItem, item = Try("sharedStorage:GetItem(" .. tostring(i) .. ")", function()
@@ -316,16 +259,20 @@ local function EnumerateSharedStorageItems(filterFn)
     if okItem and item ~= nil then
       local rec = ExtractItemRecord(item, i);
 
-      if rec.chest ~= nil then
-        local chestName = GetSharedStorageChestName(ss, rec.chest);
-        if chestName ~= nil then
-          rec.chestName = chestName;
-          out.chestsSeen[tostring(rec.chest)] = chestName;
-        end
+      local chestIndex = nil;
+      if type(item.GetChest) == "function" then
+        local okChest, c = pcall(function() return item:GetChest(); end);
+        if okChest then chestIndex = c end
+      end
+
+      local chestName = nil;
+      if chestIndex ~= nil and type(ss.GetChestName) == "function" then
+        local okName, n = pcall(function() return ss:GetChestName(chestIndex); end);
+        if okName and n ~= nil and n ~= "" then chestName = n end
       end
 
       if rec.name ~= nil then
-        if filterFn == nil or filterFn(rec) then
+        if filterFn == nil or filterFn(chestName, chestIndex, rec) then
           table.insert(out.items, rec);
         end
       end
@@ -333,61 +280,6 @@ local function EnumerateSharedStorageItems(filterFn)
   end
 
   return out, nil;
-end
-
-local function ExportSharedStorageAll()
-  local data, err = EnumerateSharedStorageItems(nil);
-  if err ~= nil then
-    Print("ss: ERROR: " .. tostring(err));
-    return;
-  end
-  SaveAccount("lgo_ss", data);
-  Print("ss: exported " .. tostring(#data.items) .. " items");
-end
-
-local function ExportSharedStorageChestName(chestName)
-  chestName = Trim(chestName);
-  if chestName == "" then
-    Print("ss chest: please provide a chest name, e.g. /lgo ss chest lgo");
-    return;
-  end
-
-  local data, err = EnumerateSharedStorageItems(function(rec)
-    return rec.chestName ~= nil and Lower(rec.chestName) == Lower(chestName);
-  end);
-
-  if err ~= nil then
-    Print("ss chest: ERROR: " .. tostring(err));
-    return;
-  end
-
-  data.filter = { type = "sharedStorageChestName", value = chestName };
-  SaveAccount("lgo_ss_chest", data);
-  Print("ss chest: exported " .. tostring(#data.items) ..
-    " items in chest '" .. chestName .. "'");
-end
-
-local function ExportSharedStorageChestIndex(chestIndexStr)
-  chestIndexStr = Trim(chestIndexStr);
-  local chestIndex = tonumber(chestIndexStr);
-  if chestIndex == nil then
-    Print("ss chestindex: please provide a number, e.g. /lgo ss chestindex 10");
-    return;
-  end
-
-  local data, err = EnumerateSharedStorageItems(function(rec)
-    return rec.chest ~= nil and tonumber(rec.chest) == chestIndex;
-  end);
-
-  if err ~= nil then
-    Print("ss chestindex: ERROR: " .. tostring(err));
-    return;
-  end
-
-  data.filter = { type = "sharedStorageChestIndex", value = chestIndex };
-  SaveAccount("lgo_ss_chestindex", data);
-  Print("ss chestindex: exported " .. tostring(#data.items) ..
-    " items in chest index " .. tostring(chestIndex));
 end
 
 -- ── Equipment enumeration ───────────────────────────────────────────────────
@@ -476,16 +368,6 @@ local function EnumerateEquippedItems()
   return out, nil;
 end
 
-local function ExportEquipped()
-  local data, err = EnumerateEquippedItems();
-  if err ~= nil then
-    Print("equip: ERROR: " .. tostring(err));
-    return;
-  end
-  SaveAccount("lgo_equip", data);
-  Print("equip: exported " .. tostring(#data.items) .. " equipped items");
-end
-
 local function CollectItemNames(equip, ss)
   local seen = {};
   local names = {};
@@ -517,8 +399,8 @@ local function ExportCombined(sharedChestName)
     return;
   end
 
-  local ss, errS = EnumerateSharedStorageItems(function(rec)
-    return rec.chestName ~= nil and Lower(rec.chestName) == Lower(sharedChestName);
+  local ss, errS = EnumerateSharedStorageItems(function(chestName)
+    return chestName ~= nil and Lower(chestName) == Lower(sharedChestName);
   end);
   if errS ~= nil then
     Print("export: shared storage ERROR: " .. tostring(errS));
@@ -526,28 +408,17 @@ local function ExportCombined(sharedChestName)
   end
 
   local out = {
-    version = "lgo-export-4",
+    version = "lgo-gearlist-1",
     character = CharacterName(),
     class = CharacterClass(),
     baseStats = GetBaseStats(),
-    selectedSharedStorageChestName = sharedChestName,
-    equipped = equip,
-    sharedStorage = ss,
+    names = CollectItemNames(equip, ss),
   };
 
-  SaveAccount("lgo_export", out);
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
-  
-  local itemNames = CollectItemNames(equip, ss);
-  local namesData = {
-    version = "lgo-itemnames-1",
-    character = CharacterName(),
-    names = itemNames,
-  };
-  SaveAccount("lgo_itemnames", namesData);
-  Print("export: saved " .. tostring(#itemNames) .. " unique item names for wiki lookup");
-  
+  SaveAccount("lgo_gearlist", out);
+  Print("export: saved " .. tostring(#out.names) .. " unique item names");
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────
@@ -559,10 +430,6 @@ function Thalya.lgo.Command:Execute(command, arguments)
 
   if arguments == "" then
     Print("Commands:");
-    Print("  /lgo ss");
-    Print("  /lgo ss chest <name>");
-    Print("  /lgo ss chestindex <n>");
-    Print("  /lgo equip");
     Print("  /lgo export");
     Print("  /lgo export chest <name>");
     Print("");
@@ -576,37 +443,6 @@ function Thalya.lgo.Command:Execute(command, arguments)
   local action, rest = arguments:match("^(%S+)%s*(.*)$");
   action = Lower(action);
   rest = rest or "";
-
-  if action == "ss" then
-    rest = Trim(rest);
-    if rest == "" then
-      ExportSharedStorageAll();
-      return;
-    end
-
-    local sub, subrest = rest:match("^(%S+)%s*(.*)$");
-    sub = Lower(sub);
-    subrest = subrest or "";
-
-    if sub == "chest" then
-      ExportSharedStorageChestName(subrest);
-      return;
-    end
-
-    if sub == "chestindex" then
-      ExportSharedStorageChestIndex(subrest);
-      return;
-    end
-
-    Print("ss: unknown subcommand '" .. tostring(sub) .. "'");
-    Print("Try: /lgo ss  OR  /lgo ss chest <name>  OR  /lgo ss chestindex <n>");
-    return;
-  end
-
-  if action == "equip" then
-    ExportEquipped();
-    return;
-  end
 
   if action == "export" then
     rest = Trim(rest);
