@@ -51,35 +51,6 @@ impl Slot {
         Slot::ClassItem,
     ];
 
-    /// Map the integer slot index returned by the LotRO plugin to a Slot.
-    /// The float `12.000000` form is handled by the caller casting f64 to u32.
-    /// Returns None for excluded or unrecognised slot indices.
-    pub fn from_plugin_index(n: u32) -> Option<Slot> {
-        match n {
-            1 => Some(Slot::Head),
-            2 => Some(Slot::Chest),
-            3 => Some(Slot::Legs),
-            4 => Some(Slot::Hands),
-            5 => Some(Slot::Feet),
-            6 => Some(Slot::Shoulders),
-            7 => Some(Slot::Back),
-            8 => Some(Slot::Wrist1),
-            9 => Some(Slot::Wrist2),
-            10 => Some(Slot::Neck),
-            11 => Some(Slot::Finger1),
-            12 => Some(Slot::Finger2),
-            13 => Some(Slot::Ear1),
-            14 => Some(Slot::Ear2),
-            15 => Some(Slot::Pocket),
-            16 => Some(Slot::MainHand),
-            17 => Some(Slot::OffHand),
-            18 => Some(Slot::Ranged),
-            20 => Some(Slot::ClassItem),
-            // 19 = CraftItem, 21 = Bridle — excluded
-            _ => None,
-        }
-    }
-
     /// Parse the bare PascalCase variant name as it appears in
     /// `data/lgo_items.json` (e.g. `"Head"`, `"Wrist1"`, `"MainHand"`,
     /// `"ClassItem"`).

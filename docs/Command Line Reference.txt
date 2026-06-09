@@ -10,21 +10,9 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
   /lgo
     Show plugin help text (lists plugin subcommands and workflow reminder).
 
-  /lgo ss
-    Export all Shared Storage items (debug/export helper).
-
-  /lgo ss chest <name>
-    Export items only from Shared Storage chest <name>.
-
-  /lgo ss chestindex <n>
-    Export items only from Shared Storage chest index <n>.
-
-  /lgo equip
-    Export currently equipped items.
-
   /lgo export
-    Export equipped items plus Shared Storage chest "lgo".
-    Also writes lgo_itemnames_*.plugindata for bookmarklet lookup.
+    Export a unified gearlist from equipped items plus Shared Storage chest "lgo".
+    Writes lgo_gearlist_*.plugindata.
 
   /lgo export chest <name>
     Export equipped items plus Shared Storage chest <name>.
@@ -35,7 +23,7 @@ SECTION 2 - BOOKMARKLET WORKFLOW
 
   1) Open https://lotro-wiki.com in your browser.
   2) Click the LGO Stats bookmarklet.
-  3) Paste the contents of lgo_itemnames_<character>_<timestamp>.plugindata when prompted.
+  3) Paste the contents of lgo_gearlist_<character>_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
   5) Save the generated lgo_stats_*.toml file into your character's AllServers directory.
 
@@ -79,7 +67,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
   lgo optimize --file <path> <stat:min> ...
   lgo optimize -f <path> <stat:min> ...
-    Use an explicit lgo_export_*.plugindata input file.
+    Use an explicit lgo_gearlist_*.plugindata input file.
     This --file/-f is for plugindata, not for stats TOML.
 
     The optimizer's stats TOML is always auto-detected from AllServers
@@ -87,7 +75,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Selecting a specific TOML input for lgo optimize is not currently supported.
 
   Combined example:
-    lgo optimize --character Thalya --file path/to/lgo_export_Thalya_20260601_120000.plugindata tm:450000 cr:350000 fn:0
+    lgo optimize --character Thalya --file path/to/lgo_gearlist_Thalya_20260601_120000.plugindata tm:450000 cr:350000 fn:0
 
 3.4 Stat goal syntax
   Goal format: <stat>:<minimum>

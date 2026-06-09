@@ -120,7 +120,6 @@ impl PairCandidate {
 
 pub fn optimize(
     resolved: &HashMap<String, CachedItem>,
-    equipped: &[String],
     candidates: &[String],
     goals: &[StatGoal],
 ) -> OptimizeResult {
@@ -128,15 +127,7 @@ pub fn optimize(
 
     // ── 1. Build per-slot candidate pools ─────────────────────────────────────
 
-    let all_names: Vec<String> = {
-        let mut v: Vec<String> = equipped.to_vec();
-        for n in candidates {
-            if !v.contains(n) {
-                v.push(n.clone());
-            }
-        }
-        v
-    };
+    let all_names: Vec<String> = candidates.to_vec();
 
     let mut pools: HashMap<Slot, Vec<Candidate>> = HashMap::new();
 
@@ -709,7 +700,7 @@ mod tests {
         slot: Slot,
     ) -> String {
         let name_strings: Vec<String> = names.iter().map(|s| s.to_string()).collect();
-        let result = optimize(resolved, &[], &name_strings, &goals);
+        let result = optimize(resolved, &name_strings, &goals);
         result
             .gear_set
             .items
@@ -825,7 +816,7 @@ mod tests {
             goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
-        let result = optimize(&resolved, &[], &["C2".to_string()], &goals);
+        let result = optimize(&resolved, &["C2".to_string()], &goals);
         assert!(result.feasible);
         assert!(result.failed_minima.is_empty());
     }
@@ -868,7 +859,7 @@ mod tests {
         ];
 
         let name_strings = vec!["C6".to_string(), "C7".to_string()];
-        let result = optimize(&resolved, &[], &name_strings, &goals);
+        let result = optimize(&resolved, &name_strings, &goals);
 
         assert!(!result.feasible);
         assert!(!result.failed_minima.is_empty());
@@ -937,7 +928,7 @@ mod tests {
 
         let goals = vec![goal(Stat::Vitality, 0)];
         let names = vec!["WristA".to_string(), "WristB".to_string()];
-        let result = optimize(&resolved, &[], &names, &goals);
+        let result = optimize(&resolved, &names, &goals);
 
         assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
         assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
@@ -951,7 +942,7 @@ mod tests {
             "ItemA".into(),
             make_cached("ItemA", Slot::Head, &[(Stat::Vitality, 50)]),
         );
-        let result = optimize(&resolved, &[], &["ItemA".to_string()], &[]);
+        let result = optimize(&resolved, &["ItemA".to_string()], &[]);
         assert!(result.feasible);
         assert!(result.failed_minima.is_empty());
     }
@@ -1030,9 +1021,7 @@ mod tests {
         ];
 
         let result = optimize(
-            &resolved,
-            &[],
-            &["Bad".to_string(), "Good".to_string()],
+            &resolved, &["Bad".to_string(), "Good".to_string()],
             &goals,
         );
         assert!(result.feasible, "Result should be feasible");
@@ -1053,7 +1042,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize(&resolved, &[], &["WristX".to_string()], &goals);
+        let result = optimize(&resolved, &["WristX".to_string()], &goals);
 
         assert!(
             result.gear_set.items.contains_key(&Slot::Wrist1),
@@ -1098,9 +1087,7 @@ mod tests {
 
         let goals = vec![goal(Stat::CriticalRating, 900)];
         let result = optimize(
-            &resolved,
-            &[],
-            &["RingA".to_string(), "RingB".to_string()],
+            &resolved, &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
 
@@ -1138,9 +1125,7 @@ mod tests {
 
         let goals = vec![goal(Stat::CriticalRating, 1001)];
         let result = optimize(
-            &resolved,
-            &[],
-            &["RingA".to_string(), "RingB".to_string()],
+            &resolved, &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
 
@@ -1176,7 +1161,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+        let result = optimize(&resolved, &["Helm".to_string()], &goals);
 
         assert!(result.feasible, "300 ≥ 300 must be feasible");
         assert!(result.failed_minima.is_empty());
@@ -1192,7 +1177,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+        let result = optimize(&resolved, &["Helm".to_string()], &goals);
 
         assert!(!result.feasible, "299 < 300 must be infeasible");
         assert!(
@@ -1228,7 +1213,7 @@ mod tests {
         }
 
         let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize(&resolved, &[], &names, &goals);
+        let result = optimize(&resolved, &names, &goals);
 
         assert!(
             result.warnings.iter().any(|w| w.contains("9 candidates")),
@@ -1255,7 +1240,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize(&resolved, &[], &["Helm".to_string()], &goals);
+        let result = optimize(&resolved, &["Helm".to_string()], &goals);
 
         assert!(
             result
@@ -1357,9 +1342,7 @@ mod tests {
         ];
 
         let result = optimize(
-            &resolved,
-            &[],
-            &["EarA".to_string(), "EarB".to_string()],
+            &resolved, &["EarA".to_string(), "EarB".to_string()],
             &goals,
         );
 
@@ -1403,9 +1386,7 @@ mod tests {
 
         let goals = vec![goal(Stat::TacticalMitigation, 200)];
         let result = optimize(
-            &resolved,
-            &[],
-            &["ItemA".to_string(), "ItemX".to_string()],
+            &resolved, &["ItemA".to_string(), "ItemX".to_string()],
             &goals,
         );
 
@@ -1437,7 +1418,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 1)];
-        let result = optimize(&resolved, &[], &["ItemA".to_string()], &goals);
+        let result = optimize(&resolved, &["ItemA".to_string()], &goals);
 
         assert!(
             !result.feasible,
@@ -1469,7 +1450,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 300)];
-        let result = optimize(&resolved, &[], &["ItemA".to_string()], &goals);
+        let result = optimize(&resolved, &["ItemA".to_string()], &goals);
 
         assert!(result.feasible);
         assert_eq!(
