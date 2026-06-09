@@ -1,3 +1,10 @@
+  - Add to 'User Workflow.txt' a "How to refresh lgo_items.json" section covering
+  (a) where to download items.xml from LotRO Companion,
+  (b) where to put it (data/items.xml),
+  (c) which command rebuilds the JSON. 
+
+
+
 LGO User Workflow
 =================
 
@@ -59,10 +66,20 @@ Steps
    Items not in the database keep their original slot value (usually
    'Unknown'). Their names are printed to the terminal so you know
    which entries in the _resolved.toml file may need hand-editing.
+   
+   8a. This database may in the future need to be updated as content 
+   is added to LotRO. The way to do this is:
+    1. Download a new copy of items.xml from this URL:
+       https://github.com/LotroCompanion/lotro-items-db/blob/master/items.xml
+    2. Save it inside the 'lgo/data' folder. (Overwrite the existing one) 
+    3. Delete the file 'lgo_items.json'.
+    4. Run this command:  cargo run --bin db_build --release
 
-9. (Optional) Open the _resolved.toml file in a text editor and review
-   it. You may need to hand-edit two kinds of entries:
-
+9. You will probably (optional) need to open the _resolved.toml file in 
+   a text editor and review it. You may need to hand-edit two kinds of 
+   entries:
+       - Legendary Items
+       - Add essence values to the item stats
        - Items flagged with '# WARNING: all stats unknown' (the
          bookmarklet could not find them on the wiki). Fill in the
          stat values by hand.
