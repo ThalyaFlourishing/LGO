@@ -236,7 +236,6 @@ The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored
 - Character: **Thalya**
 - Class: **Lore-master**
 - Base stats: Might 5300, Agility 2650, Vitality 10200, Will 7950, Fate 4000.
-- Test input: `TestData/lgo_itemnames_Thalya_20260521_221120.plugindata` (66 items: first 20 equipped, items 21–66 from the `lgo` chest; several legendary/renamed items expected to be unresolvable).
 - Bookmarklet fixture: `TestData/lgo_stats_Thalya_20260525_215012.toml` — the bookmarklet's TOML output for the test input above; used by `tests/resolve_slots_integration.rs` (6 of 7 tests depend on it).
 - Probe data (historical reference, see Bug 9): `TestData/lgo_probe_Thalya_20260607_205655.plugindata` — per-item Turbine API dump for a hand-picked set of 7 items (3 paired crafted/non-crafted comparisons plus one ignorable fireworks).
 
