@@ -148,12 +148,10 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo clean
     Remove build artifacts (target/).
 
-SECTION 5 - DEFERRED / NOT-YET-AVAILABLE COMMANDS
+SECTION 5 - ITEMS DATABASE BUILDER
 -------------------------------------------------
+Build the items database (data/lgo_items.json):
+  cargo run --bin db_build --release
 
-  db_build (currently unavailable)
-    The old db_build binary (src/bin/db_build.rs) was removed during the bookmarklet
-    pivot. It previously read data/items.xml and data/progressions.xml and produced
-    data/lgo_items.json. The JSON file remains in-tree and is consumed by resolve-slots.
-    Restoration is tracked in docs/AGENT_CONTEXT.md section 10. There is no db_build
-    command available to run today.
+  This reads data/items.xml and data/progressions.xml and produces 'data/lgo_items.json'.
+  The JSON file is consumed by resolve-slots.
