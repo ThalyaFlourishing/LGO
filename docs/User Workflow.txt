@@ -72,8 +72,9 @@ Steps
     1. Download a new copy of items.xml from this URL:
        https://github.com/LotroCompanion/lotro-items-db/blob/master/items.xml
     2. Save it inside the 'lgo/data' folder. (Overwrite the existing one) 
-    3. Delete the file 'lgo_items.json'.
-    4. Run this command:  cargo run --bin db_build --release
+    3. Delete the file 'lgo_items.json'. (If you don't, it won't re-build
+       during the next step)
+    4. Run this command:  db_build
 
 9. You will probably (optional) need to open the _resolved.toml file in 
    a text editor and review it. You may need to hand-edit two kinds of 
