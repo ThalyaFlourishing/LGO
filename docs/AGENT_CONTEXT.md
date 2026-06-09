@@ -11,7 +11,7 @@
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*:
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_gearlist_<character>_<timestamp>.plugindata` — top-level `character`/`class`/`baseStats` plus a flat `names` list (input for the bookmarklet and metadata for the CLI).
+   - `lgo_gearlist_<character>_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the itemnames data, and gets back a `.toml` they save into the AllServers directory.
@@ -44,7 +44,7 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), and outcome-typed reporting (see Bug 9).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
-- `TestData/` — committed test fixtures: bookmarklet input (`lgo_itemnames_Thalya_*.plugindata`), bookmarklet output (`lgo_stats_Thalya_*.toml`), and a one-off plugin-API probe dump (`lgo_probe_Thalya_20260607_205655.plugindata` — historical reference for what the Turbine API exposes per item; see Bug 9 and §7).
+- `TestData/` — committed test fixtures: bookmarklet input (`lgo_gearlist_Thalya_*.plugindata`), bookmarklet output (`lgo_stats_Thalya_*.toml`), and a one-off plugin-API probe dump (`lgo_probe_Thalya_20260607_205655.plugindata` — historical reference for what the Turbine API exposes per item; see Bug 9 and §7).
 - `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `Test_Output_01.txt`, `RESOLVER_DESIGN.md`, plus `probes/` for one-off diagnostic plugin-data inputs).
 - `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigation, ask the user to paste a representative snippet.
 - `GaranStuff/` — ignore for now.
