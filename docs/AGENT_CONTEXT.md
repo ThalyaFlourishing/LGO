@@ -2,7 +2,7 @@
 
 **Purpose:** A durable, in-repo brief so an AI coding agent can resume work on LGO without losing context across sessions. Read this first at the start of every session.
 
-**Working branch:** `main`. (The previous `The-Browser-Method` working branch has been merged in and retired.)
+**Working branch:** `main`.
 
 ---
 

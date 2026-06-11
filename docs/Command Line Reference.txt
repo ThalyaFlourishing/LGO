@@ -119,6 +119,7 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
 
   cargo build --release
     Build optimized release binaries into target/release/.
+    When cargo build --release runs, every [[bin]] becomes a standalone executable in target/release/
 
   cargo run -- optimize <stat:min> ...
   cargo run -- resolve-slots
@@ -151,7 +152,24 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
 SECTION 5 - ITEMS DATABASE BUILDER
 -------------------------------------------------
 Build the items database (data/lgo_items.json):
-  cargo run --bin db_build --release
+  First you must delete the old one.
+  Dev: cargo run --bin db_build --release
+  User: db_build
 
-  This reads data/items.xml and data/progressions.xml and produces 'data/lgo_items.json'.
-  The JSON file is consumed by resolve-slots.
+This reads data/items.xml and data/progressions.xml and produces 'data/lgo_items.json'.
+
+The JSON file is consumed by resolve-slots.
+
+Working directory matters. db_build resolves data/items.xml, data/progressions.xml, and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps). Alternatively they can pass explicit paths:
+
+  db_build --items <path>\items.xml --progressions <path>\progressions.xml --out <path>\lgo_items.json
+
+
+
+
+
+
+
+
+
+
