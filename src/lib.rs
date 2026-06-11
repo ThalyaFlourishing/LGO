@@ -5,6 +5,7 @@
 
 #![allow(dead_code)]
 
+pub mod build_db;
 pub mod gear;
 pub mod gearstats;
 pub mod optimizer;

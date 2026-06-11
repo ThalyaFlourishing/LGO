@@ -1,18 +1,11 @@
 //! Offline item database builder.
 //!
-//! Reads:
-//!   data/items.xml        — LotroCompanion item database
-//!   data/progressions.xml — LotroCompanion progression curves
+//! Reads `data/items.xml` (LotroCompanion item database) and
+//! `data/progressions.xml` (LotroCompanion progression curves), then writes
+//! `data/lgo_items.json` — the flat resolved stat cache consumed by the slot
+//! resolver.
 //!
-//! Writes:
-//!   data/lgo_items.json   — flat resolved stat cache
-//!                           (JSON object: item name -> {name, slot, stats})
-//!
-//! Usage (defaults shown):
-//!   cargo run --bin db_build
-//!   cargo run --bin db_build -- --items data/items.xml --progressions data/progressions.xml --out data/lgo_items.json
-//!
-//! If data/lgo_items.json already exists the build is skipped. Delete it to rebuild.
+//! Exposed as `lgo build-db [options]`.
 
 use std::collections::HashMap;
 use std::fs;
@@ -20,109 +13,49 @@ use std::path::Path;
 
 use quick_xml::events::Event;
 use quick_xml::Reader;
-use serde::{Deserialize, Serialize};
 
-// ── Local copies of the shared types ─────────────────────────────────────────
-//
-// Binaries in src/bin/ cannot import from the parent crate by name.
-// We duplicate the minimal type definitions needed for serialisation.
-// These must stay in sync with src/gear.rs, src/stat.rs, and src/cache.rs.
+use crate::gear::{CachedItem, Slot};
+use crate::stat::Stat;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Stat {
-    Armor,
-    CriticalRating,
-    Finesse,
-    PhysicalMastery,
-    TacticalMastery,
-    OutgoingHealing,
-    Resistance,
-    CriticalDefense,
-    IncomingHealing,
-    Block,
-    Parry,
-    Evade,
-    PhysicalMitigation,
-    TacticalMitigation,
-}
+// ── Public entry point ────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum Slot {
-    Head,
-    Chest,
-    Legs,
-    Hands,
-    Feet,
-    Shoulders,
-    Back,
-    Wrist1,
-    Wrist2,
-    Neck,
-    Finger1,
-    Finger2,
-    Ear1,
-    Ear2,
-    Pocket,
-    MainHand,
-    OffHand,
-    Ranged,
-    ClassItem,
-}
+/// Build the item database from `items_path` and `progressions_path` and write
+/// the result to `out_path`. Always overwrites an existing file.
+pub fn build(
+    items_path: &Path,
+    progressions_path: &Path,
+    out_path: &Path,
+) -> Result<(), String> {
+    let prog_str = progressions_path
+        .to_str()
+        .ok_or_else(|| format!("Invalid path: {}", progressions_path.display()))?;
+    let items_str = items_path
+        .to_str()
+        .ok_or_else(|| format!("Invalid path: {}", items_path.display()))?;
+    let out_str = out_path
+        .to_str()
+        .ok_or_else(|| format!("Invalid path: {}", out_path.display()))?;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CachedItem {
-    name: String,
-    slot: Slot,
-    stats: HashMap<Stat, i64>,
-}
-
-// ── CLI ───────────────────────────────────────────────────────────────────────
-
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let items_path = flag(&args, "--items").unwrap_or_else(|| "data/items.xml".to_string());
-    let prog_path =
-        flag(&args, "--progressions").unwrap_or_else(|| "data/progressions.xml".to_string());
-    let out_path = flag(&args, "--out").unwrap_or_else(|| "data/lgo_items.json".to_string());
-
-    if Path::new(&out_path).exists() {
-        eprintln!("[db_build] '{}' already exists — skipping build.", out_path);
-        eprintln!("[db_build] Delete it and re-run to rebuild.");
-        return;
-    }
-
-    eprintln!("[db_build] Loading progressions from: {}", prog_path);
-    let progressions = load_progressions(&prog_path).unwrap_or_else(|e| {
-        eprintln!("[db_build] FATAL: {}", e);
-        std::process::exit(1);
-    });
+    eprintln!("[build-db] Loading progressions from: {}", prog_str);
+    let progressions = load_progressions(prog_str)?;
     eprintln!(
-        "[db_build] Loaded {} progression curves.",
+        "[build-db] Loaded {} progression curves.",
         progressions.len()
     );
 
-    eprintln!("[db_build] Loading items from: {}", items_path);
-    let items = load_items(&items_path, &progressions).unwrap_or_else(|e| {
-        eprintln!("[db_build] FATAL: {}", e);
-        std::process::exit(1);
-    });
+    eprintln!("[build-db] Loading items from: {}", items_str);
+    let items = load_items(items_str, &progressions)?;
     eprintln!(
-        "[db_build] Resolved {} equippable items with stats.",
+        "[build-db] Resolved {} equippable items with stats.",
         items.len()
     );
 
-    let json = serde_json::to_string_pretty(&items).expect("Failed to serialise items");
-    fs::write(&out_path, &json).unwrap_or_else(|e| {
-        eprintln!("[db_build] FATAL: Cannot write '{}': {}", out_path, e);
-        std::process::exit(1);
-    });
+    let json = serde_json::to_string_pretty(&items).map_err(|e| format!("Failed to serialise items: {}", e))?;
+    fs::write(out_path, &json)
+        .map_err(|e| format!("Cannot write '{}': {}", out_str, e))?;
 
-    eprintln!("[db_build] Written to: {}", out_path);
-}
-
-fn flag(args: &[String], name: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
+    eprintln!("[build-db] Written to: {}", out_str);
+    Ok(())
 }
 
 // ── Progression curves ────────────────────────────────────────────────────────
@@ -392,12 +325,12 @@ fn handle_stat_element(
                     *stats.entry(stat).or_insert(0) += converted;
                 } else {
                     eprintln!(
-                        "[db_build] WARN: progression {} has no value at level {}",
+                        "[build-db] WARN: progression {} has no value at level {}",
                         prog_id, level
                     );
                 }
             } else {
-                eprintln!("[db_build] WARN: progression {} not found", prog_id);
+                eprintln!("[build-db] WARN: progression {} not found", prog_id);
             }
         }
         return;

@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+mod build_db;
 mod gear;
 mod gearstats;
 mod optimizer;
@@ -46,6 +47,7 @@ fn main() {
         }
         Command::Optimize(cli) => run_optimize(&cli),
         Command::ResolveSlots(cli) => run_resolve_slots(&cli),
+        Command::BuildDb(cli) => run_build_db(&cli),
     }
 }
 
@@ -183,11 +185,19 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
     }
 }
 
+fn run_build_db(cli: &BuildDbCli) {
+    if let Err(e) = build_db::build(&cli.items, &cli.progressions, &cli.out) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
+}
+
 #[derive(Debug)]
 enum Command {
     Help,
     Optimize(OptimizeCli),
     ResolveSlots(ResolveSlotsCli),
+    BuildDb(BuildDbCli),
 }
 
 #[derive(Debug)]
@@ -209,6 +219,13 @@ struct ResolveSlotsCli {
     file: Option<PathBuf>,
 }
 
+#[derive(Debug)]
+struct BuildDbCli {
+    items: PathBuf,
+    progressions: PathBuf,
+    out: PathBuf,
+}
+
 fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
     let verb = args[0].to_ascii_lowercase();
     match verb.as_str() {
@@ -218,6 +235,9 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
             .map_err(CliParseError::Message),
         "resolve-slots" | "--resolve-slots" | "-r" => parse_resolve_slots_args(&args[1..])
             .map(Command::ResolveSlots)
+            .map_err(CliParseError::Message),
+        "build-db" | "--build-db" | "-b" => parse_build_db_args(&args[1..])
+            .map(Command::BuildDb)
             .map_err(CliParseError::Message),
         _ => Err(CliParseError::MissingSubcommand),
     }
@@ -283,6 +303,42 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
     }
 
     Ok(ResolveSlotsCli { character, file })
+}
+
+fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
+    let mut items = PathBuf::from("data/items.xml");
+    let mut progressions = PathBuf::from("data/progressions.xml");
+    let mut out = PathBuf::from("data/lgo_items.json");
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--items" => {
+                i += 1;
+                items = PathBuf::from(args.get(i).ok_or("--items requires a path")?);
+            }
+            "--progressions" => {
+                i += 1;
+                progressions =
+                    PathBuf::from(args.get(i).ok_or("--progressions requires a path")?);
+            }
+            "--out" => {
+                i += 1;
+                out = PathBuf::from(args.get(i).ok_or("--out requires a path")?);
+            }
+            arg if arg.starts_with('-') => {
+                return Err(format!("Unknown option: '{}'", arg));
+            }
+            _ => return Err("'build-db' takes no positional arguments".to_string()),
+        }
+        i += 1;
+    }
+
+    Ok(BuildDbCli {
+        items,
+        progressions,
+        out,
+    })
 }
 
 fn resolve_plugindata(cli: &OptimizeCli) -> Result<(PathBuf, String), String> {
@@ -416,14 +472,20 @@ fn print_usage() {
     println!("Usage:");
     println!("  lgo optimize      [options] <stat:min> [<stat:min> ...]");
     println!("  lgo resolve-slots [options]");
+    println!("  lgo build-db      [options]");
     println!("  lgo --help | -h | help");
     println!();
-    println!("Options:");
+    println!("Options (optimize / resolve-slots):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
     println!(
         "  --file      <path>  Input file path (export for optimize, stats TOML for resolve-slots)"
     );
     println!("  --help              Show this message");
+    println!();
+    println!("Options (build-db):");
+    println!("  --items        <path>  Items XML  (default: data/items.xml)");
+    println!("  --progressions <path>  Progressions XML  (default: data/progressions.xml)");
+    println!("  --out          <path>  Output JSON  (default: data/lgo_items.json)");
     println!();
     println!("Workflow:");
     println!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
@@ -446,6 +508,8 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo resolve-slots");
+    println!("    lgo build-db");
+    println!("    lgo build-db --items data/items.xml --progressions data/progressions.xml --out data/lgo_items.json");
 }
 
 #[cfg(test)]
@@ -522,6 +586,60 @@ mod tests {
                 assert_eq!(cli.file, Some(PathBuf::from("x.toml")));
             }
             _ => panic!("expected resolve-slots command"),
+        }
+    }
+
+    #[test]
+    fn build_db_verb_is_case_insensitive_across_aliases() {
+        for verb in ["build-db", "Build-Db", "BUILD-DB", "--Build-Db", "-B"] {
+            let cmd = parse_command(&s(&[verb])).expect("build-db alias should parse");
+            assert!(matches!(cmd, Command::BuildDb(_)));
+        }
+    }
+
+    #[test]
+    fn build_db_rejects_positional_arguments() {
+        let err = parse_command(&s(&["build-db", "tm:450000"])).unwrap_err();
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "'build-db' takes no positional arguments")
+            }
+            _ => panic!("expected message parse error"),
+        }
+    }
+
+    #[test]
+    fn build_db_defaults_are_correct() {
+        let cmd = parse_command(&s(&["build-db"])).expect("build-db should parse with no args");
+        match cmd {
+            Command::BuildDb(cli) => {
+                assert_eq!(cli.items, PathBuf::from("data/items.xml"));
+                assert_eq!(cli.progressions, PathBuf::from("data/progressions.xml"));
+                assert_eq!(cli.out, PathBuf::from("data/lgo_items.json"));
+            }
+            _ => panic!("expected build-db command"),
+        }
+    }
+
+    #[test]
+    fn build_db_accepts_path_flags() {
+        let cmd = parse_command(&s(&[
+            "build-db",
+            "--items",
+            "my/items.xml",
+            "--progressions",
+            "my/prog.xml",
+            "--out",
+            "my/out.json",
+        ]))
+        .expect("build-db path flags should parse");
+        match cmd {
+            Command::BuildDb(cli) => {
+                assert_eq!(cli.items, PathBuf::from("my/items.xml"));
+                assert_eq!(cli.progressions, PathBuf::from("my/prog.xml"));
+                assert_eq!(cli.out, PathBuf::from("my/out.json"));
+            }
+            _ => panic!("expected build-db command"),
         }
     }
 }
