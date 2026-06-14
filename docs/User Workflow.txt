@@ -54,33 +54,38 @@ Steps
    lgo_stats_*.toml will be picked up. The conventional name keeps
    things tidy.)
 
+-----------------------------------------
+User edits final .toml and uses Optimizer
+ ** User changes gear (items) pool and re-exports
+ ** During `resolve-slots`, for each incoming item, if it has the same name as an existing item in the previous .toml, that item's new data is simply ignored. Items missing from the new data are also removed from the existing data.
+ ** Exception: If the user *wants* to overwrite the existing data, they must use the `lgo --force / -f` to specify that intention. In that case, each item which would be overwritten or removed from the final .toml would prompt the user, `y/n/a` with "Do you want to overwrite the stats for `[itemname]`?". ('a' means 'all' to skip the rest of the prompts)
+-----------------------------------------
+
 8. From a command prompt, run:
 
        lgo resolve-slots
 
    This reads the .toml you just saved, looks each item's slot up in
-   the local item database, and writes a sibling file:
-
-       lgo_stats_<character>_<timestamp>_resolved.toml
-
+   the local item database, and adds the slot names to those items.
+   
    Items not in the database keep their original slot value (usually
    'Unknown'). Their names are printed to the terminal so you know
-   which entries in the _resolved.toml file may need hand-editing.
+   which entries in the 'lgo_<character-name>_gear.toml' file may need hand-editing.
+   
+   If there is a pre-existing .toml file, it will not overwrite any items already present. (Thereby preserving any hand-edits you make)
    
    8a. This database may in the future need to be updated as content 
    is added to LotRO. The way to do this is:
     1. Download a new copy of items.xml from this URL:
        https://github.com/LotroCompanion/lotro-items-db/blob/master/items.xml
     2. Save it inside the 'lgo/data' folder. (Overwrite the existing one) 
-    3. Delete the file 'lgo_items.json'. (If you don't, it won't re-build
-       during the next step)
-    4. Run this command:  db_build
+    3. Run this command:  lgo build-db
 
-9. You will probably (optional) need to open the _resolved.toml file in 
-   a text editor and review it. You may need to hand-edit two kinds of 
-   entries:
+9. You will probably (optional) need to open the final .toml file in 
+   a text editor and review it. You may need to hand-edit some kinds of 
+   data:
        - Legendary Items
-       - Add essence values to the item stats
+       - Essence stats: add (sum) them into the item stats
        - Items flagged with '# WARNING: all stats unknown' (the
          bookmarklet could not find them on the wiki). Fill in the
          stat values by hand.
@@ -90,8 +95,6 @@ Steps
    In practice, hand-editing is most often needed for legendary
    items, recently renamed items, and very new items.
 
-   Edit only the _resolved.toml file, not the original .toml — the
-   _resolved.toml is what the optimizer reads.
 
 10. From the command prompt, run the optimizer with your stat goals,
     in priority order:
@@ -112,7 +115,9 @@ Iteration
 
 - To change the set of items being considered: rearrange gear in
   LotRO, then repeat from step 1.
+
 - To re-run with different stat goals on the same gear: just repeat
   step 10 with new goals. Steps 1-9 do not need to be redone.
-- To hand-correct stats or slots: edit the _resolved.toml file, then
+
+- To hand-correct stats or slots: edit the 'lgo_<character-name>_gear.toml' file, then
   re-run step 10.
