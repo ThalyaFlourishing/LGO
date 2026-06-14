@@ -79,17 +79,24 @@ fn run_optimize(cli: &OptimizeCli) {
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
 
-    let stats_file = match gearstats::find_latest_stats_file(&char_dir) {
+    let stats_file = match gearstats::find_latest_stats_file(&char_dir, &character) {
         Some(path) => path,
         None => {
-            eprintln!("No lgo_stats_*.toml file found in {}", char_dir.display());
+            eprintln!(
+                "No lgo_{}_gear.toml or lgo_stats_*.toml file found in {}",
+                character,
+                char_dir.display()
+            );
             eprintln!("\nGenerate one with the bookmarklet workflow:");
             eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
             eprintln!("  2) Run /lgo export in-game");
             eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
             eprintln!("  4) Click the LGO bookmarklet");
             eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
-            eprintln!("  6) Save the generated .toml to your AllServers directory");
+            eprintln!(
+                "  6) Save the generated TOML as lgo_{}_stats.toml in your AllServers directory",
+                character
+            );
             eprintln!("  7) Run: lgo resolve-slots");
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
@@ -123,27 +130,11 @@ fn run_optimize(cli: &OptimizeCli) {
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
-    let input_path = if let Some(path) = &cli.file {
-        if !path.exists() {
-            eprintln!("Cannot find {}", path.display());
+    let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error: {}", e);
             process::exit(1);
-        }
-        path.clone()
-    } else {
-        let (char_dir, _) = match resolve_character_allservers(cli.character.as_deref()) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        match gearstats::find_latest_stats_file(&char_dir) {
-            Some(path) => path,
-            None => {
-                eprintln!("No lgo_stats_*.toml file found in {}", char_dir.display());
-                eprintln!("Run bookmarklet first, then: lgo resolve-slots");
-                process::exit(1);
-            }
         }
     };
 
@@ -155,34 +146,62 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
         }
     };
 
-    let report = match slot_resolver::resolve_stats_file(&input_path, &db) {
+    let force = if cli.force {
+        slot_resolver::ForceMode::Force {
+            prompter: Box::new(slot_resolver::StdinPrompter),
+        }
+    } else {
+        slot_resolver::ForceMode::NoForce
+    };
+
+    let report = match slot_resolver::resolve_stats_file(&char_dir, &character, &db, force) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Failed to resolve slots in {}: {}", input_path.display(), e);
+            eprintln!("Error: {}", e);
             process::exit(1);
         }
     };
 
-    println!(
-        "Resolved slots: {} matched, {} unknown.",
-        report.resolved_count(),
-        report.unknown_count()
-    );
-    println!("Input : {}", report.input_path.display());
-    println!("Output: {}", report.output_path.display());
+    print_resolve_slots_report(&report);
+}
 
-    if report.unknown_count() > 0 {
-        let mut unknown_names: Vec<String> = report
-            .unknown_names()
-            .into_iter()
-            .map(|name| name.to_string())
-            .collect();
-        unknown_names.sort();
-        println!("Unknown item names (left unchanged):");
-        for name in unknown_names {
-            println!("  - {}", name);
-        }
+fn print_resolve_slots_report(report: &slot_resolver::Report) {
+    let outcome = &report.outcome;
+
+    if report.no_new_export {
+        println!("No new export found; canonical file is unchanged.");
+        println!("Canonical: {}", report.canonical_path.display());
+        return;
     }
+
+    println!("Added: {}", outcome.added.len());
+    if outcome.overwritten.is_empty() {
+        println!("Preserved: {}", outcome.preserved.len());
+    } else {
+        println!(
+            "Overwritten: {} / Preserved: {}",
+            outcome.overwritten.len(),
+            outcome.preserved.len()
+        );
+    }
+    println!("Removed: {}", outcome.removed.len());
+    for name in &outcome.removed {
+        println!("Removed (no longer in export): {}", name);
+    }
+    let mut unknowns = outcome.unknown_slot.clone();
+    unknowns.sort();
+    for name in &unknowns {
+        println!("Unknown slot (may need hand-edit): {}", name);
+    }
+    if report.previous_existed {
+        println!("Previous: {}", report.canonical_path.display());
+    } else {
+        println!("Previous: (none — first run)");
+    }
+    if let Some(p) = &report.bookmarklet_path {
+        println!("New export: {}", p.display());
+    }
+    println!("Wrote: {}", report.canonical_path.display());
 }
 
 fn run_build_db(cli: &BuildDbCli) {
@@ -216,7 +235,10 @@ struct OptimizeCli {
 #[derive(Debug)]
 struct ResolveSlotsCli {
     character: Option<String>,
-    file: Option<PathBuf>,
+    /// `--force` / `-f`: prompt the user per item before overwriting or
+    /// removing entries in the canonical gear file. Without this flag the
+    /// resolver preserves existing entries on every iteration.
+    force: bool,
 }
 
 #[derive(Debug)]
@@ -281,7 +303,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
 
 fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> {
     let mut character = None;
-    let mut file = None;
+    let mut force = false;
     let mut i = 0;
 
     while i < args.len() {
@@ -290,9 +312,8 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
                 i += 1;
                 character = Some(args.get(i).ok_or("--character requires a value")?.clone());
             }
-            "--file" | "-f" => {
-                i += 1;
-                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+            "--force" | "-f" => {
+                force = true;
             }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
@@ -302,7 +323,7 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
         i += 1;
     }
 
-    Ok(ResolveSlotsCli { character, file })
+    Ok(ResolveSlotsCli { character, force })
 }
 
 fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
@@ -475,12 +496,16 @@ fn print_usage() {
     println!("  lgo build-db      [options]");
     println!("  lgo --help | -h | help");
     println!();
-    println!("Options (optimize / resolve-slots):");
+    println!("Options (optimize):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
-    println!(
-        "  --file      <path>  Input file path (export for optimize, stats TOML for resolve-slots)"
-    );
+    println!("  --file      <path>  Plugindata export to read instead of auto-detect");
     println!("  --help              Show this message");
+    println!();
+    println!("Options (resolve-slots):");
+    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --force, -f         Prompt per item before overwriting or removing entries");
+    println!("                      in the canonical gear file. Without --force, existing");
+    println!("                      entries are preserved on every iteration.");
     println!();
     println!("Options (build-db):");
     println!("  --items        <path>  Items XML  (default: data/items.xml)");
@@ -493,8 +518,8 @@ fn print_usage() {
     println!("  3) Navigate to https://lotro-wiki.com in your browser");
     println!("  4) Click the LGO bookmarklet");
     println!("  5) Paste the contents of lgo_gearlist_*.plugindata when prompted");
-    println!("  6) Copy the generated .toml and save it to your AllServers directory");
-    println!("  7) Run: lgo resolve-slots");
+    println!("  6) Save the generated TOML as lgo_<character>_stats.toml in your AllServers directory");
+    println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gear.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!();
     println!("Stat goals:");
@@ -508,6 +533,7 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo resolve-slots");
+    println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
     println!("    lgo build-db --items data/items.xml --progressions data/progressions.xml --out data/lgo_items.json");
 }
@@ -572,20 +598,25 @@ mod tests {
 
     #[test]
     fn resolve_slots_accepts_shared_flags_only() {
-        let cmd = parse_command(&s(&[
-            "resolve-slots",
-            "--character",
-            "Thalya",
-            "-f",
-            "x.toml",
-        ]))
-        .expect("resolve-slots flags should parse");
+        let cmd = parse_command(&s(&["resolve-slots", "--character", "Thalya"]))
+            .expect("resolve-slots flags should parse");
         match cmd {
             Command::ResolveSlots(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
-                assert_eq!(cli.file, Some(PathBuf::from("x.toml")));
+                assert!(!cli.force);
             }
             _ => panic!("expected resolve-slots command"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_force_flag() {
+        for token in ["--force", "-f"] {
+            let cmd = parse_command(&s(&["resolve-slots", token])).expect("must parse");
+            match cmd {
+                Command::ResolveSlots(cli) => assert!(cli.force, "force should be set for {}", token),
+                _ => panic!("expected resolve-slots"),
+            }
         }
     }
 
