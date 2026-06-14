@@ -57,9 +57,18 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<GearItem>, String> {
     Ok(items)
 }
 
-/// Find the most recent `lgo_stats_*.toml` in `dir`.
-/// Returns `None` if no matching file exists.
-pub fn find_latest_stats_file(dir: &Path) -> Option<PathBuf> {
+/// Find the gear stats file the optimizer should read.
+///
+/// Preferred: `lgo_<character>_gear.toml` (the canonical merged file
+/// produced by `resolve-slots`). Fallback: lexicographic scan over
+/// `lgo_stats_*.toml` for backward compatibility with users who haven't
+/// re-run the new resolver yet.
+pub fn find_latest_stats_file(dir: &Path, character: &str) -> Option<PathBuf> {
+    let canonical = dir.join(format!("lgo_{}_gear.toml", character));
+    if canonical.exists() {
+        return Some(canonical);
+    }
+
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)
         .ok()?
         .filter_map(|e| e.ok())
@@ -79,6 +88,23 @@ pub fn find_latest_stats_file(dir: &Path) -> Option<PathBuf> {
 
     entries.sort();
     entries.into_iter().last()
+}
+
+/// Path to the bookmarklet output for `character`, if it exists. The
+/// resolver reads this file *exactly* — no scanning, no fallbacks.
+pub fn find_bookmarklet_output(dir: &Path, character: &str) -> Option<PathBuf> {
+    let p = dir.join(format!("lgo_{}_stats.toml", character));
+    if p.exists() {
+        Some(p)
+    } else {
+        None
+    }
+}
+
+/// Parse a slot display string back to a Slot variant.
+/// Must match the Display impl in gear.rs exactly.
+pub fn parse_slot_display(s: &str) -> Option<Slot> {
+    parse_slot_str(s)
 }
 
 /// Parse a slot display string back to a Slot variant.
@@ -128,7 +154,8 @@ mod tests {
         std::fs::write(&older, "").expect("write older");
         std::fs::write(&newer, "").expect("write newer");
 
-        let found = find_latest_stats_file(&dir).expect("latest file not found");
+        // Character with no canonical file → falls back to lex scan.
+        let found = find_latest_stats_file(&dir, "A").expect("latest file not found");
         assert_eq!(found, newer);
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
@@ -150,8 +177,56 @@ mod tests {
         std::fs::write(&older, "").expect("write older");
         std::fs::write(&newer, "").expect("write newer");
 
-        let found = find_latest_stats_file(&dir).expect("latest file not found");
+        let found = find_latest_stats_file(&dir, "CharA").expect("latest file not found");
         assert_eq!(found, newer);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn canonical_gear_file_is_preferred_over_lex_scan() {
+        let dir = std::env::temp_dir().join(format!(
+            "lgo_gearstats_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        let canonical = dir.join("lgo_Thalya_gear.toml");
+        let bookmarklet = dir.join("lgo_stats_Thalya_99999999_999999.toml");
+        std::fs::write(&canonical, "").expect("write canonical");
+        std::fs::write(&bookmarklet, "").expect("write bookmarklet");
+
+        let found = find_latest_stats_file(&dir, "Thalya").expect("must find a file");
+        assert_eq!(found, canonical, "canonical gear file must win over lex scan");
+
+        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn find_bookmarklet_output_returns_exact_filename() {
+        let dir = std::env::temp_dir().join(format!(
+            "lgo_gearstats_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+
+        // Decoy lgo_stats_*.toml — must NOT be returned.
+        std::fs::write(dir.join("lgo_stats_Thalya_20260101_000000.toml"), "")
+            .expect("write decoy");
+        assert!(
+            find_bookmarklet_output(&dir, "Thalya").is_none(),
+            "decoy timestamped file must not be picked up"
+        );
+
+        let target = dir.join("lgo_Thalya_stats.toml");
+        std::fs::write(&target, "").expect("write target");
+        assert_eq!(find_bookmarklet_output(&dir, "Thalya"), Some(target));
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }

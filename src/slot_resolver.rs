@@ -13,14 +13,16 @@
 //!
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, DocumentMut, Table};
 
 use crate::gear::Slot;
+use crate::stat::TRACKED_STATS;
 
 /// Default path to the offline items DB, relative to the working directory.
 pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
@@ -209,33 +211,19 @@ pub enum UnknownReason {
 
 #[derive(Debug)]
 pub struct Report {
-    pub outcomes: Vec<ResolutionOutcome>,
-    pub input_path: PathBuf,
-    pub output_path: PathBuf,
-}
-
-impl Report {
-    pub fn resolved_count(&self) -> usize {
-        self.outcomes
-            .iter()
-            .filter(|o| matches!(o, ResolutionOutcome::Resolved { .. }))
-            .count()
-    }
-    pub fn unknown_count(&self) -> usize {
-        self.outcomes
-            .iter()
-            .filter(|o| matches!(o, ResolutionOutcome::Unknown { .. }))
-            .count()
-    }
-    pub fn unknown_names(&self) -> Vec<&str> {
-        self.outcomes
-            .iter()
-            .filter_map(|o| match o {
-                ResolutionOutcome::Unknown { name, .. } => Some(name.as_str()),
-                _ => None,
-            })
-            .collect()
-    }
+    /// Per-merge outcome (added/preserved/overwritten/removed/unknown).
+    pub outcome: MergeOutcome,
+    /// The bookmarklet output that drove this merge, if any. `None` means
+    /// no new export was found and the canonical file is unchanged.
+    pub bookmarklet_path: Option<PathBuf>,
+    /// The canonical merged file (always reported, written when an
+    /// export was processed).
+    pub canonical_path: PathBuf,
+    /// True if a canonical file existed before this run.
+    pub previous_existed: bool,
+    /// True if there was no bookmarklet output and the canonical file was
+    /// left untouched. When set, `outcome` is empty.
+    pub no_new_export: bool,
 }
 
 #[derive(Debug)]
@@ -255,6 +243,16 @@ pub enum ResolveError {
     NoItemsArray {
         path: PathBuf,
     },
+    /// Neither `lgo_<character>_stats.toml` nor `lgo_<character>_gear.toml`
+    /// exists in the AllServers directory.
+    NoInputFiles {
+        dir: PathBuf,
+        character: String,
+    },
+    /// `--force` was passed but stdin is not a terminal. Auto-accepting
+    /// destructive changes is exactly the failure mode `--force` is meant
+    /// to guard against, so we refuse.
+    ForceRequiresTty,
 }
 
 impl std::fmt::Display for ResolveError {
@@ -267,10 +265,20 @@ impl std::fmt::Display for ResolveError {
                 write!(f, "Cannot write '{}': {}", path.display(), source)
             }
             ResolveError::ParseToml { path, source } => {
-                write!(f, "Cannot parse TOML in '{}': {}", path.display(), source)
+                write!(f, "Cannot parse '{}': {}", path.display(), source)
             }
             ResolveError::NoItemsArray { path } => {
                 write!(f, "No [[item]] entries in '{}'", path.display())
+            }
+            ResolveError::NoInputFiles { dir, character } => write!(
+                f,
+                "No lgo_{}_stats.toml or lgo_{}_gear.toml found in {}",
+                character,
+                character,
+                dir.display()
+            ),
+            ResolveError::ForceRequiresTty => {
+                write!(f, "--force requires interactive stdin for prompts.")
             }
         }
     }
@@ -485,55 +493,561 @@ fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, label: &str, next_pos:
 }
 
 // =============================================================================
+// Merge layer — preserve hand-edits across re-runs
+// =============================================================================
+//
+// Behaviour on iteration:
+//   * Items present in both `previous` and `incoming` (matched by exact
+//     `name`) are kept verbatim from `previous` by default.
+//   * Items present only in `incoming` are added.
+//   * Items present only in `previous` are removed (they have disappeared
+//     from the new export).
+//   * `--force` opts into prompting the user per item before destructive
+//     changes; identical-data items remain a no-op even under `--force`.
+//
+// See `docs/merge-brief.md` and `docs/AGENT_CONTEXT.md` §10.
+
+/// Per-item user prompt categories under `--force`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PromptCategory {
+    /// The item exists in both files and the incoming data differs from
+    /// the previous data; ask whether to overwrite the previous block.
+    Overwrite,
+    /// The item exists in `previous` but is missing from `incoming`; ask
+    /// whether to remove it.
+    Remove,
+}
+
+/// User answer to a prompt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PromptAnswer {
+    /// Apply this destructive change.
+    Yes,
+    /// Skip this destructive change (keep the previous block / retain item).
+    No,
+    /// Apply this change and all *remaining* changes in the same category
+    /// without further prompting. Does not affect the other category.
+    YesToAll,
+}
+
+/// Pluggable per-item prompt implementation. Production code uses
+/// `StdinPrompter`; tests use `ScriptedPrompter`.
+pub trait Prompter {
+    fn prompt(&mut self, category: PromptCategory, item_name: &str) -> PromptAnswer;
+}
+
+/// Reads from stdin, writes to stderr (so prompt text doesn't pollute
+/// redirected stdout). Re-prompts on unrecognised input rather than
+/// crashing.
+pub struct StdinPrompter;
+
+impl Prompter for StdinPrompter {
+    fn prompt(&mut self, category: PromptCategory, item_name: &str) -> PromptAnswer {
+        let question = match category {
+            PromptCategory::Overwrite => format!("Overwrite stats for \"{}\"? (y/n/a)", item_name),
+            PromptCategory::Remove => {
+                format!("Remove \"{}\" (no longer in export)? (y/n/a)", item_name)
+            }
+        };
+        let stdin = std::io::stdin();
+        let mut stderr = std::io::stderr();
+        loop {
+            let _ = write!(stderr, "{} ", question);
+            let _ = stderr.flush();
+            let mut line = String::new();
+            // EOF on stdin during a `--force` run is unrecoverable; treat
+            // it as a No so we keep the previous block rather than silently
+            // applying a destructive change.
+            if stdin.lock().read_line(&mut line).unwrap_or(0) == 0 {
+                let _ = writeln!(stderr, "(stdin closed; treating as 'n')");
+                return PromptAnswer::No;
+            }
+            match line.trim() {
+                "y" | "Y" => return PromptAnswer::Yes,
+                "n" | "N" => return PromptAnswer::No,
+                "a" | "A" => return PromptAnswer::YesToAll,
+                _ => {
+                    let _ = writeln!(stderr, "Please answer y, n, or a.");
+                }
+            }
+        }
+    }
+}
+
+/// Force mode: either off, or on with a Prompter for per-item decisions.
+pub enum ForceMode {
+    NoForce,
+    Force { prompter: Box<dyn Prompter> },
+}
+
+impl std::fmt::Debug for ForceMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ForceMode::NoForce => f.write_str("NoForce"),
+            ForceMode::Force { .. } => f.write_str("Force { .. }"),
+        }
+    }
+}
+
+/// Per-merge summary returned to the caller.
+#[derive(Debug, Default)]
+pub struct MergeOutcome {
+    pub added: Vec<String>,
+    pub preserved: Vec<String>,
+    pub overwritten: Vec<String>,
+    pub removed: Vec<String>,
+    /// Item names whose slot was still `Unknown` after slot resolution
+    /// (i.e. not in `data/lgo_items.json`). Reported to the user as
+    /// candidates for hand-editing.
+    pub unknown_slot: Vec<String>,
+    /// The merged TOML text the caller should write to the canonical path.
+    pub merged_text: String,
+}
+
+/// Pure: combine `previous` (canonical file contents, if any) with
+/// `incoming_resolved` (slot-resolved bookmarklet output) per the merge
+/// rules above. Performs no I/O; all prompting goes through the
+/// `Prompter` carried by `force`.
+///
+/// `previous = None` is the first-run case: the canonical file is taken
+/// from `incoming_resolved` verbatim and every item is reported as
+/// `added`.
+pub fn merge_into_canonical(
+    previous: Option<&str>,
+    incoming_resolved: &str,
+    mut force: ForceMode,
+) -> Result<MergeOutcome, ResolveError> {
+    // Collect names whose resolved slot is still "Unknown" in incoming —
+    // reported regardless of merge outcome (the user may need to hand-edit).
+    let unknown_slot = collect_unknown_slot_names(incoming_resolved)?;
+
+    // First run: take incoming verbatim. All items are "added".
+    let Some(previous_src) = previous else {
+        let added = item_names(incoming_resolved)?;
+        return Ok(MergeOutcome {
+            added,
+            preserved: Vec::new(),
+            overwritten: Vec::new(),
+            removed: Vec::new(),
+            unknown_slot,
+            merged_text: incoming_resolved.to_string(),
+        });
+    };
+
+    // Subsequent run: start from `previous` (so the document header /
+    // top-level decor round-trips), replace its `[[item]]` array with the
+    // merged set, and let push_group regroup by family.
+    let mut prev_doc: DocumentMut = previous_src.parse().map_err(|e| ResolveError::ParseToml {
+        path: PathBuf::from("<previous>"),
+        source: e,
+    })?;
+    let mut incoming_doc: DocumentMut =
+        incoming_resolved
+            .parse()
+            .map_err(|e| ResolveError::ParseToml {
+                path: PathBuf::from("<incoming>"),
+                source: e,
+            })?;
+
+    let prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
+    let incoming_tables = take_item_tables(&mut incoming_doc, "<incoming>")?;
+
+    let incoming_by_name: HashMap<String, Table> = incoming_tables
+        .into_iter()
+        .filter_map(|t| table_name(&t).map(|n| (n, t)))
+        .collect();
+
+    let mut outcome = MergeOutcome {
+        unknown_slot,
+        ..MergeOutcome::default()
+    };
+
+    // Two independent "yes to all" flags: per the brief, `a` for overwrite
+    // does not auto-accept removals and vice versa.
+    let mut yes_all_overwrite = false;
+    let mut yes_all_remove = false;
+
+    let mut merged_tables: Vec<Table> = Vec::new();
+    let mut consumed_incoming: HashSet<String> = HashSet::new();
+
+    for prev in prev_tables {
+        let Some(name) = table_name(&prev) else {
+            // No `name` field — preserve the table in place; the item
+            // can't participate in the merge. (This shouldn't happen in
+            // practice; gearstats reading would already have rejected it.)
+            merged_tables.push(prev);
+            continue;
+        };
+
+        if let Some(incoming) = incoming_by_name.get(&name) {
+            consumed_incoming.insert(name.clone());
+
+            match &mut force {
+                ForceMode::NoForce => {
+                    outcome.preserved.push(name);
+                    merged_tables.push(prev);
+                }
+                ForceMode::Force { prompter } => {
+                    if item_data_equal(&prev, incoming) {
+                        // Identical data — never prompt, never count.
+                        outcome.preserved.push(name);
+                        merged_tables.push(prev);
+                    } else {
+                        let answer = if yes_all_overwrite {
+                            PromptAnswer::Yes
+                        } else {
+                            prompter.prompt(PromptCategory::Overwrite, &name)
+                        };
+                        match answer {
+                            PromptAnswer::YesToAll => {
+                                yes_all_overwrite = true;
+                                outcome.overwritten.push(name);
+                                merged_tables.push(incoming.clone());
+                            }
+                            PromptAnswer::Yes => {
+                                outcome.overwritten.push(name);
+                                merged_tables.push(incoming.clone());
+                            }
+                            PromptAnswer::No => {
+                                outcome.preserved.push(name);
+                                merged_tables.push(prev);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Item disappeared from the new export.
+            match &mut force {
+                ForceMode::NoForce => {
+                    outcome.removed.push(name);
+                    // drop prev
+                }
+                ForceMode::Force { prompter } => {
+                    let answer = if yes_all_remove {
+                        PromptAnswer::Yes
+                    } else {
+                        prompter.prompt(PromptCategory::Remove, &name)
+                    };
+                    match answer {
+                        PromptAnswer::YesToAll => {
+                            yes_all_remove = true;
+                            outcome.removed.push(name);
+                        }
+                        PromptAnswer::Yes => {
+                            outcome.removed.push(name);
+                        }
+                        PromptAnswer::No => {
+                            // Keep prev, do not count toward removed.
+                            outcome.preserved.push(name);
+                            merged_tables.push(prev);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Items in incoming not seen in previous → added (no prompt).
+    // Iterate incoming in a stable order so output is deterministic: we
+    // re-bucket by family below anyway, but stable per-family ordering
+    // (insertion order) matters for the idempotency guarantee.
+    let mut incoming_pairs: Vec<(String, Table)> = incoming_by_name.into_iter().collect();
+    incoming_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+    for (name, table) in incoming_pairs {
+        if !consumed_incoming.contains(&name) {
+            outcome.added.push(name);
+            merged_tables.push(table);
+        }
+    }
+
+    // Regroup the merged set by canonical slot family. Strip any
+    // pre-existing `# --- ... ---` divider lines from each table's prefix
+    // first so dividers don't accumulate across runs (idempotency).
+    for t in &mut merged_tables {
+        strip_family_dividers_from_prefix(t);
+    }
+
+    let (mut buckets, unknowns) = bucket_by_table_slot(merged_tables);
+
+    let mut new_arr = ArrayOfTables::new();
+    let mut next_pos: usize = 0;
+    for family in slot_family_order() {
+        if let Some(group_items) = buckets.remove(&family) {
+            if group_items.is_empty() {
+                continue;
+            }
+            push_group(
+                &mut new_arr,
+                group_items,
+                slot_family_label(family),
+                &mut next_pos,
+            );
+        }
+    }
+    if !unknowns.is_empty() {
+        push_group(
+            &mut new_arr,
+            unknowns,
+            "Unknown (not in items DB)",
+            &mut next_pos,
+        );
+    }
+
+    // Replace prev_doc's items array with the merged one.
+    let prev_items = prev_doc
+        .get_mut("item")
+        .and_then(|i| i.as_array_of_tables_mut())
+        .ok_or_else(|| ResolveError::NoItemsArray {
+            path: PathBuf::from("<previous>"),
+        })?;
+    *prev_items = new_arr;
+
+    outcome.merged_text = prev_doc.to_string();
+    Ok(outcome)
+}
+
+/// Bucket pre-resolved tables by canonical slot family, looking only at
+/// each table's own `slot` field. Tables with an unrecognised slot string
+/// fall into the `Unknown` group.
+fn bucket_by_table_slot(tables: Vec<Table>) -> (HashMap<Slot, Vec<Table>>, Vec<Table>) {
+    let mut buckets: HashMap<Slot, Vec<Table>> = HashMap::new();
+    let mut unknowns: Vec<Table> = Vec::new();
+    for table in tables {
+        let slot_str = table.get("slot").and_then(|v| v.as_str()).unwrap_or("");
+        match crate::gearstats::parse_slot_display(slot_str) {
+            Some(slot) => {
+                buckets.entry(slot_family(slot)).or_default().push(table);
+            }
+            None => {
+                unknowns.push(table);
+            }
+        }
+    }
+    (buckets, unknowns)
+}
+
+/// Strip any line of the form `# --- ... ---` from a table's prefix decor.
+/// Used during the merge regroup so divider comments don't accumulate
+/// across re-runs.
+fn strip_family_dividers_from_prefix(table: &mut Table) {
+    let prefix = match table.decor().prefix().and_then(|s| s.as_str()) {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return,
+    };
+    let kept: Vec<&str> = prefix
+        .split_inclusive('\n')
+        .filter(|line| {
+            let trimmed = line.trim_end_matches('\n').trim();
+            !(trimmed.starts_with("# ---") && trimmed.ends_with("---"))
+        })
+        .collect();
+    let new_prefix: String = kept.concat();
+    table.decor_mut().set_prefix(new_prefix);
+}
+
+/// Extract `[[item]]` tables from a parsed document, leaving the array
+/// itself empty (caller can refill it).
+fn take_item_tables(doc: &mut DocumentMut, label: &str) -> Result<Vec<Table>, ResolveError> {
+    let arr = doc
+        .get_mut("item")
+        .and_then(|i| i.as_array_of_tables_mut())
+        .ok_or_else(|| ResolveError::NoItemsArray {
+            path: PathBuf::from(label),
+        })?;
+    let taken = std::mem::replace(arr, ArrayOfTables::new());
+    Ok(taken.iter().cloned().collect())
+}
+
+fn table_name(t: &Table) -> Option<String> {
+    t.get("name").and_then(|v| v.as_str()).map(String::from)
+}
+
+/// Return `[[item]]` `name`s in document order.
+fn item_names(src: &str) -> Result<Vec<String>, ResolveError> {
+    let doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
+        path: PathBuf::from("<incoming>"),
+        source: e,
+    })?;
+    let arr = doc
+        .get("item")
+        .and_then(|i| i.as_array_of_tables())
+        .ok_or_else(|| ResolveError::NoItemsArray {
+            path: PathBuf::from("<incoming>"),
+        })?;
+    Ok(arr.iter().filter_map(table_name).collect())
+}
+
+/// Names of items whose canonical `slot` field is the literal string
+/// `"Unknown"` after resolution — i.e. items the resolver couldn't map
+/// to a canonical slot. Reported to the user as candidates for
+/// hand-editing.
+fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
+    let doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
+        path: PathBuf::from("<incoming>"),
+        source: e,
+    })?;
+    let arr = doc
+        .get("item")
+        .and_then(|i| i.as_array_of_tables())
+        .ok_or_else(|| ResolveError::NoItemsArray {
+            path: PathBuf::from("<incoming>"),
+        })?;
+    Ok(arr
+        .iter()
+        .filter(|t| t.get("slot").and_then(|v| v.as_str()) == Some("Unknown"))
+        .filter_map(table_name)
+        .collect())
+}
+
+/// Compare two `[[item]]` tables on their canonical fields only:
+/// `name`, `slot`, and the 14 tracked stats. Comments, whitespace,
+/// and other decor are ignored.
+fn item_data_equal(a: &Table, b: &Table) -> bool {
+    if table_str(a, "name") != table_str(b, "name") {
+        return false;
+    }
+    if table_str(a, "slot") != table_str(b, "slot") {
+        return false;
+    }
+    for (_, key) in TRACKED_STATS {
+        if table_int(a, key) != table_int(b, key) {
+            return false;
+        }
+    }
+    true
+}
+
+fn table_str(t: &Table, key: &str) -> Option<String> {
+    t.get(key).and_then(|v| v.as_str()).map(String::from)
+}
+
+fn table_int(t: &Table, key: &str) -> Option<i64> {
+    t.get(key).and_then(|v| v.as_integer())
+}
+
+// =============================================================================
 // resolve_stats_file — file-level wrapper (does I/O)
 // =============================================================================
 
-/// End-to-end: read `.toml` at `path`, resolve via `db`, write a sibling
-/// `*_resolved.toml`, return summary.
-pub fn resolve_stats_file(path: &Path, db: &ItemsDb) -> Result<Report, ResolveError> {
-    let src = fs::read_to_string(path).map_err(|e| ResolveError::IoRead {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
+/// End-to-end iteration step:
+///
+///   1. Read `lgo_<character>_stats.toml` (the bookmarklet's output).
+///   2. Slot-resolve it via `db`.
+///   3. Read `lgo_<character>_gear.toml` (the canonical merged file) if
+///      it exists.
+///   4. Merge per `merge_into_canonical` semantics.
+///   5. Write the result back to `lgo_<character>_gear.toml`.
+///
+/// Returns a `Report` describing what happened, for `main.rs` to display.
+///
+/// If no bookmarklet output file is present, the canonical file is left
+/// untouched and the returned `Report` carries `bookmarklet_path = None`.
+pub fn resolve_stats_file(
+    char_dir: &Path,
+    character: &str,
+    db: &ItemsDb,
+    force: ForceMode,
+) -> Result<Report, ResolveError> {
+    let canonical_path = canonical_gear_path(char_dir, character);
+    let bookmarklet_path = bookmarklet_stats_path(char_dir, character);
 
-    let (new_src, outcomes) = resolve_toml_str(&src, db).map_err(|e| match e {
-        // Replace placeholder paths with the real input path for diagnostics.
+    let bookmarklet_exists = bookmarklet_path.exists();
+    let canonical_existed = canonical_path.exists();
+
+    if !bookmarklet_exists {
+        // No new export. If the canonical file exists, leave it alone and
+        // report. If neither file exists, that's a hard error.
+        if !canonical_existed {
+            return Err(ResolveError::NoInputFiles {
+                dir: char_dir.to_path_buf(),
+                character: character.to_string(),
+            });
+        }
+        return Ok(Report {
+            outcome: MergeOutcome::default(),
+            bookmarklet_path: None,
+            canonical_path,
+            previous_existed: true,
+            no_new_export: true,
+        });
+    }
+
+    // `--force` requires interactive stdin. Reject piped input loudly
+    // rather than silently auto-accepting destructive changes.
+    if matches!(force, ForceMode::Force { .. }) && !std::io::stdin().is_terminal() {
+        return Err(ResolveError::ForceRequiresTty);
+    }
+
+    let bookmarklet_src =
+        fs::read_to_string(&bookmarklet_path).map_err(|e| ResolveError::IoRead {
+            path: bookmarklet_path.clone(),
+            source: e,
+        })?;
+
+    let (resolved_src, _outcomes) = resolve_toml_str(&bookmarklet_src, db).map_err(|e| match e {
         ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
-            path: path.to_path_buf(),
+            path: bookmarklet_path.clone(),
             source,
         },
         ResolveError::NoItemsArray { .. } => ResolveError::NoItemsArray {
-            path: path.to_path_buf(),
+            path: bookmarklet_path.clone(),
         },
         other => other,
     })?;
 
-    let output_path = compute_resolved_path(path);
-    fs::write(&output_path, new_src).map_err(|e| ResolveError::IoWrite {
-        path: output_path.clone(),
+    let previous_src = if canonical_existed {
+        Some(
+            fs::read_to_string(&canonical_path).map_err(|e| ResolveError::IoRead {
+                path: canonical_path.clone(),
+                source: e,
+            })?,
+        )
+    } else {
+        None
+    };
+
+    let outcome = merge_into_canonical(previous_src.as_deref(), &resolved_src, force).map_err(
+        |e| match e {
+            ResolveError::ParseToml { path, source } if path == Path::new("<previous>") => {
+                ResolveError::ParseToml {
+                    path: canonical_path.clone(),
+                    source,
+                }
+            }
+            ResolveError::ParseToml { path, source } if path == Path::new("<incoming>") => {
+                ResolveError::ParseToml {
+                    path: bookmarklet_path.clone(),
+                    source,
+                }
+            }
+            other => other,
+        },
+    )?;
+
+    fs::write(&canonical_path, &outcome.merged_text).map_err(|e| ResolveError::IoWrite {
+        path: canonical_path.clone(),
         source: e,
     })?;
 
     Ok(Report {
-        outcomes,
-        input_path: path.to_path_buf(),
-        output_path,
+        outcome,
+        bookmarklet_path: Some(bookmarklet_path),
+        canonical_path,
+        previous_existed: canonical_existed,
+        no_new_export: false,
     })
 }
 
-/// Compute the output path for a given input path: `name.toml` →
-/// `name_resolved.toml` in the same directory. The `_resolved` suffix is
-/// chosen so that `find_latest_stats_file`'s lexicographic sort places the
-/// resolved file *after* its source on the next optimizer run (verified by
-/// `resolved_path_sorts_after_original_lexicographically` test).
-fn compute_resolved_path(input: &Path) -> PathBuf {
-    let stem = input
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("lgo_stats");
-    let ext = input.extension().and_then(|s| s.to_str()).unwrap_or("toml");
-    let parent = input.parent().unwrap_or_else(|| Path::new("."));
-    parent.join(format!("{}_resolved.{}", stem, ext))
+/// Path the bookmarklet writes its TOML to, per the new file-naming
+/// scheme: `<dir>/lgo_<character>_stats.toml`.
+pub fn bookmarklet_stats_path(dir: &Path, character: &str) -> PathBuf {
+    dir.join(format!("lgo_{}_stats.toml", character))
+}
+
+/// Canonical merged gear file: `<dir>/lgo_<character>_gear.toml`.
+pub fn canonical_gear_path(dir: &Path, character: &str) -> PathBuf {
+    dir.join(format!("lgo_{}_gear.toml", character))
 }
 
 // =============================================================================
@@ -976,62 +1490,324 @@ name = \"Test Helm\"\n";
         assert!(matches!(err, ResolveError::NoItemsArray { .. }));
     }
 
-    // -- compute_resolved_path tests --
+    // -- compute_resolved_path tests retired —
+    //   the `_resolved.toml` suffix is no longer used; the merge step
+    //   writes directly to the canonical `lgo_<character>_gear.toml`.
+    //   See `merge_into_canonical` and `resolve_stats_file`.
 
-    #[test]
-    fn compute_resolved_path_appends_resolved_before_extension() {
-        let p = compute_resolved_path(Path::new("/tmp/lgo_stats_Char_20260101_000000.toml"));
-        assert_eq!(
-            p,
-            PathBuf::from("/tmp/lgo_stats_Char_20260101_000000_resolved.toml")
-        );
+    // -- merge_into_canonical tests --
+
+    /// Helper: a fresh resolved bookmarklet-style document with one item.
+    fn make_doc(items: &[(&str, &str, &[(&str, i64)])]) -> String {
+        let mut s = String::from("# LGO gear stats file\n");
+        for (name, slot, stats) in items {
+            s.push_str("\n[[item]]\n");
+            s.push_str(&format!("slot = \"{}\"\n", slot));
+            s.push_str(&format!("name = \"{}\"\n", name));
+            for (k, v) in *stats {
+                s.push_str(&format!("{} = {}\n", k, v));
+            }
+        }
+        s
     }
 
-    /// Verifies the §7 / §11 design assumption: the resolved file's name
-    /// sorts lexicographically *after* its source, so that
-    /// `find_latest_stats_file` in `gearstats.rs` will pick the resolved
-    /// version on the next optimizer run.
-    #[test]
-    fn resolved_path_sorts_after_original_lexicographically() {
-        let original = "lgo_stats_Char_20260101_000000.toml";
-        let resolved = compute_resolved_path(Path::new(original))
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        assert!(
-            resolved.as_str() > original,
-            "{} must sort after {}",
-            resolved,
-            original
-        );
+    /// Scripted prompter for tests: returns canned answers in order.
+    /// Panics if asked more questions than answers were supplied — the
+    /// tests use this to assert that prompting was (or wasn't) invoked.
+    pub struct ScriptedPrompter {
+        answers: std::collections::VecDeque<(PromptCategory, PromptAnswer)>,
+        pub asked: Vec<(PromptCategory, String)>,
     }
 
-    // -- Report tests --
+    impl ScriptedPrompter {
+        pub fn new(answers: Vec<(PromptCategory, PromptAnswer)>) -> Self {
+            Self {
+                answers: answers.into(),
+                asked: Vec::new(),
+            }
+        }
+    }
+
+    impl Prompter for ScriptedPrompter {
+        fn prompt(&mut self, category: PromptCategory, item_name: &str) -> PromptAnswer {
+            self.asked.push((category, item_name.to_string()));
+            let (expected_cat, ans) = self
+                .answers
+                .pop_front()
+                .unwrap_or_else(|| panic!("ScriptedPrompter ran out: asked {:?}", self.asked));
+            assert_eq!(
+                category, expected_cat,
+                "prompt category mismatch for {}",
+                item_name
+            );
+            ans
+        }
+    }
+
+    fn force_with(answers: Vec<(PromptCategory, PromptAnswer)>) -> ForceMode {
+        ForceMode::Force {
+            prompter: Box::new(ScriptedPrompter::new(answers)),
+        }
+    }
 
     #[test]
-    fn report_counts_resolved_and_unknown_correctly() {
+    fn merge_first_run_takes_incoming_verbatim() {
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
+        let outcome =
+            merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
+        assert_eq!(outcome.added, vec!["Test Helm"]);
+        assert!(outcome.preserved.is_empty());
+        assert!(outcome.removed.is_empty());
+        assert_eq!(outcome.merged_text, incoming);
+    }
+
+    /// The cornerstone idempotency test: running the merge twice in a row
+    /// with no new bookmarklet output must produce a bit-identical
+    /// canonical file the second time.
+    #[test]
+    fn merge_idempotent_when_nothing_changes() {
         let db = fixture_db();
-        let input = "\
+        let bookmarklet = make_doc(&[
+            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armor", 50)]),
+        ]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        assert_eq!(
+            first, second,
+            "second merge must be byte-identical:\n--- first ---\n{}\n--- second ---\n{}",
+            first, second
+        );
+
+        // And a third time, just to be sure dividers don't accumulate.
+        let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+        assert_eq!(second, third, "third merge must also be byte-identical");
+    }
+
+    #[test]
+    fn merge_adds_new_items_from_incoming() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[
+            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
+        ]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
+            .expect("must merge");
+        assert_eq!(outcome.added, vec!["Test Sword"]);
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(outcome.removed.is_empty());
+        assert!(outcome.merged_text.contains("Test Sword"));
+        assert!(outcome.merged_text.contains("Test Helm"));
+    }
+
+    #[test]
+    fn merge_removes_items_absent_from_incoming() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[
+            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
+        ]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
+            .expect("must merge");
+        assert_eq!(outcome.removed, vec!["Test Sword"]);
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(!outcome.merged_text.contains("Test Sword"));
+    }
+
+    #[test]
+    fn merge_preserves_previous_when_stats_differ_no_force() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
+            .expect("must merge");
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(outcome.overwritten.is_empty());
+        assert!(
+            outcome.merged_text.contains("Armor = 999"),
+            "previous value must be preserved:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn merge_force_yes_overwrites() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
+        )
+        .expect("must merge");
+        assert_eq!(outcome.overwritten, vec!["Test Helm"]);
+        assert!(outcome.merged_text.contains("Armor = 100"));
+        assert!(!outcome.merged_text.contains("Armor = 999"));
+    }
+
+    #[test]
+    fn merge_force_no_keeps_previous() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::No)]),
+        )
+        .expect("must merge");
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(outcome.overwritten.is_empty());
+        assert!(outcome.merged_text.contains("Armor = 999"));
+    }
+
+    #[test]
+    fn merge_force_yes_to_all_overwrite_skips_subsequent_overwrite_prompts() {
+        let db = fixture_db();
+        let inc_in = make_doc(&[
+            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armor", 5)]),
+            // also a removal candidate, to verify YesToAll on overwrite
+            // does NOT auto-accept removals.
+        ]);
+        let prev_in = make_doc(&[
+            ("Test Helm", "Unknown", &[("Armor", 999)]),
+            ("Test Bracelet", "Unknown", &[("Armor", 50)]),
+            ("Test Sword", "Unknown", &[("CriticalRating", 1)]),
+        ]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        // Expect: first overwrite → 'a'; second overwrite never asked;
+        // removal of "Test Sword" → still asked (independent).
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![
+                (PromptCategory::Overwrite, PromptAnswer::YesToAll),
+                (PromptCategory::Remove, PromptAnswer::Yes),
+            ]),
+        )
+        .expect("must merge");
+
+        assert_eq!(outcome.overwritten.len(), 2);
+        assert!(outcome.overwritten.contains(&"Test Helm".to_string()));
+        assert!(outcome.overwritten.contains(&"Test Bracelet".to_string()));
+        assert_eq!(outcome.removed, vec!["Test Sword"]);
+    }
+
+    #[test]
+    fn merge_force_identical_data_never_prompts() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        // Empty answer queue: any prompt would panic.
+        let outcome = merge_into_canonical(Some(&prev), &incoming, force_with(vec![]))
+            .expect("must merge with no prompts");
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(outcome.overwritten.is_empty());
+    }
+
+    #[test]
+    fn merge_force_remove_yes_drops_item() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Sword", "Unknown", &[("CriticalRating", 50)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Remove, PromptAnswer::Yes)]),
+        )
+        .expect("must merge");
+        assert_eq!(outcome.removed, vec!["Test Sword"]);
+        assert!(!outcome.merged_text.contains("Test Sword"));
+    }
+
+    #[test]
+    fn merge_force_remove_no_retains_item() {
+        let db = fixture_db();
+        let prev_in = make_doc(&[("Test Sword", "Unknown", &[("CriticalRating", 50)])]);
+        let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Remove, PromptAnswer::No)]),
+        )
+        .expect("must merge");
+        assert!(outcome.removed.is_empty());
+        assert!(outcome.preserved.contains(&"Test Sword".to_string()));
+        assert!(outcome.merged_text.contains("Test Sword"));
+    }
+
+    #[test]
+    fn merge_unknown_slot_names_reported() {
+        let db = fixture_db();
+        // "Mystery Renamed Legendary" is not in the fixture DB, so it stays
+        // with slot = "Unknown" after resolve_toml_str.
+        let inc_in = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
+name = \"Mystery Renamed Legendary\"\n\
+";
+        let (incoming, _) = resolve_toml_str(inc_in, &db).expect("resolve incoming");
+        let outcome = merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("merge");
+        assert_eq!(outcome.unknown_slot, vec!["Mystery Renamed Legendary"]);
+    }
+
+    #[test]
+    fn merge_preserves_per_item_comments_across_iterations() {
+        let db = fixture_db();
+        // Hand-edited canonical: warning-style comment inside the [[item]].
+        let prev = "\
+[[item]]\n\
+slot = \"Head\"\n\
 name = \"Test Helm\"\n\
-\n\
-[[item]]\n\
-slot = \"Unknown\"\n\
-name = \"Mystery Item\"\n\
-\n\
-[[item]]\n\
-slot = \"Unknown\"\n\
-name = \"Test Sword\"\n";
-        let (_, outcomes) = resolve_toml_str(input, &db).expect("must resolve");
-        let report = Report {
-            outcomes,
-            input_path: PathBuf::from("<test>"),
-            output_path: PathBuf::from("<test_resolved>"),
-        };
-        assert_eq!(report.resolved_count(), 2);
-        assert_eq!(report.unknown_count(), 1);
-        assert_eq!(report.unknown_names(), vec!["Mystery Item"]);
+# essence: +1500 tactical mastery\n\
+Armor = 100\n";
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(Some(prev), &incoming, ForceMode::NoForce)
+            .expect("must merge");
+        assert!(
+            outcome
+                .merged_text
+                .contains("# essence: +1500 tactical mastery"),
+            "hand-written comment must survive merge:\n{}",
+            outcome.merged_text
+        );
     }
 }

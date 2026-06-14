@@ -26,9 +26,9 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 4. Click the **LGO Stats** bookmarklet.
 5. Paste the contents of `lgo_gearlist_*.plugindata` when prompted.
 6. The bookmarklet builds a `.toml`. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
-7. Save the `.toml` to the `AllServers` directory.
-8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped output.
-9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` (the `_resolved` one) and `.plugindata`, runs the optimizer, prints the result.
+7. Save the `.toml` to the `AllServers` directory as `lgo_<character>_stats.toml` (the bookmarklet's transient output; overwritten on each re-export).
+8. Run `lgo resolve-slots` — reads `lgo_<character>_stats.toml`, looks each item up in `data/lgo_items.json`, merges into the canonical `lgo_<character>_gear.toml` (the sole input the optimizer reads). On every iteration items already present in the canonical file are **preserved verbatim** (so hand-edits to legendary stats, essence sums, etc. survive); items absent from the new export are removed. Pass `--force` (alias `-f`) to opt into per-item prompts before overwriting or removing entries; identical-data items remain a no-op even under `--force`.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust prefers `lgo_<character>_gear.toml`, falling back to legacy `lgo_stats_*.toml` only if the canonical file does not yet exist.
 
 ---
 
@@ -172,4 +172,5 @@ These are known, decided-but-not-urgent items. Do **not** silently fold them int
 
 - **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Bug 2 (`mapSlot()` fallback).** Latent, no observed symptom. Largely moot once the resolver overrides slot decisions anyway. Leave alone unless it produces a real failure.
-- **Hand-edit preservation across `resolve-slots` re-runs.** The pre-pivot `src/merge.rs` implemented a `[__user_edits__]` metadata section that tracked user hand-edits in the `.toml` and prompted on conflicts. The current `resolve-slots` does not preserve hand-edited stats if the user re-runs it after a fresh bookmarklet export. See `docs/User Story & Hand-Edit-Tracking Approach.txt` for the original design. Address if and when a user actually gets bitten by losing edits.
+- **Hand-edit preservation across re-runs:** implemented via preserve-by-default merge in `resolve-slots`. The `[__user_edits__]` design from `docs/Merge Coding Prompt.txt` and `docs/User Story & Hand-Edit-Tracking Approach.txt` was rejected in favour of the simpler preserve-by-default model. Those two design docs are now historical.
+- **Rename detection.** The merge step matches items by exact byte-for-byte name. If the wiki renames an item between exports, or if a Unicode encoding glitch alters a character, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem.
