@@ -13,9 +13,21 @@ How to go from in-game export to optimization report.
 Assumes the in-game plugin, the bookmarklet, and the lgo binary are
 already installed. (Installation instructions: TBD, separate document.)
 
+Summary brief here, detailed instructions below:
+-----------------------------------------------
+1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
+2. Run `/lgo export` in-game → one `lgo_gearlist_[character_name].plugindata` file is written.
+3. Open https://lotro-wiki.com in a browser.
+4. Click the **LGO Stats** bookmarklet.
+5. Paste the contents of `lgo_gearlist_*.plugindata` when prompted.
+6. The bookmarklet builds a `.toml` file. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
+7. Save the `.toml` to the `AllServers` directory.
+8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped output.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` (the `_resolved` one) and `.plugindata`, runs the optimizer, prints the result.
 
-Steps
------
+=================
+Full Instructions
+-----------------
 
 1. In LotRO, place the gear items you want considered into the Shared
    Storage chest you have renamed 'lgo' (or 'LGO'). Items already
@@ -35,15 +47,14 @@ Steps
    lotro-wiki.com before clicking the bookmarklet; it will refuse to
    run on any other site.
 
-4. Click the 'LGO Stats' bookmarklet in your bookmarks bar.
+4. Click the 'LGO Stats' bookmarklet/link/button in your bookmarks bar.
 
 5. When prompted, paste the entire contents of the
-   lgo_gearlist_<character>_<timestamp>.plugindata file you just
-   generated.
+   lgo_gearlist_<character>_<timestamp>.plugindata file you just generated.
 
-6. Wait while the bookmarklet looks each item up on the wiki. Progress
-   is shown on the page. When it finishes, it displays a 'Resolved /
-   Unresolved' summary and a text area containing the generated TOML.
+6. Wait while the bookmarklet looks each item up on the wiki. It should only take 5-10 seconds.
+   (Depending on your Internet connection) The bookmarklet builds a `.toml` file. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
+   Progress is shown on the page. When it finishes, it  displays a 'Resolved / Unresolved' summary and a text area containing the generated TOML.
 
 7. Click 'Select All', copy the text, and save it into your character's
    AllServers directory as:

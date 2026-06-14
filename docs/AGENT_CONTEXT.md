@@ -20,15 +20,16 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 
 ## 2. User workflow (current, end-to-end)
 
-1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
-2. Run `/lgo export` in-game → one `lgo_gearlist_*.plugindata` file is written.
-3. Open https://lotro-wiki.com in a browser.
-4. Click the **LGO Stats** bookmarklet.
-5. Paste the contents of `lgo_gearlist_*.plugindata` when prompted.
-6. The bookmarklet builds a `.toml`. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
-7. Save the `.toml` to the `AllServers` directory.
-8. Run `lgo resolve-slots` — reads the most recent `lgo_stats_*.toml`, looks each item up in `data/lgo_items.json`, and writes a sibling `lgo_stats_*_resolved.toml` with canonical slots and slot-grouped output.
-9. Run `lgo optimize tm:450000 cr:350000 fn:0` (etc.) — Rust auto-detects the most recent `.toml` (the `_resolved` one) and `.plugindata`, runs the optimizer, prints the result.
+See 'docs/User Workflow.txt' for the full step-by-step.
+The short form:
+- User exports a file from the in-game plug-in: lgo_gearlist_`<character>`_`<timestamp>`.plugindata.
+- User uses the bookmarklet, pasting in the .plugindata contents, which
+then fetches each item's stats from lotro-wiki.com to create a a TOML
+file containing each item's name, slot, and stats.
+- User saves the bookmarklet's output as a file named: lgo_`<character>`_stats.toml.
+- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gear.toml.
+- User invokes 'lgo optimize' which reads the canonical file and provides
+a final optimization report according to user's specified stats of interest.
 
 ---
 
@@ -44,8 +45,9 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), and outcome-typed reporting (see Bug 9).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
-- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml` + `data/progressions.xml`, writes `data/lgo_items.json`. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user) after deleting the JSON. Always overwrites the output file.
-- `TestData/` — committed test fixtures: bookmarklet input (`lgo_gearlist_Thalya_*.plugindata`), bookmarklet output (`lgo_stats_Thalya_*.toml`), and a one-off plugin-API probe dump (`lgo_probe_Thalya_20260607_205655.plugindata` — historical reference for what the Turbine API exposes per item; see Bug 9 and §7).
+- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml` + `data/progressions.xml`, writes `data/lgo_items.json`. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
+- `TestData/` — committed test fixtures: bookmarklet input (`lgo_gearlist_Thalya_*.plugindata`), bookmarklet output with an outdated-format name (`lgo_stats_Thalya_*.toml`), and a one-off plugin-API probe dump (`lgo_probe_Thalya_20260607_205655.plugindata` — historical reference for what the Turbine API exposes per item; see Bug 9 and §7).
+- `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `RESOLVER_DESIGN.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `TOML Analysis.txt`. Historical design docs (kept for traceability, do not treat as live spec): `Merge Coding Prompt.txt`, `User Story & Hand-Edit-Tracking Approach.txt`. See §10 for the rejection rationale.
 - `docs/` — design notes (`Merge Coding Prompt.txt`, `TOML Analysis.txt`, `User Story & Hand-Edit-Tracking Approach.txt`, `User Workflow.txt`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `Test_Output_01.txt`, `RESOLVER_DESIGN.md`, plus `probes/` for one-off diagnostic plugin-data inputs).
 - `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigation, ask the user to paste a representative snippet.
 - `GaranStuff/` — ignore for now.
@@ -156,13 +158,13 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 - Optimizer --toml-file flag (specify input .toml)
 - Make Wiki look-up stats assume max item level
-- Ignore craft-tool and bridle slots
+- Ignore craft-tool and bridle slots. Optimizer is barfing on the "unknown" slot names again:
+  . 'Craft Tool'
+  . 'Bridle'
+  . Possibly others as well
 - Change all spellings of 'Armor' to 'Armour'
-— Get the plug-in to deposit the .plugindata and .toml files in an 'lgo' sub-folder
+- Get the plug-in to deposit the .plugindata and .toml files in an 'lgo' sub-folder
   . \\Documents\The Lord of the Rings Online\PluginData\Thalya\AllServers\lgo
-- Optimizer is barfing on the "unknown" slot names again:
-  . Pickaxe
-  . Bridle
 
 ---
 
