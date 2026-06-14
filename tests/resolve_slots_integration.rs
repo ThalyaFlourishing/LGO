@@ -218,3 +218,190 @@ fn bookmarklet_typo_slot_strings_are_canonicalized_when_name_is_known() {
         );
     }
 }
+
+// =============================================================================
+// File-level merge integration tests
+// =============================================================================
+
+fn make_temp_dir(label: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "lgo_merge_test_{}_{}_{}",
+        label,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    dir
+}
+
+#[test]
+fn file_level_merge_first_run_creates_canonical_file() {
+    let dir = make_temp_dir("first_run");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("TestData/lgo_stats_Thalya_20260525_215012.toml"),
+        &bookmarklet,
+    )
+    .expect("copy fixture");
+    assert!(!canonical.exists());
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let report = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first run must succeed");
+
+    assert!(canonical.exists(), "canonical file must be written");
+    assert!(!report.previous_existed);
+    assert!(!report.no_new_export);
+    assert!(report.outcome.preserved.is_empty());
+    assert_eq!(report.outcome.added.len(), 66);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_merge_idempotent_on_repeat() {
+    let dir = make_temp_dir("idempotent");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("TestData/lgo_stats_Thalya_20260525_215012.toml"),
+        &bookmarklet,
+    )
+    .expect("copy fixture");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first run");
+    let after_first = std::fs::read_to_string(&canonical).expect("read canonical");
+
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("second run");
+    let after_second = std::fs::read_to_string(&canonical).expect("read canonical");
+
+    assert_eq!(
+        after_first, after_second,
+        "second run must produce a bit-identical canonical file"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_merge_preserves_hand_edits_on_re_export() {
+    let dir = make_temp_dir("hand_edits");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("TestData/lgo_stats_Thalya_20260525_215012.toml");
+    std::fs::copy(&fixture, &bookmarklet).expect("copy fixture");
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first run");
+
+    // Simulate a hand-edit: bump every Armor value by inserting a sentinel
+    // line into the canonical file. We do it by injecting a unique
+    // comment that must round-trip.
+    let mut canon_text = std::fs::read_to_string(&canonical).expect("read canonical");
+    canon_text = canon_text.replacen(
+        "[[item]]",
+        "# user hand-edit: keep this line\n[[item]]",
+        1,
+    );
+    std::fs::write(&canonical, &canon_text).expect("write canonical");
+
+    // Re-export (same fixture; "no actual changes from the new export
+    // POV"). Default mode should preserve everything.
+    std::fs::copy(&fixture, &bookmarklet).expect("re-copy fixture");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("second run");
+    let after = std::fs::read_to_string(&canonical).expect("read canonical");
+
+    assert!(
+        after.contains("# user hand-edit: keep this line"),
+        "hand-edited comment must survive re-run"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_merge_no_new_export_leaves_canonical_untouched() {
+    let dir = make_temp_dir("no_new_export");
+    let character = "TestChar";
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let canon_text = "# canonical placeholder\n[[item]]\nslot = \"Head\"\nname = \"X\"\n";
+    std::fs::write(&canonical, canon_text).expect("write canonical");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let report = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("must succeed even with no bookmarklet output");
+    assert!(report.no_new_export);
+    assert!(report.bookmarklet_path.is_none());
+    let after = std::fs::read_to_string(&canonical).expect("read canonical");
+    assert_eq!(after, canon_text, "canonical must be untouched");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_merge_no_files_at_all_is_an_error() {
+    let dir = make_temp_dir("nothing");
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let err = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        "TestChar",
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect_err("must error when nothing to read");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("No lgo_TestChar_stats.toml") && msg.contains("lgo_TestChar_gear.toml"),
+        "error must mention both expected filenames: got {}",
+        msg
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
