@@ -249,6 +249,11 @@ pub enum ResolveError {
         dir: PathBuf,
         character: String,
     },
+    /// Two or more files match a single character query case-insensitively.
+    /// Cannot occur on Windows; on Linux this surfaces as a clean error.
+    AmbiguousFiles {
+        message: String,
+    },
     /// `--force` was passed but stdin is not a terminal. Auto-accepting
     /// destructive changes is exactly the failure mode `--force` is meant
     /// to guard against, so we refuse.
@@ -277,6 +282,7 @@ impl std::fmt::Display for ResolveError {
                 character,
                 dir.display()
             ),
+            ResolveError::AmbiguousFiles { message } => write!(f, "Error: {}", message),
             ResolveError::ForceRequiresTty => {
                 write!(f, "--force requires interactive stdin for prompts.")
             }
@@ -949,11 +955,29 @@ pub fn resolve_stats_file(
     db: &ItemsDb,
     force: ForceMode,
 ) -> Result<Report, ResolveError> {
-    let canonical_path = canonical_gear_path(char_dir, character);
-    let bookmarklet_path = bookmarklet_stats_path(char_dir, character);
+    // --- Case-insensitive lookups (read path) --------------------------------
+    // Use directory scans so that e.g. `lgo_thalya_stats.toml` is found when
+    // querying with `"Thalya"`. Collisions (two files differing only in case)
+    // return an error; this cannot happen on Windows but is caught cleanly on
+    // Linux.
+    let bookmarklet_found =
+        crate::gearstats::find_bookmarklet_output(char_dir, character).map_err(|msg| {
+            ResolveError::AmbiguousFiles { message: msg }
+        })?;
+    let canonical_found =
+        crate::gearstats::find_canonical_gear_file(char_dir, character).map_err(|msg| {
+            ResolveError::AmbiguousFiles { message: msg }
+        })?;
 
-    let bookmarklet_exists = bookmarklet_path.exists();
-    let canonical_existed = canonical_path.exists();
+    // Write-follows-read: if an existing canonical file was found (possibly
+    // with different casing), write back to that exact path.  If none exists
+    // yet, create at the path derived from the supplied character name.
+    let canonical_path = canonical_found
+        .clone()
+        .unwrap_or_else(|| canonical_gear_path(char_dir, character));
+
+    let bookmarklet_exists = bookmarklet_found.is_some();
+    let canonical_existed = canonical_found.is_some();
 
     if !bookmarklet_exists {
         // No new export. If the canonical file exists, leave it alone and
@@ -972,6 +996,8 @@ pub fn resolve_stats_file(
             no_new_export: true,
         });
     }
+
+    let bookmarklet_path = bookmarklet_found.unwrap();
 
     // `--force` requires interactive stdin. Reject piped input loudly
     // rather than silently auto-accepting destructive changes.
