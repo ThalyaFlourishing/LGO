@@ -172,7 +172,6 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 These are known, decided-but-not-urgent items. Do **not** silently fold them into other PRs; track and address explicitly.
 
-- **Remove case-sensitivity in the character-name portions of user-data file names.
 - **Change CSS properties to ensure the bookmarklet's progress display appears at the top of the window, not the bottom. Per previous coding assistant: "`Add position: fixed; top: 0.5rem; right: 0.5rem; background: white; border: 2px solid #333; padding: 0.5rem; z-index: 9999;` (or similar) so it floats above the wiki content regardless of scroll position."
 - **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Bug 2 (`mapSlot()` fallback).** Latent, no observed symptom. Largely moot once the resolver overrides slot decisions anyway. Leave alone unless it produces a real failure.
