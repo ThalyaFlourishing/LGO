@@ -377,12 +377,13 @@ fn resolve_plugindata(cli: &OptimizeCli) -> Result<(PathBuf, String), String> {
             .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
         // Strip the prefix case-insensitively but preserve the original
         // character-segment casing for downstream display purposes.
+        const PREFIX: &str = "lgo_gearlist_";
         let stem_lower = stem.to_ascii_lowercase();
         let character = stem_lower
-            .strip_prefix("lgo_gearlist_")
+            .strip_prefix(PREFIX)
             .and_then(|s| {
                 // Find the last '_' separating char from timestamp.
-                s.rfind('_').map(|i| &stem[("lgo_gearlist_".len())..("lgo_gearlist_".len() + i)])
+                s.rfind('_').map(|i| &stem[PREFIX.len()..PREFIX.len() + i])
             })
             .ok_or_else(|| {
                 format!(
