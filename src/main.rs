@@ -80,8 +80,8 @@ fn run_optimize(cli: &OptimizeCli) {
         .to_path_buf();
 
     let stats_file = match gearstats::find_latest_stats_file(&char_dir, &character) {
-        Some(path) => path,
-        None => {
+        Ok(Some(path)) => path,
+        Ok(None) => {
             eprintln!(
                 "No lgo_{}_gear.toml or lgo_stats_*.toml file found in {}",
                 character,
@@ -99,6 +99,10 @@ fn run_optimize(cli: &OptimizeCli) {
             );
             eprintln!("  7) Run: lgo resolve-slots");
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
+            process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("Error: {}", e);
             process::exit(1);
         }
     };
@@ -371,9 +375,15 @@ fn resolve_plugindata(cli: &OptimizeCli) -> Result<(PathBuf, String), String> {
             .file_stem()
             .and_then(|s| s.to_str())
             .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
-        let character = stem
+        // Strip the prefix case-insensitively but preserve the original
+        // character-segment casing for downstream display purposes.
+        let stem_lower = stem.to_ascii_lowercase();
+        let character = stem_lower
             .strip_prefix("lgo_gearlist_")
-            .and_then(|s| s.rsplitn(2, '_').nth(1))
+            .and_then(|s| {
+                // Find the last '_' separating char from timestamp.
+                s.rfind('_').map(|i| &stem[("lgo_gearlist_".len())..("lgo_gearlist_".len() + i)])
+            })
             .ok_or_else(|| {
                 format!(
                     "Filename '{}' does not match expected pattern lgo_gearlist_{{character}}_{{timestamp}}",
@@ -430,11 +440,12 @@ fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| {
-            p.extension().and_then(|e| e.to_str()) == Some("plugindata")
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("lgo_gearlist_"))
-                    .unwrap_or(false)
+            let name = match p.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => return false,
+            };
+            let name_lower = name.to_ascii_lowercase();
+            name_lower.ends_with(".plugindata") && name_lower.starts_with("lgo_gearlist_")
         })
         .collect();
 
