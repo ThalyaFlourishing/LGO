@@ -6,24 +6,26 @@ How to go from in-game export to optimization report.
 Assumes the in-game plugin, the bookmarklet, and the lgo binary are
 already installed. (Installation instructions: TBD, separate document.)
 
-Summary brief here, detailed instructions below:
+===============================================
+Short User Instructions (detailed instructions below)
 -----------------------------------------------
 1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
-2. Run `/lgo export` in-game → one `lgo_gearlist_*.plugindata` file is written.
-3. Open https://lotro-wiki.com in a browser.
-4. Click the **LGO Stats** bookmarklet.
-5. Paste the contents of `lgo_gearlist_*.plugindata` when prompted.
-6. The bookmarklet builds a `.toml`. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
-7. Save the `.toml` to the `AllServers` directory as `lgo_<character>_stats.toml` (the bookmarklet's transient output; overwritten on each re-export).
-8. Run `lgo resolve-slots` — reads `lgo_<character>_stats.toml`, looks each item up in `data/lgo_items.json`, merges into the canonical `lgo_<character>_gear.toml` (the sole input the optimizer reads). On every iteration items already present in the canonical file are **preserved verbatim** (so hand-edits to legendary stats, essence sums, etc. survive); items absent from the new export are removed. Pass `--force` (alias `-f`) to opt into per-item prompts before overwriting or removing entries; identical-data items remain a no-op even under `--force`.
-9. Run `lgo optimize tm:<number> cr:<number> fn:<number>` (etc.) — The Optimizer prefers `lgo_<character>_gear.toml`, falling back to legacy `lgo_stats_*.toml` only if the canonical file does not yet exist.
+2. Run `/lgo export` in-game. A `lgo_gearlist_*.plugindata` file will be saved in your plugindata folder.
+3. Open https://lotro-wiki.com in a browser. The bookmarklet will not work on any other site.
+4. Click the **LGO Stats** bookmarklet. A small pop-up will appear.
+5. Copy and paste in the contents of `lgo_gearlist_*.plugindata` , then hit 'OK'.
+6. The bookmarklet builds a `.toml` file. (Scroll down)
+7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_stats.toml`.
+8. Open a a command-line window on your computer and run `lgo resolve-slots`.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. The Optimizer will then try every combination of gear to see if it is possible to reach those values. If it finds some, it picks the best one and shows you in the terminal window, and writes and HTML file which you can bookmark in your browser for easy viewing.
 
-=================
-Full Instructions
------------------
 
-1. In LotRO, place the gear items you want considered into the Shared
-   Storage chest you have renamed 'lgo' (or 'LGO'). Items already
+======================
+Detailed User Instructions
+----------------------
+
+1. In LotRO, rename a Shared Storage chest 'lgo' (or 'LGO') Place the gear items you want considered into that chest. 
+   Items already
    equipped on the character are picked up automatically and do not
    need to go in the chest.
 
@@ -34,7 +36,9 @@ Full Instructions
    The plugin writes one file into your character's plugin-data
    directory:
 
-       lgo_gearlist_<character>_<timestamp>.plugindata
+       lgo_gearlist_<character-name>_<timestamp>.plugindata
+       
+   This file is a list of all the items you currently have equipped, plus all the ones you put in the 'lgo' shared-storage chest, plus your character's name and base stats. Unfortunately getting item stats from LotRO is *extremely* difficult, so this file is not the last one you have to make, sorry. :(
 
 3. Open https://lotro-wiki.com in your web browser. You must be on
    lotro-wiki.com before clicking the bookmarklet; it will refuse to
@@ -43,58 +47,60 @@ Full Instructions
 4. Click the 'LGO Stats' bookmarklet/link/button in your bookmarks bar.
 
 5. When prompted, paste the entire contents of the
-   lgo_gearlist_<character>_<timestamp>.plugindata file you just generated.
+   lgo_gearlist_<character-name>_<timestamp>.plugindata file you just generated.
 
-6. Wait while the bookmarklet looks each item up on the wiki. It should only take 5-10 seconds.
-   (Depending on your Internet connection) The bookmarklet builds a `.toml` file. The summary panel categorises items into three groups: directly resolved, auto-picked from disambiguation variants (informational — the chosen wiki page is listed for audit), and needs-hand-edit. Items in the last group are written with all stats `= 0` and a typed `# UNRESOLVED: ...` comment explaining why; the user fills these in by inspecting their gear in-game.
-   Progress is shown on the page. When it finishes, it  displays a 'Resolved / Unresolved' summary and a text area containing the generated TOML.
+6. Wait while the bookmarklet looks each item up on the wiki. It usually takes 5–10 seconds, depending on your internet connection. Progress is shown on the page. When it finishes, it shows a summary of how many items were found cleanly, how many had to be picked from a list of variants automatically, and how many it could not find at all. The unfound items appear in the output with all stats set to 0 and a comment line beginning # UNRESOLVED: explaining why. You will need to fill those stats in by hand later (step 9). The bookmarklet then displays a text area containing the generated file.
 
-7. Click 'Select All', copy the text, and save it into your character's
-   AllServers directory as:
+7. Click 'Select All', copy the text, and save it into your character's AllServers directory, naming the file:
 
-       lgo_<character>_stats.toml
+lgo_<character-name>_stats.toml
 
-   This is the bookmarklet's transient output. The next step (8) reads
-   it, merges it with the canonical gear file, and is what writes the
-   file the optimizer actually uses.
+(Replace <character-name> with your character's name, exactly as LotRO spells it. Keep the file name lowercase. The next step reads this file and combines it with your saved gear file; you will not need to look at this file directly.)
 
 8. From a command prompt, run:
 
        lgo resolve-slots
 
-   This reads the .toml you just saved, looks each item's slot up in
+   This reads the stats .toml file you just saved, looks each item's slot up in
    the local item database, and adds the slot names to those items.
    
-   Items not in the database keep their original slot value (usually
-   'Unknown'). Their names are printed to the terminal so you know
-   which entries in the 'lgo_<character-name>_gear.toml' file may need hand-editing.
+   There may be items not found in the database. They will keep their original slot value (usually 'Unknown'). Their names are printed to the terminal window so you know which entries in the 'lgo_<character-name>_gear.toml' file are likely to need hand-editing.
    
-   If there is a pre-existing .toml file, it will not overwrite any items already present. (Thereby preserving any hand-edits you make) However, you may force the program to overwrite any edits you may have made previously by using the --force switch, as follows:
+   The first time you run this command, it creates a file called lgo_<character-name>_gear.toml. On subsequent runs, it reads that file and adds any new items to it. Items already in the file are kept exactly as they were — so any stats you have hand-edited (for legendary items, essences, etc.) are safe, even if the latest bookmarklet output disagrees with them. If an item is no longer in your gear export (you moved it, sold it, decon'd it, etc.), it is removed from the file.
    
-    lgo resolve-slots --force
-  or just
-    lgo resolve-slots -f
+   To force the new bookmarklet output to overwrite your existing file, add --force (or its short form -f):
+
+      lgo resolve-slots --force
+
+   In --force mode, the program will ask you, item by item, before changing or removing anything. Each prompt looks like:
+
+      Overwrite stats for "Test Helm"? (y/n/a)
+
+   or:
+
+      Remove "Old Sword" (no longer in export)? (y/n/a)
+
+   Type y to allow the change, n to keep your existing data, or a to allow that kind of change for all remaining items without further prompting (overwrites and removals are tracked separately, so an a to one kind does not automatically apply to the other).
    
-   8a. This database may in the future need to be updated as content 
-   is added to LotRO. The way to do this is:
+   NOTE:. That local item database may in the future need to be updated as content is added to LotRO. The way to do this is:
     1. Download a new copy of items.xml from this URL:
        https://github.com/LotroCompanion/lotro-items-db/blob/master/items.xml
-    2. Save it inside the 'lgo/data' folder. (Overwrite the existing one) 
+       If that link no longer works, tell Thalya.
+    2. Save it as 'items.xml' inside the 'data' folder. (Overwrite the existing one) 
     3. Run this command:  lgo build-db
 
 9. You will probably (optional) need to open the final .toml file in 
-   a text editor and review it. You may need to hand-edit some kinds of 
+   a text editor and review it. You will need to hand-edit some kinds of 
    data:
        - Legendary Items
        - Essence stats: add (sum) them into the item stats
-       - Items flagged with '# WARNING: all stats unknown' (the
-         bookmarklet could not find them on the wiki). Fill in the
-         stat values by hand.
-       - Items left with slot = "Unknown" by step 8. Fill in the
-         correct slot by hand.
+       - Items flagged with '# UNRESOLVED'.
+       - Items left with slot = "Unknown" by step 8.
 
    In practice, hand-editing is most often needed for legendary
    items, recently renamed items, and very new items.
+   
+   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gear.toml.
 
 
 10. From the command prompt, run the optimizer with your stat goals,
