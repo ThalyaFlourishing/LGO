@@ -1,5 +1,7 @@
 //! Gear set optimizer.
 //!
+//! Model guidance: high borrow-checker/algorithmic friction — see `docs/MODEL_GUIDANCE.md` before non-trivial edits.
+//!
 //! ## Correctness of the per-slot greedy approach
 //!
 //! Because gear stats are strictly additive across independent slots, the

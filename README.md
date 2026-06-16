@@ -71,3 +71,12 @@ LGO optimizes by strict lexicographic priority:
 A solution is **feasible** only if all minima are met.
 
 If no feasible set exists, LGO still returns the best available lexicographic result and reports which minima were missed.
+
+## Contributing / AI model guidance
+
+If you edit LGO with the help of an AI coding model, see
+[`docs/MODEL_GUIDANCE.md`](docs/MODEL_GUIDANCE.md) for a per-file
+recommendation on which class of model to use. Short version: most of the
+codebase is safe for a cheap, fast model, but `src/optimizer.rs` and
+`src/slot_resolver.rs` carry enough algorithmic and borrow-checker
+subtlety to warrant a frontier model for non-trivial edits.

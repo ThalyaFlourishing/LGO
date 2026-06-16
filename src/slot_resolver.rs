@@ -1,6 +1,8 @@
 //! Slot resolver — name → canonical Slot lookup from `data/lgo_items.json`,
 //! plus end-to-end `.toml` rewrite.
 //!
+//! Model guidance: high borrow-checker/algorithmic friction — see `docs/MODEL_GUIDANCE.md` before non-trivial edits.
+//!
 //! Two layers:
 //!
 //! 1. `ItemsDb` — in-memory name → Slot index.
