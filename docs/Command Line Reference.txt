@@ -122,6 +122,7 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
     When cargo build --release runs, every [[bin]] becomes a standalone executable in target/release/
 
   cargo run -- optimize <stat:min> ...
+               optimize tm:450000 cr:350000 fn:0
   
   cargo run -- resolve-slots
     Build (if needed) and run lgo; args after -- are passed through to lgo.
