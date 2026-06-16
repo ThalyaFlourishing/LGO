@@ -38,8 +38,24 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<GearItem>, String> {
             .ok_or_else(|| format!("[[item]] #{} missing 'name'", idx + 1))?
             .to_string();
 
-        let slot = parse_slot_str(slot_str)
-            .ok_or_else(|| format!("[[item]] #{} unrecognised slot '{}'", idx + 1, slot_str))?;
+        let slot = match parse_slot_str(slot_str) {
+            Some(s) => s,
+            None => {
+                // "Unknown" is the bookmarklet's explicit marker for items it
+                // couldn't resolve (no wiki page, disambiguation, etc.).
+                // These are dropped silently because the user already saw the
+                // UNRESOLVED/AUTO-PICKED comment in the TOML; no extra noise.
+                // Any other unrecognised string (e.g. "Bridle", "tool") gets a
+                // warning so the user knows the item was skipped.
+                if slot_str != "Unknown" {
+                    eprintln!(
+                        "Warning: skipping \"{}\": slot \"{}\" is not optimizer-relevant",
+                        name, slot_str
+                    );
+                }
+                continue;
+            }
+        };
 
         let mut stats: HashMap<Stat, i64> = HashMap::new();
 
@@ -390,5 +406,114 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+
+    // ── read_stats_file: non-canonical slot handling ──────────────────────────
+
+    #[test]
+    fn read_stats_file_silently_skips_unknown_slot() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Good Helm"
+
+[[item]]
+slot = "Unknown"
+name = "Mystery Item"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.len(), 1, "Unknown slot must be silently skipped");
+        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_skips_bridle_slot_with_warning() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Good Helm"
+
+[[item]]
+slot = "Bridle"
+name = "Scholar's Light Bridle"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.len(), 1, "Bridle slot must be skipped");
+        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_skips_tool_slot_variants() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Good Helm"
+
+[[item]]
+slot = "tool"
+name = "Craft Tool A"
+
+[[item]]
+slot = "Tool"
+name = "Craft Tool B"
+
+[[item]]
+slot = "Craft Tool"
+name = "Craft Tool C"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.len(), 1, "all tool slot variants must be skipped");
+        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_parses_all_19_canonical_slots() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let mut toml = String::new();
+        for slot in crate::gear::Slot::ALL {
+            toml.push_str(&format!(
+                "\n[[item]]\nslot = \"{}\"\nname = \"Item for {}\"\n",
+                slot, slot
+            ));
+        }
+        // Add one Unknown and one Bridle — both must be skipped.
+        toml.push_str("\n[[item]]\nslot = \"Unknown\"\nname = \"Mystery\"\n");
+        toml.push_str("\n[[item]]\nslot = \"Bridle\"\nname = \"A Bridle\"\n");
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(
+            result.len(),
+            crate::gear::Slot::ALL.len(),
+            "all 19 canonical slots must parse; Unknown and Bridle must be skipped"
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_missing_name() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = "[[item]]\nslot = \"Head\"\n";
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path);
+        assert!(result.is_err(), "missing name must return Err");
+        assert!(
+            result.unwrap_err().contains("missing 'name'"),
+            "error must mention missing 'name'"
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }
