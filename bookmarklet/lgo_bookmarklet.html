@@ -16,7 +16,7 @@
   <h1>LGO Bookmarklet</h1>
   <p>Drag the link below to your bookmarks bar, then navigate to https://lotro-wiki.com and click it.</p>
   <p><a id="bookmarklet-link" href="javascript:void(0)">LGO Stats</a></p>
-  <p><strong>Workflow:</strong> export item names in-game, click the bookmarklet on lotro-wiki.com, paste itemnames data, then copy/save the generated TOML into your AllServers directory.</p>
+  <p><strong>Workflow:</strong> export gear in-game, click the bookmarklet on lotro-wiki.com, paste the plugindata, then click <em>Save TOML...</em> when fetching finishes — the file is saved as <code>lgo_&lt;character&gt;_stats.toml</code>. (Falls back to the browser's Downloads folder on non-Chromium browsers.)</p>
   <p><em>Note: the bookmarklet only works when you are already on lotro-wiki.com.</em></p>
 
   <script>
@@ -89,7 +89,11 @@
           return out;
         }
 
-        function parseNamesFromPlugindata(src) {
+        function unescapePlugindataString(value) {
+          return value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        }
+
+        function parsePlugindata(src) {
           const blockMatch = src.match(/\["names"\]\s*=\s*\{([\s\S]*?)\}\s*\}/m);
           if (!blockMatch) throw new Error("Could not find [\"names\"] table in pasted data.");
           const namesBlock = blockMatch[1];
@@ -97,9 +101,30 @@
           const re = /\[[^\]]+\]\s*=\s*"((?:\\.|[^"])*)"/g;
           let m;
           while ((m = re.exec(namesBlock)) !== null) {
-            names.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+            names.push(unescapePlugindataString(m[1]));
           }
-          return names;
+          const charMatch = src.match(/\["character"\]\s*=\s*"((?:\\.|[^"])*)"/);
+          const character = charMatch ? unescapePlugindataString(charMatch[1]).trim() : "";
+          return { character: character || "name-unknown", names };
+        }
+
+        function updateStatusPanel(message, borderColor) {
+          const status = document.getElementById("lgo-bookmarklet-status");
+          if (!status) return;
+          status.textContent = message;
+          if (borderColor) status.style.borderColor = borderColor;
+        }
+
+        function updateStatusSuccess(message) {
+          updateStatusPanel(message, "#080");
+        }
+
+        function updateStatusError(message) {
+          updateStatusPanel(message, "#c00");
+        }
+
+        function updateStatusInfo(message) {
+          updateStatusPanel(message, "#333");
         }
 
         function extractTooltipTemplate(wikitext) {
@@ -202,7 +227,7 @@
           return out;
         }
 
-        function renderResult(items) {
+        function renderResult(items, character, toml) {
           /* Categorises items by outcome and renders summary panels. */
           const resolved   = items.filter(i => i.outcome === "resolved");
           const autoPicked = items.filter(i => i.outcome === "auto-picked");
@@ -270,17 +295,66 @@
             wrap.appendChild(list);
           }
 
+          const saveBtn = document.createElement("button");
+          saveBtn.textContent = "Save TOML...";
+
           const btn = document.createElement("button");
           btn.textContent = "Select All";
+          btn.style.marginLeft = "0.5rem";
 
           const ta = document.createElement("textarea");
           ta.rows = 40;
+          ta.value = toml;
+
+          saveBtn.addEventListener("click", async function () {
+            const filename = `lgo_${character}_stats.toml`;
+
+            if (typeof window.showSaveFilePicker === "function") {
+              let handle;
+              try {
+                handle = await window.showSaveFilePicker({
+                  suggestedName: filename,
+                  types: [{ description: "TOML", accept: { "text/plain": [".toml"] } }]
+                });
+              } catch (e) {
+                if (e && e.name === "AbortError") return;
+                updateStatusError(`Save failed: ${e.message}. You can still copy from the textarea below.`);
+                return;
+              }
+
+              try {
+                const writable = await handle.createWritable();
+                await writable.write(toml);
+                await writable.close();
+                updateStatusSuccess(`Saved as ${filename}.`);
+              } catch (e) {
+                updateStatusError(`Save failed: ${e.message}. You can still copy from the textarea below.`);
+              }
+              return;
+            }
+
+            try {
+              const blob = new Blob([toml], { type: "text/plain" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+              updateStatusInfo(`Saved to Downloads folder as ${filename} — please move to AllServers\\`);
+            } catch (e) {
+              updateStatusError(`Save failed: ${e.message}. You can still copy from the textarea below.`);
+            }
+          });
 
           btn.addEventListener("click", function () {
             ta.focus();
             ta.select();
           });
 
+          wrap.appendChild(saveBtn);
           wrap.appendChild(btn);
           wrap.appendChild(document.createElement("br"));
           wrap.appendChild(ta);
@@ -418,14 +492,15 @@
             return;
           }
 
-          const pasted = prompt("Paste your lgo_itemnames_*.plugindata contents:");
+          const pasted = prompt("Paste your lgo_gearlist_*.plugindata contents:");
           if (!pasted) return;
 
+          let character;
           let names;
           try {
-            names = parseNamesFromPlugindata(pasted);
+            ({ character, names } = parsePlugindata(pasted));
           } catch (e) {
-            alert("Could not parse item names: " + e.message);
+            alert("Could not parse plugindata: " + e.message);
             return;
           }
 
@@ -468,11 +543,10 @@
             }
           }
 
-          status.textContent = "Done fetching items.";
+          updateStatusInfo("Done fetching items.");
 
           const toml = buildToml(items);
-          const ta = renderResult(items);
-          ta.value = toml;
+          renderResult(items, character, toml);
         }
 
         run().catch(err => alert("LGO bookmarklet failed: " + err));
