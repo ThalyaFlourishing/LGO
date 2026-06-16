@@ -2,11 +2,11 @@
 
 `SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both `"shoulder"` and `"shoulders"` (lower-cased keys) to `SLOT_MAP`.
 
-### Bug 2 — `mapSlot()` fallback leaks raw wiki text ? DEFERRED
+### Bug 2 — `mapSlot()` fallback leaks raw wiki text ✅ FIXED
 
-`mapSlot()` line 157: `return mapped || cleaned;` — when a slot string isn't in `SLOT_MAP`, returns the raw wiki value, which will fail `parse_slot_str` later. **Currently latent**: no observed example of raw wiki text reaching the TOML output.
+`mapSlot()` line 171 previously returned the raw cleaned string for any slot value not in `SLOT_MAP`, allowing free-text wiki vocabulary like `"tool"`, `"bridle"`, `"Shoulder"`, or `"Gloves"` to reach the TOML output. The resolver's name-based lookup canonicalised these for items it recognised, but for items not in `data/lgo_items.json` (Bridle, Craft Tool, legendaries, recently-added items) the raw wiki string would propagate all the way to the optimizer's TOML reader and crash it with `unrecognised slot 'X'`.
 
-*(Largely moot once the resolver lands: the bookmarklet stops being trusted for slots at all, so even raw wiki text leaking through `mapSlot` will be overwritten by `resolve-slots`.)*
+**Fix:** `mapSlot` now returns `"Unknown"` instead of the raw cleaned string. Combined with the `gearstats::read_stats_file` change to skip items with non-canonical slots (silently for `"Unknown"`, with a stderr warning for any other unrecognised string), the optimizer no longer chokes on these items.
 
 ### Bug 3 — Items with parsed stats emit `slot = "Unknown"` ? FIXED
 

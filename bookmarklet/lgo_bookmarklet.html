@@ -193,7 +193,7 @@
           const cleaned = String(raw || "").trim();
           if (!cleaned) return "Unknown";
           const mapped = SLOT_MAP[cleaned.toLowerCase()];
-          return mapped || cleaned;
+          return mapped || "Unknown";
         }
 
         function buildToml(items) {

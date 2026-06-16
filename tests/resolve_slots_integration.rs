@@ -14,7 +14,7 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("data/lgo_items.json must load");
     let input_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_stats_Thalya_20260525_215012.toml");
+        .join("TestData/lgo_Thalya_stats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
@@ -35,7 +35,7 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
         })
         .collect();
 
-    assert_eq!(resolved, 64, "resolved count drift");
+    assert_eq!(resolved, 68, "resolved count drift");
     assert_eq!(unknown_names.len(), 2, "unknown count drift");
 
     let mut sorted_unknowns = unknown_names.clone();
@@ -49,7 +49,7 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
         "unknown item set drift"
     );
 
-    assert_eq!(outcomes.len(), 66, "total item count drift");
+    assert_eq!(outcomes.len(), 70, "total item count drift");
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn resolved_output_round_trips_through_gearstats_reader() {
 
     assert_eq!(
         parsed_len,
-        Ok(64),
+        Ok(68),
         "resolved canonical-slot subset must parse"
     );
 }
@@ -100,8 +100,8 @@ fn resolved_output_round_trips_through_gearstats_reader() {
 fn bookmarklet_warning_comments_survive_resolution() {
     let (out, _) = setup();
     assert!(
-        out.contains("# WARNING: all stats unknown"),
-        "WARNING comments must survive resolution"
+        out.contains("# UNRESOLVED:"),
+        "UNRESOLVED comments must survive resolution"
     );
 }
 
@@ -246,7 +246,7 @@ fn file_level_merge_first_run_creates_canonical_file() {
 
     std::fs::copy(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_stats_Thalya_20260525_215012.toml"),
+            .join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -265,7 +265,7 @@ fn file_level_merge_first_run_creates_canonical_file() {
     assert!(!report.previous_existed);
     assert!(!report.no_new_export);
     assert!(report.outcome.preserved.is_empty());
-    assert_eq!(report.outcome.added.len(), 66);
+    assert_eq!(report.outcome.added.len(), 70);
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -279,7 +279,7 @@ fn file_level_merge_idempotent_on_repeat() {
 
     std::fs::copy(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_stats_Thalya_20260525_215012.toml"),
+            .join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -319,7 +319,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_stats_Thalya_20260525_215012.toml");
+        .join("TestData/lgo_Thalya_stats.toml");
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture");
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
@@ -424,7 +424,7 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
     let bookmarklet_lowercase = dir.join("lgo_thalya_stats.toml");
     std::fs::copy(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_stats_Thalya_20260525_215012.toml"),
+            .join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet_lowercase,
     )
     .expect("copy fixture");
@@ -469,7 +469,7 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
     // Place the canonical file with all-lowercase name.
     let canonical_lowercase = dir.join("lgo_thalya_gear.toml");
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_stats_Thalya_20260525_215012.toml");
+        .join("TestData/lgo_Thalya_stats.toml");
 
     // First pass: run with matching bookmarklet to create a valid canonical file.
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
