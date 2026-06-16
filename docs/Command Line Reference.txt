@@ -45,7 +45,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo resolve-slots
     Auto-detect the latest lgo_stats_*.toml in the selected character's AllServers
     directory, resolve slot names via data/lgo_items.json, and write a sibling
-    lgo_stats_*_resolved.toml output.
+    .toml output.
 
   lgo resolve-slots --character <name>
   lgo resolve-slots -c <name>
@@ -122,6 +122,7 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
     When cargo build --release runs, every [[bin]] becomes a standalone executable in target/release/
 
   cargo run -- optimize <stat:min> ...
+  
   cargo run -- resolve-slots
     Build (if needed) and run lgo; args after -- are passed through to lgo.
 

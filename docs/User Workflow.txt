@@ -51,11 +51,17 @@ Detailed User Instructions
 
 6. Wait while the bookmarklet looks each item up on the wiki. It usually takes 5–10 seconds, depending on your internet connection. Progress is shown on the page. When it finishes, it shows a summary of how many items were found cleanly, how many had to be picked from a list of variants automatically, and how many it could not find at all. The unfound items appear in the output with all stats set to 0 and a comment line beginning # UNRESOLVED: explaining why. You will need to fill those stats in by hand later (step 9). The bookmarklet then displays a text area containing the generated file.
 
-7. Click 'Select All', copy the text, and save it into your character's AllServers directory, naming the file:
+7. Hit the 'Save TOML' button and save the file in this folder:
+
+C:\Users\ <YOUR USER NAME> \Documents\The Lord of the Rings Online\PluginData\Thalya\AllServers
+
+ and name the file:
 
 lgo_<character-name>_stats.toml
 
-(Replace <character-name> with your character's name, exactly as LotRO spells it. Keep the file name lowercase. The next step reads this file and combines it with your saved gear file; you will not need to look at this file directly.)
+If that doesn't work, click 'Select All', copy the text, paste it into a new file and *then* save it.
+
+(Replace <character-name> with your character's name, exactly as LotRO spells it. The next step reads this file and combines it with your saved gear file; you will not need to look at this file directly.)
 
 8. From a command prompt, run:
 
