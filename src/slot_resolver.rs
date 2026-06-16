@@ -960,14 +960,10 @@ pub fn resolve_stats_file(
     // querying with `"Thalya"`. Collisions (two files differing only in case)
     // return an error; this cannot happen on Windows but is caught cleanly on
     // Linux.
-    let bookmarklet_found =
-        crate::gearstats::find_bookmarklet_output(char_dir, character).map_err(|msg| {
-            ResolveError::AmbiguousFiles { message: msg }
-        })?;
-    let canonical_found =
-        crate::gearstats::find_canonical_gear_file(char_dir, character).map_err(|msg| {
-            ResolveError::AmbiguousFiles { message: msg }
-        })?;
+    let bookmarklet_found = crate::gearstats::find_bookmarklet_output(char_dir, character)
+        .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?;
+    let canonical_found = crate::gearstats::find_canonical_gear_file(char_dir, character)
+        .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?;
 
     // Write-follows-read: if an existing canonical file was found (possibly
     // with different casing), write back to that exact path.  If none exists
@@ -1011,16 +1007,17 @@ pub fn resolve_stats_file(
             source: e,
         })?;
 
-    let (resolved_src, _outcomes) = resolve_toml_str(&bookmarklet_src, db).map_err(|e| match e {
-        ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
-            path: bookmarklet_path.clone(),
-            source,
-        },
-        ResolveError::NoItemsArray { .. } => ResolveError::NoItemsArray {
-            path: bookmarklet_path.clone(),
-        },
-        other => other,
-    })?;
+    let (resolved_src, _outcomes) =
+        resolve_toml_str(&bookmarklet_src, db).map_err(|e| match e {
+            ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
+                path: bookmarklet_path.clone(),
+                source,
+            },
+            ResolveError::NoItemsArray { .. } => ResolveError::NoItemsArray {
+                path: bookmarklet_path.clone(),
+            },
+            other => other,
+        })?;
 
     let previous_src = if canonical_existed {
         Some(
@@ -1627,8 +1624,8 @@ name = \"Test Helm\"\n";
             ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
         ]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
-        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
-            .expect("must merge");
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.removed.is_empty());
@@ -1647,8 +1644,8 @@ name = \"Test Helm\"\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
-            .expect("must merge");
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.removed, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(!outcome.merged_text.contains("Test Sword"));
@@ -1662,8 +1659,8 @@ name = \"Test Helm\"\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce)
-            .expect("must merge");
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
         assert!(
@@ -1826,8 +1823,8 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(Some(prev), &incoming, ForceMode::NoForce)
-            .expect("must merge");
+        let outcome =
+            merge_into_canonical(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert!(
             outcome
                 .merged_text

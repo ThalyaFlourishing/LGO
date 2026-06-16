@@ -13,8 +13,7 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     );
 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("data/lgo_items.json must load");
-    let input_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_Thalya_stats.toml");
+    let input_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
@@ -245,8 +244,7 @@ fn file_level_merge_first_run_creates_canonical_file() {
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -278,8 +276,7 @@ fn file_level_merge_idempotent_on_repeat() {
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -318,8 +315,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_Thalya_stats.toml");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture");
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
@@ -334,11 +330,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     // line into the canonical file. We do it by injecting a unique
     // comment that must round-trip.
     let mut canon_text = std::fs::read_to_string(&canonical).expect("read canonical");
-    canon_text = canon_text.replacen(
-        "[[item]]",
-        "# user hand-edit: keep this line\n[[item]]",
-        1,
-    );
+    canon_text = canon_text.replacen("[[item]]", "# user hand-edit: keep this line\n[[item]]", 1);
     std::fs::write(&canonical, &canon_text).expect("write canonical");
 
     // Re-export (same fixture; "no actual changes from the new export
@@ -423,8 +415,7 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
     // Write the fixture as `lgo_thalya_stats.toml` (all lowercase).
     let bookmarklet_lowercase = dir.join("lgo_thalya_stats.toml");
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
         &bookmarklet_lowercase,
     )
     .expect("copy fixture");
@@ -468,8 +459,7 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
 
     // Place the canonical file with all-lowercase name.
     let canonical_lowercase = dir.join("lgo_thalya_gear.toml");
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_Thalya_stats.toml");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
 
     // First pass: run with matching bookmarklet to create a valid canonical file.
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
@@ -486,10 +476,12 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
     // Rename the canonical file to lowercase to simulate it having been saved
     // with a different case (e.g. by the user or a previous tool version).
     let canonical_exact = lgo::slot_resolver::canonical_gear_path(&dir, character);
-    std::fs::rename(&canonical_exact, &canonical_lowercase)
-        .expect("rename to lowercase canonical");
+    std::fs::rename(&canonical_exact, &canonical_lowercase).expect("rename to lowercase canonical");
     assert!(!canonical_exact.exists(), "exact-cased file must be gone");
-    assert!(canonical_lowercase.exists(), "lowercase canonical must exist");
+    assert!(
+        canonical_lowercase.exists(),
+        "lowercase canonical must exist"
+    );
 
     // Second pass: re-run with a fresh bookmarklet copy.
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for second run");
@@ -514,8 +506,10 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
         report.canonical_path, canonical_lowercase,
         "report canonical_path must be the on-disk lowercase path"
     );
-    assert!(report.previous_existed, "resolver must have found existing canonical");
+    assert!(
+        report.previous_existed,
+        "resolver must have found existing canonical"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
-

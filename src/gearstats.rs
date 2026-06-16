@@ -290,7 +290,10 @@ mod tests {
         let found = find_latest_stats_file(&dir, "Thalya")
             .expect("no error")
             .expect("must find a file");
-        assert_eq!(found, canonical, "canonical gear file must win over lex scan");
+        assert_eq!(
+            found, canonical,
+            "canonical gear file must win over lex scan"
+        );
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }
@@ -300,8 +303,7 @@ mod tests {
         let dir = make_test_dir();
 
         // Decoy lgo_stats_*.toml — must NOT be returned.
-        std::fs::write(dir.join("lgo_stats_Thalya_20260101_000000.toml"), "")
-            .expect("write decoy");
+        std::fs::write(dir.join("lgo_stats_Thalya_20260101_000000.toml"), "").expect("write decoy");
         assert!(
             find_bookmarklet_output(&dir, "Thalya")
                 .expect("no error")
@@ -398,8 +400,7 @@ mod tests {
         std::fs::write(dir.join("lgo_Thalya_stats.toml"), "").expect("write 1");
         std::fs::write(dir.join("lgo_thalya_stats.toml"), "").expect("write 2");
 
-        let err =
-            find_bookmarklet_output(&dir, "Thalya").expect_err("should error on collision");
+        let err = find_bookmarklet_output(&dir, "Thalya").expect_err("should error on collision");
         assert!(
             err.contains("lgo_Thalya_stats.toml") && err.contains("lgo_thalya_stats.toml"),
             "error must name both colliding files: {err}"

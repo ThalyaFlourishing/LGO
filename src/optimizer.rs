@@ -1020,10 +1020,7 @@ mod tests {
             goal(Stat::TacticalMitigation, 600),
         ];
 
-        let result = optimize(
-            &resolved, &["Bad".to_string(), "Good".to_string()],
-            &goals,
-        );
+        let result = optimize(&resolved, &["Bad".to_string(), "Good".to_string()], &goals);
         assert!(result.feasible, "Result should be feasible");
         assert!(result.failed_minima.is_empty());
     }
@@ -1087,7 +1084,8 @@ mod tests {
 
         let goals = vec![goal(Stat::CriticalRating, 900)];
         let result = optimize(
-            &resolved, &["RingA".to_string(), "RingB".to_string()],
+            &resolved,
+            &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
 
@@ -1125,7 +1123,8 @@ mod tests {
 
         let goals = vec![goal(Stat::CriticalRating, 1001)];
         let result = optimize(
-            &resolved, &["RingA".to_string(), "RingB".to_string()],
+            &resolved,
+            &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
 
@@ -1341,10 +1340,7 @@ mod tests {
             goal(Stat::TacticalMitigation, 600), // priority 2 — floor = 600
         ];
 
-        let result = optimize(
-            &resolved, &["EarA".to_string(), "EarB".to_string()],
-            &goals,
-        );
+        let result = optimize(&resolved, &["EarA".to_string(), "EarB".to_string()], &goals);
 
         assert!(
             result.feasible,
@@ -1386,7 +1382,8 @@ mod tests {
 
         let goals = vec![goal(Stat::TacticalMitigation, 200)];
         let result = optimize(
-            &resolved, &["ItemA".to_string(), "ItemX".to_string()],
+            &resolved,
+            &["ItemA".to_string(), "ItemX".to_string()],
             &goals,
         );
 

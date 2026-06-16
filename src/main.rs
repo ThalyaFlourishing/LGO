@@ -344,8 +344,7 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
             }
             "--progressions" => {
                 i += 1;
-                progressions =
-                    PathBuf::from(args.get(i).ok_or("--progressions requires a path")?);
+                progressions = PathBuf::from(args.get(i).ok_or("--progressions requires a path")?);
             }
             "--out" => {
                 i += 1;
@@ -530,7 +529,9 @@ fn print_usage() {
     println!("  3) Navigate to https://lotro-wiki.com in your browser");
     println!("  4) Click the LGO bookmarklet");
     println!("  5) Paste the contents of lgo_gearlist_*.plugindata when prompted");
-    println!("  6) Save the generated TOML as lgo_<character>_stats.toml in your AllServers directory");
+    println!(
+        "  6) Save the generated TOML as lgo_<character>_stats.toml in your AllServers directory"
+    );
     println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gear.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!();
@@ -626,7 +627,9 @@ mod tests {
         for token in ["--force", "-f"] {
             let cmd = parse_command(&s(&["resolve-slots", token])).expect("must parse");
             match cmd {
-                Command::ResolveSlots(cli) => assert!(cli.force, "force should be set for {}", token),
+                Command::ResolveSlots(cli) => {
+                    assert!(cli.force, "force should be set for {}", token)
+                }
                 _ => panic!("expected resolve-slots"),
             }
         }

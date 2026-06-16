@@ -21,11 +21,7 @@ use crate::stat::Stat;
 
 /// Build the item database from `items_path` and `progressions_path` and write
 /// the result to `out_path`. Always overwrites an existing file.
-pub fn build(
-    items_path: &Path,
-    progressions_path: &Path,
-    out_path: &Path,
-) -> Result<(), String> {
+pub fn build(items_path: &Path, progressions_path: &Path, out_path: &Path) -> Result<(), String> {
     let prog_str = progressions_path
         .to_str()
         .ok_or_else(|| format!("Invalid path: {}", progressions_path.display()))?;
@@ -50,9 +46,9 @@ pub fn build(
         items.len()
     );
 
-    let json = serde_json::to_string_pretty(&items).map_err(|e| format!("Failed to serialise items: {}", e))?;
-    fs::write(out_path, &json)
-        .map_err(|e| format!("Cannot write '{}': {}", out_str, e))?;
+    let json = serde_json::to_string_pretty(&items)
+        .map_err(|e| format!("Failed to serialise items: {}", e))?;
+    fs::write(out_path, &json).map_err(|e| format!("Cannot write '{}': {}", out_str, e))?;
 
     eprintln!("[build-db] Written to: {}", out_str);
     Ok(())
@@ -561,7 +557,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_low > best {
             out_levels.insert(name.clone(), level_low);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: low_stats,
+                },
+            );
         }
 
         // Insert high-level entry second (level 160).
@@ -569,7 +572,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_high > best {
             out_levels.insert(name.clone(), level_high);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: high_stats,
+                },
+            );
         }
 
         assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
@@ -589,7 +599,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_high > best {
             out_levels.insert(name.clone(), level_high);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: high_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: high_stats,
+                },
+            );
         }
 
         let mut low_stats = HashMap::new();
@@ -598,7 +615,14 @@ mod tests {
         let best = out_levels.get(&name).copied().unwrap_or(-1);
         if level_low > best {
             out_levels.insert(name.clone(), level_low);
-            out.insert(name.clone(), CachedItem { name: name.clone(), slot: Slot::Wrist1, stats: low_stats });
+            out.insert(
+                name.clone(),
+                CachedItem {
+                    name: name.clone(),
+                    slot: Slot::Wrist1,
+                    stats: low_stats,
+                },
+            );
         }
 
         assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
