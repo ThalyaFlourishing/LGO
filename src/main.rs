@@ -79,7 +79,7 @@ fn run_optimize(cli: &OptimizeCli) {
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
 
-    let stats_file = match gearstats::find_latest_stats_file(&char_dir, &character) {
+    let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &export.character) {
         Ok(Some(path)) => path,
         Ok(None) => {
             eprintln!(

@@ -141,17 +141,6 @@ pub fn find_canonical_gear_file(dir: &Path, character: &str) -> Result<Option<Pa
     find_case_insensitive_char_file(dir, "lgo_", character, "_gear.toml")
 }
 
-/// Find the gear stats file the optimizer should read.
-///
-/// Searches for `lgo_<character>_gear.toml` (the canonical merged file
-/// produced by `resolve-slots`), matched case-insensitively.
-///
-/// Returns `Ok(Some(path))`, `Ok(None)` (nothing found), or
-/// `Err(collision_message)` (two or more gear files match case-insensitively).
-pub fn find_latest_stats_file(dir: &Path, character: &str) -> Result<Option<PathBuf>, String> {
-    find_canonical_gear_file(dir, character)
-}
-
 /// Find the bookmarklet output for `character` (`lgo_<X>_stats.toml`),
 /// matched case-insensitively on both prefix/suffix and character segment.
 ///
@@ -238,12 +227,12 @@ mod tests {
     // ── New case-insensitive tests ────────────────────────────────────────────
 
     #[test]
-    fn find_latest_stats_file_finds_lowercase_gear_file_for_mixed_case_query() {
+    fn find_canonical_gear_file_finds_lowercase_gear_file_for_mixed_case_query() {
         let dir = make_test_dir();
         let f = dir.join("lgo_thalya_gear.toml");
         std::fs::write(&f, "").expect("write file");
 
-        let found = find_latest_stats_file(&dir, "Thalya")
+        let found = find_canonical_gear_file(&dir, "Thalya")
             .expect("no error")
             .expect("must find file");
         assert_eq!(found, f);
@@ -252,12 +241,12 @@ mod tests {
     }
 
     #[test]
-    fn find_latest_stats_file_finds_uppercase_gear_file_for_lowercase_query() {
+    fn find_canonical_gear_file_finds_uppercase_gear_file_for_lowercase_query() {
         let dir = make_test_dir();
         let f = dir.join("lgo_THALYA_gear.toml");
         std::fs::write(&f, "").expect("write file");
 
-        let found = find_latest_stats_file(&dir, "thalya")
+        let found = find_canonical_gear_file(&dir, "thalya")
             .expect("no error")
             .expect("must find file");
         assert_eq!(found, f);
@@ -294,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn find_latest_stats_file_case_only_duplicate_names_alias_on_windows() {
+    fn find_canonical_gear_file_case_only_duplicate_names_alias_on_windows() {
         let dir = make_test_dir();
 
         let first = dir.join("lgo_Thalya_gear.toml");
@@ -302,7 +291,7 @@ mod tests {
         std::fs::write(&first, "").expect("write 1");
         std::fs::write(&second, "").expect("write 2");
 
-        let found = find_latest_stats_file(&dir, "Thalya")
+        let found = find_canonical_gear_file(&dir, "Thalya")
             .expect("case-only duplicate names should alias, not collide")
             .expect("must find file");
 
