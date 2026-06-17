@@ -79,25 +79,29 @@ fn run_optimize(cli: &OptimizeCli) {
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
 
-    let stats_file = match gearstats::find_latest_stats_file(&char_dir, &character) {
+    let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &export.character) {
         Ok(Some(path)) => path,
         Ok(None) => {
             eprintln!(
-                "No lgo_{}_gear.toml or lgo_stats_*.toml file found in {}",
-                character,
+                "No lgo_{}_gear.toml file found in {}",
+                export.character,
                 char_dir.display()
             );
-            eprintln!("\nGenerate one with the bookmarklet workflow:");
+            eprintln!("\nThis file is created by 'lgo resolve-slots' after completing the bookmarklet workflow.");
+            eprintln!("Please follow these steps:");
             eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
             eprintln!("  2) Run /lgo export in-game");
             eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
             eprintln!("  4) Click the LGO bookmarklet");
             eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
             eprintln!(
-                "  6) Save the generated TOML as lgo_{}_stats.toml in your AllServers directory",
-                character
+                "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
+                export.character
             );
-            eprintln!("  7) Run: lgo resolve-slots");
+            eprintln!(
+                "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gear.toml)",
+                export.character
+            );
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
         }
