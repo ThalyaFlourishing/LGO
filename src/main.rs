@@ -84,7 +84,7 @@ fn run_optimize(cli: &OptimizeCli) {
         Ok(None) => {
             eprintln!(
                 "No lgo_{}_gear.toml file found in {}",
-                character,
+                export.character,
                 char_dir.display()
             );
             eprintln!("\nThis file is created by running 'lgo resolve-slots'.");
@@ -96,9 +96,9 @@ fn run_optimize(cli: &OptimizeCli) {
             eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
             eprintln!(
                 "  6) Save the generated TOML as lgo_{}_stats.toml in your AllServers directory",
-                character
+                export.character
             );
-            eprintln!("  7) Run: lgo resolve-slots   (creates lgo_{}_gear.toml)", character);
+            eprintln!("  7) Run: lgo resolve-slots   (creates lgo_{}_gear.toml)", export.character);
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
         }
