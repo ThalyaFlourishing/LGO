@@ -98,7 +98,7 @@ fn run_optimize(cli: &OptimizeCli) {
                 "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
                 export.character
             );
-            eprintln!("  7) Run: lgo resolve-slots   (processes stats.toml and creates lgo_{}_gear.toml)", export.character);
+            eprintln!("  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gear.toml)", export.character);
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
         }
