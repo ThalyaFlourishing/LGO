@@ -25,7 +25,7 @@ SECTION 2 - BOOKMARKLET WORKFLOW
   2) Click the LGO Stats bookmarklet.
   3) Paste the contents of lgo_gearlist_<character>_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
-  5) Save the generated lgo_stats_*.toml file into your character's AllServers directory.
+  5) Save the generated file as lgo_<character>_stats.toml into your character's AllServers directory.
 
 SECTION 3 - LGO CLI (USER COMMANDS)
 -----------------------------------
@@ -43,9 +43,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.2 resolve-slots
   lgo resolve-slots
-    Auto-detect `lgo_<character>_stats.toml` in the selected character's AllServers
+    Auto-detect lgo_<character>_stats.toml in the selected character's AllServers
     directory, resolve slot names via data/lgo_items.json, and merge the result into
-    `lgo_<character>_gear.toml`.
+    lgo_<character>_gear.toml.
 
     Filename matching for the character name is case-insensitive on Windows.
 
@@ -72,8 +72,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Use an explicit lgo_gearlist_*.plugindata input file.
     This --file/-f is for plugindata, not for stats TOML.
 
-    The optimizer's stats TOML is always auto-detected from AllServers
-    (latest lgo_<character-name>_gear.toml, typically the _resolved file).
+    The optimizer always reads the canonical gear file
+    lgo_<character>_gear.toml from the character's AllServers directory.
+    If that file does not exist yet, run lgo resolve-slots first.
+
     Selecting a specific TOML input for lgo optimize is not currently supported.
 
   Combined example:
