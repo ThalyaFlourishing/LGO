@@ -227,7 +227,7 @@ mod tests {
     // ── New case-insensitive tests ────────────────────────────────────────────
 
     #[test]
-    fn find_canonical_gear_file_finds_lowercase_file_for_mixed_case_query() {
+    fn find_canonical_gear_file_case_insensitive_lowercase() {
         let dir = make_test_dir();
         let f = dir.join("lgo_thalya_gear.toml");
         std::fs::write(&f, "").expect("write file");
@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn find_canonical_gear_file_finds_uppercase_file_for_lowercase_query() {
+    fn find_canonical_gear_file_case_insensitive_uppercase() {
         let dir = make_test_dir();
         let f = dir.join("lgo_THALYA_gear.toml");
         std::fs::write(&f, "").expect("write file");

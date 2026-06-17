@@ -87,7 +87,9 @@ fn run_optimize(cli: &OptimizeCli) {
                 export.character,
                 char_dir.display()
             );
-            eprintln!("\nThis file is created by 'lgo resolve-slots' after completing the bookmarklet workflow.");
+            eprintln!(
+                "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
+            );
             eprintln!("Please follow these steps:");
             eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
             eprintln!("  2) Run /lgo export in-game");
