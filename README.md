@@ -17,21 +17,14 @@ Binary output:
 - Windows: `target\release\lgo.exe`
 - Linux/macOS: `target/release/lgo`
 
-## Workflow (browser method)
+## Workflow
 
-1. Place candidate items in a Shared Storage chest named **`lgo`**.
-2. Run `/lgo export` in-game.
-3. Open <https://lotro-wiki.com> in your browser.
-4. Click the **LGO Stats** bookmarklet.
-5. Paste your `lgo_itemnames_*.plugindata` contents when prompted.
-6. Copy the generated `.toml` and save it to your character’s `AllServers` directory.
-7. Run LGO with stat goals:
+See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-step. In brief:
 
-```bash
-lgo <stat:minimum> [<stat:minimum> ...]
-```
-
-If any item is unresolved by the bookmarklet, it is written with all-zero stats; fill those values manually before running the optimizer (this is common for legendary items).
+1. Put candidate gear in an in-game shared-storage chest named `lgo` and run `/lgo export`.
+2. On lotro-wiki.com, click the **LGO Stats** bookmarklet, paste the `lgo_gearlist_*.plugindata`, and save the result as `lgo_<character>_stats.toml`.
+3. Run `lgo resolve-slots` to merge into `lgo_<character>_gear.toml` (hand-edit legendaries / `Unknown` slots as needed).
+4. Run `lgo optimize <stat:minimum> …` and read the report.
 
 ## Stat goal syntax
 
