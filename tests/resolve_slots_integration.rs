@@ -449,20 +449,19 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Write-follows-read: if the canonical gear file already exists on disk with
-/// different casing (e.g. `lgo_thalya_gear.toml`) the resolver must update
-/// *that* file in place rather than creating a new `lgo_Thalya_gear.toml`.
+/// Windows is case-insensitive for ordinary filenames: if the canonical gear
+/// file already exists on disk under a different casing (e.g.
+/// `lgo_thalya_gear.toml`), the resolver must still find and reuse that
+/// existing file when invoked with `"Thalya"`.
 #[test]
-fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() {
-    let dir = make_temp_dir("write_follows_read");
+fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() {
+    let dir = make_temp_dir("write_follows_read_windows");
     let character = "Thalya";
 
-    // Place the canonical file with all-lowercase name.
-    let canonical_lowercase = dir.join("lgo_thalya_gear.toml");
+    // Create the canonical file first using the normal mixed-case path.
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
-
-    // First pass: run with matching bookmarklet to create a valid canonical file.
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for first run");
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
@@ -473,14 +472,14 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
     )
     .expect("first run must succeed");
 
-    // Rename the canonical file to lowercase to simulate it having been saved
-    // with a different case (e.g. by the user or a previous tool version).
+    // Rename the canonical file to a lowercase spelling.
     let canonical_exact = lgo::slot_resolver::canonical_gear_path(&dir, character);
+    let canonical_lowercase = dir.join("lgo_thalya_gear.toml");
     std::fs::rename(&canonical_exact, &canonical_lowercase).expect("rename to lowercase canonical");
-    assert!(!canonical_exact.exists(), "exact-cased file must be gone");
+
     assert!(
         canonical_lowercase.exists(),
-        "lowercase canonical must exist"
+        "lowercase canonical must exist after rename"
     );
 
     // Second pass: re-run with a fresh bookmarklet copy.
@@ -493,22 +492,19 @@ fn resolve_stats_file_writes_back_to_existing_canonical_with_different_casing() 
     )
     .expect("second run must succeed");
 
-    // The resolver must have found the lowercase file and written back to it.
+    // On Windows, the resolver should find and reuse the existing canonical file
+    // regardless of case, and must report that a previous canonical existed.
     assert!(
         canonical_lowercase.exists(),
         "lowercase canonical must still exist after second run"
     );
     assert!(
-        !canonical_exact.exists(),
-        "resolver must not have created a duplicate with different casing"
+        report.previous_existed,
+        "resolver must have found an existing canonical file"
     );
     assert_eq!(
         report.canonical_path, canonical_lowercase,
-        "report canonical_path must be the on-disk lowercase path"
-    );
-    assert!(
-        report.previous_existed,
-        "resolver must have found existing canonical"
+        "report canonical_path must be the on-disk path that was found"
     );
 
     let _ = std::fs::remove_dir_all(&dir);

@@ -43,9 +43,11 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.2 resolve-slots
   lgo resolve-slots
-    Auto-detect the latest lgo_stats_*.toml in the selected character's AllServers
-    directory, resolve slot names via data/lgo_items.json, and write a sibling
-    .toml output.
+    Auto-detect `lgo_<character>_stats.toml` in the selected character's AllServers
+    directory, resolve slot names via data/lgo_items.json, and merge the result into
+    `lgo_<character>_gear.toml`.
+
+    Filename matching for the character name is case-insensitive on Windows.
 
   lgo resolve-slots --character <name>
   lgo resolve-slots -c <name>
@@ -71,7 +73,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     This --file/-f is for plugindata, not for stats TOML.
 
     The optimizer's stats TOML is always auto-detected from AllServers
-    (latest lgo_stats_*.toml, typically the _resolved file).
+    (latest lgo_<character-name>_gear.toml, typically the _resolved file).
     Selecting a specific TOML input for lgo optimize is not currently supported.
 
   Combined example:

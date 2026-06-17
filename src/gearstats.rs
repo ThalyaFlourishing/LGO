@@ -352,21 +352,6 @@ mod tests {
     }
 
     #[test]
-    fn find_latest_stats_file_errors_on_gear_file_collision() {
-        let dir = make_test_dir();
-        std::fs::write(dir.join("lgo_Thalya_gear.toml"), "").expect("write 1");
-        std::fs::write(dir.join("lgo_thalya_gear.toml"), "").expect("write 2");
-
-        let err = find_latest_stats_file(&dir, "Thalya").expect_err("should error on collision");
-        assert!(
-            err.contains("lgo_Thalya_gear.toml") && err.contains("lgo_thalya_gear.toml"),
-            "error must name both colliding files: {err}"
-        );
-
-        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
-    }
-
-    #[test]
     fn find_bookmarklet_output_finds_lowercase_stats_file_for_mixed_case_query() {
         let dir = make_test_dir();
         let f = dir.join("lgo_thalya_stats.toml");
@@ -395,20 +380,49 @@ mod tests {
     }
 
     #[test]
-    fn find_bookmarklet_output_errors_on_collision() {
+    fn find_latest_stats_file_case_only_duplicate_names_alias_on_windows() {
         let dir = make_test_dir();
-        std::fs::write(dir.join("lgo_Thalya_stats.toml"), "").expect("write 1");
-        std::fs::write(dir.join("lgo_thalya_stats.toml"), "").expect("write 2");
 
-        let err = find_bookmarklet_output(&dir, "Thalya").expect_err("should error on collision");
+        let first = dir.join("lgo_Thalya_gear.toml");
+        let second = dir.join("lgo_thalya_gear.toml");
+        std::fs::write(&first, "").expect("write 1");
+        std::fs::write(&second, "").expect("write 2");
+
+        let found = find_latest_stats_file(&dir, "Thalya")
+            .expect("case-only duplicate names should alias, not collide")
+            .expect("must find file");
+
         assert!(
-            err.contains("lgo_Thalya_stats.toml") && err.contains("lgo_thalya_stats.toml"),
-            "error must name both colliding files: {err}"
+            found == first || found == second,
+            "returned path must be one of the aliased spellings: {}",
+            found.display()
         );
 
         std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }
 
+    #[test]
+    fn find_bookmarklet_output_case_only_duplicate_names_alias_on_windows() {
+        let dir = make_test_dir();
+
+        let first = dir.join("lgo_Thalya_stats.toml");
+        let second = dir.join("lgo_thalya_stats.toml");
+        std::fs::write(&first, "").expect("write 1");
+        std::fs::write(&second, "").expect("write 2");
+
+        let found = find_bookmarklet_output(&dir, "Thalya")
+            .expect("case-only duplicate names should alias, not collide")
+            .expect("must find file");
+
+        assert!(
+            found == first || found == second,
+            "returned path must be one of the aliased spellings: {}",
+            found.display()
+        );
+
+        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+    
     // ── read_stats_file: non-canonical slot handling ──────────────────────────
 
     #[test]
