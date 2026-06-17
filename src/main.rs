@@ -87,18 +87,18 @@ fn run_optimize(cli: &OptimizeCli) {
                 export.character,
                 char_dir.display()
             );
-            eprintln!("\nThis file is created by running 'lgo resolve-slots'.");
-            eprintln!("Please complete the workflow:");
+            eprintln!("\nThis file is created by 'lgo resolve-slots' after completing the bookmarklet workflow.");
+            eprintln!("Please follow these steps:");
             eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
             eprintln!("  2) Run /lgo export in-game");
             eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
             eprintln!("  4) Click the LGO bookmarklet");
             eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
             eprintln!(
-                "  6) Save the generated TOML as lgo_{}_stats.toml in your AllServers directory",
+                "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
                 export.character
             );
-            eprintln!("  7) Run: lgo resolve-slots   (creates lgo_{}_gear.toml)", export.character);
+            eprintln!("  7) Run: lgo resolve-slots   (processes stats.toml and creates lgo_{}_gear.toml)", export.character);
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
         }
