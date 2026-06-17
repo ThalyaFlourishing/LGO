@@ -143,44 +143,13 @@ pub fn find_canonical_gear_file(dir: &Path, character: &str) -> Result<Option<Pa
 
 /// Find the gear stats file the optimizer should read.
 ///
-/// Preferred: `lgo_<character>_gear.toml` (the canonical merged file
-/// produced by `resolve-slots`), matched case-insensitively. Fallback:
-/// lexicographic scan over `lgo_stats_*.toml` for backward compatibility
-/// with users who haven't re-run the new resolver yet.
+/// Searches for `lgo_<character>_gear.toml` (the canonical merged file
+/// produced by `resolve-slots`), matched case-insensitively.
 ///
 /// Returns `Ok(Some(path))`, `Ok(None)` (nothing found), or
 /// `Err(collision_message)` (two or more gear files match case-insensitively).
 pub fn find_latest_stats_file(dir: &Path, character: &str) -> Result<Option<PathBuf>, String> {
-    // Preferred: case-insensitive scan for lgo_<char>_gear.toml.
-    let gear = find_canonical_gear_file(dir, character)?;
-    if gear.is_some() {
-        return Ok(gear);
-    }
-
-    // Fallback: lex-latest lgo_stats_*.toml.  The prefix match is
-    // case-insensitive; the character segment is intentionally NOT filtered —
-    // the lex-latest file wins regardless of which character it belongs to.
-    // (See test `finds_latest_across_different_character_prefixes`.)
-    let mut entries: Vec<PathBuf> = fs::read_dir(dir)
-        .map_err(|e| format!("Cannot read directory {}: {}", dir.display(), e))?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| {
-            let name = match p.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n,
-                None => return false,
-            };
-            let name_lower = name.to_ascii_lowercase();
-            name_lower.ends_with(".toml") && name_lower.starts_with("lgo_stats_")
-        })
-        .collect();
-
-    if entries.is_empty() {
-        return Ok(None);
-    }
-
-    entries.sort();
-    Ok(entries.into_iter().last())
+    find_canonical_gear_file(dir, character)
 }
 
 /// Find the bookmarklet output for `character` (`lgo_<X>_stats.toml`),
@@ -241,61 +210,6 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         dir
-    }
-
-    #[test]
-    fn finds_latest_stats_file_by_name_order() {
-        let dir = make_test_dir();
-
-        let older = dir.join("lgo_stats_A_20250101_000000.toml");
-        let newer = dir.join("lgo_stats_A_20260101_000000.toml");
-        std::fs::write(&older, "").expect("write older");
-        std::fs::write(&newer, "").expect("write newer");
-
-        // Character with no canonical file → falls back to lex scan.
-        let found = find_latest_stats_file(&dir, "A")
-            .expect("no error")
-            .expect("latest file not found");
-        assert_eq!(found, newer);
-
-        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
-    }
-
-    #[test]
-    fn finds_latest_across_different_character_prefixes() {
-        let dir = make_test_dir();
-
-        let older = dir.join("lgo_stats_CharA_20260101_000000.toml");
-        let newer = dir.join("lgo_stats_CharB_20270101_000000.toml");
-        std::fs::write(&older, "").expect("write older");
-        std::fs::write(&newer, "").expect("write newer");
-
-        let found = find_latest_stats_file(&dir, "CharA")
-            .expect("no error")
-            .expect("latest file not found");
-        assert_eq!(found, newer);
-
-        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
-    }
-
-    #[test]
-    fn canonical_gear_file_is_preferred_over_lex_scan() {
-        let dir = make_test_dir();
-
-        let canonical = dir.join("lgo_Thalya_gear.toml");
-        let bookmarklet = dir.join("lgo_stats_Thalya_99999999_999999.toml");
-        std::fs::write(&canonical, "").expect("write canonical");
-        std::fs::write(&bookmarklet, "").expect("write bookmarklet");
-
-        let found = find_latest_stats_file(&dir, "Thalya")
-            .expect("no error")
-            .expect("must find a file");
-        assert_eq!(
-            found, canonical,
-            "canonical gear file must win over lex scan"
-        );
-
-        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
     }
 
     #[test]
