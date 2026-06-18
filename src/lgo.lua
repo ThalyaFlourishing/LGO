@@ -94,6 +94,14 @@ local function CharacterName()
   return "Unknown";
 end
 
+local function ShouldSkipEquippedSlot(slot)
+  -- Probe-confirmed exclusions:
+  -- Users commonly keep these equipped, but they are not real optimizer candidates:
+  --   19 = craft tool
+  --   21 = bridle
+  return slot == 19 or slot == 21
+end
+
 -- ── Character class ────────────────────────────────────────────────────────────
 
 local function CharacterClass()
@@ -330,6 +338,10 @@ local function EnumerateEquippedItems()
   };
 
   local function addSlot(slot)
+    if ShouldSkipEquippedSlot(slot) then
+      return
+    end
+
     local ok, item = pcall(function() return eq:GetItem(slot); end);
     if ok and item ~= nil then
       local rec = ExtractItemRecord(item, slot);
