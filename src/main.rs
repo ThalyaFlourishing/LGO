@@ -60,12 +60,12 @@ fn run_optimize(cli: &OptimizeCli) {
         process::exit(1);
     }
 
-    let stats_file = if let Some(path) = &cli.file {
+    let (stats_file, auto_discovered_character) = if let Some(path) = &cli.file {
         if !path.exists() {
             eprintln!("Error: File not found: {}", path.display());
             process::exit(1);
         }
-        path.clone()
+        (path.clone(), None)
     } else {
         let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
             Ok(v) => v,
@@ -74,8 +74,13 @@ fn run_optimize(cli: &OptimizeCli) {
                 process::exit(1);
             }
         };
+        let auto_discovered_character = if cli.character.is_none() {
+            Some(character.clone())
+        } else {
+            None
+        };
 
-        match gearstats::find_canonical_gear_file(&char_dir, &character) {
+        let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &character) {
             Ok(Some(path)) => path,
             Ok(None) => {
                 eprintln!(
@@ -107,7 +112,8 @@ fn run_optimize(cli: &OptimizeCli) {
                 eprintln!("Error: {}", e);
                 process::exit(1);
             }
-        }
+        };
+        (stats_file, auto_discovered_character)
     };
 
     let gear_doc = match gearstats::read_stats_file(&stats_file) {
@@ -118,10 +124,11 @@ fn run_optimize(cli: &OptimizeCli) {
         }
     };
 
-    let character = gear_doc
-        .character
-        .or_else(|| cli.character.clone())
-        .unwrap_or_else(|| UNKNOWN.to_string());
+    let character = resolve_report_character(
+        gear_doc.character,
+        cli.character.as_deref(),
+        auto_discovered_character,
+    );
     let class = gear_doc.class.unwrap_or_else(|| UNKNOWN.to_string());
 
     let resolved: HashMap<String, gear::GearItem> = gear_doc
@@ -141,6 +148,17 @@ fn run_optimize(cli: &OptimizeCli) {
         &class,
         &stats_file.display().to_string(),
     );
+}
+
+fn resolve_report_character(
+    gear_doc_character: Option<String>,
+    cli_character: Option<&str>,
+    auto_discovered_character: Option<String>,
+) -> String {
+    gear_doc_character
+        .or_else(|| cli_character.map(String::from))
+        .or(auto_discovered_character)
+        .unwrap_or_else(|| UNKNOWN.to_string())
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
@@ -697,5 +715,30 @@ mod tests {
             }
             _ => panic!("expected optimize command"),
         }
+    }
+
+    #[test]
+    fn report_character_fallback_precedence_matches_optimize_logic() {
+        assert_eq!(
+            resolve_report_character(
+                Some("FromToml".to_string()),
+                Some("FromCli"),
+                Some("AutoDiscovered".to_string())
+            ),
+            "FromToml"
+        );
+        assert_eq!(
+            resolve_report_character(
+                None,
+                Some("FromCli"),
+                Some("AutoDiscovered".to_string())
+            ),
+            "FromCli"
+        );
+        assert_eq!(
+            resolve_report_character(None, None, Some("AutoDiscovered".to_string())),
+            "AutoDiscovered"
+        );
+        assert_eq!(resolve_report_character(None, None, None), "Unknown");
     }
 }
