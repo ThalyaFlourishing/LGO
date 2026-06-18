@@ -25,6 +25,7 @@ SECTION 2 - BOOKMARKLET WORKFLOW
   2) Click the LGO Stats bookmarklet.
   3) Paste the contents of lgo_gearlist_<character>_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
+     The generated TOML includes top-level character = "..." and class = "..." fields.
   5) Save the generated file as lgo_<character>_stats.toml into your character's AllServers directory.
 
 SECTION 3 - LGO CLI (USER COMMANDS)
@@ -62,6 +63,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize <stat:min> [<stat:min> ...]
     Run optimization with stat goals in priority order (first stat maximized,
     later stats used as tie-breakers). A minimum of 0 means maximize with no floor.
+    Auto-discovers lgo_<character>_gear.toml from the character's AllServers directory.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -69,17 +71,12 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
   lgo optimize --file <path> <stat:min> ...
   lgo optimize -f <path> <stat:min> ...
-    Use an explicit lgo_gearlist_*.plugindata input file.
-    This --file/-f is for plugindata, not for stats TOML.
+    Optimize using the explicit canonical gear TOML you provide.
+    The file is read directly; no plugindata input is needed.
+    character and class are read from the TOML's top-level fields if present.
 
-    The optimizer always reads the canonical gear file
-    lgo_<character>_gear.toml from the character's AllServers directory.
-    If that file does not exist yet, run lgo resolve-slots first.
-
-    Selecting a specific TOML input for lgo optimize is not currently supported.
-
-  Combined example:
-    lgo optimize --character Thalya --file path/to/lgo_gearlist_Thalya_20260601_120000.plugindata tm:450000 cr:350000 fn:0
+    Combined example:
+      lgo optimize --file path\to\lgo_Thalya_gear.toml tm:450000 cr:350000 fn:0
 
 3.4 Stat goal syntax
   Goal format: <stat>:<minimum>
