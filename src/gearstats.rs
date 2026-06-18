@@ -7,11 +7,24 @@ use std::path::{Path, PathBuf};
 use crate::gear::{GearItem, Slot};
 use crate::stat::{Stat, TRACKED_STATS};
 
-/// Parse a TOML gear stats file back into a list of items.
+/// The parsed contents of a gear stats TOML file, including any top-level
+/// metadata and the list of items.
+#[derive(Debug)]
+pub struct GearDoc {
+    /// Character name, if present as `character = "..."` at top level.
+    pub character: Option<String>,
+    /// Character class, if present as `class = "..."` at top level.
+    pub class: Option<String>,
+    /// Parsed gear items from `[[item]]` entries.
+    pub items: Vec<GearItem>,
+}
+
+/// Parse a TOML gear stats file back into a `GearDoc` carrying top-level
+/// metadata (`character`, `class`) and a list of items.
 ///
 /// Only non-zero stat values are stored in each item's stats map,
 /// consistent with how the optimizer treats missing stats as 0.
-pub fn read_stats_file(path: &Path) -> Result<Vec<GearItem>, String> {
+pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
     let src = fs::read_to_string(path)
         .map_err(|e| format!("Cannot read gear stats file {}: {}", path.display(), e))?;
 
@@ -70,7 +83,17 @@ pub fn read_stats_file(path: &Path) -> Result<Vec<GearItem>, String> {
         items.push(GearItem { name, slot, stats });
     }
 
-    Ok(items)
+    let character = doc
+        .get("character")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let class = doc.get("class").and_then(|v| v.as_str()).map(String::from);
+
+    Ok(GearDoc {
+        character,
+        class,
+        items,
+    })
 }
 
 /// Scan `dir` for a file whose name matches `<prefix><X><suffix>` where
@@ -299,8 +322,12 @@ name = "Mystery Item"
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(result.len(), 1, "Unknown slot must be silently skipped");
-        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        assert_eq!(
+            result.items.len(),
+            1,
+            "Unknown slot must be silently skipped"
+        );
+        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -319,8 +346,8 @@ name = "Scholar's Light Bridle"
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(result.len(), 1, "Bridle slot must be skipped");
-        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        assert_eq!(result.items.len(), 1, "Bridle slot must be skipped");
+        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -347,8 +374,12 @@ name = "Craft Tool C"
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(result.len(), 1, "all tool slot variants must be skipped");
-        assert_eq!(result[0].slot, crate::gear::Slot::Head);
+        assert_eq!(
+            result.items.len(),
+            1,
+            "all tool slot variants must be skipped"
+        );
+        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -369,7 +400,7 @@ name = "Craft Tool C"
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(
-            result.len(),
+            result.items.len(),
             crate::gear::Slot::ALL.len(),
             "all 19 canonical slots must parse; Unknown and Bridle must be skipped"
         );
@@ -388,6 +419,41 @@ name = "Craft Tool C"
             result.unwrap_err().contains("missing 'name'"),
             "error must mention missing 'name'"
         );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_extracts_character_and_class() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+character          = "Thalya"
+class              = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(doc.character.as_deref(), Some("Thalya"));
+        assert_eq!(doc.class.as_deref(), Some("Lore-master"));
+        assert_eq!(doc.items.len(), 1);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_returns_none_for_absent_metadata() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = "[[item]]\nslot = \"Head\"\nname = \"Test Helm\"\n";
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must return Ok");
+        assert!(
+            doc.character.is_none(),
+            "character must be None when absent"
+        );
+        assert!(doc.class.is_none(), "class must be None when absent");
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }

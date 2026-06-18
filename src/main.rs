@@ -51,6 +51,8 @@ fn main() {
     }
 }
 
+const UNKNOWN: &str = "Unknown";
+
 fn run_optimize(cli: &OptimizeCli) {
     if cli.goals.is_empty() {
         eprintln!("Error: at least one stat goal is required.");
@@ -58,70 +60,79 @@ fn run_optimize(cli: &OptimizeCli) {
         process::exit(1);
     }
 
-    let (plugindata_path, character) = match resolve_plugindata(cli) {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("Error: {}", e);
+    let (stats_file, auto_discovered_character) = if let Some(path) = &cli.file {
+        if !path.exists() {
+            eprintln!("Error: File not found: {}", path.display());
             process::exit(1);
         }
+        (path.clone(), None)
+    } else {
+        let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        let auto_discovered_character = if cli.character.is_none() {
+            Some(character.clone())
+        } else {
+            None
+        };
+
+        let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &character) {
+            Ok(Some(path)) => path,
+            Ok(None) => {
+                eprintln!(
+                    "No lgo_{}_gear.toml file found in {}",
+                    character,
+                    char_dir.display()
+                );
+                eprintln!(
+                    "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
+                );
+                eprintln!("Please follow these steps:");
+                eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
+                eprintln!("  2) Run /lgo export in-game");
+                eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
+                eprintln!("  4) Click the LGO bookmarklet");
+                eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
+                eprintln!(
+                    "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
+                    character
+                );
+                eprintln!(
+                    "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gear.toml)",
+                    character
+                );
+                eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
+                process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        (stats_file, auto_discovered_character)
     };
 
-    let export = match plugindata::load(&plugindata_path) {
-        Ok(e) => e,
-        Err(e) => {
-            eprintln!("Error reading plugin data: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let char_dir = plugindata_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .to_path_buf();
-
-    let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &export.character) {
-        Ok(Some(path)) => path,
-        Ok(None) => {
-            eprintln!(
-                "No lgo_{}_gear.toml file found in {}",
-                export.character,
-                char_dir.display()
-            );
-            eprintln!(
-                "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
-            );
-            eprintln!("Please follow these steps:");
-            eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
-            eprintln!("  2) Run /lgo export in-game");
-            eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
-            eprintln!("  4) Click the LGO bookmarklet");
-            eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
-            eprintln!(
-                "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
-                export.character
-            );
-            eprintln!(
-                "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gear.toml)",
-                export.character
-            );
-            eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
-            process::exit(1);
-        }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let stats_items = match gearstats::read_stats_file(&stats_file) {
-        Ok(items) => items,
+    let gear_doc = match gearstats::read_stats_file(&stats_file) {
+        Ok(d) => d,
         Err(e) => {
             eprintln!("Error reading gear stats file: {}", e);
             process::exit(1);
         }
     };
 
-    let resolved: HashMap<String, gear::GearItem> = stats_items
+    let character = resolve_report_character(
+        gear_doc.character,
+        cli.character.as_deref(),
+        auto_discovered_character,
+    );
+    let class = gear_doc.class.unwrap_or_else(|| UNKNOWN.to_string());
+
+    let resolved: HashMap<String, gear::GearItem> = gear_doc
+        .items
         .into_iter()
         .enumerate()
         .map(|(idx, item)| (format!("{:04}::{}::{}", idx, item.slot, item.name), item))
@@ -134,9 +145,20 @@ fn run_optimize(cli: &OptimizeCli) {
         &result,
         &cli.goals,
         &character,
-        &export.class,
+        &class,
         &stats_file.display().to_string(),
     );
+}
+
+fn resolve_report_character(
+    gear_doc_character: Option<String>,
+    cli_character: Option<&str>,
+    auto_discovered_character: Option<String>,
+) -> String {
+    gear_doc_character
+        .or_else(|| cli_character.map(String::from))
+        .or(auto_discovered_character)
+        .unwrap_or_else(|| UNKNOWN.to_string())
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
@@ -371,40 +393,6 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
     })
 }
 
-fn resolve_plugindata(cli: &OptimizeCli) -> Result<(PathBuf, String), String> {
-    if let Some(path) = &cli.file {
-        if !path.exists() {
-            return Err(format!("File not found: {}", path.display()));
-        }
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .ok_or_else(|| format!("Could not read filename: {}", path.display()))?;
-        // Strip the prefix case-insensitively but preserve the original
-        // character-segment casing for downstream display purposes.
-        const PREFIX: &str = "lgo_gearlist_";
-        let stem_lower = stem.to_ascii_lowercase();
-        let character = stem_lower
-            .strip_prefix(PREFIX)
-            .and_then(|s| {
-                // Find the last '_' separating char from timestamp.
-                s.rfind('_').map(|i| &stem[PREFIX.len()..PREFIX.len() + i])
-            })
-            .ok_or_else(|| {
-                format!(
-                    "Filename '{}' does not match expected pattern lgo_gearlist_{{character}}_{{timestamp}}",
-                    stem
-                )
-            })?
-            .to_string();
-        return Ok((path.clone(), character));
-    }
-
-    let (char_dir, character) = resolve_character_allservers(cli.character.as_deref())?;
-    let path = find_latest_export(&char_dir)?;
-    Ok((path, character))
-}
-
 fn resolve_character_allservers(character_opt: Option<&str>) -> Result<(PathBuf, String), String> {
     let docs = documents_dir()?;
     let plugin_root = docs.join("The Lord of the Rings Online").join("PluginData");
@@ -438,32 +426,6 @@ fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(&lgo_dir)
         .map_err(|e| format!("Cannot create lgo directory {}: {}", lgo_dir.display(), e))?;
     Ok(())
-}
-
-fn find_latest_export(dir: &Path) -> Result<PathBuf, String> {
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
-        .map_err(|e| format!("Cannot read directory {}: {}", dir.display(), e))?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| {
-            let name = match p.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n,
-                None => return false,
-            };
-            let name_lower = name.to_ascii_lowercase();
-            name_lower.ends_with(".plugindata") && name_lower.starts_with("lgo_gearlist_")
-        })
-        .collect();
-
-    if entries.is_empty() {
-        return Err(format!(
-            "No lgo_gearlist_*.plugindata files found in {}",
-            dir.display()
-        ));
-    }
-
-    entries.sort();
-    Ok(entries.into_iter().last().unwrap())
 }
 
 fn discover_character(plugin_root: &Path) -> Result<String, String> {
@@ -515,7 +477,9 @@ fn print_usage() {
     println!();
     println!("Options (optimize):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
-    println!("  --file      <path>  Plugindata export to read instead of auto-detect");
+    println!(
+        "  --file      <path>  Explicit canonical gear TOML to optimize instead of auto-detect"
+    );
     println!("  --help              Show this message");
     println!();
     println!("Options (resolve-slots):");
@@ -551,6 +515,7 @@ fn print_usage() {
     println!("    lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0");
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
+    println!("    lgo optimize --file path/to/lgo_Thalya_gear.toml tm:450000 cr:350000");
     println!("    lgo resolve-slots");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
@@ -693,5 +658,87 @@ mod tests {
             }
             _ => panic!("expected build-db command"),
         }
+    }
+
+    #[test]
+    fn optimize_file_flag_sets_toml_path() {
+        let cmd = parse_command(&s(&["optimize", "--file", "some.toml", "tm:1"]))
+            .expect("optimize --file should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.file, Some(PathBuf::from("some.toml")));
+                assert_eq!(cli.goals.len(), 1);
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_file_short_flag_sets_toml_path() {
+        let cmd = parse_command(&s(&["optimize", "-f", "gear.toml", "tm:1"]))
+            .expect("optimize -f should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_file_and_character_can_be_combined() {
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--file",
+            "my/gear.toml",
+            "--character",
+            "Thalya",
+            "tm:1",
+        ]))
+        .expect("optimize --file + --character should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.file, Some(PathBuf::from("my/gear.toml")));
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_without_file_has_none_file() {
+        let cmd =
+            parse_command(&s(&["optimize", "tm:1"])).expect("optimize without --file must parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert!(cli.file.is_none(), "--file must be None when not supplied");
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn report_character_fallback_precedence_matches_optimize_logic() {
+        assert_eq!(
+            resolve_report_character(
+                Some("FromToml".to_string()),
+                Some("FromCli"),
+                Some("AutoDiscovered".to_string())
+            ),
+            "FromToml"
+        );
+        assert_eq!(
+            resolve_report_character(
+                None,
+                Some("FromCli"),
+                Some("AutoDiscovered".to_string())
+            ),
+            "FromCli"
+        );
+        assert_eq!(
+            resolve_report_character(None, None, Some("AutoDiscovered".to_string())),
+            "AutoDiscovered"
+        );
+        assert_eq!(resolve_report_character(None, None, None), "Unknown");
     }
 }
