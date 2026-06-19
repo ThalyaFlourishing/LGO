@@ -663,3 +663,29 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// =============================================================================
+// Plugin export exclusion regression tests
+// =============================================================================
+
+/// Verify that the current plugindata fixture no longer contains the equipped
+/// craft tool or bridle.  src/lgo.lua skips slot 19 (CraftItem) and slot 21
+/// (Bridle) so players do not need to unequip those items before exporting.
+#[test]
+fn current_plugindata_excludes_craft_tool_and_bridle() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("TestData/lgo_gearlist_Thalya_20260618_164900.plugindata");
+    let raw = std::fs::read_to_string(&path)
+        .expect("current plugindata fixture must be readable");
+
+    // These are the specific items Thalya had equipped in the old export.
+    // They must stay absent as long as the plugin skips those slots.
+    assert!(
+        !raw.contains("Extraordinary Elf Prospector's Pickaxe"),
+        "craft tool (slot 19) must be absent from the current plugindata export"
+    );
+    assert!(
+        !raw.contains("Scholar's Light Bridle"),
+        "bridle (slot 21) must be absent from the current plugindata export"
+    );
+}
