@@ -53,8 +53,6 @@ a final optimization report according to user's specified stats of interest.
   - `lgo_Thalya_stats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gear.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `RESOLVER_DESIGN.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `TOML Analysis.txt`, `Test_Output_01.txt``MODEL_GUIDANCE.md` (per-file AI model selection guide). Historical design docs (kept for traceability, do not treat as live spec): `Merge Coding Prompt.txt`, `User Story & Hand-Edit-Tracking Approach.txt`. See §10 for the rejection rationale.
-- `SSG_U25_LuaDocumentation/` — **DO NOT ingest in chat.** Large UTF-16 HTML dumps that blow up the model's context window and cause mid-session amnesia. If the Turbine Lua API needs investigation, ask the user to paste a representative snippet.
-- `GaranStuff/` — ignore for now.
 
 ---
 
