@@ -30,6 +30,9 @@ so it serializes exactly as the variant name (PascalCase).
 
 ## Excluded slots (never considered by optimizer)
 
+These slots are excluded at the plugin export stage and are never passed to the optimizer.
+Players do not need to unequip these items before running `/lgo export`.
+
 | Plugin index | Name       | Reason          |
 |--------------|------------|-----------------|
 | 19           | CraftItem  | Not gear        |

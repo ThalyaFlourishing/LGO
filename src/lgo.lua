@@ -9,9 +9,9 @@
 --   /lgo
 --     -> help
 --   /lgo export
---     -> export item names from (equipped) + (shared storage chest 'lgo')
+--     -> export item names from (equipped, excl. craft tool & bridle) + (shared storage chest 'lgo')
 --   /lgo export chest <name>
---     -> export item names from (equipped) + (shared storage chest <name>)
+--     -> export item names from (equipped, excl. craft tool & bridle) + (shared storage chest <name>)
 --
 -- Data is written via Turbine.PluginData.Save(Turbine.DataScope.Account, key, table)
 --   - lgo_gearlist_<character>_<timestamp>.plugindata

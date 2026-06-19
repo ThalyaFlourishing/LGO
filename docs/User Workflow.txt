@@ -10,7 +10,7 @@ already installed. (Installation instructions: TBD, separate document.)
 Short User Instructions (detailed instructions below)
 -----------------------------------------------
 1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
-2. Run `/lgo export` in-game. A `lgo_gearlist_*.plugindata` file will be saved in your plugindata folder.
+2. Run `/lgo export` in-game. Equipped items are exported automatically; equipped craft tools and bridles are excluded (no need to unequip them). A `lgo_gearlist_*.plugindata` file will be saved in your plugindata folder.
 3. Open https://lotro-wiki.com in a browser. The bookmarklet will not work on any other site.
 4. Click the **LGO Stats** bookmarklet. A small pop-up will appear.
 5. Copy and paste in the contents of `lgo_gearlist_*.plugindata` , then hit 'OK'.
@@ -27,7 +27,10 @@ Detailed User Instructions
 1. In LotRO, rename a Shared Storage chest 'lgo' (or 'LGO') Place the gear items you want considered into that chest. 
    Items already
    equipped on the character are picked up automatically and do not
-   need to go in the chest.
+   need to go in the chest. Your equipped craft tool and bridle are
+   automatically skipped — you do not need to unequip them. Do not
+   place craft tools or bridles in the `lgo` chest; they are not
+   optimizer candidates.
 
 2. In the LotRO chat window, type:
 
