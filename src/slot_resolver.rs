@@ -15,7 +15,7 @@
 //!
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
