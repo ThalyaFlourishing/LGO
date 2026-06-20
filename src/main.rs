@@ -137,7 +137,7 @@ fn run_optimize(cli: &OptimizeCli) {
         .enumerate()
         // Candidate identity is per owned TOML item instance, not per display
         // name: duplicate owned copies must remain distinct optimizer inputs.
-        .map(|(idx, item)| (format!("{:04}::{}::{}", idx, item.slot, item.name), item))
+        .map(|(idx, item)| (gear::optimizer_candidate_key(idx, &item), item))
         .collect();
 
     let candidate_names: Vec<String> = resolved.keys().cloned().collect();
