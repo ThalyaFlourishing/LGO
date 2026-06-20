@@ -1409,12 +1409,10 @@ mod tests {
         //
         // Goals (priority order): CR:0  then  TM:600
         //
-        // (A,B) meets TM≥600 and has CR=600.
-        // Correct answer: (A,B) — CR=600.
-        //
-        // Bug (historical): safe_narrow on TM could discard (A,B) if (B,B)
-        // existed with higher TM; with only one legal pair the result is
-        // deterministic.  This test guards the safe-narrowing logic for pairs.
+        // Verifies that safe-narrowing on a secondary stat (TM) does not
+        // eliminate the only legal pair (A,B) when it meets the TM floor:
+        // CR must be maximised to 600, not degraded by an overly aggressive
+        // narrowing pass.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "EarA".into(),

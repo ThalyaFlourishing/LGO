@@ -778,8 +778,10 @@ pub fn merge_into_canonical(
                         merged_tables.push(prev);
                     }
                     ForceMode::Force { prompter } => {
-                        // item_data_equal is false here (equal pairs were
-                        // consumed in Phase 1), so always prompt.
+                        // Phase 1 already consumed all exact-equal (prev, incoming)
+                        // pairs, so any prev reaching Phase 2 has a non-equal
+                        // incoming counterpart and must be presented for overwrite
+                        // confirmation.
                         let answer = if yes_all_overwrite {
                             PromptAnswer::Yes
                         } else {
