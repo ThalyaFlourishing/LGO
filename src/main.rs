@@ -135,6 +135,8 @@ fn run_optimize(cli: &OptimizeCli) {
         .items
         .into_iter()
         .enumerate()
+        // Candidate identity is per owned TOML item instance, not per display
+        // name: duplicate owned copies must remain distinct optimizer inputs.
         .map(|(idx, item)| (format!("{:04}::{}::{}", idx, item.slot, item.name), item))
         .collect();
 
@@ -728,11 +730,7 @@ mod tests {
             "FromToml"
         );
         assert_eq!(
-            resolve_report_character(
-                None,
-                Some("FromCli"),
-                Some("AutoDiscovered".to_string())
-            ),
+            resolve_report_character(None, Some("FromCli"), Some("AutoDiscovered".to_string())),
             "FromCli"
         );
         assert_eq!(
