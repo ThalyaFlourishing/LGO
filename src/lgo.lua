@@ -381,12 +381,10 @@ local function EnumerateEquippedItems()
 end
 
 local function CollectItemNames(equip, ss)
-  local seen = {};
   local names = {};
   local function addName(rec)
     local n = rec.infoName or rec.name;
-    if n ~= nil and n ~= "" and not seen[n] then
-      seen[n] = true;
+    if n ~= nil and n ~= "" then
       table.insert(names, n);
     end
   end
@@ -430,7 +428,7 @@ local function ExportCombined(sharedChestName)
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
   SaveAccount("lgo_gearlist", out);
-  Print("export: saved " .. tostring(#out.names) .. " unique item names");
+  Print("export: saved " .. tostring(#out.names) .. " owned item instances");
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────

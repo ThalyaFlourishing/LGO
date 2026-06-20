@@ -44,8 +44,8 @@
 //! ## Paired slots (Wrist, Finger, Ear)
 //!
 //! Items for a paired slot type are combined into super-candidates whose stats
-//! are the sum of both items. All unordered pairs (including same-item pairs, to
-//! support two items with the same name) are enumerated.
+//! are the sum of two distinct owned instances. A singleton pool is paired with
+//! an empty placeholder rather than reusing the same instance twice.
 
 use std::collections::HashMap;
 
@@ -55,7 +55,8 @@ use crate::stat::{Stat, StatGoal};
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Maximum candidates considered per slot. Excess items are dropped with a
-/// warning. Keeps the paired-slot enumeration bounded (max 8×9/2 = 36 pairs).
+/// warning. Keeps the paired-slot enumeration bounded (max 8×7/2 = 28 real
+/// pairs, plus singleton empty-placeholder pairs).
 pub const MAX_CANDIDATES_PER_SLOT: usize = 8;
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -631,9 +632,21 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
             Candidate::zero("[empty]", slot2),
         )];
     }
+    if pool.len() == 1 {
+        if pool[0].original_slot == slot2 {
+            return vec![PairCandidate::new(
+                Candidate::zero(format!("[empty {}]", slot_display(slot1)), slot1),
+                pool[0].clone(),
+            )];
+        }
+        return vec![PairCandidate::new(
+            pool[0].clone(),
+            Candidate::zero(format!("[empty {}]", slot_display(slot2)), slot2),
+        )];
+    }
     let mut pairs = Vec::new();
     for i in 0..pool.len() {
-        for j in i..pool.len() {
+        for j in (i + 1)..pool.len() {
             pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));
         }
     }
@@ -934,7 +947,13 @@ mod tests {
 
         assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
         assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
-        assert_eq!(result.gear_set.total(&Stat::Vitality), 200);
+        assert_eq!(result.gear_set.total(&Stat::Vitality), 180);
+        let mut chosen = [
+            result.gear_set.items[&Slot::Wrist1].name.as_str(),
+            result.gear_set.items[&Slot::Wrist2].name.as_str(),
+        ];
+        chosen.sort_unstable();
+        assert_eq!(chosen, ["WristA", "WristB"]);
     }
 
     #[test]
@@ -1027,22 +1046,22 @@ mod tests {
         assert!(result.failed_minima.is_empty());
     }
 
-    // ── Same-item pair tests ────────────────────────────────────────────────────
+    // ── Paired-slot instance identity tests ─────────────────────────────────────
 
     #[test]
-    fn test_same_item_pair_single_item_fills_both_slots() {
-        // Only one wrist item exists.  build_pairs must generate the pair (A, A),
-        // and the assembler must write it into both Wrist1 and Wrist2.
-        // The combined stat total must be 2 × the item's individual value.
+    fn test_single_paired_instance_cannot_fill_both_slots() {
+        // Only one wrist item exists. It may occupy one wrist slot, but the
+        // second wrist must be an empty placeholder rather than the same item.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "WristX".into(),
             make_cached("WristX", Slot::Wrist1, &[(Stat::CriticalRating, 500)]),
         );
 
-        let goals = vec![goal(Stat::CriticalRating, 0)];
+        let goals = vec![goal(Stat::CriticalRating, 400)];
         let result = optimize(&resolved, &["WristX".to_string()], &goals);
 
+        assert!(result.feasible);
         assert!(
             result.gear_set.items.contains_key(&Slot::Wrist1),
             "Wrist1 must be filled"
@@ -1056,24 +1075,25 @@ mod tests {
             "WristX",
             "Wrist1 should hold WristX"
         );
-        assert_eq!(
+        assert!(
+            result.gear_set.items[&Slot::Wrist2]
+                .name
+                .starts_with("[empty"),
+            "Wrist2 should be empty, got {:?}",
             result.gear_set.items[&Slot::Wrist2].name,
-            "WristX",
-            "Wrist2 should hold WristX"
         );
         assert_eq!(
             result.gear_set.total(&Stat::CriticalRating),
-            1000,
-            "CR must be 500×2=1000 when the same item occupies both wrist slots",
+            500,
+            "CR must be counted once; the same instance cannot occupy both wrists",
         );
     }
 
     #[test]
-    fn test_same_item_pair_chosen_to_meet_tight_minimum() {
+    fn test_no_self_pair_for_tight_minimum_is_infeasible() {
         // RingA: CR=500.  RingB: CR=300.
-        // Pair combined CR:  (A,A)=1000,  (A,B)=800,  (B,B)=600.
-        // Minimum CR=900 — only the same-item pair (A,A) clears it.
-        // The optimizer must choose (A,A) and the result must be feasible.
+        // Legal pair combined CR: (A,B)=800. Minimum CR=900 is infeasible
+        // because (A,A) would reuse the same owned instance and is not legal.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1092,27 +1112,108 @@ mod tests {
         );
 
         assert!(
-            result.feasible,
-            "(A,A) gives CR=1000 ≥ 900; result must be feasible"
+            !result.feasible,
+            "(A,A) is illegal; legal best is A+B=800 < 900"
         );
-        assert!(result.failed_minima.is_empty());
-        assert_eq!(
-            result.gear_set.items[&Slot::Finger1].name,
-            "RingA",
-            "Finger1 should hold RingA"
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 800);
+    }
+
+    #[test]
+    fn test_two_distinct_same_name_instances_can_fill_paired_slots() {
+        // Candidate map keys are unique per TOML instance, but the display
+        // name presented in both slots may be identical when two copies exist.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "0001::Finger (1)::Same Ring".into(),
+            make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
-        assert_eq!(
-            result.gear_set.items[&Slot::Finger2].name,
-            "RingA",
-            "Finger2 should hold RingA"
+        resolved.insert(
+            "0002::Finger (1)::Same Ring".into(),
+            make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
+
+        let goals = vec![goal(Stat::CriticalRating, 900)];
+        let names = vec![
+            "0001::Finger (1)::Same Ring".to_string(),
+            "0002::Finger (1)::Same Ring".to_string(),
+        ];
+        let result = optimize(&resolved, &names, &goals);
+
+        assert!(result.feasible);
+        assert_eq!(result.gear_set.items[&Slot::Finger1].name, "Same Ring");
+        assert_eq!(result.gear_set.items[&Slot::Finger2].name, "Same Ring");
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000);
     }
 
     #[test]
-    fn test_same_item_pair_infeasible_when_minimum_exceeds_best_pair() {
-        // Same two rings as above, but minimum=1001.
-        // Best possible pair is (A,A)=1000 < 1001 — no pair can meet it.
+    fn test_one_same_name_instance_alone_is_infeasible_but_two_are_feasible() {
+        let goals = vec![goal(Stat::CriticalRating, 900)];
+
+        let mut one: HashMap<String, CachedItem> = HashMap::new();
+        one.insert(
+            "0001::Finger (1)::Same Ring".into(),
+            make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
+        );
+        let one_name = vec!["0001::Finger (1)::Same Ring".to_string()];
+        let one_result = optimize(&one, &one_name, &goals);
+        assert!(!one_result.feasible);
+        assert_eq!(one_result.gear_set.total(&Stat::CriticalRating), 500);
+
+        let mut two = one;
+        two.insert(
+            "0002::Finger (1)::Same Ring".into(),
+            make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
+        );
+        let two_names = vec![
+            "0001::Finger (1)::Same Ring".to_string(),
+            "0002::Finger (1)::Same Ring".to_string(),
+        ];
+        let two_result = optimize(&two, &two_names, &goals);
+        assert!(two_result.feasible);
+        assert_eq!(two_result.gear_set.total(&Stat::CriticalRating), 1000);
+    }
+
+    #[test]
+    fn test_pair_family_consistency_for_ear_singleton_and_duplicate_copy() {
+        let goals = vec![goal(Stat::TacticalMitigation, 700)];
+
+        let mut one: HashMap<String, CachedItem> = HashMap::new();
+        one.insert(
+            "EarOnly".into(),
+            make_cached(
+                "Same Earring",
+                Slot::Ear1,
+                &[(Stat::TacticalMitigation, 400)],
+            ),
+        );
+        let one_result = optimize(&one, &["EarOnly".to_string()], &goals);
+        assert!(!one_result.feasible);
+        assert_eq!(one_result.gear_set.total(&Stat::TacticalMitigation), 400);
+
+        let mut two = one;
+        two.insert(
+            "EarCopy".into(),
+            make_cached(
+                "Same Earring",
+                Slot::Ear1,
+                &[(Stat::TacticalMitigation, 400)],
+            ),
+        );
+        let two_result = optimize(
+            &two,
+            &["EarOnly".to_string(), "EarCopy".to_string()],
+            &goals,
+        );
+        assert!(two_result.feasible);
+        assert_eq!(two_result.gear_set.total(&Stat::TacticalMitigation), 800);
+        assert_eq!(two_result.gear_set.items[&Slot::Ear1].name, "Same Earring");
+        assert_eq!(two_result.gear_set.items[&Slot::Ear2].name, "Same Earring");
+    }
+
+    #[test]
+    fn test_pair_infeasible_when_minimum_exceeds_best_legal_pair() {
+        // Same two rings as above, but minimum=801.
+        // Best legal pair is (A,B)=800 < 801 — no pair can meet it.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1123,7 +1224,7 @@ mod tests {
             make_cached("RingB", Slot::Finger1, &[(Stat::CriticalRating, 300)]),
         );
 
-        let goals = vec![goal(Stat::CriticalRating, 1001)];
+        let goals = vec![goal(Stat::CriticalRating, 801)];
         let result = optimize(
             &resolved,
             &["RingA".to_string(), "RingB".to_string()],
@@ -1132,7 +1233,7 @@ mod tests {
 
         assert!(
             !result.feasible,
-            "Best pair (A,A)=1000 < 1001; result must be infeasible"
+            "Best legal pair (A,B)=800 < 801; result must be infeasible"
         );
         let cr_fail = result
             .failed_minima
@@ -1142,10 +1243,10 @@ mod tests {
             cr_fail.is_some(),
             "CriticalRating must appear in failed_minima"
         );
-        // Infeasible greedy should still pick the best available pair (A,A).
+        // Infeasible greedy should still pick the best available legal pair.
         assert_eq!(
             result.gear_set.total(&Stat::CriticalRating),
-            1000,
+            800,
             "Infeasible result should still show the best achievable value"
         );
     }
@@ -1307,18 +1408,12 @@ mod tests {
     #[test]
     fn test_safe_narrowing_paired_preserves_higher_priority_max_when_no_minimum() {
         // EarA: CR=500, TM=100.   EarB: CR=100, TM=500.
-        // Pairs and combined stats:
-        //   (A,A): CR=1000, TM=200   — filtered in phase 1 (TM=200 < 600)
-        //   (A,B): CR=600,  TM=600   — feasible, best CR
-        //   (B,B): CR=200,  TM=1000  — feasible, worst CR
+        // Only legal pair is (A,B): CR=600, TM=600.
         //
         // Goals (priority order): CR:0  then  TM:600
         //
-        // After phase-1 filtering: {(A,B), (B,B)}.
-        // Correct answer: (A,B) — CR=600 > CR=200 while both meet TM≥600.
-        //
-        // Bug: safe_narrow on TM sees T=1000 passes (1000≥600) and discards
-        // (A,B), leaving only (B,B) with CR=200.
+        // Correct answer: (A,B). This also proves paired safe narrowing handles
+        // the post-self-pair world where no (A,A)/(B,B) candidates exist.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "EarA".into(),
