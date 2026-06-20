@@ -136,14 +136,7 @@ fn run_optimize(cli: &OptimizeCli) {
     // "{idx}::{slot}::{name}" makes every instance distinct in the resolved
     // map so the optimizer treats them as separate candidates — candidate
     // identity is per item instance, not per display name.
-    let resolved: HashMap<String, gear::GearItem> = gear_doc
-        .items
-        .into_iter()
-        .enumerate()
-        .map(|(idx, item)| (format!("{:04}::{}::{}", idx, item.slot, item.name), item))
-        .collect();
-
-    let candidate_names: Vec<String> = resolved.keys().cloned().collect();
+    let (resolved, candidate_names) = build_resolved_candidates(gear_doc.items);
     let result = optimizer::optimize(&resolved, &candidate_names, &cli.goals);
 
     report::print_report(
@@ -153,6 +146,21 @@ fn run_optimize(cli: &OptimizeCli) {
         &class,
         &stats_file.display().to_string(),
     );
+}
+
+fn build_resolved_candidates(
+    items: Vec<gear::GearItem>,
+) -> (HashMap<String, gear::GearItem>, Vec<String>) {
+    let mut resolved: HashMap<String, gear::GearItem> = HashMap::new();
+    let mut candidate_names: Vec<String> = Vec::with_capacity(items.len());
+
+    for (idx, item) in items.into_iter().enumerate() {
+        let key = format!("{:04}::{}::{}", idx, item.slot, item.name);
+        candidate_names.push(key.clone());
+        resolved.insert(key, item);
+    }
+
+    (resolved, candidate_names)
 }
 
 fn resolve_report_character(
@@ -530,6 +538,9 @@ fn print_usage() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gear::{GearItem, Slot};
+    use crate::stat::Stat;
+    use std::collections::HashMap;
 
     fn s(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|p| p.to_string()).collect()
@@ -745,5 +756,49 @@ mod tests {
             "AutoDiscovered"
         );
         assert_eq!(resolve_report_character(None, None, None), "Unknown");
+    }
+
+    #[test]
+    fn optimize_preserves_toml_order_when_truncating_paired_slot_candidates() {
+        let items: Vec<GearItem> = (1..=9)
+            .rev()
+            .map(|rating| GearItem {
+                name: format!("Ring{}", rating),
+                slot: Slot::Finger1,
+                stats: HashMap::from([(Stat::CriticalRating, rating as i64 * 100)]),
+            })
+            .collect();
+
+        let (resolved, candidate_names) = build_resolved_candidates(items);
+        let result = optimizer::optimize(
+            &resolved,
+            &candidate_names,
+            &[StatGoal {
+                stat: Stat::CriticalRating,
+                minimum: 0,
+            }],
+        );
+
+        assert_eq!(
+            result.gear_set.total(&Stat::CriticalRating),
+            1700,
+            "the optimizer should keep the first eight TOML entries, preserving the best pair"
+        );
+        assert_eq!(
+            result
+                .gear_set
+                .items
+                .get(&Slot::Finger1)
+                .map(|item| item.name.as_str()),
+            Some("Ring9")
+        );
+        assert_eq!(
+            result
+                .gear_set
+                .items
+                .get(&Slot::Finger2)
+                .map(|item| item.name.as_str()),
+            Some("Ring8")
+        );
     }
 }
