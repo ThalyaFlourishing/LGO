@@ -505,11 +505,15 @@ fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, label: &str, next_pos:
 // =============================================================================
 //
 // Behaviour on iteration:
-//   * Items present in both `previous` and `incoming` (matched by exact
-//     `name`) are kept verbatim from `previous` by default.
+//   * Items present in both `previous` and `incoming` (matched by name)
+//     are kept verbatim from `previous` by default.
+//     When the same name appears multiple times (duplicate owned instances):
+//       1. Exact-equal instances are paired first (same name+slot+stats).
+//       2. Remaining same-name instances are paired in stable occurrence order.
+//       3. Previous-only leftovers are removal candidates.
+//       4. Incoming-only leftovers are additions.
 //   * Items present only in `incoming` are added.
-//   * Items present only in `previous` are removed (they have disappeared
-//     from the new export).
+//   * Items present only in `previous` are removed (disappeared from export).
 //   * `--force` opts into prompting the user per item before destructive
 //     changes; identical-data items remain a no-op even under `--force`.
 //
@@ -668,112 +672,187 @@ pub fn merge_into_canonical(
         }
     }
 
-    let incoming_by_name: HashMap<String, Table> = incoming_tables
-        .into_iter()
-        .filter_map(|t| table_name(&t).map(|n| (n, t)))
-        .collect();
+    let incoming_by_name: HashMap<String, Vec<Table>> = {
+        let mut m: HashMap<String, Vec<Table>> = HashMap::new();
+        for t in incoming_tables {
+            if let Some(name) = table_name(&t) {
+                m.entry(name).or_default().push(t);
+            }
+            // Tables without a `name` field are silently dropped; they
+            // cannot be matched and would corrupt the merge.
+        }
+        m
+    };
 
     let mut outcome = MergeOutcome {
         unknown_slot,
         ..MergeOutcome::default()
     };
 
-    // Two independent "yes to all" flags: per the brief, `a` for overwrite
-    // does not auto-accept removals and vice versa.
+    // Two independent "yes to all" flags: `a` for overwrite does not
+    // auto-accept removals and vice versa.
     let mut yes_all_overwrite = false;
     let mut yes_all_remove = false;
 
     let mut merged_tables: Vec<Table> = Vec::new();
-    let mut consumed_incoming: HashSet<String> = HashSet::new();
 
-    for prev in prev_tables {
-        let Some(name) = table_name(&prev) else {
-            // No `name` field — preserve the table in place; the item
-            // can't participate in the merge. (This shouldn't happen in
-            // practice; gearstats reading would already have rejected it.)
-            merged_tables.push(prev);
-            continue;
-        };
-
-        if let Some(incoming) = incoming_by_name.get(&name) {
-            consumed_incoming.insert(name.clone());
-
-            match &mut force {
-                ForceMode::NoForce => {
-                    outcome.preserved.push(name);
-                    merged_tables.push(prev);
+    // Build an ordered list of unique names from `prev_tables` (first-
+    // occurrence order), plus a per-name Vec of the actual prev tables.
+    // Nameless tables are preserved in-place without merge participation.
+    let mut prev_order: Vec<String> = Vec::new();
+    let mut prev_groups: HashMap<String, Vec<Table>> = HashMap::new();
+    for t in prev_tables {
+        match table_name(&t) {
+            Some(name) => {
+                if !prev_groups.contains_key(&name) {
+                    prev_order.push(name.clone());
                 }
-                ForceMode::Force { prompter } => {
-                    if item_data_equal(&prev, incoming) {
-                        // Identical data — never prompt, never count.
-                        outcome.preserved.push(name);
+                prev_groups.entry(name).or_default().push(t);
+            }
+            None => {
+                // No `name` field — preserve in place; can't participate
+                // in merge. (Shouldn't happen in practice; gearstats
+                // reading would have already rejected such an item.)
+                merged_tables.push(t);
+            }
+        }
+    }
+
+    // Track which incoming names have been fully processed so we can find
+    // names that are new (incoming-only) at the end.
+    let mut processed_incoming_names: HashSet<String> = HashSet::new();
+
+    for name in &prev_order {
+        let prev_list = prev_groups.remove(name).unwrap_or_default();
+        // Remove from the map so new-only names are what remains at the end.
+        let incoming_list: Vec<Table> = incoming_by_name
+            .get(name)
+            .cloned()
+            .unwrap_or_default();
+        processed_incoming_names.insert(name.clone());
+
+        // ── Phase 1: pair exact-equal instances first ────────────────────
+        // For each prev item, find the first unmatched incoming item that is
+        // field-equal (name + slot + all tracked stats).  These pairs are
+        // preserved unconditionally — identical data never needs a prompt.
+        let n_inc = incoming_list.len();
+        let mut incoming_claimed = vec![false; n_inc];
+        let mut prev_exact_matched = vec![false; prev_list.len()];
+
+        for (pi, prev) in prev_list.iter().enumerate() {
+            if let Some(ii) = incoming_list
+                .iter()
+                .enumerate()
+                .find(|(i, inc)| !incoming_claimed[*i] && item_data_equal(prev, inc))
+                .map(|(i, _)| i)
+            {
+                incoming_claimed[ii] = true;
+                prev_exact_matched[pi] = true;
+            }
+        }
+
+        // Collect unmatched incoming items in their original stable order.
+        let mut remaining_incoming: Vec<Table> = incoming_list
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, t)| if !incoming_claimed[i] { Some(t) } else { None })
+            .collect();
+        let mut remaining_inc_iter = remaining_incoming.drain(..);
+
+        // ── Phases 2/3/4: process each prev item ────────────────────────
+        for (pi, prev) in prev_list.into_iter().enumerate() {
+            if prev_exact_matched[pi] {
+                // Phase 1 result: identical — always preserve, no prompt.
+                outcome.preserved.push(name.clone());
+                merged_tables.push(prev);
+                continue;
+            }
+
+            if let Some(incoming) = remaining_inc_iter.next() {
+                // Phase 2: pair with the next unmatched incoming in order.
+                match &mut force {
+                    ForceMode::NoForce => {
+                        // Preserve-by-default: keep previous (hand-edit
+                        // preservation policy).
+                        outcome.preserved.push(name.clone());
                         merged_tables.push(prev);
-                    } else {
+                    }
+                    ForceMode::Force { prompter } => {
+                        // item_data_equal is false here (equal pairs were
+                        // consumed in Phase 1), so always prompt.
                         let answer = if yes_all_overwrite {
                             PromptAnswer::Yes
                         } else {
-                            prompter.prompt(PromptCategory::Overwrite, &name)
+                            prompter.prompt(PromptCategory::Overwrite, name)
                         };
                         match answer {
                             PromptAnswer::YesToAll => {
                                 yes_all_overwrite = true;
-                                outcome.overwritten.push(name);
-                                merged_tables.push(incoming.clone());
+                                outcome.overwritten.push(name.clone());
+                                merged_tables.push(incoming);
                             }
                             PromptAnswer::Yes => {
-                                outcome.overwritten.push(name);
-                                merged_tables.push(incoming.clone());
+                                outcome.overwritten.push(name.clone());
+                                merged_tables.push(incoming);
                             }
                             PromptAnswer::No => {
-                                outcome.preserved.push(name);
+                                outcome.preserved.push(name.clone());
+                                merged_tables.push(prev);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Phase 3: more prev instances than incoming — removal
+                // candidate (this instance disappeared from the export).
+                match &mut force {
+                    ForceMode::NoForce => {
+                        outcome.removed.push(name.clone());
+                        // prev is dropped.
+                    }
+                    ForceMode::Force { prompter } => {
+                        let answer = if yes_all_remove {
+                            PromptAnswer::Yes
+                        } else {
+                            prompter.prompt(PromptCategory::Remove, name)
+                        };
+                        match answer {
+                            PromptAnswer::YesToAll => {
+                                yes_all_remove = true;
+                                outcome.removed.push(name.clone());
+                            }
+                            PromptAnswer::Yes => {
+                                outcome.removed.push(name.clone());
+                            }
+                            PromptAnswer::No => {
+                                outcome.preserved.push(name.clone());
                                 merged_tables.push(prev);
                             }
                         }
                     }
                 }
             }
-        } else {
-            // Item disappeared from the new export.
-            match &mut force {
-                ForceMode::NoForce => {
-                    outcome.removed.push(name);
-                    // drop prev
-                }
-                ForceMode::Force { prompter } => {
-                    let answer = if yes_all_remove {
-                        PromptAnswer::Yes
-                    } else {
-                        prompter.prompt(PromptCategory::Remove, &name)
-                    };
-                    match answer {
-                        PromptAnswer::YesToAll => {
-                            yes_all_remove = true;
-                            outcome.removed.push(name);
-                        }
-                        PromptAnswer::Yes => {
-                            outcome.removed.push(name);
-                        }
-                        PromptAnswer::No => {
-                            // Keep prev, do not count toward removed.
-                            outcome.preserved.push(name);
-                            merged_tables.push(prev);
-                        }
-                    }
-                }
-            }
+        }
+
+        // Phase 4: more incoming instances than prev — leftover incoming
+        // items are new additions (no prompt).
+        for incoming in remaining_inc_iter {
+            outcome.added.push(name.clone());
+            merged_tables.push(incoming);
         }
     }
 
-    // Items in incoming not seen in previous → added (no prompt).
-    // Iterate incoming in a stable order so output is deterministic: we
-    // re-bucket by family below anyway, but stable per-family ordering
-    // (insertion order) matters for the idempotency guarantee.
-    let mut incoming_pairs: Vec<(String, Table)> = incoming_by_name.into_iter().collect();
-    incoming_pairs.sort_by(|a, b| a.0.cmp(&b.0));
-    for (name, table) in incoming_pairs {
-        if !consumed_incoming.contains(&name) {
-            outcome.added.push(name);
-            merged_tables.push(table);
+    // Items whose name was not in `previous` at all → added (no prompt).
+    // Sort for deterministic output order.
+    let mut new_names: Vec<&String> = incoming_by_name
+        .keys()
+        .filter(|n| !processed_incoming_names.contains(*n))
+        .collect();
+    new_names.sort();
+    for name in new_names {
+        for table in incoming_by_name.get(name).into_iter().flatten() {
+            outcome.added.push(name.clone());
+            merged_tables.push(table.clone());
         }
     }
 
@@ -1980,5 +2059,152 @@ Armor = 100\n";
             "class must be injected into pre-existing canonical:\n{}",
             outcome.merged_text
         );
+    }
+
+    // -- duplicate same-name item tests --
+
+    #[test]
+    fn merge_first_run_preserves_both_duplicate_instances() {
+        // Two incoming items with the same name (two owned copies).
+        // First run: both must appear in `added` and in the merged output.
+        let incoming = make_doc(&[
+            ("Twin Ring", "Finger (1)", &[("CriticalRating", 500)]),
+            ("Twin Ring", "Finger (1)", &[("CriticalRating", 500)]),
+        ]);
+        let outcome =
+            merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
+        assert_eq!(
+            outcome.added.iter().filter(|n| *n == "Twin Ring").count(),
+            2,
+            "both instances must appear in `added`"
+        );
+        assert_eq!(
+            outcome.merged_text.matches("Twin Ring").count(),
+            2,
+            "both instances must be in merged output"
+        );
+    }
+
+    #[test]
+    fn merge_idempotent_with_duplicate_instances() {
+        // Two copies of the same item survive repeated merges without
+        // collapsing to one.
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+        ]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        assert_eq!(
+            first, second,
+            "second merge must be bit-identical:\n--- first ---\n{}\n--- second ---\n{}",
+            first, second
+        );
+        // Both copies must still be present.
+        assert_eq!(second.matches("Twin Ring").count(), 2);
+    }
+
+    #[test]
+    fn merge_duplicate_prev_loses_one_when_incoming_has_one() {
+        // Previous has two copies of "Twin Ring"; new export has only one.
+        // One copy must be preserved, one removed.
+        let db = fixture_db();
+        let two_copies = make_doc(&[
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+        ]);
+        let (prev, _) = resolve_toml_str(&two_copies, &db).expect("resolve prev");
+        let prev = merge_into_canonical(None, &prev, ForceMode::NoForce)
+            .expect("first run")
+            .merged_text;
+
+        let one_copy = make_doc(&[("Twin Ring", "Unknown", &[("CriticalRating", 500)])]);
+        let (incoming, _) = resolve_toml_str(&one_copy, &db).expect("resolve incoming");
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+
+        assert_eq!(
+            outcome.preserved.iter().filter(|n| *n == "Twin Ring").count(),
+            1,
+            "one copy must be preserved"
+        );
+        assert_eq!(
+            outcome.removed.iter().filter(|n| *n == "Twin Ring").count(),
+            1,
+            "one copy must be removed"
+        );
+        assert_eq!(
+            outcome.merged_text.matches("Twin Ring").count(),
+            1,
+            "merged output must contain exactly one copy"
+        );
+    }
+
+    #[test]
+    fn merge_duplicate_incoming_gains_one_when_prev_has_one() {
+        // Previous has one copy of "Twin Ring"; new export has two.
+        // One copy must be preserved, one added.
+        let db = fixture_db();
+        let one_copy = make_doc(&[("Twin Ring", "Unknown", &[("CriticalRating", 500)])]);
+        let (prev, _) = resolve_toml_str(&one_copy, &db).expect("resolve prev");
+        let prev = merge_into_canonical(None, &prev, ForceMode::NoForce)
+            .expect("first run")
+            .merged_text;
+
+        let two_copies = make_doc(&[
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+        ]);
+        let (incoming, _) = resolve_toml_str(&two_copies, &db).expect("resolve incoming");
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+
+        assert_eq!(
+            outcome.preserved.iter().filter(|n| *n == "Twin Ring").count(),
+            1,
+            "one copy must be preserved"
+        );
+        assert_eq!(
+            outcome.added.iter().filter(|n| *n == "Twin Ring").count(),
+            1,
+            "one copy must be added"
+        );
+        assert_eq!(
+            outcome.merged_text.matches("Twin Ring").count(),
+            2,
+            "merged output must contain two copies"
+        );
+    }
+
+    #[test]
+    fn merge_duplicate_exact_equal_never_prompts_force() {
+        // Two identical copies in both prev and incoming → exact-match
+        // Phase 1 should pair them without any force prompt.
+        let db = fixture_db();
+        let two_copies = make_doc(&[
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+            ("Twin Ring", "Unknown", &[("CriticalRating", 500)]),
+        ]);
+        let (src, _) = resolve_toml_str(&two_copies, &db).expect("resolve");
+        let prev = merge_into_canonical(None, &src, ForceMode::NoForce)
+            .expect("first run")
+            .merged_text;
+
+        // Empty answer queue: any prompt would panic.
+        let outcome = merge_into_canonical(Some(&prev), &src, force_with(vec![]))
+            .expect("must merge with no prompts");
+        assert_eq!(
+            outcome.preserved.iter().filter(|n| *n == "Twin Ring").count(),
+            2
+        );
+        assert!(outcome.overwritten.is_empty());
     }
 }

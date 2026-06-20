@@ -131,6 +131,11 @@ fn run_optimize(cli: &OptimizeCli) {
     );
     let class = gear_doc.class.unwrap_or_else(|| UNKNOWN.to_string());
 
+    // Each TOML [[item]] entry represents one owned item instance.  Duplicate
+    // display names are legal (e.g. two identical rings).  The synthetic key
+    // "{idx}::{slot}::{name}" makes every instance distinct in the resolved
+    // map so the optimizer treats them as separate candidates — candidate
+    // identity is per item instance, not per display name.
     let resolved: HashMap<String, gear::GearItem> = gear_doc
         .items
         .into_iter()
