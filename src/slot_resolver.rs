@@ -725,7 +725,7 @@ pub fn merge_into_canonical(
     let mut processed_incoming_names: HashSet<String> = HashSet::new();
 
     for name in &prev_order {
-        let prev_list = prev_groups.remove(name).unwrap_or_default();
+        let prev_list = prev_groups.remove(name).unwrap();
         // Remove from the map so new-only names are what remains at the end.
         let incoming_list: Vec<Table> = incoming_by_name
             .get(name)

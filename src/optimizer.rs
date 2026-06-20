@@ -628,8 +628,9 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
     // A single candidate instance may never be assigned to more than one slot.
     // Two distinct instances with the same display name are allowed to occupy
     // both slots of a paired type only because they are separate pool entries.
-    // The inner loop starts at j = i+1 (strictly greater) so that (i, i) pairs
-    // are never generated — each pair always consists of two distinct instances.
+    // The inner loop uses j = i+1, ensuring j is always one position after i
+    // so that (i, i) pairs are never generated — each pair always consists of
+    // two distinct instances.
     if pool.is_empty() {
         return vec![PairCandidate::new(
             Candidate::zero("[empty]", slot1),
