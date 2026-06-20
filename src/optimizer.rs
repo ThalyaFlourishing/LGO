@@ -625,12 +625,6 @@ fn paired_slot2(slot1: Slot) -> Slot {
 }
 
 fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidate> {
-    // A single candidate instance may never be assigned to more than one slot.
-    // Two distinct instances with the same display name are allowed to occupy
-    // both slots of a paired type only because they are separate pool entries.
-    // The inner loop uses j = i+1, ensuring j is always one position after i
-    // so that (i, i) pairs are never generated — each pair always consists of
-    // two distinct instances.
     if pool.is_empty() {
         return vec![PairCandidate::new(
             Candidate::zero("[empty]", slot1),
@@ -645,6 +639,12 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
         )];
     }
     let mut pairs = Vec::new();
+    // A single candidate instance may never be assigned to more than one slot.
+    // Two distinct instances with the same display name are allowed to occupy
+    // both slots of a paired type only because they are separate pool entries.
+    // The inner loop uses j = i+1, ensuring j is always one position after i
+    // so that (i, i) pairs are never generated — each pair always consists of
+    // two distinct instances.
     for i in 0..pool.len() {
         for j in (i + 1)..pool.len() {
             pairs.push(PairCandidate::new(pool[i].clone(), pool[j].clone()));

@@ -680,8 +680,8 @@ pub fn merge_into_canonical(
             }
             // Incoming tables without a `name` field are dropped: they cannot
             // be matched to any previous item and would corrupt the merge.
-            // Previous nameless tables are handled separately below and are
-            // preserved in-place unchanged.
+            // Previous nameless tables are handled later in the main loop and
+            // are preserved in-place unchanged.
         }
         m
     };
