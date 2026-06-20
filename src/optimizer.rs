@@ -628,6 +628,8 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
     // A single candidate instance may never be assigned to more than one slot.
     // Two distinct instances with the same display name are allowed to occupy
     // both slots of a paired type only because they are separate pool entries.
+    // The inner loop starts at j = i+1 (strictly greater) so that (i, i) pairs
+    // are never generated — each pair always consists of two distinct instances.
     if pool.is_empty() {
         return vec![PairCandidate::new(
             Candidate::zero("[empty]", slot1),
@@ -1065,11 +1067,18 @@ mod tests {
             "Wrist1 must be filled"
         );
         // The single instance must not also be placed in Wrist2.
+        // Wrist2 should either be absent or hold the zero "[empty]" placeholder.
         assert_ne!(
             result.gear_set.items.get(&Slot::Wrist2).map(|i| i.name.as_str()),
             Some("WristX"),
             "WristX must not occupy Wrist2 — one instance cannot fill two slots"
         );
+        if let Some(wrist2) = result.gear_set.items.get(&Slot::Wrist2) {
+            assert_eq!(
+                wrist2.name, "[empty]",
+                "Wrist2 should hold the empty placeholder, not a real item"
+            );
+        }
         // Stats reflect only one copy: 500, not the erroneous doubled 1000.
         assert_eq!(
             result.gear_set.total(&Stat::CriticalRating),

@@ -678,8 +678,10 @@ pub fn merge_into_canonical(
             if let Some(name) = table_name(&t) {
                 m.entry(name).or_default().push(t);
             }
-            // Tables without a `name` field are silently dropped; they
-            // cannot be matched and would corrupt the merge.
+            // Incoming tables without a `name` field are dropped: they cannot
+            // be matched to any previous item and would corrupt the merge.
+            // Previous nameless tables are handled separately below and are
+            // preserved in-place unchanged.
         }
         m
     };
@@ -778,10 +780,8 @@ pub fn merge_into_canonical(
                         merged_tables.push(prev);
                     }
                     ForceMode::Force { prompter } => {
-                        // Phase 1 already consumed all exact-equal (prev, incoming)
-                        // pairs, so any prev reaching Phase 2 has a non-equal
-                        // incoming counterpart and must be presented for overwrite
-                        // confirmation.
+                        // Phase 1 consumed all exact-equal pairs; this
+                        // incoming differs from prev, so prompt the user.
                         let answer = if yes_all_overwrite {
                             PromptAnswer::Yes
                         } else {
