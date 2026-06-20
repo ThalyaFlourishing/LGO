@@ -126,6 +126,14 @@ pub struct GearItem {
 
 pub type CachedItem = GearItem;
 
+/// Synthetic optimizer key for one TOML item instance.
+///
+/// Display names are not unique: a user may own multiple copies of the same
+/// item, so optimizer identity must include the instance's document index.
+pub fn optimizer_candidate_key(idx: usize, item: &GearItem) -> String {
+    format!("{:04}::{}::{}", idx, item.slot, item.name)
+}
+
 impl GearItem {
     /// Return the value of a stat, or 0 if not present.
     pub fn stat(&self, s: &Stat) -> i64 {

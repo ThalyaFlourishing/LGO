@@ -824,8 +824,9 @@ fn group_incoming_by_name(tables: Vec<Table>) -> (HashMap<String, Vec<Table>>, V
     let mut order: Vec<String> = Vec::new();
     for table in tables {
         if let Some(name) = table_name(&table) {
-            order.push(name.clone());
+            let order_name = name.clone();
             by_name.entry(name).or_default().push(table);
+            order.push(order_name);
         }
     }
     (by_name, order)

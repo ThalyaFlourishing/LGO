@@ -705,7 +705,14 @@ mod tests {
     }
 
     fn instance_key(idx: usize, slot: Slot, name: &str) -> String {
-        format!("{:04}::{}::{}", idx, slot, name)
+        crate::gear::optimizer_candidate_key(
+            idx,
+            &CachedItem {
+                name: name.to_string(),
+                slot,
+                stats: HashMap::new(),
+            },
+        )
     }
 
     fn goal(stat: Stat, minimum: i64) -> StatGoal {
@@ -934,7 +941,7 @@ mod tests {
     }
 
     #[test]
-    fn test_paired_slots_both_filled_and_summed() {
+    fn test_paired_slots_use_two_distinct_instances_and_sum_once_each() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "WristA".into(),
@@ -951,6 +958,8 @@ mod tests {
 
         assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
         assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
+        // The best legal wrist pair is WristA + WristB = 180. The old 200
+        // expectation came from illegally reusing WristA as (A,A).
         assert_eq!(result.gear_set.total(&Stat::Vitality), 180);
         let mut chosen = [
             result.gear_set.items[&Slot::Wrist1].name.as_str(),
