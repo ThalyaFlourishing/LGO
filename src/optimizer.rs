@@ -632,7 +632,8 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
         )];
     }
     if pool.len() == 1 {
-        // One owned instance: it fills one slot; the other slot is empty.
+        // Unlike the empty-pool case, the one real instance still contributes
+        // its stats to one slot; only the paired slot is empty.
         return vec![PairCandidate::new(
             pool[0].clone(),
             Candidate::zero("[empty]", slot2),

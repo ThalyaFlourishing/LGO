@@ -672,7 +672,7 @@ pub fn merge_into_canonical(
         }
     }
 
-    let incoming_by_name: HashMap<String, Vec<Table>> = {
+    let mut incoming_by_name: HashMap<String, Vec<Table>> = {
         let mut m: HashMap<String, Vec<Table>> = HashMap::new();
         for t in incoming_tables {
             if let Some(name) = table_name(&t) {
@@ -720,18 +720,10 @@ pub fn merge_into_canonical(
         }
     }
 
-    // Track which incoming names have been fully processed so we can find
-    // names that are new (incoming-only) at the end.
-    let mut processed_incoming_names: HashSet<String> = HashSet::new();
-
     for name in &prev_order {
         let prev_list = prev_groups.remove(name).unwrap();
         // Remove from the map so new-only names are what remains at the end.
-        let incoming_list: Vec<Table> = incoming_by_name
-            .get(name)
-            .cloned()
-            .unwrap_or_default();
-        processed_incoming_names.insert(name.clone());
+        let incoming_list: Vec<Table> = incoming_by_name.remove(name).unwrap_or_default();
 
         // ── Phase 1: pair exact-equal instances first ────────────────────
         // For each prev item, find the first unmatched incoming item that is
@@ -846,15 +838,12 @@ pub fn merge_into_canonical(
 
     // Items whose name was not in `previous` at all → added (no prompt).
     // Sort for deterministic output order.
-    let mut new_names: Vec<&String> = incoming_by_name
-        .keys()
-        .filter(|n| !processed_incoming_names.contains(*n))
-        .collect();
+    let mut new_names: Vec<String> = incoming_by_name.keys().cloned().collect();
     new_names.sort();
     for name in new_names {
-        for table in incoming_by_name.get(name).into_iter().flatten() {
+        for table in incoming_by_name.remove(&name).unwrap_or_default() {
             outcome.added.push(name.clone());
-            merged_tables.push(table.clone());
+            merged_tables.push(table);
         }
     }
 
