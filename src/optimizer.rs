@@ -704,6 +704,10 @@ mod tests {
         }
     }
 
+    fn instance_key(idx: usize, slot: Slot, name: &str) -> String {
+        format!("{:04}::{}::{}", idx, slot, name)
+    }
+
     fn goal(stat: Stat, minimum: i64) -> StatGoal {
         StatGoal { stat, minimum }
     }
@@ -1124,18 +1128,18 @@ mod tests {
         // name presented in both slots may be identical when two copies exist.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
-            "0001::Finger (1)::Same Ring".into(),
+            instance_key(1, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
         resolved.insert(
-            "0002::Finger (1)::Same Ring".into(),
+            instance_key(2, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
 
         let goals = vec![goal(Stat::CriticalRating, 900)];
         let names = vec![
-            "0001::Finger (1)::Same Ring".to_string(),
-            "0002::Finger (1)::Same Ring".to_string(),
+            instance_key(1, Slot::Finger1, "Same Ring"),
+            instance_key(2, Slot::Finger1, "Same Ring"),
         ];
         let result = optimize(&resolved, &names, &goals);
 
@@ -1151,22 +1155,22 @@ mod tests {
 
         let mut one: HashMap<String, CachedItem> = HashMap::new();
         one.insert(
-            "0001::Finger (1)::Same Ring".into(),
+            instance_key(1, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
-        let one_name = vec!["0001::Finger (1)::Same Ring".to_string()];
+        let one_name = vec![instance_key(1, Slot::Finger1, "Same Ring")];
         let one_result = optimize(&one, &one_name, &goals);
         assert!(!one_result.feasible);
         assert_eq!(one_result.gear_set.total(&Stat::CriticalRating), 500);
 
         let mut two = one;
         two.insert(
-            "0002::Finger (1)::Same Ring".into(),
+            instance_key(2, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
         let two_names = vec![
-            "0001::Finger (1)::Same Ring".to_string(),
-            "0002::Finger (1)::Same Ring".to_string(),
+            instance_key(1, Slot::Finger1, "Same Ring"),
+            instance_key(2, Slot::Finger1, "Same Ring"),
         ];
         let two_result = optimize(&two, &two_names, &goals);
         assert!(two_result.feasible);

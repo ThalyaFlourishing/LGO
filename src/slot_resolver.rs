@@ -844,6 +844,8 @@ fn take_matching_incoming(
         let idx = candidates
             .iter()
             .position(|incoming| item_data_equal(prev, incoming))
+            // No exact canonical match remains, so fall back to the first
+            // remaining same-name occurrence to keep matching stable.
             .unwrap_or(0);
         let matched = candidates.remove(idx);
         (matched, candidates.is_empty())
@@ -1630,7 +1632,13 @@ name = \"Test Helm\"\n";
     }
 
     fn count_item_name(src: &str, name: &str) -> usize {
-        src.matches(&format!("name = \"{}\"", name)).count()
+        let doc: DocumentMut = src.parse().expect("test TOML must parse");
+        doc.get("item")
+            .and_then(|v| v.as_array_of_tables())
+            .expect("test TOML has [[item]]")
+            .iter()
+            .filter(|t| table_name(t).as_deref() == Some(name))
+            .count()
     }
 
     #[test]
