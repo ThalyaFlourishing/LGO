@@ -15,7 +15,7 @@
 //!
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -505,8 +505,9 @@ fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, label: &str, next_pos:
 // =============================================================================
 //
 // Behaviour on iteration:
-//   * Items present in both `previous` and `incoming` (matched by exact
-//     `name`) are kept verbatim from `previous` by default.
+//   * Items present in both `previous` and `incoming` are matched per owned
+//     instance: exact canonical data equality first, then stable same-name
+//     occurrence order. Matching never uses display name alone as a unique key.
 //   * Items present only in `incoming` are added.
 //   * Items present only in `previous` are removed (they have disappeared
 //     from the new export).
@@ -668,10 +669,7 @@ pub fn merge_into_canonical(
         }
     }
 
-    let incoming_by_name: HashMap<String, Table> = incoming_tables
-        .into_iter()
-        .filter_map(|t| table_name(&t).map(|n| (n, t)))
-        .collect();
+    let (mut incoming_by_name, incoming_order) = group_incoming_by_name(incoming_tables);
 
     let mut outcome = MergeOutcome {
         unknown_slot,
@@ -684,7 +682,6 @@ pub fn merge_into_canonical(
     let mut yes_all_remove = false;
 
     let mut merged_tables: Vec<Table> = Vec::new();
-    let mut consumed_incoming: HashSet<String> = HashSet::new();
 
     for prev in prev_tables {
         let Some(name) = table_name(&prev) else {
@@ -695,16 +692,14 @@ pub fn merge_into_canonical(
             continue;
         };
 
-        if let Some(incoming) = incoming_by_name.get(&name) {
-            consumed_incoming.insert(name.clone());
-
+        if let Some(incoming) = take_matching_incoming(&prev, &name, &mut incoming_by_name) {
             match &mut force {
                 ForceMode::NoForce => {
                     outcome.preserved.push(name);
                     merged_tables.push(prev);
                 }
                 ForceMode::Force { prompter } => {
-                    if item_data_equal(&prev, incoming) {
+                    if item_data_equal(&prev, &incoming) {
                         // Identical data — never prompt, never count.
                         outcome.preserved.push(name);
                         merged_tables.push(prev);
@@ -718,11 +713,11 @@ pub fn merge_into_canonical(
                             PromptAnswer::YesToAll => {
                                 yes_all_overwrite = true;
                                 outcome.overwritten.push(name);
-                                merged_tables.push(incoming.clone());
+                                merged_tables.push(incoming);
                             }
                             PromptAnswer::Yes => {
                                 outcome.overwritten.push(name);
-                                merged_tables.push(incoming.clone());
+                                merged_tables.push(incoming);
                             }
                             PromptAnswer::No => {
                                 outcome.preserved.push(name);
@@ -764,14 +759,11 @@ pub fn merge_into_canonical(
         }
     }
 
-    // Items in incoming not seen in previous → added (no prompt).
-    // Iterate incoming in a stable order so output is deterministic: we
-    // re-bucket by family below anyway, but stable per-family ordering
-    // (insertion order) matters for the idempotency guarantee.
-    let mut incoming_pairs: Vec<(String, Table)> = incoming_by_name.into_iter().collect();
-    incoming_pairs.sort_by(|a, b| a.0.cmp(&b.0));
-    for (name, table) in incoming_pairs {
-        if !consumed_incoming.contains(&name) {
+    // Items in incoming not matched to a previous instance → added (no prompt).
+    // Iterate in original incoming occurrence order so duplicate same-name
+    // additions remain deterministic and preserve multiplicity.
+    for name in incoming_order {
+        if let Some(table) = pop_first_incoming(&name, &mut incoming_by_name) {
             outcome.added.push(name);
             merged_tables.push(table);
         }
@@ -821,6 +813,63 @@ pub fn merge_into_canonical(
 
     outcome.merged_text = prev_doc.to_string();
     Ok(outcome)
+}
+
+/// Group incoming tables by display name while retaining one occurrence-order
+/// entry per owned item instance. The merge consumes these vectors one table at
+/// a time, so duplicate same-name instances cannot collapse into one HashMap
+/// value.
+fn group_incoming_by_name(tables: Vec<Table>) -> (HashMap<String, Vec<Table>>, Vec<String>) {
+    let mut by_name: HashMap<String, Vec<Table>> = HashMap::new();
+    let mut order: Vec<String> = Vec::new();
+    for table in tables {
+        if let Some(name) = table_name(&table) {
+            let order_name = name.clone();
+            by_name.entry(name).or_default().push(table);
+            order.push(order_name);
+        }
+    }
+    (by_name, order)
+}
+
+/// Consume the best incoming match for one previous owned instance:
+/// exact canonical fields first (ignoring comments/decor), then stable
+/// same-name occurrence order.
+fn take_matching_incoming(
+    prev: &Table,
+    name: &str,
+    incoming_by_name: &mut HashMap<String, Vec<Table>>,
+) -> Option<Table> {
+    let (matched, empty_after) = {
+        let candidates = incoming_by_name.get_mut(name)?;
+        let idx = candidates
+            .iter()
+            .position(|incoming| item_data_equal(prev, incoming))
+            // No exact canonical match remains, so fall back to the first
+            // remaining same-name occurrence to keep matching stable.
+            .unwrap_or(0);
+        let matched = candidates.remove(idx);
+        (matched, candidates.is_empty())
+    };
+    if empty_after {
+        incoming_by_name.remove(name);
+    }
+    Some(matched)
+}
+
+fn pop_first_incoming(
+    name: &str,
+    incoming_by_name: &mut HashMap<String, Vec<Table>>,
+) -> Option<Table> {
+    let (matched, empty_after) = {
+        let candidates = incoming_by_name.get_mut(name)?;
+        let matched = candidates.remove(0);
+        (matched, candidates.is_empty())
+    };
+    if empty_after {
+        incoming_by_name.remove(name);
+    }
+    Some(matched)
 }
 
 /// Bucket pre-resolved tables by canonical slot family, looking only at
@@ -1583,6 +1632,16 @@ name = \"Test Helm\"\n";
         }
     }
 
+    fn count_item_name(src: &str, name: &str) -> usize {
+        let doc: DocumentMut = src.parse().expect("test TOML must parse");
+        doc.get("item")
+            .and_then(|v| v.as_array_of_tables())
+            .expect("test TOML has [[item]]")
+            .iter()
+            .filter(|t| table_name(t).as_deref() == Some(name))
+            .count()
+    }
+
     #[test]
     fn merge_first_run_takes_incoming_verbatim() {
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
@@ -1592,6 +1651,21 @@ name = \"Test Helm\"\n";
         assert!(outcome.preserved.is_empty());
         assert!(outcome.removed.is_empty());
         assert_eq!(outcome.merged_text, incoming);
+    }
+
+    #[test]
+    fn merge_first_run_preserves_duplicate_same_name_instances() {
+        let incoming = make_doc(&[
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+        ]);
+        let outcome =
+            merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
+
+        assert_eq!(outcome.added, vec!["Test Bracelet", "Test Bracelet"]);
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
+        assert!(outcome.merged_text.contains("Armor = 100"));
+        assert!(outcome.merged_text.contains("Armor = 200"));
     }
 
     /// The cornerstone idempotency test: running the merge twice in a row
@@ -1622,6 +1696,120 @@ name = \"Test Helm\"\n";
             .expect("third merge")
             .merged_text;
         assert_eq!(second, third, "third merge must also be byte-identical");
+    }
+
+    #[test]
+    fn merge_idempotent_with_duplicate_same_name_stat_divergence() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[
+            ("Test Bracelet", "Unknown", &[("Armor", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armor", 200)]),
+        ]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+        assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
+        assert!(third.contains("Armor = 100"));
+        assert!(third.contains("Armor = 200"));
+    }
+
+    #[test]
+    fn merge_duplicate_matching_prefers_exact_canonical_data_before_occurrence_order() {
+        let prev = "\
+[[item]]\n\
+slot = \"Wrist (1)\"\n\
+name = \"Test Bracelet\"\n\
+# user note that must not affect identity\n\
+Armor = 100\n\
+\n\
+[[item]]\n\
+slot = \"Wrist (1)\"\n\
+name = \"Test Bracelet\"\n\
+Armor = 900\n";
+        let incoming = make_doc(&[
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
+        ]);
+
+        let outcome = merge_into_canonical(
+            Some(prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
+        )
+        .expect("must merge");
+
+        assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
+        assert_eq!(outcome.overwritten, vec!["Test Bracelet"]);
+        assert!(outcome.merged_text.contains("Armor = 100"));
+        assert!(outcome.merged_text.contains("Armor = 200"));
+        assert!(!outcome.merged_text.contains("Armor = 900"));
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
+    }
+
+    #[test]
+    fn merge_comments_and_decor_do_not_create_distinct_instance_identity() {
+        let prev = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+# Ash Nazg Gimbatul\n\
+Armor = 100\n";
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
+
+        let outcome = merge_into_canonical(Some(prev), &incoming, force_with(vec![]))
+            .expect("must merge without prompting");
+
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(outcome.added.is_empty());
+        assert!(outcome.removed.is_empty());
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Helm"), 1);
+        assert!(outcome.merged_text.contains("# Ash Nazg Gimbatul"));
+    }
+
+    #[test]
+    fn merge_count_increase_adds_only_new_duplicate_instances() {
+        let prev = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
+        let incoming = make_doc(&[
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+        ]);
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+
+        assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
+        assert_eq!(outcome.added, vec!["Test Bracelet"]);
+        assert!(outcome.removed.is_empty());
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
+    }
+
+    #[test]
+    fn merge_count_decrease_removes_only_missing_duplicate_instances() {
+        let prev = make_doc(&[
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+        ]);
+        let incoming = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+
+        assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
+        assert_eq!(outcome.removed, vec!["Test Bracelet"]);
+        assert!(outcome.added.is_empty());
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 1);
+        assert!(outcome.merged_text.contains("Armor = 100"));
+        assert!(!outcome.merged_text.contains("Armor = 200"));
     }
 
     #[test]

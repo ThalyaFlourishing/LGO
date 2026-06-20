@@ -675,8 +675,7 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
 fn current_plugindata_excludes_craft_tool_and_bridle() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("TestData/lgo_gearlist_Thalya_20260618_164900.plugindata");
-    let raw = std::fs::read_to_string(&path)
-        .expect("current plugindata fixture must be readable");
+    let raw = std::fs::read_to_string(&path).expect("current plugindata fixture must be readable");
 
     // These are the specific items Thalya had equipped in the old export.
     // They must stay absent as long as the plugin skips those slots.
