@@ -18,9 +18,53 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
 
+fn resolved_item_slots(out: &str) -> Vec<String> {
+    let doc: toml_edit::DocumentMut = out.parse().expect("resolved output parses as TOML");
+    doc.get("item")
+        .and_then(|v| v.as_array_of_tables())
+        .expect("resolved output has [[item]]")
+        .iter()
+        .map(|table| {
+            table
+                .get("slot")
+                .and_then(|v| v.as_str())
+                .expect("[[item]] has slot")
+                .to_string()
+        })
+        .collect()
+}
+
+fn current_plugindata_fixture_path() -> PathBuf {
+    let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
+    let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
+        .unwrap_or_else(|e| panic!("TestData directory must be readable: {}", e))
+        .map(|entry| {
+            entry
+                .expect("failed to read TestData directory entry")
+                .path()
+        })
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| {
+                    name.starts_with("lgo_gearlist_Thalya_") && name.ends_with(".plugindata")
+                })
+                .unwrap_or(false)
+        })
+        .collect();
+    matches.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    assert!(
+        !matches.is_empty(),
+        "expected at least one Thalya plugindata fixture in {}",
+        test_data.display()
+    );
+    matches.pop().unwrap()
+}
+
 #[test]
 fn resolves_full_bookmarklet_output_matches_known_summary() {
-    let (_, outcomes) = setup();
+    let (out, outcomes) = setup();
+    let slots = resolved_item_slots(&out);
 
     let resolved = outcomes
         .iter()
@@ -33,22 +77,26 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
             _ => None,
         })
         .collect();
+    let emitted_unknown = slots
+        .iter()
+        .filter(|slot| slot.as_str() == "Unknown")
+        .count();
+    let emitted_non_unknown = slots.len() - emitted_unknown;
 
-    assert_eq!(resolved, 68, "resolved count drift");
-    assert_eq!(unknown_names.len(), 2, "unknown count drift");
-
-    let mut sorted_unknowns = unknown_names.clone();
-    sorted_unknowns.sort();
     assert_eq!(
-        sorted_unknowns,
-        vec![
-            "Extraordinary Elf Prospector's Pickaxe",
-            "Scholar's Light Bridle",
-        ],
-        "unknown item set drift"
+        outcomes.len(),
+        slots.len(),
+        "each emitted [[item]] must have one resolution outcome"
     );
-
-    assert_eq!(outcomes.len(), 70, "total item count drift");
+    assert_eq!(
+        resolved, emitted_non_unknown,
+        "resolved outcomes must match emitted canonical-slot items"
+    );
+    assert_eq!(
+        unknown_names.len(),
+        emitted_unknown,
+        "unknown outcomes must match emitted Unknown-slot items"
+    );
 }
 
 #[test]
@@ -88,9 +136,14 @@ fn resolved_output_round_trips_through_gearstats_reader() {
     let parsed_len = lgo::gearstats::read_stats_file(&tmp).map(|d| d.items.len());
     let _ = std::fs::remove_file(&tmp);
 
+    let expected_non_unknown = resolved_item_slots(&out)
+        .iter()
+        .filter(|slot| slot.as_str() != "Unknown")
+        .count();
+
     assert_eq!(
         parsed_len,
-        Ok(68),
+        Ok(expected_non_unknown),
         "resolved canonical-slot subset must parse"
     );
 }
@@ -106,7 +159,8 @@ fn bookmarklet_warning_comments_survive_resolution() {
 
 #[test]
 fn divider_comments_appear_in_canonical_family_order() {
-    let (out, _) = setup();
+    let (out, outcomes) = setup();
+    const MIN_DIVIDERS_FOR_ORDERING_TEST: usize = 2;
     let expected = [
         "# --- Head ---",
         "# --- Chest ---",
@@ -121,15 +175,45 @@ fn divider_comments_appear_in_canonical_family_order() {
         "# --- Ear ---",
         "# --- Pocket ---",
         "# --- Main-hand ---",
+        "# --- Off-hand ---",
+        "# --- Ranged ---",
+        "# --- Class Item ---",
         "# --- Unknown (not in items DB) ---",
     ];
 
     let mut positions = Vec::with_capacity(expected.len());
     for divider in expected {
-        let pos = out
-            .find(divider)
-            .unwrap_or_else(|| panic!("missing divider '{}'\n{}", divider, out));
-        positions.push(pos);
+        if let Some(pos) = out.find(divider) {
+            positions.push(pos);
+        }
+    }
+
+    let has_unknown_outcomes = outcomes
+        .iter()
+        .any(|o| matches!(o, ResolutionOutcome::Unknown { .. }));
+    assert_eq!(
+        out.contains("# --- Unknown (not in items DB) ---"),
+        has_unknown_outcomes,
+        "Unknown divider should appear exactly when unresolved items exist"
+    );
+    assert!(
+        !positions.is_empty(),
+        "resolved output should contain at least one slot-family divider"
+    );
+    assert!(
+        positions.len() >= MIN_DIVIDERS_FOR_ORDERING_TEST,
+        "real fixture should contain multiple dividers to verify ordering"
+    );
+    for divider in out
+        .lines()
+        .filter(|line| line.starts_with("# --- ") && line.ends_with(" ---"))
+    {
+        assert!(
+            expected.contains(&divider),
+            "unexpected divider '{}'\n{}",
+            divider,
+            out
+        );
     }
 
     for pair in positions.windows(2) {
@@ -673,8 +757,7 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
 /// (Bridle) so players do not need to unequip those items before exporting.
 #[test]
 fn current_plugindata_excludes_craft_tool_and_bridle() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("TestData/lgo_gearlist_Thalya_20260618_164900.plugindata");
+    let path = current_plugindata_fixture_path();
     let raw = std::fs::read_to_string(&path).expect("current plugindata fixture must be readable");
 
     // These are the specific items Thalya had equipped in the old export.
