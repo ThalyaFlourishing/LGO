@@ -18,6 +18,7 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
 
+// HELPERS:
 fn resolved_item_slots(out: &str) -> Vec<String> {
     let doc: toml_edit::DocumentMut = out.parse().expect("resolved output parses as TOML");
     doc.get("item")
@@ -32,6 +33,14 @@ fn resolved_item_slots(out: &str) -> Vec<String> {
                 .to_string()
         })
         .collect()
+}
+
+fn item_table_count(src: &str) -> usize {
+    let doc: toml_edit::DocumentMut = src.parse().expect("output parses as TOML");
+    doc.get("item")
+        .and_then(|v| v.as_array_of_tables())
+        .expect("output has [[item]]")
+        .len()
 }
 
 fn current_plugindata_fixture_path() -> PathBuf {
@@ -61,6 +70,7 @@ fn current_plugindata_fixture_path() -> PathBuf {
     matches.pop().unwrap()
 }
 
+// TESTS:
 #[test]
 fn resolves_full_bookmarklet_output_matches_known_summary() {
     let (out, outcomes) = setup();
@@ -347,7 +357,27 @@ fn file_level_merge_first_run_creates_canonical_file() {
     assert!(!report.previous_existed);
     assert!(!report.no_new_export);
     assert!(report.outcome.preserved.is_empty());
-    assert_eq!(report.outcome.added.len(), 70);
+    assert!(
+        report.outcome.overwritten.is_empty(),
+        "first run should not overwrite existing entries"
+    );
+    assert!(
+        report.outcome.removed.is_empty(),
+        "first run should not remove entries"
+    );
+
+    let canonical_text = std::fs::read_to_string(&canonical).expect("read canonical");
+    let emitted_items = item_table_count(&canonical_text);
+
+    assert!(
+    emitted_items > 0,
+    "fixture should produce at least one canonical item"
+    );
+    assert_eq!(
+        report.outcome.added.len(),
+        emitted_items,
+        "first-run added count must match emitted canonical [[item]] count"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
