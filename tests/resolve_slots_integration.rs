@@ -58,7 +58,7 @@ fn current_plugindata_fixture_path() -> PathBuf {
         "expected at least one Thalya plugindata fixture in {}",
         test_data.display()
     );
-    matches.pop().expect("matches must not be empty")
+    matches.pop().unwrap()
 }
 
 #[test]
