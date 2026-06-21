@@ -663,9 +663,14 @@ pub fn merge_into_canonical(
 
     // Carry forward `character` and `class` from the incoming resolved TOML
     // into the canonical document so the metadata is always current after a merge.
+    // When the value is already current, leave the previous item untouched:
+    // toml_edit stores leading comments/alignment as decor on these top-level
+    // values, and replacing them would make repeat merges serialize differently.
     for key in &["character", "class"] {
         if let Some(val) = incoming_doc.get(key).cloned() {
-            prev_doc.insert(key, val);
+            if prev_doc.get(key).and_then(|existing| existing.as_str()) != val.as_str() {
+                prev_doc.insert(key, val);
+            }
         }
     }
 
@@ -2137,6 +2142,10 @@ Armor = 100\n";
             second.contains("Lore-master"),
             "class must survive repeat merge:\n{}",
             second
+        );
+        assert_eq!(
+            first, second,
+            "metadata carry-forward must not disturb repeat-merge serialization"
         );
     }
 
