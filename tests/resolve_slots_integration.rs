@@ -38,7 +38,11 @@ fn current_plugindata_fixture_path() -> PathBuf {
     let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
     let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
         .unwrap_or_else(|e| panic!("TestData directory must be readable: {}", e))
-        .map(|entry| entry.expect("TestData entry must be readable").path())
+        .map(|entry| {
+            entry
+                .expect("failed to read TestData directory entry")
+                .path()
+        })
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
@@ -157,6 +161,7 @@ fn bookmarklet_warning_comments_survive_resolution() {
 #[test]
 fn divider_comments_appear_in_canonical_family_order() {
     let (out, outcomes) = setup();
+    const MIN_DIVIDERS_FOR_ORDERING_TEST: usize = 2;
     let expected = [
         "# --- Head ---",
         "# --- Chest ---",
@@ -197,7 +202,7 @@ fn divider_comments_appear_in_canonical_family_order() {
         "resolved output should contain at least one slot-family divider"
     );
     assert!(
-        positions.len() >= 2,
+        positions.len() >= MIN_DIVIDERS_FOR_ORDERING_TEST,
         "real fixture should contain multiple dividers to verify ordering"
     );
     for divider in out
