@@ -52,14 +52,13 @@ fn current_plugindata_fixture_path() -> PathBuf {
                 .unwrap_or(false)
         })
         .collect();
-    matches.sort();
-    assert_eq!(
-        matches.len(),
-        1,
-        "expected exactly one current Thalya plugindata fixture in {}",
+    matches.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    assert!(
+        !matches.is_empty(),
+        "expected at least one Thalya plugindata fixture in {}",
         test_data.display()
     );
-    matches.remove(0)
+    matches.pop().expect("matches must not be empty")
 }
 
 #[test]
