@@ -17,13 +17,13 @@ The pre-pivot codebase addressed this via a `[__user_edits__]` metadata section 
 
 Two per-character files now live in the AllServers directory:
 
-- **`lgo_<character>_stats.toml`** — the bookmarklet's output. The user saves the bookmarklet's TOML here. Transient input to `resolve-slots`. **No timestamps in the name** (most users are European and write dates day-first; getting timestamps right manually is a usability landmine).
-- **`lgo_<character>_gear.toml`** — the canonical merged file. Sole output of `resolve-slots`. Sole input the optimizer reads. The `_resolved.toml` suffix is retired.
+- **`lgo_<character>_gearStats.toml`** — the bookmarklet's output. The user saves the bookmarklet's TOML here. Transient input to `resolve-slots`. **No timestamps in the name** (most users are European and write dates day-first; getting timestamps right manually is a usability landmine).
+- **`lgo_<character>_gearReady.toml`** — the canonical merged file. Sole output of `resolve-slots`. Sole input the optimizer reads. The `_resolved.toml` suffix is retired.
 
 `find_latest_stats_file` (in `src/gearstats.rs`) needs two distinct callers, so it needs two distinct behaviours:
 
-1. **For the optimizer** ("what file should I read?"): prefer `lgo_<character>_gear.toml` if it exists. Fall back to the existing lexicographic scan only for backward compatibility with users who haven't run the new resolver yet.
-2. **For the resolver** ("what is the new bookmarklet output?"): read `lgo_<character>_stats.toml` exactly. Do not scan, do not match the canonical file.
+1. **For the optimizer** ("what file should I read?"): prefer `lgo_<character>_gearReady.toml` if it exists. Fall back to the existing lexicographic scan only for backward compatibility with users who haven't run the new resolver yet.
+2. **For the resolver** ("what is the new bookmarklet output?"): read `lgo_<character>_gearStats.toml` exactly. Do not scan, do not match the canonical file.
 
 Add a second function (e.g. `find_bookmarklet_output(dir, character) -> Option<PathBuf>`) rather than overloading the existing one.
 
@@ -33,10 +33,10 @@ The character name comes from the `--character` flag if provided. Otherwise, use
 
 Inputs:
 
-- **`previous`**: parsed `lgo_<character>_gear.toml`, or `None` if absent.
-- **`incoming`**: parsed and slot-resolved `lgo_<character>_stats.toml`.
+- **`previous`**: parsed `lgo_<character>_gearReady.toml`, or `None` if absent.
+- **`incoming`**: parsed and slot-resolved `lgo_<character>_gearStats.toml`.
 
-Output: a `DocumentMut` written back to `lgo_<character>_gear.toml`, plus a `MergeOutcome` summary.
+Output: a `DocumentMut` written back to `lgo_<character>_gearReady.toml`, plus a `MergeOutcome` summary.
 
 Algorithm, in order:
 
@@ -109,7 +109,7 @@ The audience is a small group of personal acquaintances of the author (per `AGEN
 Specific error cases:
 
 - Canonical file exists but is malformed TOML → `Cannot parse '<path>': <toml_edit error>`.
-- No bookmarklet output and no canonical file → `No lgo_<character>_stats.toml or lgo_<character>_gear.toml found in <dir>`.
+- No bookmarklet output and no canonical file → `No lgo_<character>_gearStats.toml or lgo_<character>_gearReady.toml found in <dir>`.
 - Canonical file exists but no bookmarklet output → **not an error.** Emit `No new export found; canonical file is unchanged.` and exit 0.
 - `--force` passed when stdin is not a TTY → `--force requires interactive stdin for prompts.`, exit nonzero.
 
@@ -126,7 +126,7 @@ Add a merge layer atop `resolve_toml_str`:
 Update `resolve_stats_file` (the file-level wrapper):
 
 1. Determine the character name (passed in by `main.rs`).
-2. Compute the canonical path (`lgo_<character>_gear.toml`) and bookmarklet path (`lgo_<character>_stats.toml`).
+2. Compute the canonical path (`lgo_<character>_gearReady.toml`) and bookmarklet path (`lgo_<character>_gearStats.toml`).
 3. Read the canonical file if it exists.
 4. Read and slot-resolve the bookmarklet output.
 5. Call `merge_into_canonical`.
@@ -135,8 +135,8 @@ Update `resolve_stats_file` (the file-level wrapper):
 
 ### `src/gearstats.rs`
 
-- Add `find_bookmarklet_output(dir: &Path, character: &str) -> Option<PathBuf>` returning the path to `lgo_<character>_stats.toml` if it exists.
-- Update `find_latest_stats_file` to prefer `lgo_<character>_gear.toml` when present, falling back to the existing lexicographic scan otherwise.
+- Add `find_bookmarklet_output(dir: &Path, character: &str) -> Option<PathBuf>` returning the path to `lgo_<character>_gearStats.toml` if it exists.
+- Update `find_latest_stats_file` to prefer `lgo_<character>_gearReady.toml` when present, falling back to the existing lexicographic scan otherwise.
 
 ### `src/main.rs`
 
@@ -183,7 +183,7 @@ An integration test in `tests/` exercising the file-level merge against syntheti
 
 ### `docs/AGENT_CONTEXT.md`
 
-- **§2 (User workflow)**: replace the existing 9-step `_resolved.toml` description with the new merge-aware flow. Mention `lgo_<character>_stats.toml` (bookmarklet sink), `lgo_<character>_gear.toml` (canonical), the preserve-by-default rule, and `--force`. Keep terse — this section is a summary, not a tutorial.
+- **§2 (User workflow)**: replace the existing 9-step `_resolved.toml` description with the new merge-aware flow. Mention `lgo_<character>_gearStats.toml` (bookmarklet sink), `lgo_<character>_gearReady.toml` (canonical), the preserve-by-default rule, and `--force`. Keep terse — this section is a summary, not a tutorial.
 - **§10 (Deferred work)**: replace the last bullet (the one referencing pre-pivot `src/merge.rs` and `[__user_edits__]`) with: "Hand-edit preservation across re-runs: implemented in PR #<this-PR> via preserve-by-default merge in `resolve-slots`. The `[__user_edits__]` design from `docs/Merge Coding Prompt.txt` and `docs/User Story & Hand-Edit-Tracking Approach.txt` was rejected in favour of the simpler preserve-by-default model. Those two design docs are now historical."
 - **§10**: add a new bullet: "Rename detection. The merge step matches items by exact byte-for-byte name. If the wiki renames an item between exports, or if a Unicode encoding glitch alters a character, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem."
 - Do not modify §1, §3, §4, §5, §6, §7, §8, or §9.
@@ -192,10 +192,10 @@ An integration test in `tests/` exercising the file-level merge against syntheti
 
 The user is hand-editing this file. Make only the strictly-necessary technical corrections; do not redraft prose.
 
-- **Step 7**: change the suggested filename to `lgo_<character>_stats.toml`. The bookmarklet's output is the resolver's input; the canonical merged file is the resolver's output. The user should not save the bookmarklet output to the canonical name — that would destroy hand-edits before the merge can preserve them.
+- **Step 7**: change the suggested filename to `lgo_<character>_gearStats.toml`. The bookmarklet's output is the resolver's input; the canonical merged file is the resolver's output. The user should not save the bookmarklet output to the canonical name — that would destroy hand-edits before the merge can preserve them.
 - **Step 8**: the existing text *"If there is a pre-existing .toml file, it will not overwrite any items already present."* is correct and matches the new behaviour. Keep it. Add a sentence describing what `--force` prompts for (overwrite per item, remove per item, with `a` for "yes to all" within each category).
 - **TODO block at lines 1–4**: now satisfied by step 8a. Remove it.
-- **Iteration block, last bullet**: filename reference is already `lgo_<character-name>_gear.toml`, which is correct.
+- **Iteration block, last bullet**: filename reference is already `lgo_<character-name>_gearReady.toml`, which is correct.
 
 Do not touch the rest of the file (steps 1–6, 8a, 9–11) for style or wording.
 
@@ -219,6 +219,6 @@ Per `AGENT_CONTEXT.md` §10's "do not silently fold them into other PRs" rule, d
 - **Match the existing CLI conventions exactly.** Case-insensitive verb. `--long-form` and `-x` short alias. Shared options keep their existing semantics.
 - **Use `toml_edit` for all TOML manipulation in the merge.** Do not round-trip through `toml` + serde; that discards comments and decor.
 - **Comments inside preserved `[[item]]` blocks must survive the merge.** Hand-written notes the user added (e.g. `# essence: +1500 tactical mastery`) must round-trip. The existing `toml_edit` discipline in `slot_resolver.rs::push_group` is the model.
-- **The canonical file must be the only TOML file the optimizer ever needs to read** once the merge has run at least once. No silent reliance on `lgo_<character>_stats.toml` for optimizer input.
+- **The canonical file must be the only TOML file the optimizer ever needs to read** once the merge has run at least once. No silent reliance on `lgo_<character>_gearStats.toml` for optimizer input.
 - **No new dependencies** unless absolutely required. State the case in the PR description if one is added.
 - **Final verification:** `cargo build`, `cargo build --release`, and `cargo test` all succeed with no new warnings.

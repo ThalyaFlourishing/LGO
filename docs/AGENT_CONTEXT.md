@@ -13,7 +13,7 @@
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*. The target user base is a small group of personal acquaintances of the author of this project. There will be no general public release, and there are no commercial needs or long-term engineering best-practices needs. It has not yet been released at all, in fact, so there are currently no concerns about backwards compatibility.
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_gearlist_<character>_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
+   - `lgo_gearNames_<character>_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the plugindata, and the bookmarklet either opens a Save As dialog (Chromium browsers, via `showSaveFilePicker`) or saves to the browser's Downloads folder (other browsers).
@@ -24,12 +24,12 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 
 See 'docs/User Workflow.txt' for the full step-by-step.
 The short form:
-- User exports a file from the in-game plug-in: lgo_gearlist_`<character>`_`<timestamp>`.plugindata.
+- User exports a file from the in-game plug-in: lgo_gearNames_`<character>`_`<timestamp>`.plugindata.
 - User uses the bookmarklet, pasting in the .plugindata contents, which
 then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
-- User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_stats.toml.
-- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gear.toml.
+- User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
+- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
 - User invokes 'lgo optimize' which reads the canonical file and provides
 a final optimization report according to user's specified stats of interest.
 
@@ -49,9 +49,9 @@ a final optimization report according to user's specified stats of interest.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
 - `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml` + `data/progressions.xml`, writes `data/lgo_items.json`. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
-  - `lgo_gearlist_Thalya_20260616_024722.plugindata` — fresh in-game plugin export (input for the bookmarklet).
-  - `lgo_Thalya_stats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
-  - `lgo_Thalya_gear.toml` — already-resolved canonical gear file (input for `optimize`).
+  - `lgo_gearNames_Thalya_[[some-time-stamp]].plugindata` — fresh in-game plugin export (input for the bookmarklet).
+  - `lgo_Thalya_gearStats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
+  - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `RESOLVER_DESIGN.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `TOML Analysis.txt`, `Test_Output_01.txt``MODEL_GUIDANCE.md` (per-file AI model selection guide). Historical design docs (kept for traceability, do not treat as live spec): `Merge Coding Prompt.txt`, `User Story & Hand-Edit-Tracking Approach.txt`. See §10 for the rejection rationale.
 
 ---
@@ -138,7 +138,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
 - Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 14-stat list. Do not invent or paraphrase.
-- Filename discovery for `lgo_<character>_stats.toml` and `lgo_<character>_gear.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
+- Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
 - The bookmarklet's `SLOT_MAP` is a translation table between two free-text vocabularies and a rigid one. There is **no canonical translation table** between the wiki's free-text `slot=`/`type=` and the Rust `Slot` enum — every entry in `SLOT_MAP` was added by hand in response to a discovered mismatch.
 - **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).
 - **`GetDescription()` on `ItemInfo` returns `<string table error; tableDID [...] token [...]>` for *all* gear items** on the current client. This is a long-standing wiki-side or engine-side string-table failure, not something the plugin can fix. The probe confirmed it succeeds for non-gear items (e.g. fireworks) but fails uniformly across gear.
@@ -153,9 +153,9 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - Character: **Thalya**
 - Class: **Lore-master**
 - Base stats: Might 5300, Agility 2650, Vitality 10200, Will 7950, Fate 4000.
-- Plugindata fixture: `TestData/lgo_gearlist_Thalya_20260616_024722.plugindata` — fresh in-game plugin export (input for the bookmarklet).
-- Bookmarklet-output fixture: `TestData/lgo_Thalya_stats.toml` — 66-item TOML; used by `tests/resolve_slots_integration.rs`. Contains a mix of canonical slots, `slot = "Unknown"` entries, and (intentionally) some pre-Bug-2-fix wiki-vocabulary slots like `"Shoulder"` and `"Gloves"` — exercises the resolver's name-based slot canonicalisation.
-- Canonical-gear fixture: `TestData/lgo_Thalya_gear.toml` — already-resolved gear file (input for `optimize`).
+- Plugindata fixture: `TestData/lgo_gearNames_Thalya_20260616_024722.plugindata` — fresh in-game plugin export (input for the bookmarklet).
+- Bookmarklet-output fixture: `TestData/lgo_Thalya_gearStats.toml` — 66-item TOML; used by `tests/resolve_slots_integration.rs`. Contains a mix of canonical slots, `slot = "Unknown"` entries, and (intentionally) some pre-Bug-2-fix wiki-vocabulary slots like `"Shoulder"` and `"Gloves"` — exercises the resolver's name-based slot canonicalisation.
+- Canonical-gear fixture: `TestData/lgo_Thalya_gearReady.toml` — already-resolved gear file (input for `optimize`).
 
 ---
 

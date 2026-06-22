@@ -14,7 +14,7 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
     Export a unified gearlist from equipped items plus Shared Storage chest "lgo".
     Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
     there is no need to unequip them before exporting.
-    Writes lgo_gearlist_*.plugindata.
+    Writes lgo_gearNames_*.plugindata.
 
   /lgo export chest <name>
     Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
@@ -25,10 +25,10 @@ SECTION 2 - BOOKMARKLET WORKFLOW
 
   1) Open https://lotro-wiki.com in your browser.
   2) Click the LGO Stats bookmarklet.
-  3) Paste the contents of lgo_gearlist_<character>_<timestamp>.plugindata when prompted.
+  3) Paste the contents of lgo_gearNames_<character>_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
      The generated TOML includes top-level character = "..." and class = "..." fields.
-  5) Save the generated file as lgo_<character>_stats.toml into your character's AllServers directory.
+  5) Save the generated file as lgo_<character>_gearStats.toml into your character's AllServers directory.
 
 SECTION 3 - LGO CLI (USER COMMANDS)
 -----------------------------------
@@ -46,9 +46,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.2 resolve-slots
   lgo resolve-slots
-    Auto-detect lgo_<character>_stats.toml in the selected character's AllServers
+    Auto-detect lgo_<character>_gearStats.toml in the selected character's AllServers
     directory, resolve slot names via data/lgo_items.json, and merge the result into
-    lgo_<character>_gear.toml.
+    lgo_<character>_gearReady.toml.
 
     Filename matching for the character name is case-insensitive on Windows.
 
@@ -65,7 +65,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize <stat:min> [<stat:min> ...]
     Run optimization with stat goals in priority order (first stat maximized,
     later stats used as tie-breakers). A minimum of 0 means maximize with no floor.
-    Auto-discovers lgo_<character>_gear.toml from the character's AllServers directory.
+    Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -78,7 +78,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     character and class are read from the TOML's top-level fields if present.
 
     Combined example:
-      lgo optimize --file path\to\lgo_Thalya_gear.toml tm:450000 cr:350000 fn:0
+      lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
 3.4 Stat goal syntax
   Goal format: <stat>:<minimum>

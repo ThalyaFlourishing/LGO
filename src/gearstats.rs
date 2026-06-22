@@ -156,15 +156,15 @@ fn find_case_insensitive_char_file(
     }
 }
 
-/// Find a `lgo_<X>_gear.toml` file in `dir` where `X` matches `character`
+/// Find a `lgo_<X>_gearReady.toml` file in `dir` where `X` matches `character`
 /// case-insensitively.  Used by both the optimizer and the resolver.
 ///
 /// Returns `Ok(Some(path))`, `Ok(None)`, or `Err(collision_message)`.
 pub fn find_canonical_gear_file(dir: &Path, character: &str) -> Result<Option<PathBuf>, String> {
-    find_case_insensitive_char_file(dir, "lgo_", character, "_gear.toml")
+    find_case_insensitive_char_file(dir, "lgo_", character, "_gearReady.toml")
 }
 
-/// Find the bookmarklet output for `character` (`lgo_<X>_stats.toml`),
+/// Find the bookmarklet output for `character` (`lgo_<X>_gearStats.toml`),
 /// matched case-insensitively on both prefix/suffix and character segment.
 ///
 /// The resolver reads this file *exactly* — no scanning over other patterns,
@@ -172,7 +172,7 @@ pub fn find_canonical_gear_file(dir: &Path, character: &str) -> Result<Option<Pa
 ///
 /// Returns `Ok(Some(path))`, `Ok(None)`, or `Err(collision_message)`.
 pub fn find_bookmarklet_output(dir: &Path, character: &str) -> Result<Option<PathBuf>, String> {
-    find_case_insensitive_char_file(dir, "lgo_", character, "_stats.toml")
+    find_case_insensitive_char_file(dir, "lgo_", character, "_gearStats.toml")
 }
 
 /// Parse a slot display string back to a Slot variant.
@@ -237,7 +237,7 @@ mod tests {
             "decoy timestamped file must not be picked up"
         );
 
-        let target = dir.join("lgo_Thalya_stats.toml");
+        let target = dir.join("lgo_Thalya_gearStats.toml");
         std::fs::write(&target, "").expect("write target");
         assert_eq!(
             find_bookmarklet_output(&dir, "Thalya").expect("no error"),
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn find_canonical_gear_file_case_insensitive_lowercase() {
         let dir = make_test_dir();
-        let f = dir.join("lgo_thalya_gear.toml");
+        let f = dir.join("lgo_thalya_gearReady.toml");
         std::fs::write(&f, "").expect("write file");
 
         let found = find_canonical_gear_file(&dir, "Thalya")
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn find_canonical_gear_file_case_insensitive_uppercase() {
         let dir = make_test_dir();
-        let f = dir.join("lgo_THALYA_gear.toml");
+        let f = dir.join("lgo_THALYA_gearReady.toml");
         std::fs::write(&f, "").expect("write file");
 
         let found = find_canonical_gear_file(&dir, "thalya")
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn find_bookmarklet_output_finds_lowercase_stats_file_for_mixed_case_query() {
         let dir = make_test_dir();
-        let f = dir.join("lgo_thalya_stats.toml");
+        let f = dir.join("lgo_thalya_gearStats.toml");
         std::fs::write(&f, "").expect("write file");
 
         let found = find_bookmarklet_output(&dir, "Thalya")
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn find_bookmarklet_output_finds_mixed_case_stats_file_for_lowercase_query() {
         let dir = make_test_dir();
-        let f = dir.join("lgo_Thalya_stats.toml");
+        let f = dir.join("lgo_Thalya_gearStats.toml");
         std::fs::write(&f, "").expect("write file");
 
         let found = find_bookmarklet_output(&dir, "thalya")

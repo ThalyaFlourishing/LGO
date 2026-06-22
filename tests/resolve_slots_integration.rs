@@ -13,7 +13,7 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     );
 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("data/lgo_items.json must load");
-    let input_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
+    let input_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
@@ -56,7 +56,7 @@ fn current_plugindata_fixture_path() -> PathBuf {
             path.file_name()
                 .and_then(|name| name.to_str())
                 .map(|name| {
-                    name.starts_with("lgo_gearlist_Thalya_") && name.ends_with(".plugindata")
+                    name.starts_with("lgo_gearNames_Thalya_") && name.ends_with(".plugindata")
                 })
                 .unwrap_or(false)
         })
@@ -338,7 +338,7 @@ fn file_level_merge_first_run_creates_canonical_file() {
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -390,7 +390,7 @@ fn file_level_merge_idempotent_on_repeat() {
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
         &bookmarklet,
     )
     .expect("copy fixture");
@@ -429,7 +429,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture");
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
@@ -505,7 +505,7 @@ fn file_level_merge_no_files_at_all_is_an_error() {
     .expect_err("must error when nothing to read");
     let msg = err.to_string();
     assert!(
-        msg.contains("No lgo_TestChar_stats.toml") && msg.contains("lgo_TestChar_gear.toml"),
+        msg.contains("No lgo_TestChar_gearStats.toml") && msg.contains("lgo_TestChar_gearReady.toml"),
         "error must mention both expected filenames: got {}",
         msg
     );
@@ -516,7 +516,7 @@ fn file_level_merge_no_files_at_all_is_an_error() {
 // Case-insensitive file matching integration tests
 // =============================================================================
 
-/// Bookmarklet file saved with all-lowercase character name (`lgo_thalya_stats.toml`)
+/// Bookmarklet file saved with all-lowercase character name (`lgo_thalya_gearStats.toml`)
 /// must be found when the resolver is invoked with the mixed-case name `"Thalya"`.
 /// The canonical output file must be written at the path derived from the
 /// supplied character name (write-follows-read: no existing canonical, so use
@@ -526,10 +526,10 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
     let dir = make_temp_dir("case_insensitive_bookmarklet");
     let character = "Thalya";
 
-    // Write the fixture as `lgo_thalya_stats.toml` (all lowercase).
-    let bookmarklet_lowercase = dir.join("lgo_thalya_stats.toml");
+    // Write the fixture as `lgo_thalya_gearStats.toml` (all lowercase).
+    let bookmarklet_lowercase = dir.join("lgo_thalya_gearStats.toml");
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
         &bookmarklet_lowercase,
     )
     .expect("copy fixture");
@@ -565,7 +565,7 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
 
 /// Windows is case-insensitive for ordinary filenames: if the canonical gear
 /// file already exists on disk under a different casing (e.g.
-/// `lgo_thalya_gear.toml`), the resolver must still find and reuse that
+/// `lgo_thalya_gearReady.toml`), the resolver must still find and reuse that
 /// existing file when invoked with `"Thalya"`.
 #[test]
 fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() {
@@ -573,7 +573,7 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
     let character = "Thalya";
 
     // Create the canonical file first using the normal mixed-case path.
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_stats.toml");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
 
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for first run");
@@ -588,7 +588,7 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
 
     // Rename the canonical file to a lowercase spelling.
     let canonical_exact = lgo::slot_resolver::canonical_gear_path(&dir, character);
-    let canonical_lowercase = dir.join("lgo_thalya_gear.toml");
+    let canonical_lowercase = dir.join("lgo_thalya_gearReady.toml");
     std::fs::rename(&canonical_exact, &canonical_lowercase).expect("rename to lowercase canonical");
 
     assert!(

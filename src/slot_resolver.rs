@@ -245,7 +245,7 @@ pub enum ResolveError {
     NoItemsArray {
         path: PathBuf,
     },
-    /// Neither `lgo_<character>_stats.toml` nor `lgo_<character>_gear.toml`
+    /// Neither `lgo_<character>_gearStats.toml` nor `lgo_<character>_gearReady.toml`
     /// exists in the AllServers directory.
     NoInputFiles {
         dir: PathBuf,
@@ -279,7 +279,7 @@ impl std::fmt::Display for ResolveError {
             }
             ResolveError::NoInputFiles { dir, character } => write!(
                 f,
-                "No lgo_{}_stats.toml or lgo_{}_gear.toml found in {}",
+                "No lgo_{}_gearStats.toml or lgo_{}_gearReady.toml found in {}",
                 character,
                 character,
                 dir.display()
@@ -1002,12 +1002,12 @@ fn table_int(t: &Table, key: &str) -> Option<i64> {
 
 /// End-to-end iteration step:
 ///
-///   1. Read `lgo_<character>_stats.toml` (the bookmarklet's output).
+///   1. Read `lgo_<character>_gearStats.toml` (the bookmarklet's output).
 ///   2. Slot-resolve it via `db`.
-///   3. Read `lgo_<character>_gear.toml` (the canonical merged file) if
+///   3. Read `lgo_<character>_gearReady.toml` (the canonical merged file) if
 ///      it exists.
 ///   4. Merge per `merge_into_canonical` semantics.
-///   5. Write the result back to `lgo_<character>_gear.toml`.
+///   5. Write the result back to `lgo_<character>_gearReady.toml`.
 ///
 /// Returns a `Report` describing what happened, for `main.rs` to display.
 ///
@@ -1020,7 +1020,7 @@ pub fn resolve_stats_file(
     force: ForceMode,
 ) -> Result<Report, ResolveError> {
     // --- Case-insensitive lookups (read path) --------------------------------
-    // Use directory scans so that e.g. `lgo_thalya_stats.toml` is found when
+    // Use directory scans so that e.g. `lgo_thalya_gearStats.toml` is found when
     // querying with `"Thalya"`. Collisions (two files differing only in case)
     // return an error; this cannot happen on Windows but is caught cleanly on
     // Linux.
@@ -1127,14 +1127,14 @@ pub fn resolve_stats_file(
 }
 
 /// Path the bookmarklet writes its TOML to, per the new file-naming
-/// scheme: `<dir>/lgo_<character>_stats.toml`.
+/// scheme: `<dir>/lgo_<character>_gearStats.toml`.
 pub fn bookmarklet_stats_path(dir: &Path, character: &str) -> PathBuf {
-    dir.join(format!("lgo_{}_stats.toml", character))
+    dir.join(format!("lgo_{}_gearStats.toml", character))
 }
 
-/// Canonical merged gear file: `<dir>/lgo_<character>_gear.toml`.
+/// Canonical merged gear file: `<dir>/lgo_<character>_gearReady.toml`.
 pub fn canonical_gear_path(dir: &Path, character: &str) -> PathBuf {
-    dir.join(format!("lgo_{}_gear.toml", character))
+    dir.join(format!("lgo_{}_gearReady.toml", character))
 }
 
 // =============================================================================
@@ -1579,7 +1579,7 @@ name = \"Test Helm\"\n";
 
     // -- compute_resolved_path tests retired —
     //   the `_resolved.toml` suffix is no longer used; the merge step
-    //   writes directly to the canonical `lgo_<character>_gear.toml`.
+    //   writes directly to the canonical `lgo_<character>_gearReady.toml`.
     //   See `merge_into_canonical` and `resolve_stats_file`.
 
     // -- merge_into_canonical tests --

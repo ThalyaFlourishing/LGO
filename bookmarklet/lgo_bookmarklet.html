@@ -16,7 +16,7 @@
   <h1>LGO Bookmarklet</h1>
   <p>Drag the link below to your bookmarks bar, then navigate to https://lotro-wiki.com and click it.</p>
   <p><a id="bookmarklet-link" href="javascript:void(0)">LGO Stats</a></p>
-  <p><strong>Workflow:</strong> export gear in-game, click the bookmarklet on lotro-wiki.com, paste the plugindata, then click <em>Save TOML...</em> when fetching finishes — the file is saved as <code>lgo_&lt;character&gt;_stats.toml</code>. (Falls back to the browser's Downloads folder on non-Chromium browsers.)</p>
+  <p><strong>Workflow:</strong> export gear in-game, click the bookmarklet on lotro-wiki.com, paste the plugindata, then click <em>Save TOML...</em> when fetching finishes — the file is saved as <code>lgo_&lt;character&gt;_gearStats.toml</code>. (Falls back to the browser's Downloads folder on non-Chromium browsers.)</p>
   <p><em>Note: the bookmarklet only works when you are already on lotro-wiki.com.</em></p>
 
   <script>
@@ -271,7 +271,7 @@
           }
 
           appendList(
-            "Auto-resolved via disambiguation (informational):",
+            "Auto-resolved via disambiguation: highest item level assumed:",
             autoPicked,
             e => `${e.name} → ${e.pickedTitle}`
           );
@@ -312,7 +312,7 @@
           ta.value = toml;
 
           saveBtn.addEventListener("click", async function () {
-            const filename = `lgo_${character}_stats.toml`;
+            const filename = `lgo_${character}_gearStats.toml`;
 
             if (typeof window.showSaveFilePicker === "function") {
               let handle;
@@ -497,7 +497,7 @@
             return;
           }
 
-          const pasted = prompt("Paste your lgo_gearlist_*.plugindata contents:");
+          const pasted = prompt("Paste your lgo_gearNames_*.plugindata contents:");
           if (!pasted) return;
 
           let character, classStr, names;

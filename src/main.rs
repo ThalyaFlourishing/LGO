@@ -84,7 +84,7 @@ fn run_optimize(cli: &OptimizeCli) {
             Ok(Some(path)) => path,
             Ok(None) => {
                 eprintln!(
-                    "No lgo_{}_gear.toml file found in {}",
+                    "No lgo_{}_gearReady.toml file found in {}",
                     character,
                     char_dir.display()
                 );
@@ -96,13 +96,13 @@ fn run_optimize(cli: &OptimizeCli) {
                 eprintln!("  2) Run /lgo export in-game");
                 eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
                 eprintln!("  4) Click the LGO bookmarklet");
-                eprintln!("  5) Paste lgo_gearlist_*.plugindata when prompted");
+                eprintln!("  5) Paste lgo_gearNames_*.plugindata when prompted");
                 eprintln!(
-                    "  6) The bookmarklet generates lgo_{}_stats.toml — save it to your AllServers directory",
+                    "  6) The bookmarklet generates lgo_{}_gearStats.toml — save it to your AllServers directory",
                     character
                 );
                 eprintln!(
-                    "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gear.toml)",
+                    "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gearReady.toml)",
                     character
                 );
                 eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
@@ -500,11 +500,11 @@ fn print_usage() {
     println!("  2) Run /lgo export in-game");
     println!("  3) Navigate to https://lotro-wiki.com in your browser");
     println!("  4) Click the LGO bookmarklet");
-    println!("  5) Paste the contents of lgo_gearlist_*.plugindata when prompted");
+    println!("  5) Paste the contents of lgo_gearNames_*.plugindata when prompted");
     println!(
-        "  6) Save the generated TOML as lgo_<character>_stats.toml in your AllServers directory"
+        "  6) Save the generated TOML as lgo_<character>_gearStats.toml in your AllServers directory"
     );
-    println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gear.toml)");
+    println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gearReady.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!();
     println!("Stat goals:");
@@ -517,7 +517,7 @@ fn print_usage() {
     println!("    lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0");
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
-    println!("    lgo optimize --file path/to/lgo_Thalya_gear.toml tm:450000 cr:350000");
+    println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
     println!("    lgo resolve-slots");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
