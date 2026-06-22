@@ -14,7 +14,7 @@
 --     -> export item names from (equipped, excl. craft tool & bridle) + (shared storage chest <name>)
 --
 -- Data is written via Turbine.PluginData.Save(Turbine.DataScope.Account, key, table)
---   - lgo_gearNames_<character>_<timestamp>.plugindata
+--   - lgo_<character>_gearNames_<timestamp>.plugindata
 --   - top-level shape:
 --       {
 --         version = "lgo-gearlist-1",
@@ -131,8 +131,10 @@ local function CharacterClass()
   return map[cls] or ("Class_" .. tostring(cls));
 end
 
-local function SaveAccount(prefix, data)
-  local key = prefix .. "_" .. CharacterName() .. "_" .. NowKeySuffix();
+-- Saves account-scoped plugin data as:
+--   lgo_<character>_<kind>_<timestamp>.plugindata
+local function SaveAccount(kind, data)
+  local key = "lgo_" .. CharacterName() .. "_" .. kind .. "_" .. NowKeySuffix();
   Turbine.PluginData.Save(Turbine.DataScope.Account, key, data);
   Print("Saved: " .. key .. " (Account scope)");
   return key;
@@ -427,7 +429,7 @@ local function ExportCombined(sharedChestName)
 
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
-  SaveAccount("lgo_gearNames", out);
+  SaveAccount("gearNames", out);
   Print("export: saved " .. tostring(#out.names) .. " owned item instances");
 end
 

@@ -96,7 +96,7 @@ fn run_optimize(cli: &OptimizeCli) {
                 eprintln!("  2) Run /lgo export in-game");
                 eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
                 eprintln!("  4) Click the LGO bookmarklet");
-                eprintln!("  5) Paste lgo_gearNames_*.plugindata when prompted");
+                eprintln!("  5) Paste lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted");
                 eprintln!(
                     "  6) The bookmarklet generates lgo_{}_gearStats.toml — save it to your AllServers directory",
                     character
@@ -500,7 +500,7 @@ fn print_usage() {
     println!("  2) Run /lgo export in-game");
     println!("  3) Navigate to https://lotro-wiki.com in your browser");
     println!("  4) Click the LGO bookmarklet");
-    println!("  5) Paste the contents of lgo_gearNames_*.plugindata when prompted");
+    println!("  5) Paste the contents of lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted");
     println!(
         "  6) Save the generated TOML as lgo_<character>_gearStats.toml in your AllServers directory"
     );

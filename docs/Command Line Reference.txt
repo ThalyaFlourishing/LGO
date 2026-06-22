@@ -14,7 +14,7 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
     Export a unified gearlist from equipped items plus Shared Storage chest "lgo".
     Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
     there is no need to unequip them before exporting.
-    Writes lgo_gearNames_*.plugindata.
+    Writes lgo_<character-name>_gearNames_<timestamp>.plugindata.
 
   /lgo export chest <name>
     Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
@@ -25,7 +25,7 @@ SECTION 2 - BOOKMARKLET WORKFLOW
 
   1) Open https://lotro-wiki.com in your browser.
   2) Click the LGO Stats bookmarklet.
-  3) Paste the contents of lgo_gearNames_<character>_<timestamp>.plugindata when prompted.
+  3) Paste the contents of lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
      The generated TOML includes top-level character = "..." and class = "..." fields.
   5) Save the generated file as lgo_<character>_gearStats.toml into your character's AllServers directory.

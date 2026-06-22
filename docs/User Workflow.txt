@@ -10,10 +10,11 @@ already installed. (Installation instructions: TBD, separate document.)
 Short User Instructions (detailed instructions below)
 -----------------------------------------------
 1. Put candidate gear in the in-game Shared Storage chest named `lgo`.
-2. Run `/lgo export` in-game. Equipped items are exported automatically; equipped craft tools and bridles are excluded (no need to unequip them). A `lgo_gearNames_*.plugindata` file will be saved in your plugindata folder.
+2. Run `/lgo export` in-game. Equipped items are exported automatically; equipped craft tools and bridles are excluded (no need to unequip them). A `lgo_<character-name>_gearNames_<timestamp>.plugindata` file will be saved in your plugindata folder.
 3. Open https://lotro-wiki.com in a browser. The bookmarklet will not work on any other site.
 4. Click the **LGO Stats** bookmarklet. A small pop-up will appear.
-5. Copy and paste in the contents of `lgo_gearNames_*.plugindata` , then hit 'OK'.
+5. Copy and paste in the contents of `lgo_<character-name>_gearNames_<timestamp>.plugindata
+` , then hit 'OK'.
 6. The bookmarklet builds a `.toml` file. (Scroll down)
 7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
 8. Open a a command-line window on your computer and run `lgo resolve-slots`.
@@ -39,7 +40,7 @@ Detailed User Instructions
    The plugin writes one file into your character's plugin-data
    directory:
 
-       lgo_gearNames_<character-name>_<timestamp>.plugindata
+       lgo_<character-name>_gearNames_<timestamp>.plugindata
        
    This file is a list of all the items you currently have equipped, plus all the ones you put in the 'lgo' shared-storage chest, plus your character's name and base stats. Unfortunately getting item stats from LotRO is *extremely* difficult, so this file is not the last one you have to make, sorry. :(
 
@@ -50,7 +51,7 @@ Detailed User Instructions
 4. Click the 'LGO Stats' bookmarklet/link/button in your bookmarks bar.
 
 5. When prompted, paste the entire contents of the
-   lgo_gearNames_<character-name>_<timestamp>.plugindata file you just generated.
+   lgo_<character-name>_gearNames_<timestamp>.plugindata file you just generated.
 
 6. Wait while the bookmarklet looks each item up on the wiki. It usually takes 5–10 seconds, depending on your internet connection. Progress is shown on the page. When it finishes, it shows a summary of how many items were found cleanly, how many had to be picked from a list of variants automatically, and how many it could not find at all. The unfound items appear in the output with all stats set to 0 and a comment line beginning # UNRESOLVED: explaining why. You will need to fill those stats in by hand later (step 9). The bookmarklet then displays a text area containing the generated file.
 

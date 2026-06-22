@@ -13,7 +13,8 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     );
 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("data/lgo_items.json must load");
-    let input_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
+    let input_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
     lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
 }
@@ -56,7 +57,7 @@ fn current_plugindata_fixture_path() -> PathBuf {
             path.file_name()
                 .and_then(|name| name.to_str())
                 .map(|name| {
-                    name.starts_with("lgo_gearNames_Thalya_") && name.ends_with(".plugindata")
+                    name.starts_with("lgo_Thalya_gearNames_") && name.ends_with(".plugindata")
                 })
                 .unwrap_or(false)
         })
@@ -370,8 +371,8 @@ fn file_level_merge_first_run_creates_canonical_file() {
     let emitted_items = item_table_count(&canonical_text);
 
     assert!(
-    emitted_items > 0,
-    "fixture should produce at least one canonical item"
+        emitted_items > 0,
+        "fixture should produce at least one canonical item"
     );
     assert_eq!(
         report.outcome.added.len(),
@@ -505,7 +506,8 @@ fn file_level_merge_no_files_at_all_is_an_error() {
     .expect_err("must error when nothing to read");
     let msg = err.to_string();
     assert!(
-        msg.contains("No lgo_TestChar_gearStats.toml") && msg.contains("lgo_TestChar_gearReady.toml"),
+        msg.contains("No lgo_TestChar_gearStats.toml")
+            && msg.contains("lgo_TestChar_gearReady.toml"),
         "error must mention both expected filenames: got {}",
         msg
     );

@@ -12,7 +12,8 @@
 //! needed because the PluginData subset is small and well-defined.
 //!
 //! Output: a `PluginExport` with character metadata from
-//! `lgo_gearNames_*.plugindata` (`character`, `class`, and `baseStats`).
+//! `lgo_<character-name>_gearNames_<timestamp>.plugindata`
+//! (`character`, `class`, and `baseStats`).
 
 use std::collections::HashMap;
 use std::fs;

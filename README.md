@@ -22,7 +22,7 @@ Binary output:
 See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-step. In brief:
 
 1. Put candidate gear in an in-game shared-storage chest named `lgo` and run `/lgo export`. Equipped items are exported automatically; equipped craft tools and bridles are excluded (no need to unequip them).
-2. On lotro-wiki.com, click the **LGO Stats** bookmarklet, paste the `lgo_gearNames_*.plugindata`, and save the result as `lgo_<character>_gearStats.toml`.
+2. On lotro-wiki.com, click the **LGO Stats** bookmarklet, paste the `lgo_*_gearNames_<timestamp>.plugindata` content you copied, and save the result as `lgo_<character>_gearStats.toml`.
 3. Run `lgo resolve-slots` to merge into `lgo_<character>_gearReady.toml` (hand-edit legendaries / `Unknown` slots as needed).
 4. Run `lgo optimize <stat:minimum> …` and read the report.
 
