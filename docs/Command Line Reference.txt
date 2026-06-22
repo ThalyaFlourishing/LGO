@@ -84,7 +84,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   Goal format: <stat>:<minimum>
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
-    Armor              am
+    Armour             am
     CriticalRating     cr
     Finesse            fn
     PhysicalMastery    pm

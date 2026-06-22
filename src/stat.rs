@@ -70,7 +70,7 @@ impl fmt::Display for Stat {
             Stat::OffensiveOverpower => "Offensive Overpower",
             Stat::IncMitigations => "Inc. Mitigations",
             // Tracked stats
-            Stat::Armor => "Armor",
+            Stat::Armor => "Armour",
             Stat::CriticalRating => "Critical Rating",
             Stat::Finesse => "Finesse",
             Stat::PhysicalMastery => "Physical Mastery",

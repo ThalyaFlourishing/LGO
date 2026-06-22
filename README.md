@@ -45,7 +45,7 @@ lgo --character Thalya tm:450000 oh:100000
 
 | Abbrev | Stat key | Abbrev | Stat key |
 |---|---|---|---|
-| `am` | `Armor` | `cd` | `CriticalDefense` |
+| `am` | `Armour` | `cd` | `CriticalDefense` |
 | `cr` | `CriticalRating` | `ih` | `IncomingHealing` |
 | `fn` | `Finesse` | `bl` | `Block` |
 | `pm` | `PhysicalMastery` | `pa` | `Parry` |
