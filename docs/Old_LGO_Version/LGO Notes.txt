@@ -1,0 +1,795 @@
+﻿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
+Git passkey (just for this project):
+
+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
+
+NAME of Personal Access Token: LGO
+
+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
+
+
+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
+
+---------------------------------------------------------------
+CoPilot terms:
+  . 'GitHub Copilot Chat' — a general over-arching conversation with no power to alter the repo or make pull requests. (Code changes are made manually by me on local) Seems to have more and better memory.
+  . 'Copilot coding agent' - a task-based code-editing process which can alter the repo via pull requests. More effective and efficient when making changes, and can essentially make them for me.
+
+---------------------------------------------------------------
+COPILOT MODEL RECOMMENDATIONS:
+
+  . DEFAULT: Haiku 4.5 (0.012×) for the bulk of work: CLI tweaks, the domain model (gear/stat/slot), TOML/XML parsing, reporting, the Lua plugin, docs, tests. At ~1.2% of your Opus baseline, it's by far the cheapest, and this is squarely within its capability.
+  . BUT - Do not let Haiku touch optimizer.rs or slot_resolver.rs. Haiku is fine for the rest of the repo (CLI, parsing, reporting, the Lua plugin, docs, data wrangling). But the optimizer core needs a strong reasoning model.
+  . FOR OPTIMIZER AND SLOT-RESOLVER: GPT 5.4 (0.22×) in reserve for the one area that deserves more care: non-trivial changes to optimizer.rs (e.g., reworking the lexicographic/tie-break/feasibility logic) or a tricky Rust borrow-checker tangle. Escalate only when a Haiku attempt visibly stumbles.
+  . IF THAT FAILS: GPT 5.5 (2.1x)
+  
+  . NOTE: Other potentially tricky .rs files which *may* need a stronger model:
+    . build_bd.rs - frontier model for non-trivial edits to the XMy*state machine; Haiku is fine for adding a stat/slot mapping in the lookup tables.
+    . plugindata.rs — frontier model if you touch the parser's control flow; Haiku is fine for the lookup tables (method_to_name) or extraction logic.
+
+---------------------------------------------------------------
+Re: item-level issues: We earlier concluded there is nothing we can do about that, so we decided to just always default to the highest possible level number. (I think. Or possibly the lowest)
+---------------------------------------------------------------
+Workflow:
+
+1. Plugin writes items.plugindata (JSON list of item names) and gear.plugindata (existing export) to the plugindata folder
+2. User navigates to https://lotro-wiki.com, clicks the bookmarklet
+3. Bookmarklet prompts user to paste the contents of items.plugindata
+4. Script fetches each item's stats from the wiki, builds .toml, displays it in a textarea.
+5. User hits save button (or manually copies the data out of the browser) to save it as .toml.
+6. User resolves the slot names: lgo resolve-slots
+7. User produces the optimized report from the name-resolved .toml and gear.plugindata
+
+Names: Obtained from in-game plug-in export
+Stats: Obtained from bookmarklet's wiki look-ups
+Slots: Obtained from 'lgo resolve-slots' getting them from 'lgo_items.json'
+
+---------------------------------------------------------------
+SESSION START PROMPT
+
+I wish to begin a conversation about work I am performing on a software tool named 'LGO', which stands for 'LotRO Gear Optimizer'. It lives in this repo: https://github.com/ThalyaFlourishing/LGO . Working branch is 'main'.
+
+Now ingest and assess the following docs:
+
+docs/AGENT_CONTEXT.md
+docs/Command Line Reference.txt
+docs/MODEL_GUIDANCE.md
+docs/User Workflow.txt
+
+When you are ready, we will begin by attempting to correct errors in PR #41.
+
+---------------------------------------------------------------
+Raw lookup URL format:
+  . https//lotro-wiki.com/wiki?title=Item:[[ITEM NAME]]&action=raw
+---------------------------------------------------------------
+TO DO:
+
+  = I do not trust that 'greedy' algorithm shortcut. For one thing, it is WAY too fast, which makes me think it is not really doing what it needs to be doing. Also, I wrote another optimizer some months ago, and it hit recursion and memory limits if I had more than 50-or-so items. In fact, ours is demonstrably not working. It seems to keep adding to Stat 1 after goal has been reached, at the expense of Stat 2. Examples:
+    
+Using current fixture test data, `lgo optimize cr:200000 tm:200000` produces these results:
+  Stat                         Total     Minimum  Met?
+  ─────────────────────────────────────────────────────
+  Critical Rating            250,389     200,000    ✓
+  Tactical Mastery            58,117     200,000    ✗   ⚠
+
+Compare that to: `lgo optimize cr:150000 tm:150000`
+
+  Stat                         Total     Minimum  Met?
+  ─────────────────────────────────────────────────────
+  Critical Rating            214,503     150,000    ✓
+  Tactical Mastery            58,117     150,000    ✗   ⚠
+  ─────────────────────────────────────────────────────
+
+In the second example, CR has come down by 36k, while TM has not changed at all.
+
+And if we now run `lgo optimize tm:100000`, we get this:
+
+  Stat                         Total     Minimum  Met?
+  ─────────────────────────────────────────────────────
+  Tactical Mastery           105,303     100,000    ✓
+  ─────────────────────────────────────────────────────
+
+...which shows that there is, in fact, 105K tm available.
+
+And if we now run `lgo optimize cr:100000 tm:70000`, we get this:
+
+  Stat                         Total     Minimum  Met?
+  ─────────────────────────────────────────────────────
+  Critical Rating            243,078     100,000    ✓
+  Tactical Mastery            67,224      70,000    ✗   ⚠
+  ─────────────────────────────────────────────────────
+
+...which shows that cr is being held quite far above the minimum at the expense of tm meeting its minimum. This is incorrect behavior.
+
+Similarly, `lgo optimize cr:70000 tm:100000`, produces this:
+  Stat                         Total     Minimum  Met?
+  ─────────────────────────────────────────────────────
+  Critical Rating            215,091      70,000    ✓
+  Tactical Mastery            99,675     100,000    ✗   ⚠
+  ─────────────────────────────────────────────────────
+
+...which shows that the secondary stat is being sacrified needlessly in order to *maximize* cr, rather than merely ensuring it meets its *minimum*.
+
+Clearly something is not right.
+
+
+Consider this Hypothetical example:
+  . Reqs: StatA: 10, StatB: 10
+    . Slot 1
+      . Item 1: A 12, B 00
+      . Item 2: A 05, B 05
+      . Item 3: A 05, B 05
+    . Slot 2
+      . Item 1: A 12, B 00
+      . Item 2: A 05, B 05
+      . Item 3: A 05, B 05
+
+  . In that example, would it choose both Items 1 and then report Stat B as infeasible??
+  . The questions are: 
+    . Does it *go back over* the slots for which it has already chosen an item when items from other slots are factored in? I think not. 
+    . If, when it finishes the last slot, a secondary stat is deficient, will it go back and try other combinations? (see above example) If it does, will it be willing to choose a lesser Stat A item in order to increase Stat B?
+
+In general, a thorough examination of the existing implementation is necessary, and *also* we need to consider whether a completely different type of algorithm is needed, or whether we simply need to correct some errors.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  - Add base stats
+    - Add new section to Optimizer which adds derived stats from base stats.
+    - Have the Optimizer keep track of the derived stats in each candidate setup
+      . i.e. if an item has 1000 Will, then that item also contributes 2000 CritRat or whatever
+    . Will need to be different per class
+
+  — Inquire into the possibility of adding essences, because that's going to be a bitch
+
+
+
+
+
+
+
+  — Have Optimizer report written to both a text file and an HTML file.
+  
+  — Convert all user help files to HTML for posting on my G-Drive.
+
+  - Make list of caveats to include in the bookmarklet report:
+    - LI's: you'll have to enter them manually
+    - Default choosing higher (crit success) level of crafted items
+    - Some items can't resolve; you'll have to enter them manually
+    - Socketed essences?
+    - etc.
+
+  — Next task: Identify items which can be removed from pool: Add to final report: Items which are not mentioned across a *GROUP* of optimized gear reports. (To detect items not used in any config)
+
+    One of the purposes of LGO is to allow users to identify gear items they need not use, and can therefore be discarded. But since the normal use-case is that the user will have several different builds with different stat needs, no single report will suffice. To really identify which items can be discarded, the user will consider the optimized gear-list report for every build they want to have (usually three to five) and then use those to manually detect unused gear items.
+
+    It would be nice if we could help them by automating that process. 
+
+    . Compare resolved .toml against a concatenated group of optimization reports and produce list of items in the .toml which are not found in any report.
+    . I deem requiring the user to list the .toml file names on a command line is too user-unfriendly.
+    . This would seem to require one of these three:
+      1. User enters a timestamp; the program considers only newer files
+      2. User copies relevant optimized gear lists into a special 'lgo' folder inside the plug-in data folder
+      3. User deletes all .toml's they do not want included
+    
+    Can you think of a better way to do it?
+
+  — Just before launch:
+    - Remove unrecognised stat names from bookmarklet's report
+    - Remove the debugging commands from the readme.
+    - Remove probe code from lgo.lua
+
+——————————————————————————————————————————————————————————————————————————————————————————
+——————————————————————————————————————————————————————————————————————————————————————————
+——————————————————————————————————————————————————————————————————————————————————————————
+
+  X Add date stamp to all produced files
+    . Too complicated and weird, especially to preserve hand-edits.
+
+  X Can we get the plug-in to deposit the .plugindata file in an 'lgo' sub-folder?
+    . No.
+
+  + Change all spellings of 'Armor' to 'Armour'
+
+  + Change and standardize filenames
+
+  + Allow for multiple copies of same item, but do not assign one item to two slots.
+
+  + Ignore craft-tool and bridle slots
+  
+  + Optimizer is barfing on the "unknown" slot names again:
+  
+  + Optimizer --toml-file flag (specify input .toml)
+    . Wait though... How are we handling having more than one character's data?
+      . They're in separate folders, and you specify via command-line switch
+
+  + Bring back build_db
+
+  + Remove the "fallback" behavior:
+
+  + Optimizer still barfing on 'Unknown'
+
+  + Fix 2 failed tests
+    . NOTE: These tests were replaced, rather than fixed.
+
+  + Update Bookmarklet to prompt for the correct file name instead of instructing the user to "Paste your lgo_itemnames_*.plugindata contents:"
+
+  + Change Bookmarklet's CSS to avoid progress bar manifesting at the bottom.
+
+  + Add to 'User Workflow.txt': how to update items.xml and lgo_items.json
+
+  + Remove case-sensitivity in the character-name portions of user-data file names.
+
+  + Update 'User Workflow.txt'
+
+  + Make sure the code to preserve user-edits is still functioning
+    . It was not. Revised and restored.
+  
+  + Make db_build delete the old database first
+  
+  + Merge binaries: change 'db_build' command to 'lgo --db_build' command (lgo -db)
+
+  + Remove old branches
+
+  + Add to 'User Workflow.txt' a "How to refresh lgo_items.json" section covering (a) where to download items.xml from LotRO Companion, (b) where to put it (data/items.xml), (c) which command rebuilds the JSON.
+
+  + Combine the two .plugindata files into one
+
+  + Restore db_build.rs
+    . Because we are using it to resolve slots.
+
+  + Still have 12 unresolved items in the bookmarklet output when there should be only 4
+    . Solution: Most of these were crafted items, so we made something which finds the disambiguation page, gets the 'title' fields, appends those values to the URL's, and then the bookmarklet tries those. Works for crafted items, and anything else with a numeric level suffix, but not for anything else like items whose URL's end in '_(DPS)'.
+
+  + Bookmarklet is failing to obtain most stats. Most items are getting 0-2 stats. Average is more like 3-4.
+    . Fixed via stat-name equalizer
+
+  + Write new 'User Workflow.txt'
+
+  + Verify the optimizer command line again
+  
+  + Completely re-do the CLI guide
+
+  + Wilful Bracer of the Bear in Winter is reporting 34 TMast and 50 CritRat
+    . This eventually led to the bookmarklet approach
+
+  + Perform iterative debugging  
+    + Ouput: Don't list .plugindata file in the output unless you have rebuilt the .toml.
+    + Ouput: Take out those ooky characters before 'TEST MODE'
+    + Test edge case: What happens if all of a slot's candidates would make the minimum unreachable?
+      . Claude analysis: "for each slot, a candidate is dropped if choosing it would make any minimum unreachable even with the best possible contributions from all other slots."
+    + Ask Claude to assess whether empty slots are possible in the optimized report.
+    + Negative stats
+    + Ask Claude: Why do we have maxima? "Per-slot maxima are recomputed after each individual slot's narrowing"
+      . "The word "maxima" here means the highest value achievable for a stat within a given slot — it is used as a component in checking whether a minimum is still reachable, not as a ceiling."
+
+  + Why are we getting nothing from *some* of the 'Ranged' slot items? e.g. Pristine Mûrai Stickpin of Nature's Glory
+    . Because that item has no recognized stats, durr
+
+  + Make it sort the .toml by slot, with a double line between slot groups.
+
+  + Make simple, easily-testable .toml for testing.
+  
+  + Add --test switch
+    . Test file name = lgo_stats_TEST.toml
+  
+  + Make sure the agent understands the flow:
+    + Does it know about the .toml file?
+      . Yes
+      
+  + Re: supposedly "optional" nature of .toml file: no.
+    . We decided to re-factor to make use of the .toml more required and more explicit.
+
+  + Re-think the user flow of building the .toml.
+    . Conclusion: it kinda has to be separate because users will have multiple different possible situations in which they invoke lgo.
+    . Conclusion: We will keep old .toml's and name them with a timestamp and character name, rather than always over-writing a single file named 'stats.toml' or some such. (In case users want to look at their previous files)
+    . Conclusion: A 'Sentinel Value' is needed to indicate stats which have not yet been set from the user entering zeroes. (But why would the user enter zeroes?)
+    . Conclusion: Will use -1 as a Sentinel value
+
+  + Ask why it is talking about FinesseRating
+    . nm
+
+  + Export and make new .toml and then ask why it is talking about the back slot
+    . Probably because it is missing from the .toml file
+    . There is no problem. Ignore.
+
+  + Make sure names of stats and slots are unified.
+    . DONE
+
+  + Add function to Optimizer to create the 'lgo' folder within 'AllServers' if it does not already exist.
+    . But only the .toml files can go into it.
+    . DONE
+    
+  + The plug-in appends a bizarro number to the file name. Can't that be made into a timestamp?
+    . e.g. 'lgo_stats_Thalya_041926_214205.plugindata'
+    . DONE
+
+  + Ask why it thinks that block, parry, and evade are missing
+    . It says from function 'parse_wiki_stat_name in 'wiki.rs'
+    . FIXED
+
+  + Investigate: Agent says: "The arrayProgression point count attribute handling in db_build.rs uses 0..=count (pushes count+1 values); based on the actual XML data the correct interpretation is unclear and worth investigating"
+    . Confirmed and FIXED
+
+  + Change .toml-build switch name to something other than 'stats'. --gearlist
+    . DONE
+
+  + Make sure rounding errors are fixed
+    . Supposedly they are, but keep an eye on it; the agent seemed rather glib about it.
+
+  + We are going to need to add a basic help message response to the stand-alone application (not the LotRO plug-in) when the user enters either 'lgo' with no switches or 'lgo help'. This help message should explain and show examples of the different commands and switches one can use with the 'lgo' application, primarily re-building the .toml and running the optimization, but also including any other functions currently available to the user.
+
+
+  + How to handle maintaining user-tweaked data when generating a new .toml?
+    + We shall add new functionality to add sentinel-based merge behavior.
+    . To reset, the user must set relevant stats to zero.
+
+
+---------------------------------------------------------------------------------------------
+  Post-v1.0 features:
+
+  - Formatting:
+    . .toml:
+      . Line divider between 'name' and 'Armor'
+      . 
+    
+    . Report:
+      . 
+
+  - Add HP calculations
+
+  — Essences?
+  
+  — Set boni?
+
+  - GUI?
+
+
+
+---------------------------------------------------------------------------------------------
+BOOKMARKLET CATEGORIES:
+
+The stat-retrieval tool gets the item stats from lotro-wiki.com. Not all items can be easily retrived. The 'LGO Stats' tool will report these difficulties according to what went wrong, as follows:
+
+  . Resolved:    Success! Stats retrieved as normal.
+  . Auto-picked: This item has multiple levels, (usually from crafting crits) so the tool reports stats from the highest-level version it found.
+  . Needs-pick:  This item has multiple types, so you must enter the stats by hand. :(
+  . No-tooltip:  This item is special in some way the tool can't handle, like legendary items.
+  . Missing:     This item's page on lotro-wiki was not found.
+  . Fetch-error: Something went wrong trying to communicate with lotro-wiki; you should maybe try again.
+
+---------------------------------------------------------------------------------------------
+OFT-USED-STRINGS:
+
+To dry-run build a Rust program (to check for compiler errors):
+  cargo check 2>&1
+
+To export gear from LotRO:
+  /lgo export?
+
+To run tests:
+  cargo test
+
+To build optimizer but not run:
+  cargo build --release
+
+To build and run in debug mode (default):
+  cargo run -- report 
+
+To build and run in release mode (faster):
+  cargo run --release --report
+
+To build the item database (theoretically a one-time process)
+  cargo run --bin db_build
+
+To perform the slot-resolve step:
+  cargo run -- resolve-slots     <--- Case-IN-sensitive
+  cargo run -- --resolve-slots
+  cargo run -- -r
+
+To run the Optimizer for realz:
+  # Auto-detect everything, just give stat goals:
+  cargo run -- optimize tm:450000 cr:350000 fn:0
+
+  # Specify a plugindata file explicitly:
+  cargo run -- optimize --file path/to/foo.plugindata tm:450000 cr:350000 fn:0
+
+
+---------------------------------------------------------------------------------------------
+  HOW TO USE LGO PROGRAMS:
+  
+1. Run the LotRO plug-in:
+  /lgo export (?)
+
+2. Build the .toml file:
+  cargo run --bin lgo -- --gearlist
+
+3. Run the optimizer:
+  cargo run --bin lgo -- CritRating:175000
+
+
+Detailed user workflow:
+After obtaining and installing our plug-in and our stand-alone application which we are making:
+
+  1. Run the LotRO client
+  
+  2. Enter the game world on the character for which you want to optimize gear.
+
+  3. Re-name one of the 'chests' in the shared-storage space to 'lgo' or 'LGO'.
+  
+  4. Assemble the relevant gear items by equipping them and putting additional items in the shared-storage 'lgo'-named container. Alternately, all items can be put in the 'lgo' container. (i.e. it is not required that any items be equipped, although any equipped items *will* be included in the end result.
+  
+  5. Run the 'lgo' plug-in with this command: `/lgo export`.
+
+  6. Switch to a Windows command-line interface and run our optimizer application using a command line such as `lgo --gearlist` to generate the new or updated .toml file.
+
+  7. Visually verify and if desired, manually edit the .toml file to make it more accurate.
+
+  8. Run our optimizer application with target stats using a command line such as: `lgo -- TacticalMastery:450000 CritRating:350000 FinesseRating:100000`
+
+  9. View results in an HTML browser.
+
+Iteration:
+A. To change the set of items being optimized, the user equips different items and/or places/removes items from the 'LGO' container in shared storage, then re-runs steps 5 through 9.
+
+B. To change the manual .toml tweaks, the user edits the .toml file and then re-runs the 'lgo' application with the desired stat targets.
+
+C. To change the stat target, the user re-runs the 'lgo' application with different stat switches on the command line.
+
+---------------------------------------------------------------------------------------------
+STATS TO TRACK:
+
+Armor
+CritRating
+Finesse
+PhysicalMastery
+TacticalMastery
+Resistance
+CriticalDefense
+IncomingHealing
+Block
+Parry
+Evade
+PhysicalMitigation
+TacticalMitigation
+
+---------------------------------------------------------------------------------------------
+Eventually we will need to add the presence of essence slots to our optimizer's input file. They are listed in `items.xml` as `slots="n"`. 
+---------------------------------------------------------------------------------------------
+  THE PLUG-IN WHAT WON'T WORK BECAUSE ITEMS ARE WACK YO:
+
+To run the release executable:
+  ./target/release/lgo.exe report data/red.lgo
+
+To run the debug executable:
+  ./target/debug/lgo.exe report data/red.lgo
+
+To load the plug-in in game:
+  /plugins load LGOProbe
+
+To grep for non-ASCII characters and stuff:
+  grep -rPn "[^\x00-\x7F]" src\
+
+---------------------------------------------------------------------------------------------
+How the item database building process works:
+
+From Claude:
+"`cargo run --bin db_build` is the one-time database-building routine, is that correct? Or would it be run every time a user changes gear?
+Copilot said: One-time (or on-demand refresh), not on every
+One-time (or on-demand refresh), not on every gear change.
+
+The workflow is:
+
+cargo run --bin db_build — run once after cloning the repo. Reads data/items.xml + data/progressions.xml, writes lgo_items.json. This is the static game data — it doesn't change unless LotroCompanion updates their database files, which happens when SSG patches the game.
+
+cargo run --bin lgo <plugindata_file> — run whenever you want to optimize your gear. Loads lgo_items.json at startup (already built), looks up your exported items in it, runs the optimizer.
+
+The gear change cycle is entirely in step 2. Step 1 only needs to be re-run if you pull updated items.xml / progressions.xml files from LotroCompanion (e.g. after a game update adds new items or rebalances existing ones)."
+
+
+
+
+---------------------------------------------------------------------------------------------
+To overrule memory limit:
+chrome.exe --js-flags="--max_old_space_size=XXXXX"
+ - where 'XXXXX' is the new number of megabytes to set as a limit.
+
+Windows Chrome default is 4096:
+chrome.exe --js-flags="--max_old_space_size=4096"
+
+So to multiply that by 6:
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --js-flags="--max_old_space_size=24576"
+
+Location of probe data return:
+C:\Users\User\Documents\The Lord of the Rings Online\PluginData\Thalya\AllServers\
+
+Turbine.PluginData.Save(Turbine.DataScope.Account, "LGO_test", { hello = "world" })
+
+
+When calculating for target stat levels, subtract the following:
+
+CritR 1413
+TMast 8329
+TactM 5543
+
+Scroll:
+  . Tmast 4060
+  . TactM 4130
+
+Plus the food! = 1413 Will =
+  . TMast 4269
+  . CritR 1413
+  . TactM 1413
+
+
+777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
+
+FORTRAN VERSION:
+ . To compile:
+  . gfortran -std=legacy -o LGO.exe LGO_01.for
+  . gfortran -std=legacy -Wno-unused-variable LGO_01.for -o LGO_01.exe
+  . -Wno-unused-variable
+  . ./LGO_01.exe
+
+
+
+gfortran -std=legacy -Wall -Wextra -pedantic LGO_01.for -o LGO_01.exe 2>&1 | tee compile.log
+
+
+
+777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777
+
+CoPilot Notes
+
+1. gfortan, unless you have a better recommendation.
+2. Determining the input-file format is one of the things with which I need help, but a possible example is listed below after this numbered list.
+3. The optimization objective is to maximize scores while maintaining certain minimum threshholds. e.g. there are three numbers, each one has to be over 100, and among the solutions which meet that criterion, return the one with the highest overall values. So if the threshhold minimum values required were 100, 100, and 100, the set [100, 100, 100] would be allowed, but [200, 200, 90] would not.
+4. The data can be called 'slots' and 'items'. The number of slots is fixed a 19 in all cases. The program must choose an item which is already associated with that slot. The range of possible associated items is 0 to 8.
+
+Example of possible input file data:
+
+Slot 1
+  Item 1
+    Item 1 stats: 100 100 100
+  Item 2
+    Item 2 stats: 100 300 200
+  Item 3
+    Item 3 stats: 200 100 300
+
+Slot 2
+  Item 1
+    Item 1 stats: 200 100 300
+  Item 2
+    Item 2 stats: 300 300 100
+  Item 3
+    Item 3 stats: 200 100 200
+
+etc. through 19 slots.
+
+
+QUESTIONS:
+
+  - It has been suggested to me that this would be best done using no recursion, using iteration instead. Is that what you meant by using 'explicit stack' ?
+    . A: Yes.
+
+  - Is FORTRAN77 likely to produce a program which would be faster? Can such a program avoid stack and time-out limitations better than, say, JavaScript or Python?
+    . A: Yes. A compiled Fortran program (F77-style or modern) is likely to outperform Python and usually JavaScript for this kind of branchy combinatorial search.
+
+  - What language would you recommend?
+    . A: Recommendation: Rust (primary), with C++ as a close second.
+    . On your own PC, you install Rust once (via rustup), then build with: 'cargo build --release' Then you can copy target\release\optimizer.exe to anywhere and run it.
+
+  - Will the algorithm you describe be guaranteed to provide the most-optimized output, or will it merely have a good chance of doing so?
+    . A: It will be guaranteed to return the most-optimized output, provided we implement it as an exact search (not a heuristic), and provided we don’t add “early stop” limits.
+
+  - What is "stack DFS"?
+    . A: Depth-First Search
+
+  - Do you have, or could you acquire, knowledge of the API for the game 'Lord of the Rings Online', and if so, could we include those calls in our program? If so, would we still be able to use Rust?
+
+
+
+Stats needed:
+Armor
+Main Stat (W, A, M)
+Crit Rating
+Finesse
+Mastery (Tactical or Physical is known by user)
+Out Heal
+Phys Mit
+Tact Mit
+
+
+Remember to include base-stat factors:
+LM:
+  (Agility * 2) + Tactical Mastery
+  (Agility * 2) + Critical Rating
+  (Agility * 0) + Tactical Mitigation
+
+  (Will    * 3) + Tactical Mastery
+  (Will    * 1) + Critical Rating
+  (Will    * 1) + Tactical Mitigation
+
+  (Might   * 2) + Tactical Mastery
+  (Might * 1.5) + Critical Rating
+  (Might   * 0) + Tactical Mitigation
+
+
+-----------------------------
+Examples:
+
+User input:
+CritRating:450,  // First priority
+TactMast:450,    // Second priority
+Finesse:300,     // Third priority
+TactMit:200      // Fourth priority
+
+Run #1: all stat minima can be met.
+{
+Combination 1:
+CritRating:480,
+TactMast:420,
+Finesse:310,
+TactMit:190
+}
+{
+Combination 2:
+CritRating:500,
+TactMast:450,
+Finesse:310,
+TactMit:200
+}
+{
+Combination 3:
+CritRating:490,
+TactMast:450,
+Finesse:310,
+TactMit:230
+}
+{
+Combination 4:
+CritRating:520,
+TactMast:430,
+Finesse:310,
+TactMit:230
+}
+{
+Combination 5:
+CritRating:460,
+TactMast:450,
+Finesse:310,
+TactMit:230
+}
+
+
+Run #2 not all stat minima can be met.
+{
+Combination 6:
+CritRating:440,
+TactMast:200,
+Finesse:200,
+TactMit:100
+}
+{
+Combination 7:
+CritRating:400,
+TactMast:440,
+Finesse:290,
+TactMit:190
+}
+
+Combination 1 is rejected because TactMast and TactMit have not met their minima.
+
+Combination 2 is chosen over Combination 3 because it has the highest value for the highest-priority stat. This despite the fact that Combination 3 has the higher overall stat total.
+
+Combination 5 is chosen over Combination 4 because Combination 4 fails to meet the TactMast minimum. This despite the fact that Combination 4 has the higher overall stat total.
+
+Combination 6 is chosen over Combination 7 because it has the highest value for the highest-priority stat. This despite the fact that Combination 7 has the higher overall stat total.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Slot1 = [[{name=ring1, stats=[{key=crit, value=10}, {key=tact, value=10}, {key=tmit, value=10}]],
+         [{name=ring2, stats=[{key=crit, value=20}, {key=tact, value=20}, {key=tmit, value=20}]],
+         [{name=ring3, stats=[{key=crit, value=30}, {key=tact, value=30}, {key=tmit, value=30}]]];
+
+Slot2 = [[{name=ring1, stats=[{key=crit, value=10}, {key=tact, value=10}, {key=tmit, value=10}]],
+         [{name=ring2, stats=[{key=crit, value=20}, {key=tact, value=20}, {key=tmit, value=20}]],
+         [{name=ring3, stats=[{key=crit, value=30}, {key=tact, value=30}, {key=tmit, value=30}]]];
+
+Slot3 = [[{name=neck1, stats=[{key=crit, value=100}, {key=tact, value=100}, {key=tmit, value=100}]],
+         [{name=neck2, stats=[{key=crit, value=200}, {key=tact, value=200}, {key=tmit, value=200}]],
+         [{name=neck3, stats=[{key=crit, value=300}, {key=tact, value=300}, {key=tmit, value=300}]]];
+
+
+Then the output should be:
+
+Slot 1 - ring1, Slot 2 - ring1, Slot 3, neck1, : Stats: crit = 120, tact = 120, tmit = 120.
+Slot 1 - ring1, Slot 2 - ring1, Slot 3, neck2, : Stats: crit = 220, tact = 220, tmit = 220.
+Slot 1 - ring1, Slot 2 - ring1, Slot 3, neck3, : Stats: crit = 320, tact = 320, tmit = 320.
+
+Slot 1 - ring1, Slot 2 - ring2, Slot 3, neck1, : Stats: crit = 130, tact = 130, tmit = 130.
+Slot 1 - ring1, Slot 2 - ring2, Slot 3, neck2, : Stats: crit = 230, tact = 130, tmit = 130.
+Slot 1 - ring1, Slot 2 - ring2, Slot 3, neck3, : Stats: crit = 330, tact = 130, tmit = 130.
+
+Slot 1 - ring1, Slot 2 - ring3, Slot 3, neck1, : Stats: crit = 140, tact = 140, tmit = 140.
+Slot 1 - ring1, Slot 2 - ring3, Slot 3, neck2, : Stats: crit = 240, tact = 240, tmit = 340.
+Slot 1 - ring1, Slot 2 - ring3, Slot 3, neck3, : Stats: crit = 340, tact = 340, tmit = 340.
+
+
+Slot 1 - ring2, Slot 2 - ring1, Slot 3, neck1, : Stats: crit = 130, tact = 130, tmit = 130.
+Slot 1 - ring2, Slot 2 - ring1, Slot 3, neck2, : Stats: crit = 230, tact = 230, tmit = 230.
+Slot 1 - ring2, Slot 2 - ring1, Slot 3, neck3, : Stats: crit = 330, tact = 330, tmit = 330.
+
+Slot 1 - ring2, Slot 2 - ring2, Slot 3, neck1, : Stats: crit = 140, tact = 140, tmit = 140.
+Slot 1 - ring2, Slot 2 - ring2, Slot 3, neck2, : Stats: crit = 240, tact = 240, tmit = 240.
+Slot 1 - ring2, Slot 2 - ring2, Slot 3, neck3, : Stats: crit = 340, tact = 340, tmit = 340.
+
+Slot 1 - ring2, Slot 2 - ring3, Slot 3, neck1, : Stats: crit = 150, tact = 150, tmit = 150.
+Slot 1 - ring2, Slot 2 - ring3, Slot 3, neck2, : Stats: crit = 250, tact = 250, tmit = 250.
+Slot 1 - ring2, Slot 2 - ring3, Slot 3, neck3, : Stats: crit = 350, tact = 350, tmit = 350.
+
+
+Slot 1 - ring3, Slot 2 - ring1, Slot 3, neck1, : Stats: crit = 140, tact = 140, tmit = 140.
+Slot 1 - ring3, Slot 2 - ring1, Slot 3, neck2, : Stats: crit = 240, tact = 240, tmit = 240.
+Slot 1 - ring3, Slot 2 - ring1, Slot 3, neck3, : Stats: crit = 340, tact = 340, tmit = 340.
+
+Slot 1 - ring3, Slot 2 - ring2, Slot 3, neck1, : Stats: crit = 150, tact = 150, tmit = 150.
+Slot 1 - ring3, Slot 2 - ring2, Slot 3, neck2, : Stats: crit = 250, tact = 250, tmit = 250.
+Slot 1 - ring3, Slot 2 - ring2, Slot 3, neck3, : Stats: crit = 350, tact = 350, tmit = 350.
+
+Slot 1 - ring3, Slot 2 - ring3, Slot 3, neck1, : Stats: crit = 160, tact = 160, tmit = 160.
+Slot 1 - ring3, Slot 2 - ring3, Slot 3, neck2, : Stats: crit = 260, tact = 260, tmit = 260.
+Slot 1 - ring3, Slot 2 - ring3, Slot 3, neck3, : Stats: crit = 360, tact = 360, tmit = 360.
+
+
