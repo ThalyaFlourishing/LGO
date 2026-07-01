@@ -19,7 +19,7 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
   /lgo export chest <name>
     Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
 
-SECTION 2 - BOOKMARKLET WORKFLOW
+SECTION 2 - BOOKMARKLET WORKFLOW!
 --------------------------------
 (no shell command form; browser-driven step that produces the stats .toml)
 
