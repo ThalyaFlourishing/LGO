@@ -90,7 +90,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
       Remove "Old Sword" (no longer in export)? (y/n/a)
 
-   Type 'y' to allow the change, n to keep your existing data, or a to allow that kind of change for all remaining items without further prompting (overwrites and removals are tracked separately, so an a to one kind does not automatically apply to the other).
+   Type y to allow the change, n to keep your existing data, or a to allow that kind of change for all remaining items without further prompting (overwrites and removals are tracked separately, so an a to one kind does not automatically apply to the other).
    
    NOTE:. That local item database may in the future need to be updated as content is added to LotRO. The way to do this is:
     1. Download a new copy of items.xml from this URL:
