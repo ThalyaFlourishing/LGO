@@ -56,6 +56,8 @@ use crate::stat::{Stat, StatGoal};
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Maximum supported candidates per canonical slot or paired-slot family.
+/// Keeps paired-slot enumeration bounded (max 8×7/2 = 28 real pairs, plus
+/// singleton empty-placeholder pairs).
 pub const MAX_CANDIDATES_PER_SLOT: usize = 8;
 
 // ── Public types ──────────────────────────────────────────────────────────────
