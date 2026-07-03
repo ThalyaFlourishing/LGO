@@ -83,7 +83,10 @@ optimizer always returns its best build under the comparator, feasible or not.
 | Goals (priority order) | Build X | Build Y | Winner | Why |
 |---|---|---|---|---|
 | CR:100k, TM:100k | CR120k/TM90k | CR100k/TM89,999 | **X** | Both meet CR; Stage 2 on TM: 0.90 > 0.89999 |
+
+
 | CR:100 (p1), TM:100 (p2), A can't reach 100 | A:96/B:40 | A:80/B:100 | **X** | (assuming B is a *met* goal for X) ratchet: Y drops met B to inch unmet A ? forbidden. See Q-B. |
+  A:100 (p1), B:100 (p2); A can reach at most 96	A:94 / B:100 → met-vec (0,1)	A:96 / B:80 → met-vec (0,0)	X	Ratchet: Y drops met B to inch unmet, doomed A → forbidden. (0,1) > (0,0).
 | A:100 (p1), B:100 (p2) | A:98/B:100 ? met-vec (0,1) | A:100/B:70 ? met-vec (1,0) | **Y** | Crossing into met on p1 justifies dropping p2 |
 | A:100, B:100 (both unmet either way) | A:95/B:96 ? (0,0) | A:94/B:97 ? (0,0) | **X** | Stage 2: goal-1 clamped 0.95 > 0.94 |
 | CR:100k, TM:100k (both met) | CR250k/TM100k | CR100k/TM100k | **X** | Stages 1–2 tie (all clamped 1.0); Stage 3 raw CR: 250k > 100k |
