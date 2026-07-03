@@ -1,11 +1,3 @@
-
-  . Use GPT-5.5 for the new session
-  . Start with the prompt above
-  . Attach the repo
-  . If possible, also mention the old JS optimizer exists as behavioral context, but don’t make it central unless the new session asks for it
-  
-----------------------------  PROMPT STARTS BELOW THIS LINE ----------------------------------
-
 I need help implementing a correctness-first investigation and guardrail plan for my LOTRO gear optimizer repository.
 
 ## Current situation
