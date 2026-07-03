@@ -160,6 +160,12 @@ impl GearSet {
     }
 }
 
+impl Default for GearSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

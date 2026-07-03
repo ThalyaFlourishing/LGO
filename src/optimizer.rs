@@ -47,16 +47,15 @@
 //! are the sum of two distinct owned instances. A singleton pool is paired with
 //! an empty placeholder rather than reusing the same instance twice.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use crate::gear::{CachedItem, GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/// Maximum candidates considered per slot. Excess items are dropped with a
-/// warning. Keeps the paired-slot enumeration bounded (max 8×7/2 = 28 real
-/// pairs, plus singleton empty-placeholder pairs).
+/// Maximum supported candidates per canonical slot or paired-slot family.
 pub const MAX_CANDIDATES_PER_SLOT: usize = 8;
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -68,9 +67,36 @@ pub struct OptimizeResult {
     pub feasible: bool,
     /// For each goal stat that failed its minimum: (stat, minimum, achieved).
     pub failed_minima: Vec<(Stat, i64, i64)>,
-    /// Warning messages (e.g. candidate pool truncation).
+    /// Warning messages (e.g. empty-slot placeholders).
     pub warnings: Vec<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OptimizeError {
+    TooManyCandidates {
+        slot_label: String,
+        count: usize,
+        max: usize,
+    },
+}
+
+impl fmt::Display for OptimizeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OptimizeError::TooManyCandidates {
+                slot_label,
+                count,
+                max,
+            } => write!(
+                f,
+                "Too many candidates for slot \"{}\": {} provided, maximum allowed is {}. Remove items from the 'lgo' chest and re-export before running 'lgo optimize'.",
+                slot_label, count, max
+            ),
+        }
+    }
+}
+
+impl std::error::Error for OptimizeError {}
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -125,7 +151,7 @@ pub fn optimize(
     resolved: &HashMap<String, CachedItem>,
     candidates: &[String],
     goals: &[StatGoal],
-) -> OptimizeResult {
+) -> Result<OptimizeResult, OptimizeError> {
     let mut warnings: Vec<String> = Vec::new();
 
     // ── 1. Build per-slot candidate pools ─────────────────────────────────────
@@ -148,18 +174,7 @@ pub fn optimize(
         pools.entry(canonical).or_default().push(cand);
     }
 
-    // Enforce per-slot candidate limit.
-    for (slot, pool) in pools.iter_mut() {
-        if pool.len() > MAX_CANDIDATES_PER_SLOT {
-            warnings.push(format!(
-                "Slot {}: {} candidates found; only the first {} will be considered.",
-                slot_display(*slot),
-                pool.len(),
-                MAX_CANDIDATES_PER_SLOT,
-            ));
-            pool.truncate(MAX_CANDIDATES_PER_SLOT);
-        }
-    }
+    validate_candidate_pool_sizes(&pools)?;
 
     // Ensure every slot has a pool entry (zero placeholder if needed).
     for &slot in Slot::ALL {
@@ -212,10 +227,7 @@ pub fn optimize(
     let mut fallback_single;
     let mut fallback_pair;
 
-    let (working_single, working_pair): (
-        &mut HashMap<Slot, Vec<Candidate>>,
-        &mut HashMap<Slot, Vec<PairCandidate>>,
-    ) = if phase1_viable {
+    let (working_single, working_pair) = if phase1_viable {
         (&mut feasible_single, &mut feasible_pair)
     } else {
         fallback_single = single_pools.clone();
@@ -297,12 +309,12 @@ pub fn optimize(
 
     let feasible = failed_minima.is_empty();
 
-    OptimizeResult {
+    Ok(OptimizeResult {
         gear_set,
         feasible,
         failed_minima,
         warnings,
-    }
+    })
 }
 
 // ── Feasibility filtering ─────────────────────────────────────────────────────
@@ -690,6 +702,31 @@ fn slot_display(slot: Slot) -> &'static str {
     }
 }
 
+fn validate_candidate_pool_sizes(
+    pools: &HashMap<Slot, Vec<Candidate>>,
+) -> Result<(), OptimizeError> {
+    let mut seen = HashSet::new();
+
+    for &slot in Slot::ALL {
+        let canonical = canonical_slot(slot);
+        if !seen.insert(canonical) {
+            continue;
+        }
+
+        if let Some(pool) = pools.get(&canonical) {
+            if pool.len() > MAX_CANDIDATES_PER_SLOT {
+                return Err(OptimizeError::TooManyCandidates {
+                    slot_label: slot_display(canonical).to_string(),
+                    count: pool.len(),
+                    max: MAX_CANDIDATES_PER_SLOT,
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // ────────── TESTS ───────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -719,6 +756,14 @@ mod tests {
         StatGoal { stat, minimum }
     }
 
+    fn optimize_ok(
+        resolved: &HashMap<String, CachedItem>,
+        candidates: &[String],
+        goals: &[StatGoal],
+    ) -> OptimizeResult {
+        optimize(resolved, candidates, goals).expect("optimization should succeed")
+    }
+
     fn single_slot_result(
         resolved: &HashMap<String, CachedItem>,
         names: &[&str],
@@ -726,7 +771,7 @@ mod tests {
         slot: Slot,
     ) -> String {
         let name_strings: Vec<String> = names.iter().map(|s| s.to_string()).collect();
-        let result = optimize(resolved, &name_strings, &goals);
+        let result = optimize_ok(resolved, &name_strings, &goals);
         result
             .gear_set
             .items
@@ -842,7 +887,7 @@ mod tests {
             goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
-        let result = optimize(&resolved, &["C2".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["C2".to_string()], &goals);
         assert!(result.feasible);
         assert!(result.failed_minima.is_empty());
     }
@@ -885,7 +930,7 @@ mod tests {
         ];
 
         let name_strings = vec!["C6".to_string(), "C7".to_string()];
-        let result = optimize(&resolved, &name_strings, &goals);
+        let result = optimize_ok(&resolved, &name_strings, &goals);
 
         assert!(!result.feasible);
         assert!(!result.failed_minima.is_empty());
@@ -954,7 +999,7 @@ mod tests {
 
         let goals = vec![goal(Stat::Vitality, 0)];
         let names = vec!["WristA".to_string(), "WristB".to_string()];
-        let result = optimize(&resolved, &names, &goals);
+        let result = optimize_ok(&resolved, &names, &goals);
 
         assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
         assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
@@ -976,7 +1021,7 @@ mod tests {
             "ItemA".into(),
             make_cached("ItemA", Slot::Head, &[(Stat::Vitality, 50)]),
         );
-        let result = optimize(&resolved, &["ItemA".to_string()], &[]);
+        let result = optimize_ok(&resolved, &["ItemA".to_string()], &[]);
         assert!(result.feasible);
         assert!(result.failed_minima.is_empty());
     }
@@ -1054,7 +1099,7 @@ mod tests {
             goal(Stat::TacticalMitigation, 600),
         ];
 
-        let result = optimize(&resolved, &["Bad".to_string(), "Good".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["Bad".to_string(), "Good".to_string()], &goals);
         assert!(result.feasible, "Result should be feasible");
         assert!(result.failed_minima.is_empty());
     }
@@ -1072,7 +1117,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 400)];
-        let result = optimize(&resolved, &["WristX".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["WristX".to_string()], &goals);
 
         assert!(result.feasible);
         assert!(
@@ -1118,7 +1163,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 900)];
-        let result = optimize(
+        let result = optimize_ok(
             &resolved,
             &["RingA".to_string(), "RingB".to_string()],
             &goals,
@@ -1150,7 +1195,7 @@ mod tests {
             instance_key(1, Slot::Finger1, "Same Ring"),
             instance_key(2, Slot::Finger1, "Same Ring"),
         ];
-        let result = optimize(&resolved, &names, &goals);
+        let result = optimize_ok(&resolved, &names, &goals);
 
         assert!(result.feasible);
         assert_eq!(result.gear_set.items[&Slot::Finger1].name, "Same Ring");
@@ -1168,7 +1213,7 @@ mod tests {
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
         let one_name = vec![instance_key(1, Slot::Finger1, "Same Ring")];
-        let one_result = optimize(&one, &one_name, &goals);
+        let one_result = optimize_ok(&one, &one_name, &goals);
         assert!(!one_result.feasible);
         assert_eq!(one_result.gear_set.total(&Stat::CriticalRating), 500);
 
@@ -1181,7 +1226,7 @@ mod tests {
             instance_key(1, Slot::Finger1, "Same Ring"),
             instance_key(2, Slot::Finger1, "Same Ring"),
         ];
-        let two_result = optimize(&two, &two_names, &goals);
+        let two_result = optimize_ok(&two, &two_names, &goals);
         assert!(two_result.feasible);
         assert_eq!(two_result.gear_set.total(&Stat::CriticalRating), 1000);
     }
@@ -1199,7 +1244,7 @@ mod tests {
                 &[(Stat::TacticalMitigation, 400)],
             ),
         );
-        let one_result = optimize(&one, &["EarOnly".to_string()], &goals);
+        let one_result = optimize_ok(&one, &["EarOnly".to_string()], &goals);
         assert!(!one_result.feasible);
         assert_eq!(one_result.gear_set.total(&Stat::TacticalMitigation), 400);
 
@@ -1212,7 +1257,7 @@ mod tests {
                 &[(Stat::TacticalMitigation, 400)],
             ),
         );
-        let two_result = optimize(
+        let two_result = optimize_ok(
             &two,
             &["EarOnly".to_string(), "EarCopy".to_string()],
             &goals,
@@ -1238,7 +1283,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 801)];
-        let result = optimize(
+        let result = optimize_ok(
             &resolved,
             &["RingA".to_string(), "RingB".to_string()],
             &goals,
@@ -1276,7 +1321,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize(&resolved, &["Helm".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
 
         assert!(result.feasible, "300 ≥ 300 must be feasible");
         assert!(result.failed_minima.is_empty());
@@ -1292,7 +1337,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize(&resolved, &["Helm".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
 
         assert!(!result.feasible, "299 < 300 must be infeasible");
         assert!(
@@ -1307,15 +1352,10 @@ mod tests {
         );
     }
 
-    // ── Candidate pool truncation ───────────────────────────────────────────────
+    // ── Candidate pool validation ───────────────────────────────────────────────
 
     #[test]
-    fn test_truncation_warning_emitted_for_oversized_pool() {
-        // 9 head items — one above the limit of MAX_CANDIDATES_PER_SLOT (8).
-        // A truncation warning must be emitted; the result must still be valid.
-        // Note: items are added in order Head1…Head9.  Head9 (highest CR=90)
-        // is truncated, so Head8 (CR=80) wins — testing that the cap is
-        // enforced *and* that the warning message is correct.
+    fn test_too_many_single_slot_candidates_is_refused() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
@@ -1328,18 +1368,84 @@ mod tests {
         }
 
         let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize(&resolved, &names, &goals);
+        let err = optimize(&resolved, &names, &goals).unwrap_err();
 
-        assert!(
-            result.warnings.iter().any(|w| w.contains("9 candidates")),
-            "Expected a truncation warning mentioning '9 candidates'; got: {:?}",
-            result.warnings,
+        assert_eq!(
+            err,
+            OptimizeError::TooManyCandidates {
+                slot_label: "Head".to_string(),
+                count: 9,
+                max: 8,
+            }
         );
-        // The result must still be a complete, non-panicking gear set.
-        assert!(
-            result.gear_set.items.contains_key(&Slot::Head),
-            "Head slot must be filled even after truncation"
+    }
+
+    #[test]
+    fn test_too_many_paired_family_candidates_is_refused() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=9usize {
+            let name = format!("Ring{}", i);
+            let slot = if i % 2 == 0 {
+                Slot::Finger1
+            } else {
+                Slot::Finger2
+            };
+            resolved.insert(
+                name.clone(),
+                make_cached(&name, slot, &[(Stat::CriticalRating, i as i64 * 10)]),
+            );
+            names.push(name);
+        }
+
+        let goals = vec![goal(Stat::CriticalRating, 0)];
+        let err = optimize(&resolved, &names, &goals).unwrap_err();
+
+        assert_eq!(
+            err,
+            OptimizeError::TooManyCandidates {
+                slot_label: "Finger".to_string(),
+                count: 9,
+                max: 8,
+            }
         );
+    }
+
+    #[test]
+    fn test_exactly_eight_candidates_is_allowed() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=8usize {
+            let name = format!("Head{}", i);
+            resolved.insert(
+                name.clone(),
+                make_cached(&name, Slot::Head, &[(Stat::CriticalRating, i as i64 * 10)]),
+            );
+            names.push(name);
+        }
+
+        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
+    }
+
+    #[test]
+    fn test_eight_per_family_paired_is_allowed() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=8usize {
+            let name = format!("Ring{}", i);
+            let slot = if i % 2 == 0 {
+                Slot::Finger1
+            } else {
+                Slot::Finger2
+            };
+            resolved.insert(
+                name.clone(),
+                make_cached(&name, slot, &[(Stat::CriticalRating, i as i64 * 10)]),
+            );
+            names.push(name);
+        }
+
+        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
     }
 
     // ── Placeholder / missing slot ──────────────────────────────────────────────
@@ -1355,7 +1461,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize(&resolved, &["Helm".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
 
         assert!(
             result
@@ -1450,7 +1556,7 @@ mod tests {
             goal(Stat::TacticalMitigation, 600), // priority 2 — floor = 600
         ];
 
-        let result = optimize(&resolved, &["EarA".to_string(), "EarB".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["EarA".to_string(), "EarB".to_string()], &goals);
 
         assert!(
             result.feasible,
@@ -1491,7 +1597,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 200)];
-        let result = optimize(
+        let result = optimize_ok(
             &resolved,
             &["ItemA".to_string(), "ItemX".to_string()],
             &goals,
@@ -1525,7 +1631,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::TacticalMitigation, 1)];
-        let result = optimize(&resolved, &["ItemA".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["ItemA".to_string()], &goals);
 
         assert!(
             !result.feasible,
@@ -1557,7 +1663,7 @@ mod tests {
         );
 
         let goals = vec![goal(Stat::CriticalRating, 300)];
-        let result = optimize(&resolved, &["ItemA".to_string()], &goals);
+        let result = optimize_ok(&resolved, &["ItemA".to_string()], &goals);
 
         assert!(result.feasible);
         assert_eq!(
