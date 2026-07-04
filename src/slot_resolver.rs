@@ -416,7 +416,7 @@ pub fn resolve_toml_str(
         *items_arr = new_arr;
 
         // Stash outcomes in an outer-scope binding by returning early.
-        return Ok((doc.to_string(), outcomes_local));
+        Ok((doc.to_string(), outcomes_local))
     }
 }
 
@@ -631,16 +631,19 @@ pub fn merge_into_canonical(
     let unknown_slot = collect_unknown_slot_names(incoming_resolved)?;
 
     // First run: take incoming verbatim. All items are "added".
-    let Some(previous_src) = previous else {
-        let added = item_names(incoming_resolved)?;
-        return Ok(MergeOutcome {
-            added,
-            preserved: Vec::new(),
-            overwritten: Vec::new(),
-            removed: Vec::new(),
-            unknown_slot,
-            merged_text: incoming_resolved.to_string(),
-        });
+    let previous_src = match previous {
+        Some(previous_src) => previous_src,
+        None => {
+            let added = item_names(incoming_resolved)?;
+            return Ok(MergeOutcome {
+                added,
+                preserved: Vec::new(),
+                overwritten: Vec::new(),
+                removed: Vec::new(),
+                unknown_slot,
+                merged_text: incoming_resolved.to_string(),
+            });
+        }
     };
 
     // Subsequent run: start from `previous` (so the document header /
@@ -975,17 +978,17 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 /// and other decor are ignored.
 fn item_data_equal(a: &Table, b: &Table) -> bool {
     if table_str(a, "name") != table_str(b, "name") {
-        return false;
-    }
-    if table_str(a, "slot") != table_str(b, "slot") {
-        return false;
-    }
-    for (_, key) in TRACKED_STATS {
-        if table_int(a, key) != table_int(b, key) {
-            return false;
+        false
+    } else if table_str(a, "slot") != table_str(b, "slot") {
+        false
+    } else {
+        for (_, key) in TRACKED_STATS {
+            if table_int(a, key) != table_int(b, key) {
+                return false;
+            }
         }
+        true
     }
-    true
 }
 
 fn table_str(t: &Table, key: &str) -> Option<String> {

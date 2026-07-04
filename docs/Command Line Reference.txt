@@ -134,7 +134,7 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
     Run all unit and integration tests.
 
   cargo test -- --ignored
-    Run only #[ignore] tests.
+    Run only #[ignore] tests, including the deep optimizer differential fuzzer.
 
   cargo test <substring>
     Run tests whose names contain <substring>.
@@ -168,7 +168,6 @@ Working directory matters. db_build resolves data/items.xml, data/progressions.x
 
 cargo run --release -- build-db --items   data/items.xml --progressions   data/progressions.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --progressions <path>\progressions.xml --out <path>\lgo_items.json
-
 
 
 

@@ -2,51 +2,14 @@
 //!
 //! Model guidance: high borrow-checker/algorithmic friction — see `docs/MODEL_GUIDANCE.md` before non-trivial edits.
 //!
-//! ## Correctness of the per-slot greedy approach
-//!
-//! Because gear stats are strictly additive across independent slots, the
-//! total of any stat S across a gear set is:
-//!
-//!     total(S) = Σ item[slot].stat(S)   for all slots
-//!
-//! This means the global maximum of total(S) is achieved by independently
-//! maximising item[slot].stat(S) in every slot. The slots do not interact.
-//!
-//! ## Feasibility
-//!
-//! A result is *feasible* if every goal stat's total across all slots meets
-//! its user-supplied minimum.
-//!
-//! We use a two-phase approach:
-//!
-//! Phase 1 — compatibility filtering:
-//!   For each slot K, a candidate C is *compatible* if it cannot prevent any
-//!   minimum from being met, i.e. for every goal stat S:
-//!
-//!     C.stat(S) + best_of_other_slots(S, K) >= minimum(S)
-//!
-//!   Candidates failing this test are dropped. If any slot becomes empty,
-//!   no feasible solution exists and we fall through to Phase 2.
-//!
-//! Phase 1 narrowing — safe lexicographic narrowing:
-//!   For each goal stat S in reverse priority order, for each slot K, find the
-//!   highest threshold T such that retaining only candidates with stat(S) >= T
-//!   still allows all minima to be met (i.e. the resulting global maximum for
-//!   every goal stat still reaches its minimum). Processing in reverse priority
-//!   order ensures lower-priority stats are maximised first, so higher-priority
-//!   stats narrow last and do not eliminate candidates needed by lower-priority
-//!   minima.
-//!
-//! Phase 2 — infeasible fallback:
-//!   Run standard greedy lexicographic narrowing on the full unfiltered pools.
-//!   Reports which minima were missed.
-//!
-//! ## Paired slots (Wrist, Finger, Ear)
-//!
-//! Items for a paired slot type are combined into super-candidates whose stats
-//! are the sum of two distinct owned instances. A singleton pool is paired with
-//! an empty placeholder rather than reusing the same instance twice.
+//! Implements the clamped-satisfaction objective from
+//! `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` §1.
+//! The search is exact: candidates are first dominance-filtered within each
+//! slot/family, then a branch-and-bound DFS returns the comparator-maximal
+//! complete build. Only goal stats participate in search; all selected item
+//! stats are retained for display.
 
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -102,9 +65,10 @@ impl std::error::Error for OptimizeError {}
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
-/// A resolved item ready for the optimizer: name + stats only.
+/// A resolved item ready for the optimizer: instance key, name, stats, and slot.
 #[derive(Debug, Clone)]
 struct Candidate {
+    key: String,
     name: String,
     stats: HashMap<Stat, i64>,
     original_slot: Slot,
@@ -116,8 +80,10 @@ impl Candidate {
     }
 
     fn zero(name: impl Into<String>, slot: Slot) -> Self {
+        let name = name.into();
         Candidate {
-            name: name.into(),
+            key: format!("0000::{}::{}", slot, name),
+            name,
             stats: HashMap::new(),
             original_slot: slot,
         }
@@ -147,28 +113,180 @@ impl PairCandidate {
     }
 }
 
+#[derive(Debug, Clone)]
+enum Choice {
+    Single {
+        slot: Slot,
+        candidate: Candidate,
+    },
+    Pair {
+        slot1: Slot,
+        slot2: Slot,
+        pair: PairCandidate,
+    },
+}
+
+impl Choice {
+    fn stat(&self, stat: &Stat) -> i64 {
+        match self {
+            Choice::Single { candidate, .. } => candidate.stat(stat),
+            Choice::Pair { pair, .. } => pair.stat(stat),
+        }
+    }
+
+    fn goal_totals(&self, goals: &[StatGoal]) -> Vec<i64> {
+        goals.iter().map(|goal| self.stat(&goal.stat)).collect()
+    }
+
+    fn instance_keys(&self) -> Vec<String> {
+        match self {
+            Choice::Single { candidate, .. } => vec![candidate.key.clone()],
+            Choice::Pair { pair, .. } => {
+                let mut keys = vec![pair.a.key.clone(), pair.b.key.clone()];
+                keys.sort();
+                keys
+            }
+        }
+    }
+
+    fn sort_key(&self) -> Vec<String> {
+        self.instance_keys()
+    }
+
+    fn insert_into(&self, gear_set: &mut GearSet) {
+        match self {
+            Choice::Single { slot, candidate } => {
+                gear_set
+                    .items
+                    .insert(*slot, candidate_to_gear_item(candidate, *slot));
+            }
+            Choice::Pair { slot1, slot2, pair } => {
+                let (item_for_slot1, item_for_slot2) =
+                    if pair.a.original_slot == *slot1 && pair.b.original_slot == *slot2 {
+                        (&pair.a, &pair.b)
+                    } else if pair.a.original_slot == *slot2 && pair.b.original_slot == *slot1 {
+                        (&pair.b, &pair.a)
+                    } else {
+                        (&pair.a, &pair.b)
+                    };
+
+                gear_set
+                    .items
+                    .insert(*slot1, candidate_to_gear_item(item_for_slot1, *slot1));
+                gear_set
+                    .items
+                    .insert(*slot2, candidate_to_gear_item(item_for_slot2, *slot2));
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SearchPool {
+    choices: Vec<Choice>,
+}
+
+#[derive(Debug, Clone)]
+struct SearchBuild {
+    totals: Vec<i64>,
+    tiebreak_key: Vec<String>,
+    choices: Vec<Choice>,
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn optimize(
     resolved: &HashMap<String, CachedItem>,
     candidates: &[String],
     goals: &[StatGoal],
-) -> Result<OptimizeResult, OptimizeError> {
+) -> Result<OptimizeResult, Box<OptimizeError>> {
+    let (pools, warnings) = build_search_pools(resolved, candidates, goals, true)?;
+    let best = exact_search(&pools, goals).unwrap_or_else(|| SearchBuild {
+        totals: vec![0; goals.len()],
+        tiebreak_key: Vec::new(),
+        choices: Vec::new(),
+    });
+
+    let mut gear_set = GearSet::new();
+    for choice in &best.choices {
+        choice.insert_into(&mut gear_set);
+    }
+
+    let failed_minima = failed_minima(&gear_set, goals);
+    let feasible = failed_minima.is_empty();
+
+    Ok(OptimizeResult {
+        gear_set,
+        feasible,
+        failed_minima,
+        warnings,
+    })
+}
+
+// ── Objective comparator ─────────────────────────────────────────────────────
+
+fn compare_builds(x_totals: &[i64], y_totals: &[i64], goals: &[StatGoal]) -> Ordering {
+    debug_assert_eq!(x_totals.len(), goals.len());
+    debug_assert_eq!(y_totals.len(), goals.len());
+
+    for ((&x, &y), goal) in x_totals.iter().zip(y_totals).zip(goals) {
+        let x_met = goal.minimum <= 0 || x >= goal.minimum;
+        let y_met = goal.minimum <= 0 || y >= goal.minimum;
+        match x_met.cmp(&y_met) {
+            Ordering::Equal => {}
+            non_equal => return non_equal,
+        }
+    }
+
+    for ((&x, &y), goal) in x_totals.iter().zip(y_totals).zip(goals) {
+        if goal.minimum <= 0 {
+            continue;
+        }
+        match x.min(goal.minimum).cmp(&y.min(goal.minimum)) {
+            Ordering::Equal => {}
+            non_equal => return non_equal,
+        }
+    }
+
+    for (&x, &y) in x_totals.iter().zip(y_totals) {
+        match x.cmp(&y) {
+            Ordering::Equal => {}
+            non_equal => return non_equal,
+        }
+    }
+
+    Ordering::Equal
+}
+
+fn compare_search_builds(x: &SearchBuild, y: &SearchBuild, goals: &[StatGoal]) -> Ordering {
+    match compare_builds(&x.totals, &y.totals, goals) {
+        Ordering::Equal => y.tiebreak_key.cmp(&x.tiebreak_key),
+        non_equal => non_equal,
+    }
+}
+
+// ── Exact production search ──────────────────────────────────────────────────
+
+fn build_search_pools(
+    resolved: &HashMap<String, CachedItem>,
+    candidates: &[String],
+    goals: &[StatGoal],
+    apply_dominance: bool,
+) -> Result<(Vec<SearchPool>, Vec<String>), Box<OptimizeError>> {
     let mut warnings: Vec<String> = Vec::new();
-
-    // ── 1. Build per-slot candidate pools ─────────────────────────────────────
-
-    let all_names: Vec<String> = candidates.to_vec();
-
     let mut pools: HashMap<Slot, Vec<Candidate>> = HashMap::new();
 
-    for name in &all_names {
-        let cached = match resolved.get(name) {
+    let mut all_names: Vec<String> = candidates.to_vec();
+    all_names.sort();
+
+    for key in &all_names {
+        let cached = match resolved.get(key) {
             Some(c) => c,
             None => continue,
         };
         let canonical = canonical_slot(cached.slot);
         let cand = Candidate {
+            key: key.clone(),
             name: cached.name.clone(),
             stats: cached.stats.clone(),
             original_slot: cached.slot,
@@ -178,7 +296,6 @@ pub fn optimize(
 
     validate_candidate_pool_sizes(&pools)?;
 
-    // Ensure every slot has a pool entry (zero placeholder if needed).
     for &slot in Slot::ALL {
         let canonical = canonical_slot(slot);
         pools.entry(canonical).or_insert_with(|| {
@@ -193,430 +310,217 @@ pub fn optimize(
         });
     }
 
-    // ── 2. Build super-candidates for paired slots ────────────────────────────
-
     let paired_canonicals = [Slot::Wrist1, Slot::Finger1, Slot::Ear1];
+    let mut seen = HashSet::new();
+    let mut search_pools = Vec::new();
 
-    let mut single_pools: HashMap<Slot, Vec<Candidate>> = HashMap::new();
-    let mut pair_pools: HashMap<Slot, Vec<PairCandidate>> = HashMap::new();
+    for &slot in Slot::ALL {
+        let canonical = canonical_slot(slot);
+        if !seen.insert(canonical) {
+            continue;
+        }
 
-    for (&slot, pool) in &pools {
-        if paired_canonicals.contains(&slot) {
-            pair_pools.insert(slot, build_pairs(pool, slot, paired_slot2(slot)));
+        let mut choices: Vec<Choice> = if paired_canonicals.contains(&canonical) {
+            build_pairs(
+                pools.get(&canonical).map(Vec::as_slice).unwrap_or(&[]),
+                canonical,
+                paired_slot2(canonical),
+            )
+            .into_iter()
+            .map(|pair| Choice::Pair {
+                slot1: canonical,
+                slot2: paired_slot2(canonical),
+                pair,
+            })
+            .collect()
         } else {
-            single_pools.insert(slot, pool.clone());
+            pools
+                .get(&canonical)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|candidate| Choice::Single {
+                    slot: canonical,
+                    candidate,
+                })
+                .collect()
+        };
+
+        choices.sort_by_key(Choice::sort_key);
+        if apply_dominance {
+            choices = dominance_filter(choices, goals);
+        }
+        search_pools.push(SearchPool { choices });
+    }
+
+    Ok((search_pools, warnings))
+}
+
+fn dominance_filter(choices: Vec<Choice>, goals: &[StatGoal]) -> Vec<Choice> {
+    if choices.len() <= 1 {
+        return choices;
+    }
+
+    let goal_vectors: Vec<Vec<i64>> = choices
+        .iter()
+        .map(|choice| choice.goal_totals(goals))
+        .collect();
+    let mut keep = vec![true; choices.len()];
+
+    for i in 0..choices.len() {
+        if !keep[i] {
+            continue;
+        }
+        for j in 0..choices.len() {
+            if i == j {
+                continue;
+            }
+            let i_le_j = goal_vectors[i]
+                .iter()
+                .zip(&goal_vectors[j])
+                .all(|(i_value, j_value)| i_value <= j_value);
+            if !i_le_j {
+                continue;
+            }
+            let i_lt_j = goal_vectors[i]
+                .iter()
+                .zip(&goal_vectors[j])
+                .any(|(i_value, j_value)| i_value < j_value);
+            if i_lt_j || i > j {
+                keep[i] = false;
+                break;
+            }
         }
     }
 
-    // ── 3. Compute per-slot, per-stat maxima ──────────────────────────────────
+    choices
+        .into_iter()
+        .enumerate()
+        .filter_map(|(idx, choice)| keep[idx].then_some(choice))
+        .collect()
+}
 
-    let single_slot_maxima = compute_single_maxima(&single_pools, goals);
-    let pair_slot_maxima = compute_pair_maxima(&pair_pools, goals);
-    let global_max = compute_global_max(&single_slot_maxima, &pair_slot_maxima, goals);
+fn exact_search(pools: &[SearchPool], goals: &[StatGoal]) -> Option<SearchBuild> {
+    if pools.iter().any(|pool| pool.choices.is_empty()) {
+        return None;
+    }
 
-    // ── 4. Phase 1: filter to feasibility-compatible candidates ──────────────
+    let suffix_maxima = suffix_goal_maxima(pools, goals);
+    let mut best: Option<SearchBuild> = None;
+    let mut running_totals = vec![0; goals.len()];
+    let mut current_choices: Vec<Choice> = Vec::with_capacity(pools.len());
+    let mut current_keys: Vec<String> = Vec::new();
 
-    let mut feasible_single =
-        filter_compatible_single(&single_pools, &single_slot_maxima, &global_max, goals);
-    let mut feasible_pair =
-        filter_compatible_pair(&pair_pools, &pair_slot_maxima, &global_max, goals);
+    dfs_search(
+        0,
+        pools,
+        goals,
+        &suffix_maxima,
+        &mut running_totals,
+        &mut current_choices,
+        &mut current_keys,
+        &mut best,
+    );
 
-    let phase1_viable = feasible_single.values().all(|p| !p.is_empty())
-        && feasible_pair.values().all(|p| !p.is_empty());
+    best
+}
 
-    // ── 5. Choose working pools ───────────────────────────────────────────────
-
-    let mut fallback_single;
-    let mut fallback_pair;
-
-    let (working_single, working_pair) = if phase1_viable {
-        (&mut feasible_single, &mut feasible_pair)
-    } else {
-        fallback_single = single_pools.clone();
-        fallback_pair = pair_pools.clone();
-        (&mut fallback_single, &mut fallback_pair)
-    };
-
-    // ── 6. Lexicographic narrowing ────────────────────────────────────────────
-    //
-    // Feasible path: safe narrowing in reverse priority order — maximises
-    // lower-priority stats first, then narrows higher-priority stats last,
-    // while never making any minimum unreachable.
-    //
-    // Infeasible path: standard greedy narrowing in forward priority order —
-    // minima cannot be met anyway, so we maximise stats in the user's stated
-    // priority order.
-
-    if phase1_viable {
-        for idx in (0..goals.len()).rev() {
-            safe_narrow_single(working_single, working_pair, idx, goals);
-            safe_narrow_pair(working_pair, working_single, idx, goals);
-        }
-    } else {
-        for goal in goals {
-            narrow_single(working_single, &goal.stat);
-            narrow_pair(working_pair, &goal.stat);
+fn suffix_goal_maxima(pools: &[SearchPool], goals: &[StatGoal]) -> Vec<Vec<i64>> {
+    let mut suffix = vec![vec![0; goals.len()]; pools.len() + 1];
+    for idx in (0..pools.len()).rev() {
+        suffix[idx] = suffix[idx + 1].clone();
+        for (goal_idx, goal) in goals.iter().enumerate() {
+            let pool_max = pools[idx]
+                .choices
+                .iter()
+                .map(|choice| choice.stat(&goal.stat))
+                .max()
+                .unwrap_or(0);
+            suffix[idx][goal_idx] += pool_max;
         }
     }
+    suffix
+}
 
-    // ── 7. Assemble the final GearSet ─────────────────────────────────────────
-
-    let mut gear_set = GearSet::new();
-
-    for (slot, pool) in working_single.iter() {
-        let chosen = pool
-            .first()
-            .expect("pool must not be empty after narrowing");
-        gear_set
-            .items
-            .insert(*slot, candidate_to_gear_item(chosen, *slot));
+#[allow(clippy::too_many_arguments)]
+fn dfs_search(
+    pool_idx: usize,
+    pools: &[SearchPool],
+    goals: &[StatGoal],
+    suffix_maxima: &[Vec<i64>],
+    running_totals: &mut [i64],
+    current_choices: &mut Vec<Choice>,
+    current_keys: &mut Vec<String>,
+    best: &mut Option<SearchBuild>,
+) {
+    if let Some(best_build) = best.as_ref() {
+        let optimistic: Vec<i64> = running_totals
+            .iter()
+            .zip(&suffix_maxima[pool_idx])
+            .map(|(running, remaining_max)| running + remaining_max)
+            .collect();
+        if compare_builds(&optimistic, &best_build.totals, goals) == Ordering::Less {
+            return;
+        }
     }
 
-    for (canonical, pairs) in working_pair.iter() {
-        let chosen = pairs.first().expect("pair pool must not be empty");
-        let slot1 = *canonical;
-        let slot2 = paired_slot2(slot1);
-
-        let (item_for_slot1, item_for_slot2) =
-            if chosen.a.original_slot == slot1 && chosen.b.original_slot == slot2 {
-                (&chosen.a, &chosen.b)
-            } else if chosen.a.original_slot == slot2 && chosen.b.original_slot == slot1 {
-                (&chosen.b, &chosen.a)
-            } else {
-                (&chosen.a, &chosen.b)
-            };
-
-        gear_set
-            .items
-            .insert(slot1, candidate_to_gear_item(item_for_slot1, slot1));
-        gear_set
-            .items
-            .insert(slot2, candidate_to_gear_item(item_for_slot2, slot2));
+    if pool_idx == pools.len() {
+        let mut tiebreak_key = current_keys.clone();
+        tiebreak_key.sort();
+        let candidate = SearchBuild {
+            totals: running_totals.to_vec(),
+            tiebreak_key,
+            choices: current_choices.clone(),
+        };
+        let should_replace = best
+            .as_ref()
+            .is_none_or(|best_build| compare_search_builds(&candidate, best_build, goals).is_gt());
+        if should_replace {
+            *best = Some(candidate);
+        }
+        return;
     }
 
-    // ── 8. Compute actual feasibility from achieved totals ────────────────────
+    for choice in &pools[pool_idx].choices {
+        let choice_totals = choice.goal_totals(goals);
+        let choice_keys = choice.instance_keys();
 
-    let failed_minima: Vec<(Stat, i64, i64)> = goals
+        for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
+            *running += add;
+        }
+        current_keys.extend(choice_keys.iter().cloned());
+        current_choices.push(choice.clone());
+
+        dfs_search(
+            pool_idx + 1,
+            pools,
+            goals,
+            suffix_maxima,
+            running_totals,
+            current_choices,
+            current_keys,
+            best,
+        );
+
+        current_choices.pop();
+        for _ in 0..choice_keys.len() {
+            current_keys.pop();
+        }
+        for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
+            *running -= add;
+        }
+    }
+}
+
+fn failed_minima(gear_set: &GearSet, goals: &[StatGoal]) -> Vec<(Stat, i64, i64)> {
+    goals
         .iter()
         .filter(|g| g.minimum > 0)
         .filter_map(|g| {
             let achieved = gear_set.total(&g.stat);
-            if achieved < g.minimum {
-                Some((g.stat, g.minimum, achieved))
-            } else {
-                None
-            }
+            (achieved < g.minimum).then_some((g.stat, g.minimum, achieved))
         })
-        .collect();
-
-    let feasible = failed_minima.is_empty();
-
-    Ok(OptimizeResult {
-        gear_set,
-        feasible,
-        failed_minima,
-        warnings,
-    })
-}
-
-// ── Feasibility filtering ─────────────────────────────────────────────────────
-
-type SlotMaxima = HashMap<Slot, HashMap<Stat, i64>>;
-
-fn compute_single_maxima(pools: &HashMap<Slot, Vec<Candidate>>, goals: &[StatGoal]) -> SlotMaxima {
-    let mut out: SlotMaxima = HashMap::new();
-    for (&slot, pool) in pools {
-        let mut stat_max: HashMap<Stat, i64> = HashMap::new();
-        for goal in goals {
-            let best = pool.iter().map(|c| c.stat(&goal.stat)).max().unwrap_or(0);
-            stat_max.insert(goal.stat, best);
-        }
-        out.insert(slot, stat_max);
-    }
-    out
-}
-
-fn compute_pair_maxima(
-    pools: &HashMap<Slot, Vec<PairCandidate>>,
-    goals: &[StatGoal],
-) -> SlotMaxima {
-    let mut out: SlotMaxima = HashMap::new();
-    for (&slot, pool) in pools {
-        let mut stat_max: HashMap<Stat, i64> = HashMap::new();
-        for goal in goals {
-            let best = pool.iter().map(|p| p.stat(&goal.stat)).max().unwrap_or(0);
-            stat_max.insert(goal.stat, best);
-        }
-        out.insert(slot, stat_max);
-    }
-    out
-}
-
-fn compute_global_max(
-    single: &SlotMaxima,
-    pair: &SlotMaxima,
-    goals: &[StatGoal],
-) -> HashMap<Stat, i64> {
-    let mut out: HashMap<Stat, i64> = HashMap::new();
-    for goal in goals {
-        let mut total = 0i64;
-        for stat_max in single.values() {
-            total += stat_max.get(&goal.stat).copied().unwrap_or(0);
-        }
-        for stat_max in pair.values() {
-            total += stat_max.get(&goal.stat).copied().unwrap_or(0);
-        }
-        out.insert(goal.stat, total);
-    }
-    out
-}
-
-fn filter_compatible_single(
-    pools: &HashMap<Slot, Vec<Candidate>>,
-    slot_maxima: &SlotMaxima,
-    global_max: &HashMap<Stat, i64>,
-    goals: &[StatGoal],
-) -> HashMap<Slot, Vec<Candidate>> {
-    let mut out: HashMap<Slot, Vec<Candidate>> = HashMap::new();
-    for (&slot, pool) in pools {
-        let this_slot_max = slot_maxima.get(&slot);
-        let filtered: Vec<Candidate> = pool
-            .iter()
-            .filter(|c| {
-                goals.iter().all(|g| {
-                    if g.minimum == 0 {
-                        return true;
-                    }
-                    let slot_best = this_slot_max
-                        .and_then(|m| m.get(&g.stat))
-                        .copied()
-                        .unwrap_or(0);
-                    let global_best = global_max.get(&g.stat).copied().unwrap_or(0);
-                    c.stat(&g.stat) + (global_best - slot_best) >= g.minimum
-                })
-            })
-            .cloned()
-            .collect();
-        out.insert(slot, filtered);
-    }
-    out
-}
-
-fn filter_compatible_pair(
-    pools: &HashMap<Slot, Vec<PairCandidate>>,
-    slot_maxima: &SlotMaxima,
-    global_max: &HashMap<Stat, i64>,
-    goals: &[StatGoal],
-) -> HashMap<Slot, Vec<PairCandidate>> {
-    let mut out: HashMap<Slot, Vec<PairCandidate>> = HashMap::new();
-    for (&slot, pool) in pools {
-        let this_slot_max = slot_maxima.get(&slot);
-        let filtered: Vec<PairCandidate> = pool
-            .iter()
-            .filter(|p| {
-                goals.iter().all(|g| {
-                    if g.minimum == 0 {
-                        return true;
-                    }
-                    let slot_best = this_slot_max
-                        .and_then(|m| m.get(&g.stat))
-                        .copied()
-                        .unwrap_or(0);
-                    let global_best = global_max.get(&g.stat).copied().unwrap_or(0);
-                    p.stat(&g.stat) + (global_best - slot_best) >= g.minimum
-                })
-            })
-            .cloned()
-            .collect();
-        out.insert(slot, filtered);
-    }
-    out
-}
-
-// ── Safe lexicographic narrowing (feasible path) ──────────────────────────────
-
-/// Narrow single-slot pools on goals[goal_index].stat without breaking
-/// feasibility, and without reducing the achievable global maximum of any
-/// higher-priority stat (goals[..goal_index]).
-///
-/// For each slot, the highest threshold T is chosen such that retaining only
-/// candidates with stat >= T:
-///   (a) keeps every minimum reachable, AND
-///   (b) does not reduce the per-slot best of any higher-priority stat.
-///
-/// Recomputes global maxima after each individual slot's narrowing so that
-/// later slots in the same pass see the updated state.
-fn safe_narrow_single(
-    single_pools: &mut HashMap<Slot, Vec<Candidate>>,
-    pair_pools: &HashMap<Slot, Vec<PairCandidate>>,
-    goal_index: usize,
-    goals: &[StatGoal],
-) {
-    let stat = &goals[goal_index].stat;
-    let higher_priority = &goals[..goal_index];
-
-    for &slot in Slot::ALL {
-        if !single_pools.contains_key(&slot) {
-            continue;
-        }
-        // Recompute after each slot's narrowing so later slots see updated maxima.
-        let single_maxima = compute_single_maxima(single_pools, goals);
-        let pair_maxima = compute_pair_maxima(pair_pools, goals);
-        let global_max = compute_global_max(&single_maxima, &pair_maxima, goals);
-        let current_slot_max = single_maxima.get(&slot).cloned();
-
-        let pool = single_pools.get(&slot).unwrap();
-        if pool.is_empty() {
-            continue;
-        }
-
-        // Distinct values of `stat` in descending order.
-        let mut thresholds: Vec<i64> = pool.iter().map(|c| c.stat(stat)).collect();
-        thresholds.sort_unstable_by(|a, b| b.cmp(a));
-        thresholds.dedup();
-
-        // Find the highest threshold that satisfies both checks.
-        let chosen = thresholds.iter().copied().find(|&t| {
-            let tentative: Vec<&Candidate> = pool.iter().filter(|c| c.stat(stat) >= t).collect();
-
-            // (a) All minima remain reachable.
-            let minima_ok = goals.iter().all(|g| {
-                if g.minimum == 0 {
-                    return true;
-                }
-                let old_best = current_slot_max
-                    .as_ref()
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
-                let new_best = tentative.iter().map(|c| c.stat(&g.stat)).max().unwrap_or(0);
-                let new_global =
-                    global_max.get(&g.stat).copied().unwrap_or(0) - old_best + new_best;
-                new_global >= g.minimum
-            });
-            if !minima_ok {
-                return false;
-            }
-
-            // (b) Per-slot best of every higher-priority stat is preserved.
-            higher_priority.iter().all(|g| {
-                let old_best = current_slot_max
-                    .as_ref()
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
-                let new_best = tentative.iter().map(|c| c.stat(&g.stat)).max().unwrap_or(0);
-                new_best >= old_best
-            })
-        });
-
-        if let Some(t) = chosen {
-            single_pools
-                .get_mut(&slot)
-                .unwrap()
-                .retain(|c| c.stat(stat) >= t);
-        }
-    }
-}
-
-/// Narrow pair-slot pools on goals[goal_index].stat without breaking
-/// feasibility, and without reducing the achievable global maximum of any
-/// higher-priority stat (goals[..goal_index]).
-/// Same logic as `safe_narrow_single`.
-fn safe_narrow_pair(
-    pair_pools: &mut HashMap<Slot, Vec<PairCandidate>>,
-    single_pools: &HashMap<Slot, Vec<Candidate>>,
-    goal_index: usize,
-    goals: &[StatGoal],
-) {
-    let stat = &goals[goal_index].stat;
-    let higher_priority = &goals[..goal_index];
-
-    for &slot in Slot::ALL {
-        if !pair_pools.contains_key(&slot) {
-            continue;
-        }
-        // Recompute after each slot's narrowing so later slots see updated maxima.
-        let single_maxima = compute_single_maxima(single_pools, goals);
-        let pair_maxima = compute_pair_maxima(pair_pools, goals);
-        let global_max = compute_global_max(&single_maxima, &pair_maxima, goals);
-        let current_slot_max = pair_maxima.get(&slot).cloned();
-
-        let pool = pair_pools.get(&slot).unwrap();
-        if pool.is_empty() {
-            continue;
-        }
-
-        let mut thresholds: Vec<i64> = pool.iter().map(|p| p.stat(stat)).collect();
-        thresholds.sort_unstable_by(|a, b| b.cmp(a));
-        thresholds.dedup();
-
-        let chosen = thresholds.iter().copied().find(|&t| {
-            let tentative: Vec<&PairCandidate> =
-                pool.iter().filter(|p| p.stat(stat) >= t).collect();
-
-            // (a) All minima remain reachable.
-            let minima_ok = goals.iter().all(|g| {
-                if g.minimum == 0 {
-                    return true;
-                }
-                let old_best = current_slot_max
-                    .as_ref()
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
-                let new_best = tentative.iter().map(|p| p.stat(&g.stat)).max().unwrap_or(0);
-                let new_global =
-                    global_max.get(&g.stat).copied().unwrap_or(0) - old_best + new_best;
-                new_global >= g.minimum
-            });
-            if !minima_ok {
-                return false;
-            }
-
-            // (b) Per-slot best of every higher-priority stat is preserved.
-            higher_priority.iter().all(|g| {
-                let old_best = current_slot_max
-                    .as_ref()
-                    .and_then(|m| m.get(&g.stat))
-                    .copied()
-                    .unwrap_or(0);
-                let new_best = tentative.iter().map(|p| p.stat(&g.stat)).max().unwrap_or(0);
-                new_best >= old_best
-            })
-        });
-
-        if let Some(t) = chosen {
-            pair_pools
-                .get_mut(&slot)
-                .unwrap()
-                .retain(|p| p.stat(stat) >= t);
-        }
-    }
-}
-
-// ── Standard greedy narrowing (infeasible fallback path) ──────────────────────
-
-fn narrow_single(pools: &mut HashMap<Slot, Vec<Candidate>>, stat: &Stat) {
-    for pool in pools.values_mut() {
-        if pool.is_empty() {
-            continue;
-        }
-        let best = pool.iter().map(|c| c.stat(stat)).max().unwrap_or(0);
-        pool.retain(|c| c.stat(stat) >= best);
-        debug_assert!(!pool.is_empty());
-    }
-}
-
-fn narrow_pair(pools: &mut HashMap<Slot, Vec<PairCandidate>>, stat: &Stat) {
-    for pool in pools.values_mut() {
-        if pool.is_empty() {
-            continue;
-        }
-        let best = pool.iter().map(|p| p.stat(stat)).max().unwrap_or(0);
-        pool.retain(|p| p.stat(stat) >= best);
-        debug_assert!(!pool.is_empty());
-    }
+        .collect()
 }
 
 // ── Other helpers ─────────────────────────────────────────────────────────────
@@ -706,7 +610,7 @@ fn slot_display(slot: Slot) -> &'static str {
 
 fn validate_candidate_pool_sizes(
     pools: &HashMap<Slot, Vec<Candidate>>,
-) -> Result<(), OptimizeError> {
+) -> Result<(), Box<OptimizeError>> {
     let mut seen = HashSet::new();
 
     for &slot in Slot::ALL {
@@ -717,11 +621,11 @@ fn validate_candidate_pool_sizes(
 
         if let Some(pool) = pools.get(&canonical) {
             if pool.len() > MAX_CANDIDATES_PER_SLOT {
-                return Err(OptimizeError::TooManyCandidates {
+                return Err(Box::new(OptimizeError::TooManyCandidates {
                     slot_label: slot_display(canonical).to_string(),
                     count: pool.len(),
                     max: MAX_CANDIDATES_PER_SLOT,
-                });
+                }));
             }
         }
     }
@@ -734,6 +638,35 @@ fn validate_candidate_pool_sizes(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone)]
+    struct Lcg(u64);
+
+    impl Lcg {
+        fn new(seed: u64) -> Self {
+            Self(seed)
+        }
+
+        fn next_u32(&mut self) -> u32 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (self.0 >> 32) as u32
+        }
+
+        fn range_usize(&mut self, start: usize, end_inclusive: usize) -> usize {
+            start + (self.next_u32() as usize % (end_inclusive - start + 1))
+        }
+
+        fn range_i64(&mut self, start: i64, end_inclusive: i64) -> i64 {
+            start + (self.next_u32() as i64).rem_euclid(end_inclusive - start + 1)
+        }
+
+        fn chance(&mut self, numerator: u32, denominator: u32) -> bool {
+            self.next_u32() % denominator < numerator
+        }
+    }
 
     fn make_cached(name: &str, slot: Slot, stats: &[(Stat, i64)]) -> CachedItem {
         CachedItem {
@@ -782,89 +715,202 @@ mod tests {
             .unwrap_or_else(|| "[missing]".to_string())
     }
 
+    fn result_goal_totals(result: &OptimizeResult, goals: &[StatGoal]) -> Vec<i64> {
+        goals
+            .iter()
+            .map(|goal| result.gear_set.total(&goal.stat))
+            .collect()
+    }
+
+    fn oracle_optimize(
+        resolved: &HashMap<String, CachedItem>,
+        candidates: &[String],
+        goals: &[StatGoal],
+    ) -> OptimizeResult {
+        let (pools, warnings) = build_search_pools(resolved, candidates, goals, false)
+            .expect("oracle inputs should be within candidate cap");
+        let best = oracle_best_build(&pools, goals).expect("oracle pools should not be empty");
+        let mut gear_set = GearSet::new();
+        for choice in &best.choices {
+            choice.insert_into(&mut gear_set);
+        }
+        let failed_minima = failed_minima(&gear_set, goals);
+        OptimizeResult {
+            gear_set,
+            feasible: failed_minima.is_empty(),
+            failed_minima,
+            warnings,
+        }
+    }
+
+    fn oracle_best_build(pools: &[SearchPool], goals: &[StatGoal]) -> Option<SearchBuild> {
+        fn rec(
+            pool_idx: usize,
+            pools: &[SearchPool],
+            goals: &[StatGoal],
+            running_totals: &mut [i64],
+            current_choices: &mut Vec<Choice>,
+            current_keys: &mut Vec<String>,
+            best: &mut Option<SearchBuild>,
+        ) {
+            if pool_idx == pools.len() {
+                let mut tiebreak_key = current_keys.clone();
+                tiebreak_key.sort();
+                let candidate = SearchBuild {
+                    totals: running_totals.to_vec(),
+                    tiebreak_key,
+                    choices: current_choices.clone(),
+                };
+                let should_replace = best.as_ref().is_none_or(|best_build| {
+                    compare_search_builds(&candidate, best_build, goals).is_gt()
+                });
+                if should_replace {
+                    *best = Some(candidate);
+                }
+                return;
+            }
+
+            for choice in &pools[pool_idx].choices {
+                let choice_totals = choice.goal_totals(goals);
+                let choice_keys = choice.instance_keys();
+                for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
+                    *running += add;
+                }
+                current_keys.extend(choice_keys.iter().cloned());
+                current_choices.push(choice.clone());
+
+                rec(
+                    pool_idx + 1,
+                    pools,
+                    goals,
+                    running_totals,
+                    current_choices,
+                    current_keys,
+                    best,
+                );
+
+                current_choices.pop();
+                for _ in 0..choice_keys.len() {
+                    current_keys.pop();
+                }
+                for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
+                    *running -= add;
+                }
+            }
+        }
+
+        if pools.iter().any(|pool| pool.choices.is_empty()) {
+            return None;
+        }
+        let mut best = None;
+        rec(
+            0,
+            pools,
+            goals,
+            &mut vec![0; goals.len()],
+            &mut Vec::new(),
+            &mut Vec::new(),
+            &mut best,
+        );
+        best
+    }
+
+    fn assert_x_beats_y(x: &[i64], y: &[i64], goals: &[StatGoal]) {
+        assert_eq!(compare_builds(x, y, goals), Ordering::Greater);
+        assert_eq!(compare_builds(y, x, goals), Ordering::Less);
+    }
+
+    #[test]
+    fn comparator_worked_example_both_meet_first_goal_stage2_second_goal() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 100_000),
+            goal(Stat::TacticalMastery, 100_000),
+        ];
+        assert_x_beats_y(&[120_000, 90_000], &[100_000, 89_999], &goals);
+    }
+
+    #[test]
+    fn comparator_worked_example_ratchet_protects_met_lower_goal() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 100),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        assert_x_beats_y(&[94, 100], &[96, 80], &goals);
+    }
+
+    #[test]
+    fn comparator_worked_example_meeting_priority_one_justifies_drop() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 100),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        assert_x_beats_y(&[100, 70], &[98, 100], &goals);
+    }
+
+    #[test]
+    fn comparator_worked_example_both_unmet_stage2_priority_order() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 100),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        assert_x_beats_y(&[95, 96], &[94, 97], &goals);
+    }
+
+    #[test]
+    fn comparator_worked_example_all_met_stage3_raw_polish() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 100_000),
+            goal(Stat::TacticalMastery, 100_000),
+        ];
+        assert_x_beats_y(&[250_000, 100_000], &[100_000, 100_000], &goals);
+    }
+
+    #[test]
+    fn comparator_zero_minimum_is_met_and_uses_stage3_raw_value() {
+        let goals = vec![
+            goal(Stat::CriticalRating, 0),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        assert_x_beats_y(&[200, 100], &[100, 100], &goals);
+    }
+
     #[test]
     fn test_spec_run1_c2_wins() {
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-        resolved.insert(
-            "C1".into(),
-            make_cached(
-                "C1",
-                Slot::Chest,
-                &[
-                    (Stat::CriticalRating, 480),
-                    (Stat::TacticalMastery, 420),
-                    (Stat::Finesse, 310),
-                    (Stat::TacticalMitigation, 190),
-                ],
-            ),
-        );
-        resolved.insert(
-            "C2".into(),
-            make_cached(
-                "C2",
-                Slot::Chest,
-                &[
-                    (Stat::CriticalRating, 500),
-                    (Stat::TacticalMastery, 450),
-                    (Stat::Finesse, 310),
-                    (Stat::TacticalMitigation, 200),
-                ],
-            ),
-        );
-        resolved.insert(
-            "C3".into(),
-            make_cached(
-                "C3",
-                Slot::Chest,
-                &[
-                    (Stat::CriticalRating, 490),
-                    (Stat::TacticalMastery, 450),
-                    (Stat::Finesse, 310),
-                    (Stat::TacticalMitigation, 230),
-                ],
-            ),
-        );
-        resolved.insert(
-            "C4".into(),
-            make_cached(
-                "C4",
-                Slot::Chest,
-                &[
-                    (Stat::CriticalRating, 520),
-                    (Stat::TacticalMastery, 430),
-                    (Stat::Finesse, 310),
-                    (Stat::TacticalMitigation, 230),
-                ],
-            ),
-        );
-        resolved.insert(
-            "C5".into(),
-            make_cached(
-                "C5",
-                Slot::Chest,
-                &[
-                    (Stat::CriticalRating, 460),
-                    (Stat::TacticalMastery, 450),
-                    (Stat::Finesse, 310),
-                    (Stat::TacticalMitigation, 230),
-                ],
-            ),
-        );
-
+        for (name, cr, tm, fnv, tt) in [
+            ("C1", 480, 420, 310, 190),
+            ("C2", 500, 450, 310, 200),
+            ("C3", 490, 450, 310, 230),
+            ("C4", 520, 430, 310, 230),
+            ("C5", 460, 450, 310, 230),
+        ] {
+            resolved.insert(
+                name.into(),
+                make_cached(
+                    name,
+                    Slot::Chest,
+                    &[
+                        (Stat::CriticalRating, cr),
+                        (Stat::TacticalMastery, tm),
+                        (Stat::Finesse, fnv),
+                        (Stat::TacticalMitigation, tt),
+                    ],
+                ),
+            );
+        }
         let goals = vec![
             goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
             goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
-
         let winner = single_slot_result(
             &resolved,
             &["C1", "C2", "C3", "C4", "C5"],
             goals,
             Slot::Chest,
         );
-        assert_eq!(winner, "C2", "Expected C2; got {}", winner);
+        assert_eq!(winner, "C2");
     }
 
     #[test]
@@ -923,27 +969,15 @@ mod tests {
                 ],
             ),
         );
-
         let goals = vec![
             goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
             goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
-
-        let name_strings = vec!["C6".to_string(), "C7".to_string()];
-        let result = optimize_ok(&resolved, &name_strings, &goals);
-
+        let result = optimize_ok(&resolved, &["C6".to_string(), "C7".to_string()], &goals);
         assert!(!result.feasible);
-        assert!(!result.failed_minima.is_empty());
-
-        let winner = result
-            .gear_set
-            .items
-            .get(&Slot::Chest)
-            .map(|i| i.name.as_str())
-            .unwrap_or("[missing]");
-        assert_eq!(winner, "C6", "Expected C6; got {}", winner);
+        assert_eq!(result.gear_set.items[&Slot::Chest].name, "C6");
     }
 
     #[test]
@@ -975,16 +1009,86 @@ mod tests {
                 ],
             ),
         );
-
         let goals = vec![
             goal(Stat::CriticalRating, 450),
             goal(Stat::TacticalMastery, 450),
             goal(Stat::Finesse, 300),
             goal(Stat::TacticalMitigation, 200),
         ];
-
         let winner = single_slot_result(&resolved, &["C4", "C5"], goals, Slot::Chest);
-        assert_eq!(winner, "C5", "Expected C5; got {}", winner);
+        assert_eq!(winner, "C5");
+    }
+
+    #[test]
+    fn dominance_safety_keeps_lower_priority_met_ratchet_candidate() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Balanced".into(),
+            make_cached(
+                "Balanced",
+                Slot::Head,
+                &[(Stat::CriticalRating, 9), (Stat::TacticalMastery, 9)],
+            ),
+        );
+        resolved.insert(
+            "HighCR".into(),
+            make_cached(
+                "HighCR",
+                Slot::Head,
+                &[(Stat::CriticalRating, 10), (Stat::TacticalMastery, 0)],
+            ),
+        );
+        resolved.insert(
+            "Filler".into(),
+            make_cached("Filler", Slot::Chest, &[(Stat::TacticalMastery, 1)]),
+        );
+        let names = vec![
+            "Balanced".to_string(),
+            "HighCR".to_string(),
+            "Filler".to_string(),
+        ];
+        let goals = vec![
+            goal(Stat::CriticalRating, 11),
+            goal(Stat::TacticalMastery, 10),
+        ];
+        let production = optimize_ok(&resolved, &names, &goals);
+        let oracle = oracle_optimize(&resolved, &names, &goals);
+        assert_eq!(production.gear_set.items[&Slot::Head].name, "Balanced");
+        assert_eq!(
+            compare_builds(
+                &result_goal_totals(&production, &goals),
+                &result_goal_totals(&oracle, &goals),
+                &goals,
+            ),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn branch_and_bound_exactness_rejects_high_priority_overshoot_for_lower_goal() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Overshoot".into(),
+            make_cached(
+                "Overshoot",
+                Slot::Head,
+                &[(Stat::CriticalRating, 100), (Stat::TacticalMastery, 0)],
+            ),
+        );
+        resolved.insert(
+            "Satisfied".into(),
+            make_cached(
+                "Satisfied",
+                Slot::Head,
+                &[(Stat::CriticalRating, 10), (Stat::TacticalMastery, 10)],
+            ),
+        );
+        let goals = vec![
+            goal(Stat::CriticalRating, 10),
+            goal(Stat::TacticalMastery, 10),
+        ];
+        let winner = single_slot_result(&resolved, &["Overshoot", "Satisfied"], goals, Slot::Head);
+        assert_eq!(winner, "Satisfied");
     }
 
     #[test]
@@ -998,15 +1102,12 @@ mod tests {
             "WristB".into(),
             make_cached("WristB", Slot::Wrist1, &[(Stat::Vitality, 80)]),
         );
-
         let goals = vec![goal(Stat::Vitality, 0)];
-        let names = vec!["WristA".to_string(), "WristB".to_string()];
-        let result = optimize_ok(&resolved, &names, &goals);
-
-        assert!(result.gear_set.items.contains_key(&Slot::Wrist1));
-        assert!(result.gear_set.items.contains_key(&Slot::Wrist2));
-        // The best legal wrist pair is WristA + WristB = 180. The old 200
-        // expectation came from illegally reusing WristA as (A,A).
+        let result = optimize_ok(
+            &resolved,
+            &["WristA".to_string(), "WristB".to_string()],
+            &goals,
+        );
         assert_eq!(result.gear_set.total(&Stat::Vitality), 180);
         let mut chosen = [
             result.gear_set.items[&Slot::Wrist1].name.as_str(),
@@ -1029,131 +1130,24 @@ mod tests {
     }
 
     #[test]
-    fn test_safe_narrowing_does_not_sacrifice_stat2_for_stat1() {
-        // Bad has higher CriticalRating but its low TacticalMitigation would
-        // prevent the TM minimum from being met if chosen.
-        // Safe narrowing must recognise this and keep Good instead.
-        //
-        //   Bad:  CR=400, TM=100
-        //   Ok:   CR=300, TM=300
-        //   Good: CR=300, TM=600
-        //
-        // Goals: CR≥300, TM≥600  →  Good must win.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-        resolved.insert(
-            "Bad".into(),
-            make_cached(
-                "Bad",
-                Slot::Head,
-                &[(Stat::CriticalRating, 400), (Stat::TacticalMitigation, 100)],
-            ),
-        );
-        resolved.insert(
-            "Ok".into(),
-            make_cached(
-                "Ok",
-                Slot::Head,
-                &[(Stat::CriticalRating, 300), (Stat::TacticalMitigation, 300)],
-            ),
-        );
-        resolved.insert(
-            "Good".into(),
-            make_cached(
-                "Good",
-                Slot::Head,
-                &[(Stat::CriticalRating, 300), (Stat::TacticalMitigation, 600)],
-            ),
-        );
-
-        let goals = vec![
-            goal(Stat::CriticalRating, 300),
-            goal(Stat::TacticalMitigation, 600),
-        ];
-
-        let winner = single_slot_result(&resolved, &["Bad", "Ok", "Good"], goals, Slot::Head);
-        assert_eq!(winner, "Good", "Expected Good; got {}", winner);
-    }
-
-    #[test]
-    fn test_safe_narrowing_feasibility_flag_correct() {
-        // Companion to the above: result must be reported as feasible,
-        // not as infeasible with a spurious "all minima met" message.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-        resolved.insert(
-            "Bad".into(),
-            make_cached(
-                "Bad",
-                Slot::Head,
-                &[(Stat::CriticalRating, 400), (Stat::TacticalMitigation, 100)],
-            ),
-        );
-        resolved.insert(
-            "Good".into(),
-            make_cached(
-                "Good",
-                Slot::Head,
-                &[(Stat::CriticalRating, 300), (Stat::TacticalMitigation, 600)],
-            ),
-        );
-
-        let goals = vec![
-            goal(Stat::CriticalRating, 300),
-            goal(Stat::TacticalMitigation, 600),
-        ];
-
-        let result = optimize_ok(&resolved, &["Bad".to_string(), "Good".to_string()], &goals);
-        assert!(result.feasible, "Result should be feasible");
-        assert!(result.failed_minima.is_empty());
-    }
-
-    // ── Paired-slot instance identity tests ─────────────────────────────────────
-
-    #[test]
     fn test_single_paired_instance_cannot_fill_both_slots() {
-        // Only one wrist item exists. It may occupy one wrist slot, but the
-        // second wrist must be an empty placeholder rather than the same item.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "WristX".into(),
             make_cached("WristX", Slot::Wrist1, &[(Stat::CriticalRating, 500)]),
         );
-
         let goals = vec![goal(Stat::CriticalRating, 400)];
         let result = optimize_ok(&resolved, &["WristX".to_string()], &goals);
-
         assert!(result.feasible);
-        assert!(
-            result.gear_set.items.contains_key(&Slot::Wrist1),
-            "Wrist1 must be filled"
-        );
-        assert!(
-            result.gear_set.items.contains_key(&Slot::Wrist2),
-            "Wrist2 must be filled"
-        );
-        assert_eq!(
-            result.gear_set.items[&Slot::Wrist1].name,
-            "WristX",
-            "Wrist1 should hold WristX"
-        );
-        assert!(
-            result.gear_set.items[&Slot::Wrist2]
-                .name
-                .starts_with("[empty"),
-            "Wrist2 should be empty, got {:?}",
-            result.gear_set.items[&Slot::Wrist2].name,
-        );
-        assert_eq!(
-            result.gear_set.total(&Stat::CriticalRating),
-            500,
-            "CR must be counted once; the same instance cannot occupy both wrists",
-        );
+        assert_eq!(result.gear_set.items[&Slot::Wrist1].name, "WristX");
+        assert!(result.gear_set.items[&Slot::Wrist2]
+            .name
+            .starts_with("[empty"));
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 500);
     }
 
     #[test]
     fn test_no_self_pair_for_tight_minimum_is_infeasible() {
-        // RingA: CR=500.  RingB: CR=300.
-        // Legal pair combined CR: (A,B)=800. Minimum CR=900 is infeasible
-        // because (A,A) would reuse the same owned instance and is not legal.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1163,25 +1157,18 @@ mod tests {
             "RingB".into(),
             make_cached("RingB", Slot::Finger1, &[(Stat::CriticalRating, 300)]),
         );
-
         let goals = vec![goal(Stat::CriticalRating, 900)];
         let result = optimize_ok(
             &resolved,
             &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
-
-        assert!(
-            !result.feasible,
-            "(A,A) is illegal; legal best is A+B=800 < 900"
-        );
+        assert!(!result.feasible);
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 800);
     }
 
     #[test]
     fn test_two_distinct_same_name_instances_can_fill_paired_slots() {
-        // Candidate map keys are unique per TOML instance, but the display
-        // name presented in both slots may be identical when two copies exist.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             instance_key(1, Slot::Finger1, "Same Ring"),
@@ -1191,14 +1178,12 @@ mod tests {
             instance_key(2, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
         );
-
         let goals = vec![goal(Stat::CriticalRating, 900)];
         let names = vec![
             instance_key(1, Slot::Finger1, "Same Ring"),
             instance_key(2, Slot::Finger1, "Same Ring"),
         ];
         let result = optimize_ok(&resolved, &names, &goals);
-
         assert!(result.feasible);
         assert_eq!(result.gear_set.items[&Slot::Finger1].name, "Same Ring");
         assert_eq!(result.gear_set.items[&Slot::Finger2].name, "Same Ring");
@@ -1208,7 +1193,6 @@ mod tests {
     #[test]
     fn test_one_same_name_instance_alone_is_infeasible_but_two_are_feasible() {
         let goals = vec![goal(Stat::CriticalRating, 900)];
-
         let mut one: HashMap<String, CachedItem> = HashMap::new();
         one.insert(
             instance_key(1, Slot::Finger1, "Same Ring"),
@@ -1236,7 +1220,6 @@ mod tests {
     #[test]
     fn test_pair_family_consistency_for_ear_singleton_and_duplicate_copy() {
         let goals = vec![goal(Stat::TacticalMitigation, 700)];
-
         let mut one: HashMap<String, CachedItem> = HashMap::new();
         one.insert(
             "EarOnly".into(),
@@ -1272,8 +1255,6 @@ mod tests {
 
     #[test]
     fn test_pair_infeasible_when_minimum_exceeds_best_legal_pair() {
-        // Same two rings as above, but minimum=801.
-        // Best legal pair is (A,B)=800 < 801 — no pair can meet it.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1283,78 +1264,52 @@ mod tests {
             "RingB".into(),
             make_cached("RingB", Slot::Finger1, &[(Stat::CriticalRating, 300)]),
         );
-
         let goals = vec![goal(Stat::CriticalRating, 801)];
         let result = optimize_ok(
             &resolved,
             &["RingA".to_string(), "RingB".to_string()],
             &goals,
         );
-
-        assert!(
-            !result.feasible,
-            "Best legal pair (A,B)=800 < 801; result must be infeasible"
-        );
-        let cr_fail = result
-            .failed_minima
-            .iter()
-            .find(|(s, _, _)| *s == Stat::CriticalRating);
-        assert!(
-            cr_fail.is_some(),
-            "CriticalRating must appear in failed_minima"
-        );
-        // Infeasible greedy should still pick the best available legal pair.
-        assert_eq!(
-            result.gear_set.total(&Stat::CriticalRating),
-            800,
-            "Infeasible result should still show the best achievable value"
-        );
+        assert!(!result.feasible);
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 800);
     }
-
-    // ── Feasibility boundary ────────────────────────────────────────────────────
 
     #[test]
     fn test_single_candidate_meets_minimum_exactly() {
-        // Stat == minimum exactly: must be feasible (no off-by-one).
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::TacticalMitigation, 300)]),
         );
-
-        let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
-
-        assert!(result.feasible, "300 ≥ 300 must be feasible");
-        assert!(result.failed_minima.is_empty());
+        let result = optimize_ok(
+            &resolved,
+            &["Helm".to_string()],
+            &[goal(Stat::TacticalMitigation, 300)],
+        );
+        assert!(result.feasible);
     }
 
     #[test]
     fn test_single_candidate_one_below_minimum() {
-        // Stat is one below the minimum: must be infeasible with correct reporting.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::TacticalMitigation, 299)]),
         );
-
-        let goals = vec![goal(Stat::TacticalMitigation, 300)];
-        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
-
-        assert!(!result.feasible, "299 < 300 must be infeasible");
-        assert!(
-            matches!(
-                result
-                    .failed_minima
-                    .iter()
-                    .find(|(s, _, _)| *s == Stat::TacticalMitigation),
-                Some((_, 300, 299))
-            ),
-            "failed_minima must report (TacticalMitigation, min=300, achieved=299)"
+        let result = optimize_ok(
+            &resolved,
+            &["Helm".to_string()],
+            &[goal(Stat::TacticalMitigation, 300)],
         );
+        assert!(!result.feasible);
+        assert!(matches!(
+            result
+                .failed_minima
+                .iter()
+                .find(|(s, _, _)| *s == Stat::TacticalMitigation),
+            Some((_, 300, 299))
+        ));
     }
-
-    // ── Candidate pool validation ───────────────────────────────────────────────
 
     #[test]
     fn test_too_many_single_slot_candidates_is_refused() {
@@ -1368,12 +1323,9 @@ mod tests {
             );
             names.push(name);
         }
-
-        let goals = vec![goal(Stat::CriticalRating, 0)];
-        let err = optimize(&resolved, &names, &goals).unwrap_err();
-
+        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).unwrap_err();
         assert_eq!(
-            err,
+            *err,
             OptimizeError::TooManyCandidates {
                 slot_label: "Head".to_string(),
                 count: 9,
@@ -1399,12 +1351,9 @@ mod tests {
             );
             names.push(name);
         }
-
-        let goals = vec![goal(Stat::CriticalRating, 0)];
-        let err = optimize(&resolved, &names, &goals).unwrap_err();
-
+        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).unwrap_err();
         assert_eq!(
-            err,
+            *err,
             OptimizeError::TooManyCandidates {
                 slot_label: "Finger".to_string(),
                 count: 9,
@@ -1425,7 +1374,6 @@ mod tests {
             );
             names.push(name);
         }
-
         assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
     }
 
@@ -1446,140 +1394,30 @@ mod tests {
             );
             names.push(name);
         }
-
         assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
     }
 
-    // ── Placeholder / missing slot ──────────────────────────────────────────────
-
     #[test]
     fn test_missing_slot_emits_placeholder_warning() {
-        // Supply only a Head item; every other slot has no candidates.
-        // The optimizer must insert zero placeholders and emit warnings for them.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::CriticalRating, 100)]),
         );
-
-        let goals = vec![goal(Stat::CriticalRating, 0)];
-        let result = optimize_ok(&resolved, &["Helm".to_string()], &goals);
-
-        assert!(
-            result
-                .warnings
-                .iter()
-                .any(|w| w.contains("no candidates found")),
-            "Expected placeholder warnings for empty slots; got: {:?}",
-            result.warnings,
+        let result = optimize_ok(
+            &resolved,
+            &["Helm".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
         );
-        // The real item must still win for Head.
-        assert_eq!(
-            result
-                .gear_set
-                .items
-                .get(&Slot::Head)
-                .map(|i| i.name.as_str()),
-            Some("Helm"),
-        );
+        assert!(result
+            .warnings
+            .iter()
+            .any(|w| w.contains("no candidates found")));
+        assert_eq!(result.gear_set.items[&Slot::Head].name, "Helm");
     }
-
-    #[test]
-    fn test_safe_narrowing_preserves_higher_priority_max_when_no_minimum() {
-        // ItemA: CR=200, TM=600   → meets TM≥600, better CR
-        // ItemB: CR=100, TM=700   → meets TM≥600, worse CR
-        //
-        // Goals (priority order): CR:0  then  TM:600
-        //
-        // Both items are feasible.  CR is priority-1; ItemA must win.
-        //
-        // Bug: safe_narrow processes TM first (reverse order).  With TM min=600,
-        // T=700 passes the feasibility check (700≥600), so ItemA is eliminated.
-        // CR then picks from {ItemB} only — result is CR=100 instead of 200.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-        resolved.insert(
-            "ItemA".into(),
-            make_cached(
-                "ItemA",
-                Slot::Head,
-                &[(Stat::CriticalRating, 200), (Stat::TacticalMitigation, 600)],
-            ),
-        );
-        resolved.insert(
-            "ItemB".into(),
-            make_cached(
-                "ItemB",
-                Slot::Head,
-                &[(Stat::CriticalRating, 100), (Stat::TacticalMitigation, 700)],
-            ),
-        );
-
-        let goals = vec![
-            goal(Stat::CriticalRating, 0),       // priority 1 — no floor
-            goal(Stat::TacticalMitigation, 600), // priority 2 — floor = 600
-        ];
-
-        let winner = single_slot_result(&resolved, &["ItemA", "ItemB"], goals, Slot::Head);
-        assert_eq!(
-            winner, "ItemA",
-            "ItemA has higher CR (priority-1) and still meets TM≥600; it must win"
-        );
-    }
-
-    #[test]
-    fn test_safe_narrowing_paired_preserves_higher_priority_max_when_no_minimum() {
-        // EarA: CR=500, TM=100.   EarB: CR=100, TM=500.
-        // Only legal pair is (A,B): CR=600, TM=600.
-        //
-        // Goals (priority order): CR:0  then  TM:600
-        //
-        // Correct answer: (A,B). This also proves paired safe narrowing handles
-        // the post-self-pair world where no (A,A)/(B,B) candidates exist.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
-        resolved.insert(
-            "EarA".into(),
-            make_cached(
-                "EarA",
-                Slot::Ear1,
-                &[(Stat::CriticalRating, 500), (Stat::TacticalMitigation, 100)],
-            ),
-        );
-        resolved.insert(
-            "EarB".into(),
-            make_cached(
-                "EarB",
-                Slot::Ear1,
-                &[(Stat::CriticalRating, 100), (Stat::TacticalMitigation, 500)],
-            ),
-        );
-
-        let goals = vec![
-            goal(Stat::CriticalRating, 0),       // priority 1 — no floor
-            goal(Stat::TacticalMitigation, 600), // priority 2 — floor = 600
-        ];
-
-        let result = optimize_ok(&resolved, &["EarA".to_string(), "EarB".to_string()], &goals);
-
-        assert!(
-            result.feasible,
-            "Pair (A,B) gives TM=600 ≥ 600; must be feasible"
-        );
-        assert_eq!(
-            result.gear_set.total(&Stat::CriticalRating),
-            600,
-            "CR should be 600 (pair A+B), not 200 (pair B+B); (A,B) must win",
-        );
-        assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 600);
-    }
-
-    // ── Negative stat tests ─────────────────────────────────────────────────────
 
     #[test]
     fn test_negative_stat_compensated_across_slots() {
-        // Head: ItemA has TM=-50 but high CR.
-        // Chest: ItemX has TM=300.
-        // Combined TM = -50 + 300 = 250 >= 200 — feasible.
-        // ItemA must NOT be filtered out just because its individual TM is negative.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
@@ -1591,69 +1429,43 @@ mod tests {
         );
         resolved.insert(
             "ItemX".into(),
-            make_cached(
-                "ItemX",
-                Slot::Chest,
-                &[(Stat::CriticalRating, 100), (Stat::TacticalMitigation, 300)],
-            ),
+            make_cached("ItemX", Slot::Chest, &[(Stat::TacticalMitigation, 300)]),
         );
-
         let goals = vec![goal(Stat::TacticalMitigation, 200)];
         let result = optimize_ok(
             &resolved,
             &["ItemA".to_string(), "ItemX".to_string()],
             &goals,
         );
-
-        assert!(
-            result.feasible,
-            "Combined TM = -50+300 = 250 >= 200; must be feasible"
-        );
+        assert!(result.feasible);
         assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 250);
-        assert_eq!(
-            result
-                .gear_set
-                .items
-                .get(&Slot::Head)
-                .map(|i| i.name.as_str()),
-            Some("ItemA"),
-            "ItemA must not be filtered out despite negative TM",
-        );
+        assert_eq!(result.gear_set.items[&Slot::Head].name, "ItemA");
     }
 
     #[test]
     fn test_negative_stat_causes_infeasibility() {
-        // Single Head item with TM=-50.  Minimum TM=1.
-        // No other slot can compensate — result must be infeasible,
-        // and the achieved value in failed_minima must be negative.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
             make_cached("ItemA", Slot::Head, &[(Stat::TacticalMitigation, -50)]),
         );
-
-        let goals = vec![goal(Stat::TacticalMitigation, 1)];
-        let result = optimize_ok(&resolved, &["ItemA".to_string()], &goals);
-
-        assert!(
-            !result.feasible,
-            "TM=-50 cannot meet minimum=1; must be infeasible"
+        let result = optimize_ok(
+            &resolved,
+            &["ItemA".to_string()],
+            &[goal(Stat::TacticalMitigation, 1)],
         );
-        assert!(
-            matches!(
-                result.failed_minima
-                      .iter()
-                      .find(|(s, _, _)| *s == Stat::TacticalMitigation),
-                Some((_, 1, achieved)) if *achieved < 0
-            ),
-            "failed_minima must report a negative achieved value for TM",
-        );
+        assert!(!result.feasible);
+        assert!(matches!(
+            result
+                .failed_minima
+                .iter()
+                .find(|(s, _, _)| *s == Stat::TacticalMitigation),
+            Some((_, 1, achieved)) if *achieved < 0
+        ));
     }
 
     #[test]
     fn test_negative_stat_on_non_goal_stat_does_not_crash() {
-        // ItemA has a negative value on Finesse, which is not a goal stat.
-        // The optimizer must not crash and must select ItemA normally.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
@@ -1663,18 +1475,110 @@ mod tests {
                 &[(Stat::CriticalRating, 300), (Stat::Finesse, -999)],
             ),
         );
-
-        let goals = vec![goal(Stat::CriticalRating, 300)];
-        let result = optimize_ok(&resolved, &["ItemA".to_string()], &goals);
-
-        assert!(result.feasible);
-        assert_eq!(
-            result
-                .gear_set
-                .items
-                .get(&Slot::Head)
-                .map(|i| i.name.as_str()),
-            Some("ItemA"),
+        let result = optimize_ok(
+            &resolved,
+            &["ItemA".to_string()],
+            &[goal(Stat::CriticalRating, 300)],
         );
+        assert!(result.feasible);
+        assert_eq!(result.gear_set.items[&Slot::Head].name, "ItemA");
+    }
+
+    fn run_fuzzer_cases(case_count: usize, seed: u64) {
+        let stats = [
+            Stat::CriticalRating,
+            Stat::TacticalMastery,
+            Stat::Finesse,
+            Stat::TacticalMitigation,
+        ];
+        let families = [
+            Slot::Head,
+            Slot::Chest,
+            Slot::Legs,
+            Slot::Wrist1,
+            Slot::Finger1,
+            Slot::Ear1,
+        ];
+        let mut rng = Lcg::new(seed);
+
+        for case_idx in 0..case_count {
+            let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+            let mut names = Vec::new();
+            let family_count = rng.range_usize(2, 4);
+            let mut selected_families = Vec::new();
+            while selected_families.len() < family_count {
+                let family = families[rng.range_usize(0, families.len() - 1)];
+                if !selected_families.contains(&family) {
+                    selected_families.push(family);
+                }
+            }
+
+            let mut instance_idx = 0usize;
+            for family in selected_families {
+                let candidate_count = rng.range_usize(1, 4);
+                for local_idx in 0..candidate_count {
+                    let slot = match family {
+                        Slot::Wrist1 if rng.chance(1, 2) => Slot::Wrist2,
+                        Slot::Finger1 if rng.chance(1, 2) => Slot::Finger2,
+                        Slot::Ear1 if rng.chance(1, 2) => Slot::Ear2,
+                        other => other,
+                    };
+                    let name = format!("case{}_item{}_{}", case_idx, instance_idx, local_idx);
+                    let key = instance_key(instance_idx, slot, &name);
+                    instance_idx += 1;
+                    let item_stats: Vec<(Stat, i64)> = stats
+                        .iter()
+                        .map(|stat| (*stat, rng.range_i64(-3, 15)))
+                        .collect();
+                    resolved.insert(key.clone(), make_cached(&name, slot, &item_stats));
+                    names.push(key);
+                }
+            }
+
+            let goal_count = rng.range_usize(1, 3);
+            let mut goals = Vec::new();
+            while goals.len() < goal_count {
+                let stat = stats[rng.range_usize(0, stats.len() - 1)];
+                if goals.iter().any(|goal: &StatGoal| goal.stat == stat) {
+                    continue;
+                }
+                let minimum = if rng.chance(1, 5) {
+                    0
+                } else {
+                    rng.range_i64(1, 20)
+                };
+                goals.push(goal(stat, minimum));
+            }
+
+            let production = optimize_ok(&resolved, &names, &goals);
+            let oracle = oracle_optimize(&resolved, &names, &goals);
+            let production_totals = result_goal_totals(&production, &goals);
+            let oracle_totals = result_goal_totals(&oracle, &goals);
+            if production.feasible != oracle.feasible
+                || compare_builds(&production_totals, &oracle_totals, &goals) != Ordering::Equal
+            {
+                panic!(
+                    "fuzzer mismatch case {case_idx}\ngoals: {:?}\nnames: {:?}\nresolved: {:#?}\nproduction feasible/totals: {:?} {:?}\noracle feasible/totals: {:?} {:?}",
+                    goals,
+                    names,
+                    resolved,
+                    production.feasible,
+                    production_totals,
+                    oracle.feasible,
+                    oracle_totals,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn differential_fuzzer_matches_oracle_smoke() {
+        run_fuzzer_cases(250, 0x5eed_1234_abcd_9876);
+    }
+
+    #[test]
+    #[ignore]
+    fn differential_fuzzer_matches_oracle_deep() {
+        run_fuzzer_cases(5_000, 0x0dd5_ea51_5eed_f00d);
     }
 }
