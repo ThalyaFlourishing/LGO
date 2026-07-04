@@ -141,7 +141,13 @@ fn run_optimize(cli: &OptimizeCli) {
         .collect();
 
     let candidate_names: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimizer::optimize(&resolved, &candidate_names, &cli.goals);
+    let result = match optimizer::optimize(&resolved, &candidate_names, &cli.goals) {
+        Ok(result) => result,
+        Err(err @ optimizer::OptimizeError::TooManyCandidates { .. }) => {
+            eprintln!("{}", err);
+            process::exit(1);
+        }
+    };
 
     report::print_report(
         &result,
