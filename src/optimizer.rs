@@ -68,6 +68,8 @@ impl std::error::Error for OptimizeError {}
 /// A resolved item ready for the optimizer: instance key, name, stats, and slot.
 #[derive(Debug, Clone)]
 struct Candidate {
+    /// Stable per-owned-instance optimizer key; distinguishes duplicate items
+    /// with the same display name and feeds the deterministic final tiebreak.
     key: String,
     name: String,
     stats: HashMap<Stat, i64>,
@@ -260,9 +262,19 @@ fn compare_builds(x_totals: &[i64], y_totals: &[i64], goals: &[StatGoal]) -> Ord
 
 fn compare_search_builds(x: &SearchBuild, y: &SearchBuild, goals: &[StatGoal]) -> Ordering {
     match compare_builds(&x.totals, &y.totals, goals) {
+        // Earlier sorted instance keys win final ties. `cmp` returns Greater
+        // when the right-hand key is later, so compare in reverse order.
         Ordering::Equal => y.tiebreak_key.cmp(&x.tiebreak_key),
         non_equal => non_equal,
     }
+}
+
+fn should_replace_best(
+    candidate: &SearchBuild,
+    best: Option<&SearchBuild>,
+    goals: &[StatGoal],
+) -> bool {
+    best.is_none_or(|best_build| compare_search_builds(candidate, best_build, goals).is_gt())
 }
 
 // ── Exact production search ──────────────────────────────────────────────────
@@ -472,10 +484,7 @@ fn dfs_search(
             tiebreak_key,
             choices: current_choices.clone(),
         };
-        let should_replace = best
-            .as_ref()
-            .is_none_or(|best_build| compare_search_builds(&candidate, best_build, goals).is_gt());
-        if should_replace {
+        if should_replace_best(&candidate, best.as_ref(), goals) {
             *best = Some(candidate);
         }
         return;
@@ -761,10 +770,7 @@ mod tests {
                     tiebreak_key,
                     choices: current_choices.clone(),
                 };
-                let should_replace = best.as_ref().is_none_or(|best_build| {
-                    compare_search_builds(&candidate, best_build, goals).is_gt()
-                });
-                if should_replace {
+                if should_replace_best(&candidate, best.as_ref(), goals) {
                     *best = Some(candidate);
                 }
                 return;
