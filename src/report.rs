@@ -72,9 +72,8 @@ fn print_gear_table(gear_set: &GearSet) {
 
     println!();
     println!(
-        "  {:<COL_SLOT$}  {}",
+        "  {:<COL_SLOT$}  Recommended Item",
         "Slot",
-        "Recommended Item",
         COL_SLOT = COL_SLOT
     );
     println!("  {}", divider);
@@ -113,11 +112,10 @@ fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(
 
     println!();
     println!(
-        "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  {}",
+        "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  Met?",
         "Stat",
         "Total",
         "Minimum",
-        "Met?",
         COL_STAT = COL_STAT,
         COL_VALUE = COL_VALUE,
         COL_MIN = COL_MIN,
