@@ -1,3 +1,4 @@
+> **HISTORICAL — superseded.** This document describes the pre-rewrite optimizer and/or the analysis or PR planning that led to it. The optimizer rewrite landed in PRs #44/#45 (with PR #46 cleanup); see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and search design. Retained for historical context only; do not treat its algorithm/objective descriptions as current.
 
 ## 1. Summary judgment — **unsound**
 
@@ -676,4 +677,3 @@ The proof fails because it treats independent per-stat maxima as if they compose
 The observed real examples are consistent with this bug pattern, especially the cases where CR remains far above its minimum while TM narrowly or badly misses its minimum.
 
 Recommended next step: add a brute-force oracle for tiny deterministic tests, then replace the current narrowing strategy with an exact search method. The current paired-slot instance model is worth preserving, but the pruning/narrowing strategy should not be the basis of correctness.
-> **HISTORICAL — superseded.** This document describes the pre-rewrite optimizer and/or the analysis or PR planning that led to it. The optimizer rewrite landed in PRs #44/#45 (with PR #46 cleanup); see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and search design. Retained for historical context only; do not treat its algorithm/objective descriptions as current.
