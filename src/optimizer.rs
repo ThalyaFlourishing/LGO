@@ -828,6 +828,7 @@ mod tests {
 
     #[test]
     fn comparator_worked_example_both_meet_first_goal_stage2_second_goal() {
+        // Stage 2: once both builds meet CR, compare the clamped TM contribution.
         let goals = vec![
             goal(Stat::CriticalRating, 100_000),
             goal(Stat::TacticalMastery, 100_000),
@@ -837,6 +838,7 @@ mod tests {
 
     #[test]
     fn comparator_worked_example_ratchet_protects_met_lower_goal() {
+        // Stage 1 ratchet: a build that already meets TM beats one that drops it, even with less CR.
         let goals = vec![
             goal(Stat::CriticalRating, 100),
             goal(Stat::TacticalMastery, 100),
@@ -846,6 +848,7 @@ mod tests {
 
     #[test]
     fn comparator_worked_example_meeting_priority_one_justifies_drop() {
+        // Stage 1: meeting the higher-priority CR minimum outranks missing it to keep more TM.
         let goals = vec![
             goal(Stat::CriticalRating, 100),
             goal(Stat::TacticalMastery, 100),
@@ -855,6 +858,7 @@ mod tests {
 
     #[test]
     fn comparator_worked_example_both_unmet_stage2_priority_order() {
+        // Stage 2: with both minima unmet, the earlier goal still wins 95/100 over 94/100.
         let goals = vec![
             goal(Stat::CriticalRating, 100),
             goal(Stat::TacticalMastery, 100),
@@ -864,6 +868,7 @@ mod tests {
 
     #[test]
     fn comparator_worked_example_all_met_stage3_raw_polish() {
+        // Stage 3: after all minima are met, raw overflow decides the winner.
         let goals = vec![
             goal(Stat::CriticalRating, 100_000),
             goal(Stat::TacticalMastery, 100_000),
@@ -882,6 +887,7 @@ mod tests {
 
     #[test]
     fn test_spec_run1_c2_wins() {
+        // C2 is the first candidate to meet all four minima exactly enough; extra CR/TT elsewhere does not matter.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         for (name, cr, tm, fnv, tt) in [
             ("C1", 480, 420, 310, 190),
@@ -948,6 +954,7 @@ mod tests {
 
     #[test]
     fn test_spec_run2_c6_wins_infeasible() {
+        // Neither candidate is feasible, so the comparator prefers the stronger first-goal progress on CR.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "C6".into(),
@@ -988,6 +995,7 @@ mod tests {
 
     #[test]
     fn test_c5_over_c4_same_slot() {
+        // Both meet CR/FN/TT, so hitting the TM minimum with C5 beats C4's extra CR.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "C4".into(),
@@ -1027,6 +1035,7 @@ mod tests {
 
     #[test]
     fn dominance_safety_keeps_lower_priority_met_ratchet_candidate() {
+        // Dominance filtering must keep the build that preserves the later-goal ratchet, then match the brute-force oracle.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Balanced".into(),
@@ -1072,6 +1081,7 @@ mod tests {
 
     #[test]
     fn branch_and_bound_exactness_rejects_high_priority_overshoot_for_lower_goal() {
+        // Exact search must honor Stage 1 minima before Stage 3 overflow, so 10/10 beats 100/0.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Overshoot".into(),
@@ -1099,6 +1109,7 @@ mod tests {
 
     #[test]
     fn test_paired_slots_use_two_distinct_instances_and_sum_once_each() {
+        // Paired slots consume two distinct wrists and total 100 + 80 = 180 exactly once each.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "WristA".into(),
@@ -1137,6 +1148,7 @@ mod tests {
 
     #[test]
     fn test_single_paired_instance_cannot_fill_both_slots() {
+        // One wrist item may satisfy the minimum alone, but it cannot be duplicated into the second wrist slot.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "WristX".into(),
@@ -1154,6 +1166,7 @@ mod tests {
 
     #[test]
     fn test_no_self_pair_for_tight_minimum_is_infeasible() {
+        // The best legal ring pair is 500 + 300 = 800, so a 900 minimum stays infeasible without self-pairing.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1175,6 +1188,7 @@ mod tests {
 
     #[test]
     fn test_two_distinct_same_name_instances_can_fill_paired_slots() {
+        // Duplicate display names are fine when the instance keys are distinct; both 500-value rings can be worn together.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             instance_key(1, Slot::Finger1, "Same Ring"),
@@ -1261,6 +1275,7 @@ mod tests {
 
     #[test]
     fn test_pair_infeasible_when_minimum_exceeds_best_legal_pair() {
+        // Raising the minimum from 800 to 801 keeps the same best pair but flips feasibility.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
@@ -1282,6 +1297,7 @@ mod tests {
 
     #[test]
     fn test_single_candidate_meets_minimum_exactly() {
+        // Equality counts as satisfied: 300 TMit meets a 300 minimum.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
@@ -1297,6 +1313,7 @@ mod tests {
 
     #[test]
     fn test_single_candidate_one_below_minimum() {
+        // Falling short by one point should report the exact 300 vs 299 deficit.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
@@ -1424,6 +1441,7 @@ mod tests {
 
     #[test]
     fn test_negative_stat_compensated_across_slots() {
+        // Negative contributions still add algebraically: -50 + 300 = 250, so another slot can compensate.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
@@ -1450,6 +1468,7 @@ mod tests {
 
     #[test]
     fn test_negative_stat_causes_infeasibility() {
+        // A negative goal stat may drive the achieved total below zero and must surface as an unmet minimum.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
@@ -1472,6 +1491,7 @@ mod tests {
 
     #[test]
     fn test_negative_stat_on_non_goal_stat_does_not_crash() {
+        // Off-goal negatives are ignored by the objective but must still pass through the optimizer safely.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
@@ -1579,12 +1599,14 @@ mod tests {
 
     #[test]
     fn differential_fuzzer_matches_oracle_smoke() {
+        // Smoke-check the production search against the brute-force oracle on a modest randomized corpus.
         run_fuzzer_cases(250, 0x5eed_1234_abcd_9876);
     }
 
     #[test]
     #[ignore]
     fn differential_fuzzer_matches_oracle_deep() {
+        // Deeper randomized differential run against the same brute-force oracle.
         run_fuzzer_cases(5_000, 0x0dd5_ea51_5eed_f00d);
     }
 }
