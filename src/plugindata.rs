@@ -161,16 +161,16 @@ fn parse_value(s: &str, depth: usize) -> Result<(LuaVal, &str), String> {
     }
     let s = skip_ws_and_comments(s);
 
-    if s.starts_with('{') {
-        parse_table(&s[1..], depth)
+    if let Some(rest) = s.strip_prefix('{') {
+        parse_table(rest, depth)
     } else if s.starts_with('"') {
         parse_quoted_string(s)
-    } else if s.starts_with("true") {
-        Ok((LuaVal::Bool(true), &s[4..]))
-    } else if s.starts_with("false") {
-        Ok((LuaVal::Bool(false), &s[5..]))
-    } else if s.starts_with("nil") {
-        Ok((LuaVal::Nil, &s[3..]))
+    } else if let Some(rest) = s.strip_prefix("true") {
+        Ok((LuaVal::Bool(true), rest))
+    } else if let Some(rest) = s.strip_prefix("false") {
+        Ok((LuaVal::Bool(false), rest))
+    } else if let Some(rest) = s.strip_prefix("nil") {
+        Ok((LuaVal::Nil, rest))
     } else {
         parse_number(s)
     }
@@ -183,8 +183,8 @@ fn parse_table(s: &str, depth: usize) -> Result<(LuaVal, &str), String> {
     loop {
         s = skip_ws_and_comments(s);
 
-        if s.starts_with('}') {
-            return Ok((LuaVal::Table(entries), &s[1..]));
+        if let Some(rest) = s.strip_prefix('}') {
+            return Ok((LuaVal::Table(entries), rest));
         }
         if s.is_empty() {
             return Err("Unexpected end of input inside table".into());
@@ -218,8 +218,8 @@ fn parse_table(s: &str, depth: usize) -> Result<(LuaVal, &str), String> {
 }
 
 fn parse_key(s: &str) -> Result<(LuaKey, &str), String> {
-    if s.starts_with('[') {
-        let inner = skip_ws_and_comments(&s[1..]);
+    if let Some(rest) = s.strip_prefix('[') {
+        let inner = skip_ws_and_comments(rest);
         if inner.starts_with('"') {
             let (val, rest) = parse_quoted_string(inner)?;
             let rest = skip_ws_and_comments(rest);

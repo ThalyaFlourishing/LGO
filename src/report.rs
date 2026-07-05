@@ -4,8 +4,8 @@
 //!   - The recommended item for each slot
 //!   - The total value of each goal stat across the full gear set
 //!   - Whether each minimum was met
-//!   - Any warnings (truncated pools, missing items, etc.)
-//!   - A clear INFEASIBLE banner when no combination meets all minima
+//!   - Any warnings (missing items, etc.)
+//!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
 
 use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
@@ -72,9 +72,8 @@ fn print_gear_table(gear_set: &GearSet) {
 
     println!();
     println!(
-        "  {:<COL_SLOT$}  {}",
+        "  {:<COL_SLOT$}  Recommended Item",
         "Slot",
-        "Recommended Item",
         COL_SLOT = COL_SLOT
     );
     println!("  {}", divider);
@@ -113,11 +112,10 @@ fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(
 
     println!();
     println!(
-        "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  {}",
+        "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  Met?",
         "Stat",
         "Total",
         "Minimum",
-        "Met?",
         COL_STAT = COL_STAT,
         COL_VALUE = COL_VALUE,
         COL_MIN = COL_MIN,
@@ -182,8 +180,10 @@ fn print_infeasible_banner(failed_minima: &[(Stat, i64, i64)]) {
         );
     }
     println!();
-    println!("  The result shown is the best available given the");
-    println!("  priority order of your stat list.");
+    println!("  The result shown gets your highest-priority goals as close");
+    println!("  to their targets as possible; once a goal is met, extra");
+    println!("  points in it are not pursued at the expense of lower-priority");
+    println!("  goals still short of target.");
 }
 
 // ?? Formatting helpers ????????????????????????????????????????????????????????
