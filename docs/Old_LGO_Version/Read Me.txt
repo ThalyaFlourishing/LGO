@@ -1,3 +1,5 @@
+HISTORICAL — superseded. This archived readme belongs to the old JavaScript-only optimizer in docs/Old_LGO_Version. The current optimizer was rewritten in PRs #44/#45 (with PR #46 cleanup); see docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md for the current objective and search design. Retained for historical context only; do not treat this old algorithm description as current.
+
 ﻿LotRO Gear Optimizer
 
 This is a crude utility to find the optimal combinations of gear for a given stat. It is useful if you keep multiple items for a given slot and switch them out depending on the role you are playing. (e.g. swapping from your crit gear to your tactical mit gear when you switch from red to yellow) One could also compare gear you *don't* have yet, I suppose.
@@ -133,6 +135,5 @@ Stretch goals:
   - Add base stats
   - Generalize the stat keys in the way the slots are, so you can track more than or fewer than three stats
   - See if anyone makes a plug-in which outputs gear info as savable text, and if not, make one
-
 
 

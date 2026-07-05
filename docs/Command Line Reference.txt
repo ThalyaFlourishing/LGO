@@ -63,8 +63,12 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.3 optimize
   lgo optimize <stat:min> [<stat:min> ...]
-    Run optimization with stat goals in priority order (first stat maximized,
-    later stats used as tie-breakers). A minimum of 0 means maximize with no floor.
+    Run optimization with stat goals in priority order. The optimizer first prefers
+    builds that meet higher-priority goals, then gets still-unmet goals as close to
+    their minima as possible, and only then uses extra raw totals as a polish/tiebreak.
+    A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
+    If any single slot or paired family (Wrist/Finger/Ear) has more than 8 candidates,
+    optimize refuses with an error instead of truncating.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
 
   lgo optimize --character <name> <stat:min> ...
@@ -148,8 +152,11 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo fmt
     Format Rust source with rustfmt.
 
-  cargo clippy
-    Run Clippy lints.
+  cargo clippy --all-targets
+    Run Clippy lints for the whole crate.
+
+  cargo fmt --check
+    Check Rust formatting without rewriting files.
 
   cargo clean
     Remove build artifacts (target/).
@@ -168,7 +175,6 @@ Working directory matters. db_build resolves data/items.xml, data/progressions.x
 
 cargo run --release -- build-db --items   data/items.xml --progressions   data/progressions.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --progressions <path>\progressions.xml --out <path>\lgo_items.json
-
 
 
 

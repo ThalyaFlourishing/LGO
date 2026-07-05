@@ -2,9 +2,9 @@
 
 **Purpose:** A durable, in-repo brief so an AI coding agent can resume work on LGO without losing context across sessions. Read this first at the start of every session.
 
-**Working branch:** `main`.
+**Default base branch:** `main`.
 
-**Model guidance:** Before editing Rust source, see `docs/MODEL_GUIDANCE.md` for which class of AI model suits each file. `src/optimizer.rs` and `src/slot_resolver.rs` need a frontier model for non-trivial edits; most other files are fine with a cheap one.
+**Model guidance:** Before editing Rust source, see `docs/MODEL_GUIDANCE.md` for which class of AI model suits each file. For current optimizer semantics and search design, see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`. `src/optimizer.rs` and `src/slot_resolver.rs` need a frontier model for non-trivial edits; most other files are fine with a cheap one.
 
 ---
 
@@ -14,7 +14,7 @@ LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the 
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
    - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
-2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata + a stats `.toml` file and finds the best gear combination for a set of stat goals (lexicographic priority).
+2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata-derived canonical gear `.toml` file and finds the best gear combination for a set of priority-ordered stat goals using the clamped-satisfaction objective in `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`.
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the plugindata, and the bookmarklet either opens a Save As dialog (Chromium browsers, via `showSaveFilePicker`) or saves to the browser's Downloads folder (other browsers).
 
@@ -40,7 +40,7 @@ a final optimization report according to user's specified stats of interest.
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `parse_slot_str` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
-- `src/optimizer.rs` — two-phase compatibility-filter + safe lexicographic narrowing; super-candidates for paired Wrist/Finger/Ear slots; `MAX_CANDIDATES_PER_SLOT = 8`; infeasible-greedy fallback.
+- `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, paired-slot super-candidates for Wrist/Finger/Ear, and a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (14, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
@@ -52,7 +52,7 @@ a final optimization report according to user's specified stats of interest.
   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — fresh in-game plugin export (input for the bookmarklet).
   - `lgo_Thalya_gearStats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
-- `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `RESOLVER_DESIGN.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `TOML Analysis.txt`, `Test_Output_01.txt``MODEL_GUIDANCE.md` (per-file AI model selection guide). Historical design docs (kept for traceability, do not treat as live spec): `Merge Coding Prompt.txt`, `User Story & Hand-Edit-Tracking Approach.txt`. See §10 for the rejection rationale.
+- `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `MODEL_GUIDANCE.md`, and `Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` (authoritative optimizer spec). The optimizer audit chain and PR prompt docs under `docs/Optimizer_Overhaul/` are historical records retained for traceability; do not treat them as the live optimizer spec.
 
 ---
 

@@ -1,6 +1,6 @@
 # LGO — LOTRO Gear Optimizer
 
-LGO is a command-line optimizer for **Lord of the Rings Online** gear. It picks the best item combination by lexicographic stat priority, using a user-edited `lgo_stats_*.toml` file as input.
+LGO is a command-line optimizer for **Lord of the Rings Online** gear. It picks the best item combination for priority-ordered stat goals, using the canonical `lgo_<character>_gearReady.toml` file produced by `lgo resolve-slots`.
 
 ## Prerequisites
 
@@ -31,14 +31,14 @@ See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-st
 Each goal is `stat:minimum`.
 
 - Goals are ordered by priority (left to right)
-- Minimum `0` means “maximise this stat but require no floor”
+- Minimum `0` means “no floor, but maximise this stat only as a later polish/tiebreak”
 
 Examples:
 
 ```bash
-lgo TacticalMastery:450000 CriticalRating:350000 Finesse:0
-lgo tm:450000 cr:350000 fn:0
-lgo --character Thalya tm:450000 oh:100000
+lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0
+lgo optimize tm:450000 cr:350000 fn:0
+lgo optimize --character Thalya tm:450000 oh:100000
 ```
 
 ## Stat abbreviations (tracked stats)
@@ -55,15 +55,17 @@ lgo --character Thalya tm:450000 oh:100000
 
 ## Optimization logic
 
-LGO optimizes by strict lexicographic priority:
+LGO compares complete builds using the clamped-satisfaction objective from
+[`docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`](docs/Optimizer_Overhaul/07%20-%20Locked%20Semantics%20and%20Rewrite%20Plan.md):
 
-1. Maximise the first stat.
-2. Break ties using the second stat.
-3. Continue through the goal list.
+1. Prefer builds that meet higher-priority goals.
+2. Among ties, get still-unmet goals as close to their minima as possible in priority order.
+3. Only after that, use extra raw totals as a polish/tiebreak.
 
-A solution is **feasible** only if all minima are met.
-
-If no feasible set exists, LGO still returns the best available lexicographic result and reports which minima were missed.
+The search is exact (dominance pre-filter + branch-and-bound). A solution is
+**feasible** only if all positive minima are met, but feasible and infeasible
+results are compared with the same objective. If any single slot or paired
+family has more than 8 candidates, `lgo optimize` refuses instead of truncating.
 
 ## Contributing / AI model guidance
 
