@@ -1,3 +1,5 @@
+> **HISTORICAL — superseded.** This document describes the pre-rewrite optimizer and/or the analysis or PR planning that led to it. The optimizer rewrite landed in PRs #44/#45 (with PR #46 cleanup); see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and search design. Retained for historical context only; do not treat its algorithm/objective descriptions as current.
+
 This new framing materially changes the assessment of **Claim D**, but it does **not** rescue the audit's core problem. Let me re-review with the corrected understanding, and then answer your meta-question about whether to re-run the audit.
 
 ## How your clarification changes things

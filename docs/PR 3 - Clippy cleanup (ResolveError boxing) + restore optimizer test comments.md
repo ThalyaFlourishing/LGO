@@ -1,3 +1,5 @@
+> **HISTORICAL — superseded.** This document is a point-in-time optimizer rewrite PR prompt/record. The optimizer rewrite landed in PRs #44/#45 (with PR #46 cleanup); see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and search design. Retained for historical context only; do not treat its planning text as the live spec.
+
 # PR 3 — Clippy cleanup (ResolveError boxing) + restore optimizer test comments
 
 **Repo:** ThalyaFlourishing/LGO — cut a feature branch from `main`. PRs 1 and 2

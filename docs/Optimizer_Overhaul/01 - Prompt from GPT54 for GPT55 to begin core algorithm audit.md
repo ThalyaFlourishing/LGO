@@ -1,3 +1,5 @@
+> **HISTORICAL — superseded.** This document describes the pre-rewrite optimizer and/or the analysis or PR planning that led to it. The optimizer rewrite landed in PRs #44/#45 (with PR #46 cleanup); see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and search design. Retained for historical context only; do not treat its algorithm/objective descriptions as current.
+
 I need a **correctness audit** of the optimizer in this repository, especially `src/optimizer.rs`. (Repo address: https://github.com/ThalyaFlourishing/LGO )
 
 ## Context

@@ -517,9 +517,10 @@ fn print_usage() {
     println!();
     println!("Stat goals:");
     println!("  Each goal is a stat name and a minimum value, separated by ':'.");
-    println!("  Goals are listed in priority order — the first stat is maximised");
-    println!("  first, with later stats used only as tiebreakers.");
-    println!("  A minimum of 0 means 'maximise but no floor required'.");
+    println!("  Goals are listed in priority order.");
+    println!("  The optimizer first meets higher-priority goals, then gets");
+    println!("  still-unmet goals as close to target as possible.");
+    println!("  A minimum of 0 means 'no floor, but maximise as later polish'.");
     println!();
     println!("  Examples:");
     println!("    lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0");

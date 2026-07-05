@@ -1,6 +1,6 @@
 # Optimizer Overhaul — Locked Semantics & Rewrite Plan
 
-**Status:** Awaiting sign-off. No code changes yet (method A).
+**Status:** Implemented in PRs #44/#45/#46. This remains the authoritative optimizer objective/search spec.
 **Supersedes:** the "guard + oracle + fuzz, defer redesign" staging in docs 05/06,
 which was written before the objective function was redefined. With the new
 objective (below), the search core is not salvageable and this is now a
@@ -93,7 +93,7 @@ optimizer always returns its best build under the comparator, feasible or not.
 
 ---
 
-## 2. Architecture decision (LOCKED, pending sign-off)
+## 2. Architecture decision (implemented)
 
 This is a **rewrite of the objective + search core**, not a bug fix.
 
@@ -213,7 +213,10 @@ only up to cap ? 3, and is therefore **test-only**. Production must prune.
 
 ---
 
-## 6. Open questions for sign-off
+## 6. Historical sign-off questions (resolved)
+
+These were the final pre-merge questions on the rewrite plan. They are retained
+as historical planning context only; the implementation landed in PRs #44/#45/#46.
 
 - **Q-A (M==0 goals in Stage 3):** For a `stat:0` goal, confirm the intended
   behavior is "no floor, but maximize its raw value as part of the min-max
@@ -234,7 +237,6 @@ only up to cap ? 3, and is therefore **test-only**. Production must prune.
 
 ---
 
-## 7. Execution note
-Implementation will be delegated to a coding-agent session (per Thalya's plan),
-prompted from this document. Per `docs/MODEL_GUIDANCE.md`, the search core is
-frontier-model territory (control flow + ownership + documented invariants).
+## 7. Historical execution note
+The implementation planning below is retained as historical context only. The
+rewrite itself is now merged.
