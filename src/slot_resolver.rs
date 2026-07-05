@@ -240,7 +240,7 @@ pub enum ResolveError {
     },
     ParseToml {
         path: PathBuf,
-        source: toml_edit::TomlError,
+        source: Box<toml_edit::TomlError>,
     },
     NoItemsArray {
         path: PathBuf,
@@ -361,7 +361,7 @@ pub fn resolve_toml_str(
 ) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
     let mut doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<in-memory>"),
-        source: e,
+        source: Box::new(e),
     })?;
 
     {
@@ -651,14 +651,14 @@ pub fn merge_into_canonical(
     // merged set, and let push_group regroup by family.
     let mut prev_doc: DocumentMut = previous_src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<previous>"),
-        source: e,
+        source: Box::new(e),
     })?;
     let mut incoming_doc: DocumentMut =
         incoming_resolved
             .parse()
             .map_err(|e| ResolveError::ParseToml {
                 path: PathBuf::from("<incoming>"),
-                source: e,
+                source: Box::new(e),
             })?;
 
     let prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
@@ -940,7 +940,7 @@ fn table_name(t: &Table) -> Option<String> {
 fn item_names(src: &str) -> Result<Vec<String>, ResolveError> {
     let doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<incoming>"),
-        source: e,
+        source: Box::new(e),
     })?;
     let arr = doc
         .get("item")
@@ -958,7 +958,7 @@ fn item_names(src: &str) -> Result<Vec<String>, ResolveError> {
 fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
     let doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<incoming>"),
-        source: e,
+        source: Box::new(e),
     })?;
     let arr = doc
         .get("item")
