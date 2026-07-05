@@ -1,3 +1,5 @@
+> **HISTORICAL — superseded.** This document describes the pre-rewrite optimizer and/or the analysis that led to it. The optimizer was rewritten in PRs #44/#45 (see `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` for the current objective and design). Retained for historical context only; do not treat its algorithm/objective descriptions as current.
+
 # PR 2 — Objective Rewrite + Exact Search + Oracle + Fuzzer (coding-agent prompt)
 
 **Repo:** ThalyaFlourishing/LGO — cut a feature branch from `main`. PR 1

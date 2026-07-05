@@ -1,3 +1,5 @@
+> **HISTORICAL — superseded.** This document records a completed follow-up to the optimizer rewrite. PR #46 is merged; retain this file for historical context only, and do not treat its tasking language as current work-in-progress guidance.
+
 # PR 3 — Clippy cleanup (ResolveError boxing) + restore optimizer test comments
 
 **Repo:** ThalyaFlourishing/LGO — cut a feature branch from `main`. PRs 1 and 2

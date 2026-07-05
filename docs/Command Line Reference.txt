@@ -63,9 +63,14 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.3 optimize
   lgo optimize <stat:min> [<stat:min> ...]
-    Run optimization with stat goals in priority order (first stat maximized,
-    later stats used as tie-breakers). A minimum of 0 means maximize with no floor.
+    Run optimization with stat goals in priority order using the current
+    clamped-satisfaction comparator. The optimizer first tries to meet higher-
+    priority minima, then gets remaining unmet goals as close to target as
+    possible, and only uses overshoot as a final polish tiebreak. A minimum of
+    0 means no floor, but maximize in that polish stage.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
+    If any canonical slot or paired family has more than 8 candidates,
+    optimization refuses with an error instead of truncating the input.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -168,7 +173,6 @@ Working directory matters. db_build resolves data/items.xml, data/progressions.x
 
 cargo run --release -- build-db --items   data/items.xml --progressions   data/progressions.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --progressions <path>\progressions.xml --out <path>\lgo_items.json
-
 
 
 

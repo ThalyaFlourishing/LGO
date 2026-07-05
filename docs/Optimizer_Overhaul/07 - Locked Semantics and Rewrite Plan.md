@@ -1,6 +1,6 @@
 # Optimizer Overhaul — Locked Semantics & Rewrite Plan
 
-**Status:** Awaiting sign-off. No code changes yet (method A).
+**Status:** Implemented in PRs #44, #45, and #46. This remains the optimizer spec of record.
 **Supersedes:** the "guard + oracle + fuzz, defer redesign" staging in docs 05/06,
 which was written before the objective function was redefined. With the new
 objective (below), the search core is not salvageable and this is now a
@@ -19,10 +19,10 @@ or the objective.
 ### 1.1 Per-goal clamped score
 For each goal stat with minimum `M` and achieved total `v`:
 
-- If `M > 0`: `score = min(v / M, 1.0)`  ? capped at 100%; overshoot is worthless.
+- If `M > 0`: `score = min(v / M, 1.0)` — capped at 100%; overshoot is worthless.
 - If `M == 0`: the goal is "maximize, no floor." It is **always considered met**
   for satisfaction purposes (score treated as 1.0), and its raw value is used
-  only in the min-max polish stage (§1.4). (See open question Q-A.)
+  only in the min-max polish stage (§1.4).
 
 ### 1.2 The comparator (how to compare two complete builds X and Y)
 Apply these stages in order; the first stage that distinguishes X and Y decides.
@@ -83,17 +83,14 @@ optimizer always returns its best build under the comparator, feasible or not.
 | Goals (priority order) | Build X | Build Y | Winner | Why |
 |---|---|---|---|---|
 | CR:100k, TM:100k | CR120k/TM90k | CR100k/TM89,999 | **X** | Both meet CR; Stage 2 on TM: 0.90 > 0.89999 |
-
-
-| CR:100 (p1), TM:100 (p2), A can't reach 100 | A:96/B:40 | A:80/B:100 | **X** | (assuming B is a *met* goal for X) ratchet: Y drops met B to inch unmet A ? forbidden. See Q-B. |
-  A:100 (p1), B:100 (p2); A can reach at most 96	A:94 / B:100 → met-vec (0,1)	A:96 / B:80 → met-vec (0,0)	X	Ratchet: Y drops met B to inch unmet, doomed A → forbidden. (0,1) > (0,0).
-| A:100 (p1), B:100 (p2) | A:98/B:100 ? met-vec (0,1) | A:100/B:70 ? met-vec (1,0) | **Y** | Crossing into met on p1 justifies dropping p2 |
-| A:100, B:100 (both unmet either way) | A:95/B:96 ? (0,0) | A:94/B:97 ? (0,0) | **X** | Stage 2: goal-1 clamped 0.95 > 0.94 |
+| A:100 (p1), B:100 (p2); A can reach at most 96 | A:94/B:100 → met-vec (0,1) | A:96/B:80 → met-vec (0,0) | **X** | Ratchet: Y drops met B to inch unmet, doomed A → forbidden. (0,1) > (0,0). |
+| A:100 (p1), B:100 (p2) | A:98/B:100 → met-vec (0,1) | A:100/B:70 → met-vec (1,0) | **Y** | Crossing into met on p1 justifies dropping p2 |
+| A:100, B:100 (both unmet either way) | A:95/B:96 → (0,0) | A:94/B:97 → (0,0) | **X** | Stage 2: goal-1 clamped 0.95 > 0.94 |
 | CR:100k, TM:100k (both met) | CR250k/TM100k | CR100k/TM100k | **X** | Stages 1–2 tie (all clamped 1.0); Stage 3 raw CR: 250k > 100k |
 
 ---
 
-## 2. Architecture decision (LOCKED, pending sign-off)
+## 2. Architecture decision (LOCKED, implemented)
 
 This is a **rewrite of the objective + search core**, not a bug fix.
 
@@ -153,13 +150,11 @@ inputs*. Dominance + B&B is what ships.
   search. Return a proper error (e.g. `OptimizeError::TooManyCandidates {
   slot_label, count, max }`); `optimize` becomes `Result<_, OptimizeError>`;
   `run_optimize` prints an actionable message and exits non-zero.
-- **Lua plugin (`src/lgo.lua`):** bucket chest+equipped items by optimizer slot
-  family at export time; if any family exceeds the cap, **refuse to export**,
-  list the offending families/counts, and tell the user to remove items. Use a
-  named constant `MAX_CANDIDATES_PER_SLOT = 8` at the top of the file, printed
-  in the refusal message. (Rust remains the defensive backstop.)
-- Constant is authoritative in Rust; Lua value is manually kept in sync
-  (documented in both places). Value is a knob, not sacred.
+- **Lua plugin (`src/lgo.lua`):** exports normally, but prints a reminder that
+  the Rust optimizer enforces `MAX_CANDIDATES_PER_SLOT = 8` per canonical slot
+  or paired family and will refuse oversized inputs after `resolve-slots`.
+- Constant is authoritative in Rust; the Lua-side note mirrors it for user
+  guidance. Value is a knob, not sacred.
 
 **Note:** performance tractability comes from **dominance pruning**, not from the
 cap — 13 single slots dominate the combinatorics, not the 3 paired families.
@@ -213,28 +208,19 @@ only up to cap ? 3, and is therefore **test-only**. Production must prune.
 
 ---
 
-## 6. Open questions for sign-off
+## 6. Implementation notes
 
-- **Q-A (M==0 goals in Stage 3):** For a `stat:0` goal, confirm the intended
-  behavior is "no floor, but maximize its raw value as part of the min-max
-  polish, in its priority position." (This matches today's `:0` = "maximize, no
-  floor," and matches the existing test
-  `test_safe_narrowing_preserves_higher_priority_max_when_no_minimum`, which
-  expects the priority-1 `:0` stat to be maximized.) Assumed **yes**.
-- **Q-B (mixed met/unmet in the ratchet):** Confirm the met-vector-lexicographic
-  formalization in §1.2 captures your intent in *all* mixed cases, not just the
-  ones tabulated. I believe it does, but it is the subtlest rule; a quick review
-  of the §1.4 table is the fastest way to confirm.
-- **Q-C (cap stays 8):** Confirm keeping the cap at 8 (user-generous) and relying
-  on dominance+B&B for speed, rather than lowering the cap.
-- **Q-D (scope of first PR):** One PR for objective+search+guard+oracle+fuzz, or
-  split (e.g. guard first, then search-core rewrite, then fuzz)? Recommendation:
-  land the **guard** as a small standalone PR first (low-risk, unblocks the Lua
-  change), then the **search-core rewrite + oracle + fuzz** as the main PR.
+- `stat:0` is implemented as "always met for satisfaction; raw value only in the
+  Stage 3 polish," matching the comparator tests in `src/optimizer.rs`.
+- The ratchet behavior is implemented by lexicographic comparison of the
+  priority-ordered met-vector, then the clamped-score vector, then raw totals.
+- The cap remains `MAX_CANDIDATES_PER_SLOT = 8`.
+- The shipped split was: PR #44 (overflow refusal), PR #45 (objective rewrite +
+  exact search + oracle/fuzzer), PR #46 (cleanup + comment restoration).
 
 ---
 
 ## 7. Execution note
-Implementation will be delegated to a coding-agent session (per Thalya's plan),
-prompted from this document. Per `docs/MODEL_GUIDANCE.md`, the search core is
-frontier-model territory (control flow + ownership + documented invariants).
+The current implementation lives in `src/optimizer.rs`. For future non-trivial
+changes, treat this as frontier-model territory and re-verify behavior against
+the comparator tests and differential fuzzer.

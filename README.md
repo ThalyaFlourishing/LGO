@@ -1,6 +1,6 @@
 # LGO — LOTRO Gear Optimizer
 
-LGO is a command-line optimizer for **Lord of the Rings Online** gear. It picks the best item combination by lexicographic stat priority, using a user-edited `lgo_stats_*.toml` file as input.
+LGO is a command-line optimizer for **Lord of the Rings Online** gear. It reads a resolved `lgo_<character>_gearReady.toml` file and picks the best item combination using the clamped-satisfaction objective in [`docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`](docs/Optimizer_Overhaul/07%20-%20Locked%20Semantics%20and%20Rewrite%20Plan.md).
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-st
 Each goal is `stat:minimum`.
 
 - Goals are ordered by priority (left to right)
-- Minimum `0` means “maximise this stat but require no floor”
+- Minimum `0` means “no floor, but maximise this stat in the final polish stage”
 
 Examples:
 
@@ -55,15 +55,15 @@ lgo --character Thalya tm:450000 oh:100000
 
 ## Optimization logic
 
-LGO optimizes by strict lexicographic priority:
+LGO optimizes in priority order, but not by raw "stat 1, then stat 2" lexicographic maximization.
 
-1. Maximise the first stat.
-2. Break ties using the second stat.
-3. Continue through the goal list.
+1. It first prefers builds that **meet** higher-priority minima.
+2. Among tied builds, it gets each unmet higher-priority goal as close to its minimum as possible.
+3. Only after that does it use raw overshoot as a polish tiebreak.
 
-A solution is **feasible** only if all minima are met.
+The production search is exact (dominance pre-filter + branch-and-bound), and the implementation is checked in tests against a brute-force oracle via a differential fuzzer.
 
-If no feasible set exists, LGO still returns the best available lexicographic result and reports which minima were missed.
+A solution is **feasible** only if all positive minima are met. If no feasible set exists, LGO still returns the best available build under the same comparator and reports which minima were missed. If any canonical slot or paired family has more than 8 candidates, `lgo optimize` refuses with an error instead of truncating the input.
 
 ## Contributing / AI model guidance
 

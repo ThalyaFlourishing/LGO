@@ -1,4 +1,5 @@
-﻿// LotRO Gear Optimizer is a crude tool to search for optimal combinations of gear. See the read-me.txt file for instructions.
+﻿/* HISTORICAL — superseded. This file belongs to the pre-rewrite / old-version LGO materials kept under docs/Old_LGO_Version. Retained for historical context only; do not treat its optimizer behavior as current. See docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md for the current optimizer design. */
+// LotRO Gear Optimizer is a crude tool to search for optimal combinations of gear. See the read-me.txt file for instructions.
 // Scrolls, plus the food:
 //  . CritR 1413
 //  . TMast 8329

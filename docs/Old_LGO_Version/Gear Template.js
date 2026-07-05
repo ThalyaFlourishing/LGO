@@ -1,4 +1,6 @@
-﻿const allSlots = [
+﻿/* HISTORICAL — superseded. This file belongs to the pre-rewrite / old-version LGO materials kept under docs/Old_LGO_Version. Retained for historical context only; do not treat its optimizer behavior as current. See docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md for the current optimizer design. */
+
+const allSlots = [
   {
     name: "Base_Stats",
     items: [

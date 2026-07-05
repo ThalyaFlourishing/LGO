@@ -18,7 +18,7 @@ Short User Instructions (detailed instructions below)
 6. The bookmarklet builds a `.toml` file. (Scroll down)
 7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
 8. Open a a command-line window on your computer and run `lgo resolve-slots`.
-9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. The Optimizer will then try every combination of gear to see if it is possible to reach those values. If it finds some, it picks the best one and shows you in the terminal window, and writes and HTML file which you can bookmark in your browser for easy viewing.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. The optimizer then searches for the best build under your goal priorities, prints the chosen gear in the terminal, and reports any minima it could not meet.
 
 
 ======================
@@ -118,8 +118,10 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
         lgo optimize tm:450000 cr:350000 fn:0
 
-    The first stat is maximised first; later stats are used only as
-    tiebreakers. A minimum of 0 means 'maximise but no floor required'.
+    Goals are checked in priority order. The optimizer first tries to
+    meet higher-priority minima, then gets remaining unmet goals as
+    close to target as possible. Overshoot is only a final polish
+    tiebreak. A minimum of 0 means 'no floor, but maximise'.
     Two-letter abbreviations and full stat names are both accepted;
     see the Command Line Reference for the full list.
 
