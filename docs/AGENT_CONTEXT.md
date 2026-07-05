@@ -161,11 +161,9 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- Optimizer --toml-file flag (specify input .toml)
-- Make Wiki look-up stats assume max item level
-- Change all spellings of 'Armor' to 'Armour'
-- Get the plug-in to deposit the .plugindata and .toml files in an 'lgo' sub-folder
-  . \\Documents\The Lord of the Rings Online\PluginData\Thalya\AllServers\lgo
+- Optimizer: include base stats
+- Construct HTML reports
+- Next task: Identify items which can be removed from pool
 
 ---
 
