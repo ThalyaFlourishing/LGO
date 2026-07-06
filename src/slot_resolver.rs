@@ -23,8 +23,9 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, DocumentMut, Table};
 
+use crate::base_stats::{BaseStatDerivations, DerivationError};
 use crate::gear::Slot;
-use crate::stat::TRACKED_STATS;
+use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 /// Default path to the offline items DB, relative to the working directory.
 pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
@@ -260,6 +261,13 @@ pub enum ResolveError {
     /// destructive changes is exactly the failure mode `--force` is meant
     /// to guard against, so we refuse.
     ForceRequiresTty,
+    Derivation {
+        source: DerivationError,
+    },
+    PluginData {
+        path: PathBuf,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for ResolveError {
@@ -287,6 +295,10 @@ impl std::fmt::Display for ResolveError {
             ResolveError::AmbiguousFiles { message } => write!(f, "Error: {}", message),
             ResolveError::ForceRequiresTty => {
                 write!(f, "--force requires interactive stdin for prompts.")
+            }
+            ResolveError::Derivation { source } => write!(f, "{}", source),
+            ResolveError::PluginData { path, message } => {
+                write!(f, "Cannot read plugin export '{}': {}", path.display(), message)
             }
         }
     }
@@ -359,10 +371,46 @@ pub fn resolve_toml_str(
     src: &str,
     db: &ItemsDb,
 ) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
+    resolve_toml_str_inner(src, db, None)
+}
+
+pub fn resolve_toml_str_with_derivations(
+    src: &str,
+    db: &ItemsDb,
+    derivations: &BaseStatDerivations,
+    character: Option<&str>,
+    class_name: &str,
+    base_stats: &HashMap<Stat, i64>,
+) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
+    let context = CanonicalizationContext {
+        derivations,
+        character,
+        class_name,
+        base_stats,
+    };
+    resolve_toml_str_inner(src, db, Some(&context))
+}
+
+struct CanonicalizationContext<'a> {
+    derivations: &'a BaseStatDerivations,
+    character: Option<&'a str>,
+    class_name: &'a str,
+    base_stats: &'a HashMap<Stat, i64>,
+}
+
+fn resolve_toml_str_inner(
+    src: &str,
+    db: &ItemsDb,
+    context: Option<&CanonicalizationContext<'_>>,
+) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
     let mut doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<in-memory>"),
         source: Box::new(e),
     })?;
+
+    if let Some(context) = context {
+        apply_top_level_derivations(&mut doc, context)?;
+    }
 
     {
         let items_arr = doc
@@ -377,7 +425,7 @@ pub fn resolve_toml_str(
         let taken = std::mem::replace(items_arr, ArrayOfTables::new());
         let original_tables: Vec<Table> = taken.iter().cloned().collect();
 
-        let outcomes_and_buckets = bucket_items(original_tables, db);
+        let outcomes_and_buckets = bucket_items(original_tables, db, context)?;
         let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
 
         // Rebuild the array in canonical family order with divider comments.
@@ -420,22 +468,56 @@ pub fn resolve_toml_str(
     }
 }
 
+fn apply_top_level_derivations(
+    doc: &mut DocumentMut,
+    context: &CanonicalizationContext<'_>,
+) -> Result<(), ResolveError> {
+    if let Some(character) = context.character {
+        doc.insert("character", value(character));
+    }
+    doc.insert("class", value(context.class_name));
+
+    if context.base_stats.is_empty() {
+        return Ok(());
+    }
+
+    let innate = context
+        .derivations
+        .derive_stats(context.class_name, context.base_stats)
+        .map_err(|source| ResolveError::Derivation { source })?;
+    let mut table = Table::new();
+    for (stat, key) in TRACKED_STATS {
+        if let Some(stat_value) = innate.get(stat).copied().filter(|value| *value != 0) {
+            table.insert(key, value(stat_value));
+        }
+    }
+    doc.insert("InnateStats", toml_edit::Item::Table(table));
+    Ok(())
+}
+
 /// Helper: bucket the input tables by canonical slot family (resolved) /
 /// unknown bucket (not in DB), and emit a `ResolutionOutcome` per item.
 #[allow(clippy::type_complexity)]
 fn bucket_items(
     tables: Vec<Table>,
     db: &ItemsDb,
-) -> (
-    HashMap<Slot, Vec<Table>>,
-    Vec<Table>,
-    Vec<ResolutionOutcome>,
-) {
+    context: Option<&CanonicalizationContext<'_>>,
+) -> Result<
+    (
+        HashMap<Slot, Vec<Table>>,
+        Vec<Table>,
+        Vec<ResolutionOutcome>,
+    ),
+    ResolveError,
+> {
     let mut buckets: HashMap<Slot, Vec<Table>> = HashMap::new();
     let mut unknowns: Vec<Table> = Vec::new();
     let mut outcomes: Vec<ResolutionOutcome> = Vec::new();
 
     for mut table in tables {
+        if let Some(context) = context {
+            canonicalize_item_stats(&mut table, context)?;
+        }
         let name = table
             .get("name")
             .and_then(|v| v.as_str())
@@ -470,7 +552,46 @@ fn bucket_items(
         }
     }
 
-    (buckets, unknowns, outcomes)
+    Ok((buckets, unknowns, outcomes))
+}
+
+fn canonicalize_item_stats(
+    table: &mut Table,
+    context: &CanonicalizationContext<'_>,
+) -> Result<(), ResolveError> {
+    let explicit = read_table_stats(table, TRACKED_STATS);
+    let base = read_table_stats(table, BASE_STATS);
+
+    for (_, key) in BASE_STATS {
+        table.remove(key);
+    }
+
+    if base.is_empty() {
+        return Ok(());
+    }
+
+    let merged = context
+        .derivations
+        .merge_explicit_and_base(context.class_name, &explicit, &base)
+        .map_err(|source| ResolveError::Derivation { source })?;
+    for (stat, key) in TRACKED_STATS {
+        if let Some(stat_value) = merged.get(stat).copied().filter(|value| *value != 0) {
+            table.insert(key, value(stat_value));
+        }
+    }
+    Ok(())
+}
+
+fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<Stat, i64> {
+    let mut values = HashMap::new();
+    for (stat, key) in stats {
+        if let Some(stat_value) = table.get(*key).and_then(|v| v.as_integer()) {
+            if stat_value != 0 {
+                values.insert(*stat, stat_value);
+            }
+        }
+    }
+    values
 }
 
 /// Push a slot group onto the new array of tables, inserting a divider
@@ -664,7 +785,7 @@ pub fn merge_into_canonical(
     let prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
     let incoming_tables = take_item_tables(&mut incoming_doc, "<incoming>")?;
 
-    // Carry forward `character` and `class` from the incoming resolved TOML
+    // Carry forward `character`, `class`, and `[InnateStats]` from the incoming resolved TOML
     // into the canonical document so the metadata is always current after a merge.
     // When the value is already current, leave the previous item untouched:
     // toml_edit stores leading comments/alignment as decor on these top-level
@@ -674,6 +795,12 @@ pub fn merge_into_canonical(
             if prev_doc.get(key).and_then(|existing| existing.as_str()) != val.as_str() {
                 prev_doc.insert(key, val);
             }
+        }
+    }
+    if let Some(val) = incoming_doc.get("InnateStats").cloned() {
+        if prev_doc.get("InnateStats").map(|existing| existing.to_string()) != Some(val.to_string())
+        {
+            prev_doc.insert("InnateStats", val);
         }
     }
 
@@ -1002,6 +1129,53 @@ fn table_int(t: &Table, key: &str) -> Option<i64> {
 // resolve_stats_file — file-level wrapper (does I/O)
 // =============================================================================
 
+fn plugin_base_stats_to_stats(
+    raw: &HashMap<String, i64>,
+) -> Result<HashMap<Stat, i64>, ResolveError> {
+    let mut stats = HashMap::new();
+    for (_, key) in BASE_STATS {
+        if let Some(value) = raw.get(*key).copied().filter(|value| *value != 0) {
+            let stat = key
+                .parse::<Stat>()
+                .map_err(|_| ResolveError::Derivation {
+                    source: DerivationError::UnknownStat {
+                        stat_name: (*key).to_string(),
+                    },
+                })?;
+            stats.insert(stat, value);
+        }
+    }
+    Ok(stats)
+}
+
+fn find_latest_plugindata_file(
+    dir: &Path,
+    character: &str,
+) -> Result<Option<PathBuf>, ResolveError> {
+    let prefix = format!("lgo_{}_", character).to_ascii_lowercase();
+    let mut matches: Vec<PathBuf> = fs::read_dir(dir)
+        .map_err(|e| ResolveError::IoRead {
+            path: dir.to_path_buf(),
+            source: e,
+        })?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| {
+                    let lower = name.to_ascii_lowercase();
+                    lower.starts_with(&prefix)
+                        && lower.contains("_gearnames_")
+                        && lower.ends_with(".plugindata")
+                })
+                .unwrap_or(false)
+        })
+        .collect();
+    matches.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    Ok(matches.pop())
+}
+
 /// End-to-end iteration step:
 ///
 ///   1. Read `lgo_<character>_gearStats.toml` (the bookmarklet's output).
@@ -1073,8 +1247,62 @@ pub fn resolve_stats_file(
             source: e,
         })?;
 
-    let (resolved_src, _outcomes) =
-        resolve_toml_str(&bookmarklet_src, db).map_err(|e| match e {
+    let derivations =
+        BaseStatDerivations::load_default().map_err(|source| ResolveError::Derivation {
+            source,
+        })?;
+    let plugin_export = find_latest_plugindata_file(char_dir, character)?
+        .map(|path| {
+            crate::plugindata::load(&path)
+                .map_err(|message| ResolveError::PluginData { path, message })
+        })
+        .transpose()?;
+
+    let bookmarklet_doc: DocumentMut =
+        bookmarklet_src
+            .parse()
+            .map_err(|e| ResolveError::ParseToml {
+                path: bookmarklet_path.clone(),
+                source: Box::new(e),
+            })?;
+    let fallback_class = bookmarklet_doc
+        .get("class")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let fallback_character = bookmarklet_doc
+        .get("character")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    drop(bookmarklet_doc);
+
+    let class_name = plugin_export
+        .as_ref()
+        .map(|export| export.class.as_str())
+        .or(fallback_class.as_deref());
+    let character_name = plugin_export
+        .as_ref()
+        .map(|export| export.character.as_str())
+        .or(fallback_character.as_deref());
+    let base_stats = plugin_export
+        .as_ref()
+        .map(|export| plugin_base_stats_to_stats(&export.base_stats))
+        .transpose()?;
+    let empty_base_stats: HashMap<Stat, i64> = HashMap::new();
+    let base_stats_ref = base_stats.as_ref().unwrap_or(&empty_base_stats);
+
+    let (resolved_src, _outcomes) = if let Some(class_name) = class_name {
+        resolve_toml_str_with_derivations(
+            &bookmarklet_src,
+            db,
+            &derivations,
+            character_name,
+            class_name,
+            base_stats_ref,
+        )
+    } else {
+        resolve_toml_str(&bookmarklet_src, db)
+    }
+    .map_err(|e| match e {
             ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
                 path: bookmarklet_path.clone(),
                 source,

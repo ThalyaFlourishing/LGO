@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 mod build_db;
+mod base_stats;
 mod gear;
 mod gearstats;
 mod optimizer;
@@ -141,7 +142,12 @@ fn run_optimize(cli: &OptimizeCli) {
         .collect();
 
     let candidate_names: Vec<String> = resolved.keys().cloned().collect();
-    let result = match optimizer::optimize(&resolved, &candidate_names, &cli.goals) {
+    let result = match optimizer::optimize(
+        &resolved,
+        &candidate_names,
+        &cli.goals,
+        &gear_doc.innate_stats,
+    ) {
         Ok(result) => result,
         Err(err) => match err.as_ref() {
             optimizer::OptimizeError::TooManyCandidates { .. } => {

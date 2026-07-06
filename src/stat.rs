@@ -36,9 +36,20 @@ pub enum Stat {
     TacticalMitigation,
 }
 
-/// The 14 stats that appear in the stats file and are used by the optimizer,
-/// in canonical display order. Each entry is (Stat, PascalCase TOML key).
+/// Raw primary stats read by the resolver as internal derivation inputs.
+pub const BASE_STATS: &[(Stat, &str)] = &[
+    (Stat::Might, "Might"),
+    (Stat::Agility, "Agility"),
+    (Stat::Vitality, "Vitality"),
+    (Stat::Will, "Will"),
+    (Stat::Fate, "Fate"),
+];
+
+/// Optimizer-facing stats that may appear in the canonical stats file, in
+/// canonical display order. Each entry is (Stat, PascalCase TOML key).
 pub const TRACKED_STATS: &[(Stat, &str)] = &[
+    (Stat::Morale, "Morale"),
+    (Stat::Power, "Power"),
     (Stat::Armor, "Armor"),
     (Stat::CriticalRating, "CriticalRating"),
     (Stat::Finesse, "Finesse"),
