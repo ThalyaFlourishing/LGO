@@ -17,9 +17,7 @@
       "Evade": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -30,9 +28,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Morale": 1.0,
-      "InCombatMoraleRegen": 0.1,
-      "NonCombatMoraleRegen": 0.24
+      "Morale": 1.0
     }
   },
   "Brawler": {
@@ -53,9 +49,7 @@
       "Evade": 2.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -66,9 +60,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Burglar": {
@@ -89,9 +81,7 @@
       "TacticalMitigation": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 0.5,
@@ -102,9 +92,7 @@
       "PhysicalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Captain": {
@@ -125,9 +113,7 @@
       "Parry": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -138,9 +124,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Champion": {
@@ -160,9 +144,7 @@
       "Parry": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -173,9 +155,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Guardian": {
@@ -196,9 +176,7 @@
       "Parry": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -209,9 +187,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Hunter": {
@@ -231,9 +207,7 @@
       "TacticalMitigation": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 0.5,
@@ -244,9 +218,7 @@
       "PhysicalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Lore-master": {
@@ -263,9 +235,7 @@
       "Evade": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 1.0,
@@ -276,9 +246,7 @@
       "TacticalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Mariner": {
@@ -297,9 +265,7 @@
       "TacticalMitigation": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 0.5,
@@ -310,9 +276,7 @@
       "PhysicalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Minstrel": {
@@ -329,9 +293,7 @@
       "Evade": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 1.0,
@@ -342,9 +304,7 @@
       "TacticalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Rune-keeper": {
@@ -361,9 +321,7 @@
       "Evade": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "CriticalRating": 1.0,
@@ -373,9 +331,7 @@
       "TacticalMitigation": 1.0
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   },
   "Warden": {
@@ -395,9 +351,7 @@
       "TacticalMitigation": 1.0
     },
     "Vitality": {
-      "Morale": 4.5,
-      "InCombatMoraleRegen": 0.012,
-      "NonCombatMoraleRegen": 0.12
+      "Morale": 4.5
     },
     "Will": {
       "Finesse": 1.0,
@@ -408,9 +362,7 @@
       "TacticalMitigation": 1.5
     },
     "Fate": {
-      "Power": 1.5,
-      "InCombatPowerRegen": 0.015,
-      "NonCombatPowerRegen": 0.15
+      "Power": 1.5
     }
   }
 }
