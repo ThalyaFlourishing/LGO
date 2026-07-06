@@ -2,8 +2,8 @@
 
 #![allow(dead_code)]
 
-mod build_db;
 mod base_stats;
+mod build_db;
 mod gear;
 mod gearstats;
 mod optimizer;

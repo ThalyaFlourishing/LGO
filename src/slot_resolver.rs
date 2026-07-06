@@ -298,7 +298,12 @@ impl std::fmt::Display for ResolveError {
             }
             ResolveError::Derivation { source } => write!(f, "{}", source),
             ResolveError::PluginData { path, message } => {
-                write!(f, "Cannot read plugin export '{}': {}", path.display(), message)
+                write!(
+                    f,
+                    "Cannot read plugin export '{}': {}",
+                    path.display(),
+                    message
+                )
             }
         }
     }
@@ -798,7 +803,10 @@ pub fn merge_into_canonical(
         }
     }
     if let Some(val) = incoming_doc.get("InnateStats").cloned() {
-        if prev_doc.get("InnateStats").map(|existing| existing.to_string()) != Some(val.to_string())
+        if prev_doc
+            .get("InnateStats")
+            .map(|existing| existing.to_string())
+            != Some(val.to_string())
         {
             prev_doc.insert("InnateStats", val);
         }
@@ -1135,13 +1143,11 @@ fn plugin_base_stats_to_stats(
     let mut stats = HashMap::new();
     for (_, key) in BASE_STATS {
         if let Some(value) = raw.get(*key).copied().filter(|value| *value != 0) {
-            let stat = key
-                .parse::<Stat>()
-                .map_err(|_| ResolveError::Derivation {
-                    source: DerivationError::UnknownStat {
-                        stat_name: (*key).to_string(),
-                    },
-                })?;
+            let stat = key.parse::<Stat>().map_err(|_| ResolveError::Derivation {
+                source: DerivationError::UnknownStat {
+                    stat_name: (*key).to_string(),
+                },
+            })?;
             stats.insert(stat, value);
         }
     }
@@ -1247,10 +1253,8 @@ pub fn resolve_stats_file(
             source: e,
         })?;
 
-    let derivations =
-        BaseStatDerivations::load_default().map_err(|source| ResolveError::Derivation {
-            source,
-        })?;
+    let derivations = BaseStatDerivations::load_default()
+        .map_err(|source| ResolveError::Derivation { source })?;
     let plugin_export = find_latest_plugindata_file(char_dir, character)?
         .map(|path| {
             crate::plugindata::load(&path)
@@ -1303,15 +1307,15 @@ pub fn resolve_stats_file(
         resolve_toml_str(&bookmarklet_src, db)
     }
     .map_err(|e| match e {
-            ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
-                path: bookmarklet_path.clone(),
-                source,
-            },
-            ResolveError::NoItemsArray { .. } => ResolveError::NoItemsArray {
-                path: bookmarklet_path.clone(),
-            },
-            other => other,
-        })?;
+        ResolveError::ParseToml { source, .. } => ResolveError::ParseToml {
+            path: bookmarklet_path.clone(),
+            source,
+        },
+        ResolveError::NoItemsArray { .. } => ResolveError::NoItemsArray {
+            path: bookmarklet_path.clone(),
+        },
+        other => other,
+    })?;
 
     let previous_src = if canonical_existed {
         Some(
@@ -1750,6 +1754,127 @@ name = \"Mystery Renamed Legendary\"\n";
             "unknown-section divider missing:\n{}",
             out
         );
+    }
+
+    #[test]
+    fn resolver_derives_innate_stats_and_omits_raw_base_stats() {
+        let db = fixture_db();
+        let derivations = BaseStatDerivations::load_default().expect("derivations load");
+        let base_stats: HashMap<Stat, i64> =
+            [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
+                .into_iter()
+                .collect();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+
+        let (out, _) = resolve_toml_str_with_derivations(
+            input,
+            &db,
+            &derivations,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+        )
+        .expect("must resolve with derivations");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let innate = doc
+            .get("InnateStats")
+            .and_then(|item| item.as_table())
+            .expect("InnateStats table exists");
+        assert_eq!(
+            innate
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(2000)
+        );
+        assert_eq!(
+            innate.get("Morale").and_then(|item| item.as_integer()),
+            Some(9)
+        );
+        assert_eq!(
+            innate.get("Power").and_then(|item| item.as_integer()),
+            Some(3)
+        );
+        assert!(!out.contains("Might ="));
+        assert!(!out.contains("Agility ="));
+        assert!(!out.contains("Vitality ="));
+        assert!(!out.contains("Will ="));
+        assert!(!out.contains("Fate ="));
+    }
+
+    #[test]
+    fn resolver_sums_item_explicit_and_derived_stats_without_raw_base() {
+        let db = fixture_db();
+        let derivations = BaseStatDerivations::load_default().expect("derivations load");
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 1000\n\
+Agility = 1000\n";
+        let empty_base_stats = HashMap::new();
+
+        let (out, _) = resolve_toml_str_with_derivations(
+            input,
+            &db,
+            &derivations,
+            Some("Thalya"),
+            "Lore-master",
+            &empty_base_stats,
+        )
+        .expect("must resolve with derivations");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(3000)
+        );
+        assert_eq!(
+            item.get("Finesse").and_then(|item| item.as_integer()),
+            Some(1000)
+        );
+        assert_eq!(
+            item.get("TacticalMastery")
+                .and_then(|item| item.as_integer()),
+            Some(2000)
+        );
+        assert!(item.get("Agility").is_none());
+    }
+
+    #[test]
+    fn resolver_allows_morale_and_power_but_no_regen_stats() {
+        let db = fixture_db();
+        let derivations = BaseStatDerivations::load_default().expect("derivations load");
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+Vitality = 2\n\
+Fate = 2\n";
+        let empty_base_stats = HashMap::new();
+
+        let (out, _) = resolve_toml_str_with_derivations(
+            input,
+            &db,
+            &derivations,
+            Some("Thalya"),
+            "Lore-master",
+            &empty_base_stats,
+        )
+        .expect("must resolve with derivations");
+
+        assert!(out.contains("Morale = 9"));
+        assert!(out.contains("Power = 3"));
+        assert!(!out.contains("Regen"));
     }
 
     #[test]

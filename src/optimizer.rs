@@ -1007,6 +1007,43 @@ mod tests {
     }
 
     #[test]
+    fn innate_stats_seed_search_goal_totals() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "A".into(),
+            make_cached("A", Slot::Chest, &[(Stat::CriticalRating, 50)]),
+        );
+        resolved.insert(
+            "B".into(),
+            make_cached("B", Slot::Chest, &[(Stat::TacticalMastery, 90)]),
+        );
+        let goals = vec![
+            goal(Stat::CriticalRating, 100),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        let innate_stats = [(Stat::CriticalRating, 100)].into_iter().collect();
+
+        let result = optimize(
+            &resolved,
+            &["A".to_string(), "B".to_string()],
+            &goals,
+            &innate_stats,
+        )
+        .expect("optimization should succeed");
+
+        assert_eq!(
+            result
+                .gear_set
+                .items
+                .get(&Slot::Chest)
+                .map(|item| item.name.as_str()),
+            Some("B")
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 100);
+        assert_eq!(result.gear_set.total(&Stat::TacticalMastery), 90);
+    }
+
+    #[test]
     fn test_c5_over_c4_same_slot() {
         // Both meet CR/FN/TT, so hitting the TM minimum with C5 beats C4's extra CR.
         let mut resolved: HashMap<String, CachedItem> = HashMap::new();
@@ -1359,7 +1396,13 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)], &HashMap::new()).unwrap_err();
+        let err = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        )
+        .unwrap_err();
         assert_eq!(
             *err,
             OptimizeError::TooManyCandidates {
@@ -1387,7 +1430,13 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)], &HashMap::new()).unwrap_err();
+        let err = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        )
+        .unwrap_err();
         assert_eq!(
             *err,
             OptimizeError::TooManyCandidates {
@@ -1410,7 +1459,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)], &HashMap::new()).is_ok());
+        assert!(optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new()
+        )
+        .is_ok());
     }
 
     #[test]
@@ -1430,7 +1485,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)], &HashMap::new()).is_ok());
+        assert!(optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new()
+        )
+        .is_ok());
     }
 
     #[test]

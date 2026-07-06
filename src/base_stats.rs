@@ -71,19 +71,38 @@ impl std::fmt::Display for DerivationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DerivationError::Io { path, source } => {
-                write!(f, "Cannot read derivation data '{}': {}", path.display(), source)
+                write!(
+                    f,
+                    "Cannot read derivation data '{}': {}",
+                    path.display(),
+                    source
+                )
             }
             DerivationError::ParseJson { path, source } => {
-                write!(f, "Cannot parse derivation data '{}': {}", path.display(), source)
+                write!(
+                    f,
+                    "Cannot parse derivation data '{}': {}",
+                    path.display(),
+                    source
+                )
             }
-            DerivationError::TopLevelNotObject => write!(f, "derivation data top level must be an object"),
+            DerivationError::TopLevelNotObject => {
+                write!(f, "derivation data top level must be an object")
+            }
             DerivationError::ClassNotObject { class_name } => {
-                write!(f, "derivation data for class '{}' must be an object", class_name)
+                write!(
+                    f,
+                    "derivation data for class '{}' must be an object",
+                    class_name
+                )
             }
             DerivationError::MissingClass { class_name } => {
                 write!(f, "derivation data missing expected class '{}'", class_name)
             }
-            DerivationError::MissingBaseStat { class_name, base_stat } => write!(
+            DerivationError::MissingBaseStat {
+                class_name,
+                base_stat,
+            } => write!(
                 f,
                 "derivation data for class '{}' missing base-stat row '{}'",
                 class_name, base_stat
@@ -91,7 +110,10 @@ impl std::fmt::Display for DerivationError {
             DerivationError::UnknownStat { stat_name } => {
                 write!(f, "derivation data contains unknown stat '{}'", stat_name)
             }
-            DerivationError::NonBaseStatRow { class_name, stat_name } => write!(
+            DerivationError::NonBaseStatRow {
+                class_name,
+                stat_name,
+            } => write!(
                 f,
                 "derivation data for class '{}' has non-base stat row '{}'",
                 class_name, stat_name
@@ -138,7 +160,9 @@ impl BaseStatDerivations {
                 path: path_for_errors.to_path_buf(),
                 source: e,
             })?;
-        let root = value.as_object().ok_or(DerivationError::TopLevelNotObject)?;
+        let root = value
+            .as_object()
+            .ok_or(DerivationError::TopLevelNotObject)?;
 
         for class_name in EXPECTED_CLASSES {
             let class = root
@@ -162,11 +186,12 @@ impl BaseStatDerivations {
 
         let mut by_class = HashMap::new();
         for (class_name, class_value) in root {
-            let class_obj = class_value
-                .as_object()
-                .ok_or_else(|| DerivationError::ClassNotObject {
-                    class_name: class_name.clone(),
-                })?;
+            let class_obj =
+                class_value
+                    .as_object()
+                    .ok_or_else(|| DerivationError::ClassNotObject {
+                        class_name: class_name.clone(),
+                    })?;
             let mut by_base: HashMap<Stat, HashMap<Stat, f64>> = HashMap::new();
             for (base_name, row_value) in class_obj {
                 let base_stat = parse_stat_name(base_name)?;
@@ -176,12 +201,13 @@ impl BaseStatDerivations {
                         stat_name: base_name.clone(),
                     });
                 }
-                let row = row_value
-                    .as_object()
-                    .ok_or_else(|| DerivationError::DerivedRowNotObject {
-                        class_name: class_name.clone(),
-                        base_stat: base_name.clone(),
-                    })?;
+                let row =
+                    row_value
+                        .as_object()
+                        .ok_or_else(|| DerivationError::DerivedRowNotObject {
+                            class_name: class_name.clone(),
+                            base_stat: base_name.clone(),
+                        })?;
                 let mut derived = HashMap::new();
                 for (derived_name, coeff_value) in row {
                     let derived_stat = parse_stat_name(derived_name)?;
