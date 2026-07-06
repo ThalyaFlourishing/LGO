@@ -1178,6 +1178,8 @@ fn find_latest_plugindata_file(
                 .unwrap_or(false)
         })
         .collect();
+    // Plugin exports are named `lgo_<character>_gearNames_YYYYMMDD_HHMMSS.plugindata`,
+    // so lexicographic filename order is timestamp order.
     matches.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     Ok(matches.pop())
 }
@@ -1257,6 +1259,8 @@ pub fn resolve_stats_file(
         .map_err(|source| ResolveError::Derivation { source })?;
     let plugin_export = find_latest_plugindata_file(char_dir, character)?
         .map(|path| {
+            // `plugindata` parses the in-game `gearNames` export, including
+            // character class and naked base stats for resolver canonicalization.
             crate::plugindata::load(&path)
                 .map_err(|message| ResolveError::PluginData { path, message })
         })

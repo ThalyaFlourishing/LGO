@@ -258,6 +258,10 @@ impl BaseStatDerivations {
                     base_stat: stat_key(*base_stat).unwrap_or("<unknown>"),
                 })?;
             for (derived_stat, coeff) in row {
+                // Derived stats are stored as integers everywhere downstream.
+                // The JSON coefficients are decimal game formulas (mostly .0
+                // and .5); round each final base-stat contribution once so
+                // fractional half-point formulas do not leak out of this layer.
                 let contribution = (*base_value as f64 * coeff).round() as i64;
                 if contribution != 0 {
                     *derived.entry(*derived_stat).or_insert(0) += contribution;
