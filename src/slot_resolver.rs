@@ -570,17 +570,20 @@ fn canonicalize_item_stats(
     for (_, key) in BASE_STATS {
         table.remove(key);
     }
-
-    if base.is_empty() {
-        return Ok(());
+    for (_, key) in TRACKED_STATS {
+        table.remove(key);
     }
 
-    let merged = context
-        .derivations
-        .merge_explicit_and_base(context.class_name, &explicit, &base)
-        .map_err(|source| ResolveError::Derivation { source })?;
+    let final_stats = if base.is_empty() {
+        explicit
+    } else {
+        context
+            .derivations
+            .merge_explicit_and_base(context.class_name, &explicit, &base)
+            .map_err(|source| ResolveError::Derivation { source })?
+    };
     for (stat, key) in TRACKED_STATS {
-        if let Some(stat_value) = merged.get(stat).copied().filter(|value| *value != 0) {
+        if let Some(stat_value) = final_stats.get(stat).copied().filter(|value| *value != 0) {
             table.insert(key, value(stat_value));
         }
     }
@@ -590,7 +593,7 @@ fn canonicalize_item_stats(
 fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<Stat, i64> {
     let mut values = HashMap::new();
     for (stat, key) in stats {
-        if let Some(stat_value) = table.get(*key).and_then(|v| v.as_integer()) {
+        if let Some(stat_value) = table.get(key).and_then(|v| v.as_integer()) {
             if stat_value != 0 {
                 values.insert(*stat, stat_value);
             }
@@ -1846,6 +1849,47 @@ Agility = 1000\n";
                 .and_then(|item| item.as_integer()),
             Some(3000)
         );
+        assert_eq!(
+            item.get("Finesse").and_then(|item| item.as_integer()),
+            Some(1000)
+        );
+        assert_eq!(
+            item.get("TacticalMastery")
+                .and_then(|item| item.as_integer()),
+            Some(2000)
+        );
+        assert!(item.get("Agility").is_none());
+    }
+
+    #[test]
+    fn resolver_removes_tracked_stats_omitted_after_base_merge() {
+        let db = fixture_db();
+        let derivations = BaseStatDerivations::load_default().expect("derivations load");
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = -2000\n\
+Agility = 1000\n";
+        let empty_base_stats = HashMap::new();
+
+        let (out, _) = resolve_toml_str_with_derivations(
+            input,
+            &db,
+            &derivations,
+            Some("Thalya"),
+            "Lore-master",
+            &empty_base_stats,
+        )
+        .expect("must resolve with derivations");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        assert!(item.get("CriticalRating").is_none());
         assert_eq!(
             item.get("Finesse").and_then(|item| item.as_integer()),
             Some(1000)
