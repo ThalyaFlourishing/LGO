@@ -1158,7 +1158,7 @@ fn find_latest_plugindata_file(
     dir: &Path,
     character: &str,
 ) -> Result<Option<PathBuf>, ResolveError> {
-    let prefix = format!("lgo_{}_", character).to_ascii_lowercase();
+    let prefix = format!("lgo_{}_", character.to_ascii_lowercase());
     let mut matches: Vec<PathBuf> = fs::read_dir(dir)
         .map_err(|e| ResolveError::IoRead {
             path: dir.to_path_buf(),
@@ -1180,7 +1180,11 @@ fn find_latest_plugindata_file(
         .collect();
     // Plugin exports are named `lgo_<character>_gearNames_YYYYMMDD_HHMMSS.plugindata`,
     // so lexicographic filename order is timestamp order.
-    matches.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    matches.sort_by(|a, b| {
+        a.file_name()
+            .expect("directory entry path has a file name")
+            .cmp(b.file_name().expect("directory entry path has a file name"))
+    });
     Ok(matches.pop())
 }
 
