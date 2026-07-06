@@ -1,0 +1,416 @@
+{
+  "Beorning": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 1.0,
+      "Evade": 2.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Evade": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "OutgoingHealing": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Morale": 1.0,
+      "InCombatMoraleRegen": 0.1,
+      "NonCombatMoraleRegen": 0.24
+    }
+  },
+  "Brawler": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 1.0,
+      "Evade": 1.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Evade": 2.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "OutgoingHealing": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Burglar": {
+    "Might": {
+      "CriticalRating": 1.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Evade": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 1.0,
+      "Evade": 2.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 0.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Captain": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "TacticalMastery": 3.0,
+      "Block": 2.0,
+      "Parry": 1.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "PhysicalMastery": 2.0,
+      "TacticalMastery": 2.0,
+      "Parry": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "TacticalMastery": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Champion": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 3.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Parry": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "OutgoingHealing": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Guardian": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Block": 1.0,
+      "Parry": 2.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Parry": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "OutgoingHealing": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Hunter": {
+    "Might": {
+      "CriticalRating": 1.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0
+    },
+    "Agility": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 1.0,
+      "Evade": 2.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 0.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Lore-master": {
+    "Might": {
+      "CriticalRating": 1.5,
+      "Finesse": 1.5,
+      "TacticalMastery": 2.0,
+      "Parry": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "TacticalMastery": 2.0,
+      "Evade": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 1.0,
+      "TacticalMastery": 3.0,
+      "Resistance": 1.0,
+      "Evade": 2.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Mariner": {
+    "Might": {
+      "CriticalRating": 1.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0
+    },
+    "Agility": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "OutgoingHealing": 3.0,
+      "Parry": 3.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 0.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Minstrel": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "TacticalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "TacticalMastery": 2.0,
+      "Evade": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 1.0,
+      "Block": 1.0,
+      "Resistance": 1.0,
+      "Evade": 1.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Rune-keeper": {
+    "Might": {
+      "CriticalRating": 1.0,
+      "TacticalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "TacticalMitigation": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 2.0,
+      "Finesse": 1.0,
+      "TacticalMastery": 2.0,
+      "Evade": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "CriticalRating": 1.0,
+      "TacticalMastery": 3.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  },
+  "Warden": {
+    "Might": {
+      "CriticalRating": 1.5,
+      "Finesse": 1.5,
+      "PhysicalMastery": 2.0,
+      "OutgoingHealing": 2.0,
+      "Block": 1.0
+    },
+    "Agility": {
+      "CriticalRating": 1.0,
+      "PhysicalMastery": 3.0,
+      "Block": 2.0,
+      "Parry": 1.0,
+      "PhysicalMitigation": 1.0,
+      "TacticalMitigation": 1.0
+    },
+    "Vitality": {
+      "Morale": 4.5,
+      "InCombatMoraleRegen": 0.012,
+      "NonCombatMoraleRegen": 0.12
+    },
+    "Will": {
+      "Finesse": 1.0,
+      "PhysicalMastery": 1.0,
+      "OutgoingHealing": 1.0,
+      "Resistance": 1.0,
+      "PhysicalMitigation": 1.5,
+      "TacticalMitigation": 1.5
+    },
+    "Fate": {
+      "Power": 1.5,
+      "InCombatPowerRegen": 0.015,
+      "NonCombatPowerRegen": 0.15
+    }
+  }
+}
