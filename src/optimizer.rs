@@ -201,15 +201,17 @@ pub fn optimize(
     resolved: &HashMap<String, CachedItem>,
     candidates: &[String],
     goals: &[StatGoal],
+    innate_stats: &HashMap<Stat, i64>,
 ) -> Result<OptimizeResult, Box<OptimizeError>> {
     let (pools, warnings) = build_search_pools(resolved, candidates, goals, true)?;
-    let best = exact_search(&pools, goals).unwrap_or_else(|| SearchBuild {
-        totals: vec![0; goals.len()],
+    let innate_goal_totals = innate_goal_totals(innate_stats, goals);
+    let best = exact_search(&pools, goals, &innate_goal_totals).unwrap_or_else(|| SearchBuild {
+        totals: innate_goal_totals.clone(),
         tiebreak_key: Vec::new(),
         choices: Vec::new(),
     });
 
-    let mut gear_set = GearSet::new();
+    let mut gear_set = GearSet::new(innate_stats.clone());
     for choice in &best.choices {
         choice.insert_into(&mut gear_set);
     }
@@ -412,14 +414,18 @@ fn dominance_filter(choices: Vec<Choice>, goals: &[StatGoal]) -> Vec<Choice> {
         .collect()
 }
 
-fn exact_search(pools: &[SearchPool], goals: &[StatGoal]) -> Option<SearchBuild> {
+fn exact_search(
+    pools: &[SearchPool],
+    goals: &[StatGoal],
+    initial_totals: &[i64],
+) -> Option<SearchBuild> {
     if pools.iter().any(|pool| pool.choices.is_empty()) {
         return None;
     }
 
     let suffix_maxima = suffix_goal_maxima(pools, goals);
     let mut best: Option<SearchBuild> = None;
-    let mut running_totals = vec![0; goals.len()];
+    let mut running_totals = initial_totals.to_vec();
     let mut current_choices: Vec<Choice> = Vec::with_capacity(pools.len());
     let mut current_keys: Vec<String> = Vec::new();
 
@@ -435,6 +441,13 @@ fn exact_search(pools: &[SearchPool], goals: &[StatGoal]) -> Option<SearchBuild>
     );
 
     best
+}
+
+fn innate_goal_totals(innate_stats: &HashMap<Stat, i64>, goals: &[StatGoal]) -> Vec<i64> {
+    goals
+        .iter()
+        .map(|goal| innate_stats.get(&goal.stat).copied().unwrap_or(0))
+        .collect()
 }
 
 fn suffix_goal_maxima(pools: &[SearchPool], goals: &[StatGoal]) -> Vec<Vec<i64>> {
@@ -705,7 +718,7 @@ mod tests {
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
-        optimize(resolved, candidates, goals).expect("optimization should succeed")
+        optimize(resolved, candidates, goals, &HashMap::new()).expect("optimization should succeed")
     }
 
     fn single_slot_result(
@@ -739,7 +752,7 @@ mod tests {
         let (pools, warnings) = build_search_pools(resolved, candidates, goals, false)
             .expect("oracle inputs should be within candidate cap");
         let best = oracle_best_build(&pools, goals).expect("oracle pools should not be empty");
-        let mut gear_set = GearSet::new();
+        let mut gear_set = GearSet::new(HashMap::new());
         for choice in &best.choices {
             choice.insert_into(&mut gear_set);
         }
@@ -991,6 +1004,43 @@ mod tests {
         let result = optimize_ok(&resolved, &["C6".to_string(), "C7".to_string()], &goals);
         assert!(!result.feasible);
         assert_eq!(result.gear_set.items[&Slot::Chest].name, "C6");
+    }
+
+    #[test]
+    fn innate_stats_seed_search_goal_totals() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "A".into(),
+            make_cached("A", Slot::Chest, &[(Stat::CriticalRating, 50)]),
+        );
+        resolved.insert(
+            "B".into(),
+            make_cached("B", Slot::Chest, &[(Stat::TacticalMastery, 90)]),
+        );
+        let goals = vec![
+            goal(Stat::CriticalRating, 100),
+            goal(Stat::TacticalMastery, 100),
+        ];
+        let innate_stats = [(Stat::CriticalRating, 100)].into_iter().collect();
+
+        let result = optimize(
+            &resolved,
+            &["A".to_string(), "B".to_string()],
+            &goals,
+            &innate_stats,
+        )
+        .expect("optimization should succeed");
+
+        assert_eq!(
+            result
+                .gear_set
+                .items
+                .get(&Slot::Chest)
+                .map(|item| item.name.as_str()),
+            Some("B")
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 100);
+        assert_eq!(result.gear_set.total(&Stat::TacticalMastery), 90);
     }
 
     #[test]
@@ -1346,7 +1396,13 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).unwrap_err();
+        let err = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        )
+        .unwrap_err();
         assert_eq!(
             *err,
             OptimizeError::TooManyCandidates {
@@ -1374,7 +1430,13 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).unwrap_err();
+        let err = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        )
+        .unwrap_err();
         assert_eq!(
             *err,
             OptimizeError::TooManyCandidates {
@@ -1397,7 +1459,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
+        assert!(optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new()
+        )
+        .is_ok());
     }
 
     #[test]
@@ -1417,7 +1485,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(&resolved, &names, &[goal(Stat::CriticalRating, 0)]).is_ok());
+        assert!(optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new()
+        )
+        .is_ok());
     }
 
     #[test]

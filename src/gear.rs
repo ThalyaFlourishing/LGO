@@ -144,25 +144,28 @@ impl GearItem {
 /// A candidate gear set: exactly one item per slot.
 #[derive(Debug, Clone)]
 pub struct GearSet {
+    pub innate_stats: HashMap<Stat, i64>,
     pub items: HashMap<Slot, GearItem>,
 }
 
 impl GearSet {
-    pub fn new() -> Self {
+    pub fn new(innate_stats: HashMap<Stat, i64>) -> Self {
         GearSet {
+            innate_stats,
             items: HashMap::new(),
         }
     }
 
-    /// Sum a single stat across all equipped items.
+    /// Sum a single stat across innate totals and all equipped items.
     pub fn total(&self, s: &Stat) -> i64 {
-        self.items.values().map(|item| item.stat(s)).sum()
+        self.innate_stats.get(s).copied().unwrap_or(0)
+            + self.items.values().map(|item| item.stat(s)).sum::<i64>()
     }
 }
 
 impl Default for GearSet {
     fn default() -> Self {
-        Self::new()
+        Self::new(HashMap::new())
     }
 }
 
@@ -261,5 +264,22 @@ mod tests {
         // Plain garbage
         assert!(Slot::from_json_variant("Unknown").is_none());
         assert!(Slot::from_json_variant("Wrist3").is_none());
+    }
+
+    #[test]
+    fn total_counts_innate_stats_once() {
+        let mut innate = HashMap::new();
+        innate.insert(Stat::CriticalRating, 100);
+        let mut gear_set = GearSet::new(innate);
+        gear_set.items.insert(
+            Slot::Head,
+            GearItem {
+                name: "Test Helm".to_string(),
+                slot: Slot::Head,
+                stats: [(Stat::CriticalRating, 25)].into_iter().collect(),
+            },
+        );
+
+        assert_eq!(gear_set.total(&Stat::CriticalRating), 125);
     }
 }

@@ -15,6 +15,8 @@ pub struct GearDoc {
     pub character: Option<String>,
     /// Character class, if present as `class = "..."` at top level.
     pub class: Option<String>,
+    /// Already-derived naked character totals from top-level `[InnateStats]`.
+    pub innate_stats: HashMap<Stat, i64>,
     /// Parsed gear items from `[[item]]` entries.
     pub items: Vec<GearItem>,
 }
@@ -88,12 +90,29 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         .and_then(|v| v.as_str())
         .map(String::from);
     let class = doc.get("class").and_then(|v| v.as_str()).map(String::from);
+    let innate_stats = read_innate_stats(&doc);
 
     Ok(GearDoc {
         character,
         class,
+        innate_stats,
         items,
     })
+}
+
+fn read_innate_stats(doc: &toml::Value) -> HashMap<Stat, i64> {
+    let mut stats = HashMap::new();
+    let Some(table) = doc.get("InnateStats").and_then(|v| v.as_table()) else {
+        return stats;
+    };
+    for (stat, key) in TRACKED_STATS {
+        if let Some(val) = table.get(*key).and_then(|v| v.as_integer()) {
+            if val != 0 {
+                stats.insert(*stat, val);
+            }
+        }
+    }
+    stats
 }
 
 /// Scan `dir` for a file whose name matches `<prefix><X><suffix>` where
@@ -438,6 +457,7 @@ name = "Test Helm"
         let doc = read_stats_file(&path).expect("must return Ok");
         assert_eq!(doc.character.as_deref(), Some("Thalya"));
         assert_eq!(doc.class.as_deref(), Some("Lore-master"));
+        assert!(doc.innate_stats.is_empty());
         assert_eq!(doc.items.len(), 1);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
@@ -454,6 +474,30 @@ name = "Test Helm"
             "character must be None when absent"
         );
         assert!(doc.class.is_none(), "class must be None when absent");
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_extracts_innate_stats_with_morale_and_power() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[InnateStats]
+Morale = 100
+Power = 50
+CriticalRating = 25
+Might = 999
+
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&100));
+        assert_eq!(doc.innate_stats.get(&Stat::Power), Some(&50));
+        assert_eq!(doc.innate_stats.get(&Stat::CriticalRating), Some(&25));
+        assert!(!doc.innate_stats.contains_key(&Stat::Might));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }
