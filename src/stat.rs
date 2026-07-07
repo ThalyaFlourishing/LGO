@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn parses_morale_and_power_abbreviations() {
-        assert_eq!("mo".parse::<Stat>().unwrap(), Stat::Morale);
+        assert_eq!("ml".parse::<Stat>().unwrap(), Stat::Morale);
         assert_eq!("pw".parse::<Stat>().unwrap(), Stat::Power);
     }
 
