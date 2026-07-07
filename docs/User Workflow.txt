@@ -65,9 +65,22 @@ lgo_<character-name>_gearStats.toml
 
 If that doesn't work, click 'Select All', copy the text, paste it into a new file and *then* save it.
 
-(Replace <character-name> with your character's name, exactly as LotRO spells it. The next step reads this file and combines it with your saved gear file; you will not need to look at this file directly.)
+(Replace <character-name> with your character's name, exactly as LotRO spells it. The next step reads this file and combines it with your saved gear file.
 
-8. From a command prompt, run:
+8. You will probably (optional) need to open this 'gearStats.toml' file in 
+   a text editor and review it. You will need to hand-edit some kinds of 
+   data:
+       - Legendary Items
+       - Essence stats: add (sum) them into the item stats
+       - Items flagged with '# UNRESOLVED'.
+       - Items left with slot = "Unknown" by step 7.
+
+   In practice, hand-editing is most often needed for legendary
+   items, recently renamed items, and very new items.
+   
+   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
+
+9. From a command prompt, run:
 
        lgo resolve-slots
 
@@ -98,20 +111,6 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
        If that link no longer works, tell Thalya via in-game mail in LotRO.
     2. Save it as 'items.xml' inside the 'data' folder. (Overwrite the existing one) 
     3. Run this command:  lgo build-db
-
-9. You will probably (optional) need to open the final .toml file in 
-   a text editor and review it. You will need to hand-edit some kinds of 
-   data:
-       - Legendary Items
-       - Essence stats: add (sum) them into the item stats
-       - Items flagged with '# UNRESOLVED'.
-       - Items left with slot = "Unknown" by step 8.
-
-   In practice, hand-editing is most often needed for legendary
-   items, recently renamed items, and very new items.
-   
-   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
-
 
 10. From the command prompt, run the optimizer with your stat goals,
     in priority order:
