@@ -15,7 +15,7 @@ Short User Instructions (detailed instructions below)
 4. Click the **LGO Stats** bookmarklet. A small pop-up will appear.
 5. Copy and paste in the contents of `lgo_<character-name>_gearNames_<timestamp>.plugindata
 ` , then hit 'OK'.
-6. The bookmarklet builds a `.toml` file. (Scroll down)
+6. The bookmarklet builds a `*_gearStats.toml` file. (Scroll down to see it)
 7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
 8. Open a a command-line window on your computer and run `lgo resolve-slots`.
 9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.

@@ -41,7 +41,7 @@ a final optimization report according to user's specified stats of interest.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `parse_slot_str` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, paired-slot super-candidates for Wrist/Finger/Ear, and a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract. Verified against a brute-force oracle by a differential fuzzer.
-- `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (14, canonical order), CLI abbrev parsing, `StatGoal`.
+- `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
@@ -76,7 +76,7 @@ The TOML loader exact-matches against this list. Items with any other slot strin
 
 `Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
 
-Two-letter CLI abbreviations: `am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
+Two-letter CLI abbreviations: `am ml pw cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
 ### 4.3 The three slot vocabularies (important — easy to confuse)
 
@@ -92,7 +92,7 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 
 ---
 
-## 5. `.toml` format expected by `gearstats::read_stats_file`
+## 5. `.toml` format expected by `gearstats::read_stats_file` includes sections near the top for `character`, `class`, and `[InnateStats]`. After that, the format for each item is as follows:
 
 ```toml
 [[item]]
@@ -100,7 +100,7 @@ slot               = "Head"
 name               = "Forgotten Elvish Healer's Hood"
 Armor              = 0
 CriticalRating     = 12345
-# ...all 14 tracked stats, canonical order...
+# ...all 16 tracked stats, canonical order...
 TacticalMitigation = 0
 ```
 
@@ -161,9 +161,9 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- Optimizer: include base stats
+- Minor bug fixes
+- Identify items which can be removed from pool
 - Construct HTML reports
-- Next task: Identify items which can be removed from pool
 
 ---
 
