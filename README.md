@@ -46,6 +46,7 @@ lgo optimize --character Thalya tm:450000 oh:100000
 | Abbrev | Stat key | Abbrev | Stat key |
 |---|---|---|---|
 | `am` | `Armour` | `cd` | `CriticalDefense` |
+| `ml` | `Morale` | `pw` | `Power` |
 | `cr` | `CriticalRating` | `ih` | `IncomingHealing` |
 | `fn` | `Finesse` | `bl` | `Block` |
 | `pm` | `PhysicalMastery` | `pa` | `Parry` |

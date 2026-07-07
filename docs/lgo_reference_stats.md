@@ -1,6 +1,6 @@
 # LGO Stat Reference
 
-## Tracked Stats (14 total, in canonical order)
+## Tracked Stats (16 total, in canonical order)
 
 These are the only stats used by the optimizer and stats file.
 The JSON key column remains relevant for serialized stat maps,
@@ -11,6 +11,8 @@ The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 | Abbreviation | Enum variant         | JSON key              | TOML key             | Display name        |
 |--------------|----------------------|-----------------------|----------------------|---------------------|
 | `am`         | `Armor`              | `armor`               | `Armor`              | Armor               |
+| `ml`         | `Morale`             | `morale`              | `Morale`             | Morale              |
+| `pw`         | `Power`              | `power`               | `Power`              | Power               |
 | `cr`         | `CriticalRating`     | `critical_rating`     | `CriticalRating`     | Critical Rating     |
 | `fn`         | `Finesse`            | `finesse`             | `Finesse`            | Finesse             |
 | `pm`         | `PhysicalMastery`    | `physical_mastery`    | `PhysicalMastery`    | Physical Mastery    |

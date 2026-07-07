@@ -107,6 +107,8 @@ impl FromStr for Stat {
         match s.to_lowercase().replace([' ', '_', '-'], "").as_str() {
             // Two-letter abbreviations
             "am" => Ok(Stat::Armor),
+            "ml" => Ok(Stat::Morale),
+            "pw" => Ok(Stat::Power),
             "cr" => Ok(Stat::CriticalRating),
             "fn" => Ok(Stat::Finesse),
             "pm" => Ok(Stat::PhysicalMastery),
@@ -186,4 +188,29 @@ impl FromStr for StatGoal {
             }
         }
     }
+}
+
+// -- Tests ---------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_morale_and_power_abbreviations() {
+        assert_eq!("mo".parse::<Stat>().unwrap(), Stat::Morale);
+        assert_eq!("pw".parse::<Stat>().unwrap(), Stat::Power);
+    }
+
+    #[test]
+    fn parses_morale_and_power_full_names() {
+        assert_eq!("Morale".parse::<Stat>().unwrap(), Stat::Morale);
+        assert_eq!("Power".parse::<Stat>().unwrap(), Stat::Power);
+    }
+}
+
+#[test]
+fn parses_morale_and_power_normalized_spellings() {
+    assert_eq!("morale".parse::<Stat>().unwrap(), Stat::Morale);
+    assert_eq!("power".parse::<Stat>().unwrap(), Stat::Power);
 }

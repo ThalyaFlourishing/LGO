@@ -89,6 +89,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
     Armour             am
+    Morale             ml
+    Power              pw
     CriticalRating     cr
     Finesse            fn
     PhysicalMastery    pm
