@@ -2038,6 +2038,136 @@ Armor = 0\n";
     }
 
     #[test]
+    fn resolver_emits_all_stats_and_zeroed_essence_totals_without_blank_gap() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        let item_start = out.find("[[item]]").expect("item emitted");
+        let essence_start = out
+            .find("[item.EssenceTotals]")
+            .expect("EssenceTotals emitted");
+        let item_text = &out[item_start..essence_start];
+        let essence_text = &out[essence_start..];
+
+        assert!(
+            !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
+            "EssenceTotals must stay attached to base item:\n{}",
+            out
+        );
+        for (_, key) in TRACKED_STATS {
+            assert!(
+                item_text.contains(&format!("{} = ", key)),
+                "base item missing {}:\n{}",
+                key,
+                out
+            );
+            assert!(
+                essence_text.contains(&format!("{} = 0", key)),
+                "EssenceTotals missing zeroed {}:\n{}",
+                key,
+                out
+            );
+        }
+    }
+
+    #[test]
+    fn resolver_preserves_existing_essence_totals_on_normal_merge() {
+        let db = fixture_db();
+        let previous = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 300\n";
+        let (prev, _) = resolve_toml_str(previous, &db).expect("resolve previous");
+        let incoming_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 200\n";
+        let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
+        let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        let essence = item
+            .get(ESSENCE_TOTALS_KEY)
+            .and_then(|item| item.as_table())
+            .expect("EssenceTotals table");
+
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(100),
+            "normal merge preserves current base block under existing semantics"
+        );
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(300)
+        );
+    }
+
+    #[test]
+    fn merge_force_overwrite_resets_essence_totals_from_incoming() {
+        let db = fixture_db();
+        let previous = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 300\n";
+        let (prev, _) = resolve_toml_str(previous, &db).expect("resolve previous");
+        let incoming_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 200\n";
+        let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
+        )
+        .expect("merge");
+        let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        let essence = item
+            .get(ESSENCE_TOTALS_KEY)
+            .and_then(|item| item.as_table())
+            .expect("EssenceTotals table");
+
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(200)
+        );
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(0)
+        );
+    }
+
+    #[test]
     fn document_header_comments_precede_first_group_divider() {
         let db = fixture_db();
         let input = "\

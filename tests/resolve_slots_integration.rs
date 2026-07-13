@@ -44,6 +44,16 @@ fn item_table_count(src: &str) -> usize {
         .len()
 }
 
+fn item_tables(src: &str) -> Vec<toml_edit::Table> {
+    let doc: toml_edit::DocumentMut = src.parse().expect("output parses as TOML");
+    doc.get("item")
+        .and_then(|v| v.as_array_of_tables())
+        .expect("output has [[item]]")
+        .iter()
+        .cloned()
+        .collect()
+}
+
 fn current_plugindata_fixture_path() -> PathBuf {
     let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
     let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
@@ -113,28 +123,6 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
 #[test]
 fn resolved_output_round_trips_through_gearstats_reader() {
     let (out, _) = setup();
-    let mut doc: toml_edit::DocumentMut = out.parse().expect("resolved output parses as TOML");
-    let items = doc
-        .get_mut("item")
-        .and_then(|v| v.as_array_of_tables_mut())
-        .expect("resolved output has [[item]]");
-
-    let mut filtered = toml_edit::ArrayOfTables::new();
-    let mut next_pos: usize = 0;
-    for mut table in items.iter().cloned() {
-        let is_unknown = table
-            .get("slot")
-            .and_then(|v| v.as_str())
-            .map(|s| s == "Unknown")
-            .unwrap_or(false);
-        if !is_unknown {
-            table.set_position(next_pos);
-            next_pos += 1;
-            filtered.push(table);
-        }
-    }
-    *items = filtered;
-
     let tmp = std::env::temp_dir().join(format!(
         "lgo_resolve_test_{}_{}.toml",
         std::process::id(),
@@ -143,7 +131,7 @@ fn resolved_output_round_trips_through_gearstats_reader() {
             .unwrap_or_default()
             .as_nanos()
     ));
-    std::fs::write(&tmp, doc.to_string()).expect("write temp file");
+    std::fs::write(&tmp, &out).expect("write temp file");
     let parsed_len = lgo::gearstats::read_stats_file(&tmp).map(|d| d.items.len());
     let _ = std::fs::remove_file(&tmp);
 
@@ -233,6 +221,100 @@ fn divider_comments_appear_in_canonical_family_order() {
             "divider order drifted; expected canonical increasing positions"
         );
     }
+}
+
+#[test]
+fn resolved_output_has_essence_totals_for_every_item_with_all_tracked_stats() {
+    let (out, _) = setup();
+    let tracked = [
+        "Morale",
+        "Power",
+        "Armor",
+        "CriticalRating",
+        "Finesse",
+        "PhysicalMastery",
+        "TacticalMastery",
+        "OutgoingHealing",
+        "Resistance",
+        "CriticalDefense",
+        "IncomingHealing",
+        "Block",
+        "Parry",
+        "Evade",
+        "PhysicalMitigation",
+        "TacticalMitigation",
+    ];
+
+    for item in item_tables(&out) {
+        for key in tracked {
+            assert!(item.contains_key(key), "base item missing {}", key);
+        }
+        let essence = item
+            .get("EssenceTotals")
+            .and_then(|item| item.as_table())
+            .expect("every item has EssenceTotals");
+        for key in tracked {
+            assert_eq!(
+                essence.get(key).and_then(|item| item.as_integer()),
+                Some(0),
+                "new EssenceTotals should zero {}",
+                key
+            );
+        }
+    }
+}
+
+#[test]
+fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
+    let (out, _) = setup();
+    let first_item = out.find("[[item]]").expect("item emitted");
+    let first_essence = out
+        .find("[item.EssenceTotals]")
+        .expect("EssenceTotals emitted");
+    let base = &out[first_item..first_essence];
+    let essence = &out[first_essence..];
+    let tracked = [
+        "Morale",
+        "Power",
+        "Armor",
+        "CriticalRating",
+        "Finesse",
+        "PhysicalMastery",
+        "TacticalMastery",
+        "OutgoingHealing",
+        "Resistance",
+        "CriticalDefense",
+        "IncomingHealing",
+        "Block",
+        "Parry",
+        "Evade",
+        "PhysicalMitigation",
+        "TacticalMitigation",
+    ];
+
+    assert!(
+        !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
+        "base and EssenceTotals blocks must not have a blank line between them"
+    );
+
+    let base_positions: Vec<usize> = tracked
+        .iter()
+        .map(|key| {
+            base.find(key)
+                .unwrap_or_else(|| panic!("base stat {} missing", key))
+        })
+        .collect();
+    assert!(base_positions.windows(2).all(|pair| pair[0] < pair[1]));
+
+    let essence_positions: Vec<usize> = tracked
+        .iter()
+        .map(|key| {
+            essence
+                .find(key)
+                .unwrap_or_else(|| panic!("essence stat {} missing", key))
+        })
+        .collect();
+    assert!(essence_positions.windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 #[test]

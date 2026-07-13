@@ -30,6 +30,7 @@ then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
+- User hand-edits persistent corrections, including per-item essence totals, in `gearReady.toml` only.
 - User invokes 'lgo optimize' which reads the canonical file and provides
 a final optimization report according to user's specified stats of interest.
 
@@ -72,9 +73,9 @@ Back            Ear (2)
 
 The TOML loader exact-matches against this list. Items with any other slot string are **skipped** by `read_stats_file` (silently for `"Unknown"`, with a stderr warning otherwise). The optimizer continues with the items that did match.
 
-### 4.2 The 14 tracked stats (canonical order)
+### 4.2 The 16 tracked stats (canonical order)
 
-`Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
+`Morale`, `Power`, `Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
 
 Two-letter CLI abbreviations: `am ml pw cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
@@ -98,11 +99,27 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 [[item]]
 slot               = "Head"
 name               = "Forgotten Elvish Healer's Hood"
+Morale             = 0
+Power              = 0
 Armor              = 0
 CriticalRating     = 12345
 # ...all 16 tracked stats, canonical order...
 TacticalMitigation = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+# ...all 16 tracked stats, canonical order...
+TacticalMitigation = 0
 ```
+
+`gearReady.toml` is the canonical hand-edited file. Each item has an attached
+`[item.EssenceTotals]` child table for user-maintained per-item essence overlays.
+The loader immediately adds those values to the base item stats and discards the
+base-vs-essence separation in the runtime model. Unknown stat keys in either the
+base item block or `EssenceTotals` are hard errors; omitted stats are treated as
+zero.
 
 ### Outcome-typed comments emitted by the bookmarklet
 
