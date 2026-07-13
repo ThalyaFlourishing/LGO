@@ -652,8 +652,8 @@ fn insert_essence_totals(table: &mut Table, essence: &HashMap<Stat, i64>) {
 fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
     table
         .get(ESSENCE_TOTALS_KEY)
-        .and_then(|item| item.as_table())
-        .map(|table| read_table_stats(table, TRACKED_STATS))
+        .and_then(|essence_item| essence_item.as_table())
+        .map(|essence_table| read_table_stats(essence_table, TRACKED_STATS))
         .unwrap_or_default()
 }
 

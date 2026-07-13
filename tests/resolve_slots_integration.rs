@@ -121,7 +121,7 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
 }
 
 #[test]
-fn resolved_output_round_trips_through_gearstats_reader() {
+fn resolved_output_round_trips_through_gearstats_reader_and_skips_unknown_slots() {
     let (out, _) = setup();
     let tmp = std::env::temp_dir().join(format!(
         "lgo_resolve_test_{}_{}.toml",
