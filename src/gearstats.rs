@@ -47,12 +47,12 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         let entry_table = entry
             .as_table()
             .ok_or_else(|| format!("[[item]] #{} must be a TOML table", idx + 1))?;
-        let slot_str = entry
+        let slot_str = entry_table
             .get("slot")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'slot'", idx + 1))?;
 
-        let name = entry
+        let name = entry_table
             .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'name'", idx + 1))?

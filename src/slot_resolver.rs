@@ -670,8 +670,28 @@ fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<St
 }
 
 fn render_doc(doc: &DocumentMut) -> String {
-    doc.to_string()
-        .replace("\n\n[item.EssenceTotals]\n", "\n[item.EssenceTotals]\n")
+    attach_essence_totals_to_items(&doc.to_string())
+}
+
+fn attach_essence_totals_to_items(src: &str) -> String {
+    let mut lines: Vec<&str> = Vec::new();
+    for line in src.lines() {
+        if line.trim() == "[item.EssenceTotals]" {
+            while lines
+                .last()
+                .is_some_and(|previous| previous.trim().is_empty())
+            {
+                lines.pop();
+            }
+        }
+        lines.push(line);
+    }
+
+    let mut rendered = lines.join("\n");
+    if src.ends_with('\n') {
+        rendered.push('\n');
+    }
+    rendered
 }
 
 /// Push a slot group onto the new array of tables, inserting a divider

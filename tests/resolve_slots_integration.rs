@@ -251,11 +251,11 @@ fn resolved_output_has_essence_totals_for_every_item_with_all_tracked_stats() {
         }
         let essence = item
             .get("EssenceTotals")
-            .and_then(|item| item.as_table())
+            .and_then(|essence_item| essence_item.as_table())
             .expect("every item has EssenceTotals");
         for key in tracked {
             assert_eq!(
-                essence.get(key).and_then(|item| item.as_integer()),
+                essence.get(key).and_then(|value| value.as_integer()),
                 Some(0),
                 "new EssenceTotals should zero {}",
                 key
