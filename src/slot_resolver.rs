@@ -625,7 +625,9 @@ fn insert_canonical_stats(
     for (stat, key) in TRACKED_STATS {
         let mut item = value(stats.get(stat).copied().unwrap_or(0));
         if let (Some(old_value), Some(new_value)) = (
-            old_items.get(key).and_then(|removed| removed.item.as_value()),
+            old_items
+                .get(key)
+                .and_then(|removed| removed.item.as_value()),
             item.as_value_mut(),
         ) {
             *new_value.decor_mut() = old_value.decor().clone();

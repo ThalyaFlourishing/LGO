@@ -145,8 +145,7 @@ fn is_tracked_stat_key(key: &str) -> bool {
 
 fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
     for key in table.keys() {
-        if key == "slot" || key == "name" || key == ESSENCE_TOTALS_KEY || is_tracked_stat_key(key)
-        {
+        if key == "slot" || key == "name" || key == ESSENCE_TOTALS_KEY || is_tracked_stat_key(key) {
             continue;
         }
         return Err(format!(
