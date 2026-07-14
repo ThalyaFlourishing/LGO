@@ -45,14 +45,13 @@ fn item_table_count(src: &str) -> usize {
         .len()
 }
 
-fn item_tables(src: &str) -> Vec<toml_edit::Table> {
+fn with_item_tables<R>(src: &str, f: impl FnOnce(&toml_edit::ArrayOfTables) -> R) -> R {
     let doc: toml_edit::DocumentMut = src.parse().expect("output parses as TOML");
-    doc.get("item")
+    let tables = doc
+        .get("item")
         .and_then(|v| v.as_array_of_tables())
-        .expect("output has [[item]]")
-        .iter()
-        .cloned()
-        .collect()
+        .expect("output has [[item]]");
+    f(tables)
 }
 
 fn tracked_stat_keys() -> Vec<&'static str> {
@@ -233,23 +232,25 @@ fn resolved_output_has_essence_totals_for_every_item_with_all_tracked_stats() {
     let (out, _) = setup();
     let tracked = tracked_stat_keys();
 
-    for item in item_tables(&out) {
-        for key in &tracked {
-            assert!(item.contains_key(key), "base item missing {}", key);
+    with_item_tables(&out, |tables| {
+        for item in tables.iter() {
+            for key in &tracked {
+                assert!(item.contains_key(key), "base item missing {}", key);
+            }
+            let essence = item
+                .get("EssenceTotals")
+                .and_then(|essence_item| essence_item.as_table())
+                .expect("every item has EssenceTotals");
+            for key in &tracked {
+                assert_eq!(
+                    essence.get(key).and_then(|value| value.as_integer()),
+                    Some(0),
+                    "new EssenceTotals should zero {}",
+                    key
+                );
+            }
         }
-        let essence = item
-            .get("EssenceTotals")
-            .and_then(|essence_item| essence_item.as_table())
-            .expect("every item has EssenceTotals");
-        for key in &tracked {
-            assert_eq!(
-                essence.get(key).and_then(|value| value.as_integer()),
-                Some(0),
-                "new EssenceTotals should zero {}",
-                key
-            );
-        }
-    }
+    });
 }
 
 #[test]
@@ -573,36 +574,38 @@ CriticalRating = 200
     )
     .expect("rerun must succeed");
     let after_first = std::fs::read_to_string(&canonical).expect("read canonical");
-    let tables = item_tables(&after_first);
-    let item = tables.first().expect("one item");
-    let essence = item
-        .get("EssenceTotals")
-        .and_then(|value| value.as_table())
-        .expect("EssenceTotals table");
 
     assert_eq!(report.outcome.preserved, vec!["Test Helm"]);
-    assert_eq!(
-        item.get("CriticalRating")
-            .and_then(|value| value.as_integer()),
-        Some(100),
-        "default rerun must preserve existing user-maintained base stats"
-    );
-    assert_eq!(
-        essence
-            .get("CriticalRating")
-            .and_then(|value| value.as_integer()),
-        Some(300),
-        "nonzero essence total must survive rerun"
-    );
-    assert_eq!(
-        essence.get("Finesse").and_then(|value| value.as_integer()),
-        Some(5),
-        "partial EssenceTotals data must survive rerun"
-    );
-    for key in tracked_stat_keys() {
-        assert!(item.contains_key(key), "base item missing {}", key);
-        assert!(essence.contains_key(key), "EssenceTotals missing {}", key);
-    }
+    with_item_tables(&after_first, |tables| {
+        let item = tables.iter().next().expect("one item");
+        let essence = item
+            .get("EssenceTotals")
+            .and_then(|value| value.as_table())
+            .expect("EssenceTotals table");
+
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|value| value.as_integer()),
+            Some(100),
+            "default rerun must preserve existing user-maintained base stats"
+        );
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|value| value.as_integer()),
+            Some(300),
+            "nonzero essence total must survive rerun"
+        );
+        assert_eq!(
+            essence.get("Finesse").and_then(|value| value.as_integer()),
+            Some(5),
+            "partial EssenceTotals data must survive rerun"
+        );
+        for key in tracked_stat_keys() {
+            assert!(item.contains_key(key), "base item missing {}", key);
+            assert!(essence.contains_key(key), "EssenceTotals missing {}", key);
+        }
+    });
     assert!(
         after_first.contains(
             "TacticalMitigation = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"

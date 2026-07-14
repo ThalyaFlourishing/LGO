@@ -91,6 +91,8 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             for (stat, value) in read_tracked_stats(essence_table) {
                 *stats.entry(stat).or_insert(0) += value;
             }
+            // Runtime item stat maps store only non-zero effective totals; if
+            // base and essence values cancel out, absence still means zero.
             stats.retain(|_, value| *value != 0);
         }
 

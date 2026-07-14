@@ -2116,6 +2116,15 @@ CriticalRating = 100\n";
     }
 
     #[test]
+    fn strip_leading_blank_lines_handles_crlf_prefixes() {
+        assert_eq!(
+            strip_leading_blank_lines("\r\n  \r\n# note\r\n"),
+            "# note\r\n"
+        );
+        assert_eq!(strip_leading_blank_lines("\r\n"), "");
+    }
+
+    #[test]
     fn resolver_preserves_existing_essence_totals_on_normal_merge() {
         let db = fixture_db();
         let previous = "\
