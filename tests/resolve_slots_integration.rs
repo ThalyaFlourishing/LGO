@@ -1,4 +1,5 @@
 use lgo::slot_resolver::ResolutionOutcome;
+use lgo::stat::TRACKED_STATS;
 use std::path::{Path, PathBuf};
 
 fn data_json_path() -> PathBuf {
@@ -52,6 +53,10 @@ fn item_tables(src: &str) -> Vec<toml_edit::Table> {
         .iter()
         .cloned()
         .collect()
+}
+
+fn tracked_stat_keys() -> Vec<&'static str> {
+    TRACKED_STATS.iter().map(|(_, key)| *key).collect()
 }
 
 fn current_plugindata_fixture_path() -> PathBuf {
@@ -226,34 +231,17 @@ fn divider_comments_appear_in_canonical_family_order() {
 #[test]
 fn resolved_output_has_essence_totals_for_every_item_with_all_tracked_stats() {
     let (out, _) = setup();
-    let tracked = [
-        "Morale",
-        "Power",
-        "Armor",
-        "CriticalRating",
-        "Finesse",
-        "PhysicalMastery",
-        "TacticalMastery",
-        "OutgoingHealing",
-        "Resistance",
-        "CriticalDefense",
-        "IncomingHealing",
-        "Block",
-        "Parry",
-        "Evade",
-        "PhysicalMitigation",
-        "TacticalMitigation",
-    ];
+    let tracked = tracked_stat_keys();
 
     for item in item_tables(&out) {
-        for key in tracked {
+        for key in &tracked {
             assert!(item.contains_key(key), "base item missing {}", key);
         }
         let essence = item
             .get("EssenceTotals")
             .and_then(|essence_item| essence_item.as_table())
             .expect("every item has EssenceTotals");
-        for key in tracked {
+        for key in &tracked {
             assert_eq!(
                 essence.get(key).and_then(|value| value.as_integer()),
                 Some(0),
@@ -273,24 +261,7 @@ fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
         .expect("EssenceTotals emitted");
     let base = &out[first_item..first_essence];
     let essence = &out[first_essence..];
-    let tracked = [
-        "Morale",
-        "Power",
-        "Armor",
-        "CriticalRating",
-        "Finesse",
-        "PhysicalMastery",
-        "TacticalMastery",
-        "OutgoingHealing",
-        "Resistance",
-        "CriticalDefense",
-        "IncomingHealing",
-        "Block",
-        "Parry",
-        "Evade",
-        "PhysicalMitigation",
-        "TacticalMitigation",
-    ];
+    let tracked = tracked_stat_keys();
 
     assert!(
         !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
@@ -545,6 +516,112 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     assert!(
         after.contains("# user hand-edit: keep this line"),
         "hand-edited comment must survive re-run"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_rerun_preserves_essence_totals_and_normalizes_partial_canonical_file() {
+    let dir = make_temp_dir("essence_rerun");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    std::fs::write(
+        &canonical,
+        "\
+[[item]]
+slot = \"Head\"
+name = \"Test Helm\"
+CriticalRating = 100
+# user note: essence totals maintained by hand
+[item.EssenceTotals]
+CriticalRating = 300
+Finesse = 5
+",
+    )
+    .expect("write existing canonical");
+    std::fs::write(
+        &bookmarklet,
+        "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+",
+    )
+    .expect("write bookmarklet export");
+
+    let report = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("rerun must succeed");
+    let after_first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let tables = item_tables(&after_first);
+    let item = tables.first().expect("one item");
+    let essence = item
+        .get("EssenceTotals")
+        .and_then(|value| value.as_table())
+        .expect("EssenceTotals table");
+
+    assert_eq!(report.outcome.preserved, vec!["Test Helm"]);
+    assert_eq!(
+        item.get("CriticalRating")
+            .and_then(|value| value.as_integer()),
+        Some(100),
+        "default rerun must preserve existing user-maintained base stats"
+    );
+    assert_eq!(
+        essence
+            .get("CriticalRating")
+            .and_then(|value| value.as_integer()),
+        Some(300),
+        "nonzero essence total must survive rerun"
+    );
+    assert_eq!(
+        essence.get("Finesse").and_then(|value| value.as_integer()),
+        Some(5),
+        "partial EssenceTotals data must survive rerun"
+    );
+    for key in tracked_stat_keys() {
+        assert!(item.contains_key(key), "base item missing {}", key);
+        assert!(essence.contains_key(key), "EssenceTotals missing {}", key);
+    }
+    assert!(
+        after_first.contains(
+            "TacticalMitigation = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"
+        ),
+        "EssenceTotals comment should remain attached without a blank gap:\n{}",
+        after_first
+    );
+
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("second rerun must succeed");
+    let after_second = std::fs::read_to_string(&canonical).expect("read canonical");
+    assert_eq!(
+        after_first, after_second,
+        "canonical file with existing EssenceTotals must be idempotent after rerun"
     );
 
     let _ = std::fs::remove_dir_all(&dir);

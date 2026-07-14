@@ -21,7 +21,7 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use toml_edit::{value, ArrayOfTables, DocumentMut, Item, Table};
+use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
 
 use crate::base_stats::{BaseStatDerivations, DerivationError};
 use crate::gear::Slot;
@@ -470,7 +470,7 @@ fn resolve_toml_str_inner(
         *items_arr = new_arr;
 
         // Stash outcomes in an outer-scope binding by returning early.
-        Ok((render_doc(&doc), outcomes_local))
+        Ok((doc.to_string(), outcomes_local))
     }
 }
 
@@ -568,6 +568,7 @@ fn canonicalize_item_stats(
     let explicit = read_table_stats(table, TRACKED_STATS);
     let base = read_table_stats(table, BASE_STATS);
     let essence = read_essence_stats(table);
+    let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
 
     for (_, key) in BASE_STATS {
@@ -584,17 +585,18 @@ fn canonicalize_item_stats(
             .map_err(|source| ResolveError::Derivation { source })?
     };
     insert_canonical_stats(table, &final_stats, &old_items);
-    insert_essence_totals(table, &essence);
+    insert_essence_totals(table, &essence, essence_decor);
     Ok(())
 }
 
 fn canonicalize_item_stats_without_derivations(table: &mut Table) {
     let explicit = read_table_stats(table, TRACKED_STATS);
     let essence = read_essence_stats(table);
+    let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
     table.remove(ESSENCE_TOTALS_KEY);
     insert_canonical_stats(table, &explicit, &old_items);
-    insert_essence_totals(table, &essence);
+    insert_essence_totals(table, &essence, essence_decor);
 }
 
 #[derive(Clone)]
@@ -641,12 +643,47 @@ fn insert_canonical_stats(
     }
 }
 
-fn insert_essence_totals(table: &mut Table, essence: &HashMap<Stat, i64>) {
+fn insert_essence_totals(
+    table: &mut Table,
+    essence: &HashMap<Stat, i64>,
+    previous_decor: Option<Decor>,
+) {
     let mut essence_table = Table::new();
+    if let Some(decor) = previous_decor {
+        *essence_table.decor_mut() = decor;
+    }
+    // toml_edit's default standard-table prefix is a blank line. This child
+    // table is intentionally attached to its parent item, so set table decor
+    // structurally instead of post-processing the rendered TOML text.
+    attach_table_to_previous_line(&mut essence_table);
     for (stat, key) in TRACKED_STATS {
         essence_table.insert(key, value(essence.get(stat).copied().unwrap_or(0)));
     }
     table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
+}
+
+fn attach_table_to_previous_line(table: &mut Table) {
+    let prefix = table
+        .decor()
+        .prefix()
+        .and_then(|prefix| prefix.as_str())
+        .map(trim_leading_blank_lines)
+        .unwrap_or("")
+        .to_string();
+    table.decor_mut().set_prefix(prefix);
+}
+
+fn trim_leading_blank_lines(mut prefix: &str) -> &str {
+    loop {
+        let Some(newline) = prefix.find('\n') else {
+            return prefix;
+        };
+        let line = &prefix[..newline];
+        if !line.trim().is_empty() {
+            return prefix;
+        }
+        prefix = &prefix[newline + 1..];
+    }
 }
 
 fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
@@ -655,6 +692,13 @@ fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
         .and_then(|essence_item| essence_item.as_table())
         .map(|essence_table| read_table_stats(essence_table, TRACKED_STATS))
         .unwrap_or_default()
+}
+
+fn read_essence_decor(table: &Table) -> Option<Decor> {
+    table
+        .get(ESSENCE_TOTALS_KEY)
+        .and_then(|essence_item| essence_item.as_table())
+        .map(|essence_table| essence_table.decor().clone())
 }
 
 fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<Stat, i64> {
@@ -667,31 +711,6 @@ fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<St
         }
     }
     values
-}
-
-fn render_doc(doc: &DocumentMut) -> String {
-    attach_essence_totals_to_items(&doc.to_string())
-}
-
-fn attach_essence_totals_to_items(src: &str) -> String {
-    let mut lines: Vec<&str> = Vec::new();
-    for line in src.lines() {
-        if line.trim() == "[item.EssenceTotals]" {
-            while lines
-                .last()
-                .is_some_and(|previous| previous.trim().is_empty())
-            {
-                lines.pop();
-            }
-        }
-        lines.push(line);
-    }
-
-    let mut rendered = lines.join("\n");
-    if src.ends_with('\n') {
-        rendered.push('\n');
-    }
-    rendered
 }
 
 /// Push a slot group onto the new array of tables, inserting a divider
@@ -1050,7 +1069,7 @@ pub fn merge_into_canonical(
         })?;
     *prev_items = new_arr;
 
-    outcome.merged_text = render_doc(&prev_doc);
+    outcome.merged_text = prev_doc.to_string();
     Ok(outcome)
 }
 

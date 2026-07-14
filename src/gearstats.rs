@@ -80,7 +80,7 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         };
 
         let mut stats = read_tracked_stats(entry_table);
-        if let Some(essence_totals) = entry.get(ESSENCE_TOTALS_KEY) {
+        if let Some(essence_totals) = entry_table.get(ESSENCE_TOTALS_KEY) {
             let essence_table = essence_totals.as_table().ok_or_else(|| {
                 format!(
                     "`{}` for item `{}` must be a TOML table",
