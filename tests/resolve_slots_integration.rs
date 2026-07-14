@@ -606,6 +606,8 @@ CriticalRating = 200
             assert!(essence.contains_key(key), "EssenceTotals missing {}", key);
         }
     });
+    // Keep the user's EssenceTotals note visually attached to the child table;
+    // a blank gap makes the note look detached from the hand-maintained data.
     assert!(
         after_first.contains(
             "TacticalMitigation = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"

@@ -2125,6 +2125,21 @@ CriticalRating = 100\n";
     }
 
     #[test]
+    fn attach_table_to_previous_line_strips_only_leading_blank_lines() {
+        let mut table = Table::new();
+        table
+            .decor_mut()
+            .set_prefix("\n  \r\n# user note: essence totals maintained by hand\n  # keep detail\n\n");
+
+        attach_table_to_previous_line(&mut table);
+
+        assert_eq!(
+            table.decor().prefix().and_then(|prefix| prefix.as_str()),
+            Some("# user note: essence totals maintained by hand\n  # keep detail\n\n")
+        );
+    }
+
+    #[test]
     fn resolver_preserves_existing_essence_totals_on_normal_merge() {
         let db = fixture_db();
         let previous = "\
