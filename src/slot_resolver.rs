@@ -2127,9 +2127,9 @@ CriticalRating = 100\n";
     #[test]
     fn attach_table_to_previous_line_strips_only_leading_blank_lines() {
         let mut table = Table::new();
-        table
-            .decor_mut()
-            .set_prefix("\n  \r\n# user note: essence totals maintained by hand\n  # keep detail\n\n");
+        table.decor_mut().set_prefix(
+            "\n  \r\n# user note: essence totals maintained by hand\n  # keep detail\n\n",
+        );
 
         attach_table_to_previous_line(&mut table);
 
