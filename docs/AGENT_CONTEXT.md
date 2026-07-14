@@ -30,6 +30,7 @@ then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
+- User hand-edits persistent corrections, including per-item essence totals, in `gearReady.toml` only.
 - User invokes 'lgo optimize' which reads the canonical file and provides
 a final optimization report according to user's specified stats of interest.
 
@@ -72,11 +73,11 @@ Back            Ear (2)
 
 The TOML loader exact-matches against this list. Items with any other slot string are **skipped** by `read_stats_file` (silently for `"Unknown"`, with a stderr warning otherwise). The optimizer continues with the items that did match.
 
-### 4.2 The 14 tracked stats (canonical order)
+### 4.2 The 16 tracked stats (canonical order)
 
-`Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
+`Morale`, `Power`, `Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
 
-Two-letter CLI abbreviations: `am ml pw cr fn pm tm oh rs cd ih bl pa ev pt tt`.
+Two-letter CLI abbreviations: `ml pw am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
 ### 4.3 The three slot vocabularies (important — easy to confuse)
 
@@ -98,11 +99,27 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 [[item]]
 slot               = "Head"
 name               = "Forgotten Elvish Healer's Hood"
+Morale             = 0
+Power              = 0
 Armor              = 0
 CriticalRating     = 12345
 # ...all 16 tracked stats, canonical order...
 TacticalMitigation = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+# ...all 16 tracked stats, canonical order...
+TacticalMitigation = 0
 ```
+
+`gearReady.toml` is the canonical hand-edited file. Each item has an attached
+`[item.EssenceTotals]` child table for user-maintained per-item essence overlays.
+The loader immediately adds those values to the base item stats and discards the
+base-vs-essence separation in the runtime model. Unknown stat keys in either the
+base item block or `EssenceTotals` are hard errors; omitted stats are treated as
+zero.
 
 ### Outcome-typed comments emitted by the bookmarklet
 
@@ -137,7 +154,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
 - `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
-- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 14-stat list. Do not invent or paraphrase.
+- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 16-stat list. Do not invent or paraphrase.
 - Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
 - The bookmarklet's `SLOT_MAP` is a translation table between two free-text vocabularies and a rigid one. There is **no canonical translation table** between the wiki's free-text `slot=`/`type=` and the Rust `Slot` enum — every entry in `SLOT_MAP` was added by hand in response to a discovered mismatch.
 - **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).

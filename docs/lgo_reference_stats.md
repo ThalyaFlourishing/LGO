@@ -4,15 +4,15 @@
 
 These are the only stats used by the optimizer and stats file.
 The JSON key column remains relevant for serialized stat maps,
-and the TOML key is what appears in `lgo_stats_*.toml`.
-The enum variant is defined in `src/stat.rs`.
+and the TOML key is what appears in `gearStats.toml` / `gearReady.toml`.
+The enum variant and display name are defined in `src/stat.rs`.
 The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 
 | Abbreviation | Enum variant         | JSON key              | TOML key             | Display name        |
 |--------------|----------------------|-----------------------|----------------------|---------------------|
-| `am`         | `Armor`              | `armor`               | `Armor`              | Armor               |
 | `ml`         | `Morale`             | `morale`              | `Morale`             | Morale              |
 | `pw`         | `Power`              | `power`               | `Power`              | Power               |
+| `am`         | `Armor`              | `armor`               | `Armor`              | Armour              |
 | `cr`         | `CriticalRating`     | `critical_rating`     | `CriticalRating`     | Critical Rating     |
 | `fn`         | `Finesse`            | `finesse`             | `Finesse`            | Finesse             |
 | `pm`         | `PhysicalMastery`    | `physical_mastery`    | `PhysicalMastery`    | Physical Mastery    |

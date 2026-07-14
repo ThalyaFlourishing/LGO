@@ -67,26 +67,35 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
 (Replace <character-name> with your character's name, exactly as LotRO spells it. The next step reads this file and combines it with your saved gear file.
 
-8. You will probably (optional) need to open this 'gearStats.toml' file in 
-   a text editor and review it. You will need to hand-edit some kinds of 
+8. From a command prompt, run:
+
+      lgo resolve-slots
+
+   This reads the stats .toml file you just saved, looks each item's slot up in
+   the local item database, and creates or updates the canonical editable file:
+
+      lgo_<character-name>_gearReady.toml
+
+9. You will probably (optional) need to open this 'gearReady.toml' file in
+   a text editor and review it. You will need to hand-edit some kinds of
    data:
        - Legendary Items
-       - Essence stats: add (sum) them into the item stats
+       - Essence stats: enter them in each item's [item.EssenceTotals] block
        - Items flagged with '# UNRESOLVED'.
-       - Items left with slot = "Unknown" by step 7.
+       - Items left with slot = "Unknown" by resolve-slots.
 
    In practice, hand-editing is most often needed for legendary
    items, recently renamed items, and very new items.
-   
+    
    Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
 
-9. From a command prompt, run:
-
-       lgo resolve-slots
-
-   This reads the stats .toml file you just saved, looks each item's slot up in
-   the local item database, and adds the slot names to those items.
-   
+   Each item has normal stat lines for the base item plus an attached
+   [item.EssenceTotals] block. Put the sum of that item's socketed essence
+   stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but
+   resolve-slots writes every tracked stat explicitly to reduce copy/paste
+   mistakes. If you mistype a stat name, optimize will fail with an error
+   rather than silently ignore it.
+    
    There may be items not found in the database. They will keep their original slot value (usually 'Unknown'). Their names are printed to the terminal window so you know which entries in the 'lgo_<character-name>_gearReady.toml' file are likely to need hand-editing.
    
    The first time you run this command, it creates a file called lgo_<character-name>_gearReady.toml. On subsequent runs, it reads that file and adds any new items to it. Items already in the file are kept exactly as they were — so any stats you have hand-edited (for legendary items, essences, etc.) are safe, even if the latest bookmarklet output disagrees with them. If an item is no longer in your gear export (you moved it, sold it, decon'd it, etc.), it is removed from the file.

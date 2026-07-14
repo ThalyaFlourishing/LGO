@@ -207,6 +207,32 @@ mod tests {
         assert_eq!("Morale".parse::<Stat>().unwrap(), Stat::Morale);
         assert_eq!("Power".parse::<Stat>().unwrap(), Stat::Power);
     }
+
+    #[test]
+    fn tracked_stats_are_the_canonical_sixteen_in_order() {
+        let actual: Vec<&str> = TRACKED_STATS.iter().map(|(_, key)| *key).collect();
+        assert_eq!(
+            actual,
+            vec![
+                "Morale",
+                "Power",
+                "Armor",
+                "CriticalRating",
+                "Finesse",
+                "PhysicalMastery",
+                "TacticalMastery",
+                "OutgoingHealing",
+                "Resistance",
+                "CriticalDefense",
+                "IncomingHealing",
+                "Block",
+                "Parry",
+                "Evade",
+                "PhysicalMitigation",
+                "TacticalMitigation",
+            ]
+        );
+    }
 }
 
 #[test]

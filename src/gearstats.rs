@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use crate::gear::{GearItem, Slot};
 use crate::stat::{Stat, TRACKED_STATS};
 
+const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
+
 /// The parsed contents of a gear stats TOML file, including any top-level
 /// metadata and the list of items.
 #[derive(Debug)]
@@ -42,16 +44,21 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
     let mut items = Vec::new();
 
     for (idx, entry) in items_arr.iter().enumerate() {
-        let slot_str = entry
+        let entry_table = entry
+            .as_table()
+            .ok_or_else(|| format!("[[item]] #{} must be a TOML table", idx + 1))?;
+        let slot_str = entry_table
             .get("slot")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'slot'", idx + 1))?;
 
-        let name = entry
+        let name = entry_table
             .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("[[item]] #{} missing 'name'", idx + 1))?
             .to_string();
+
+        validate_item_keys(entry_table, &name)?;
 
         let slot = match parse_slot_str(slot_str) {
             Some(s) => s,
@@ -72,14 +79,21 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             }
         };
 
-        let mut stats: HashMap<Stat, i64> = HashMap::new();
-
-        for (stat, key) in TRACKED_STATS {
-            if let Some(val) = entry.get(*key).and_then(|v| v.as_integer()) {
-                if val != 0 {
-                    stats.insert(*stat, val);
-                }
+        let mut stats = read_tracked_stats(entry_table);
+        if let Some(essence_totals) = entry_table.get(ESSENCE_TOTALS_KEY) {
+            let essence_table = essence_totals.as_table().ok_or_else(|| {
+                format!(
+                    "`{}` for item `{}` must be a TOML table",
+                    ESSENCE_TOTALS_KEY, name
+                )
+            })?;
+            validate_essence_keys(essence_table, &name)?;
+            for (stat, value) in read_tracked_stats(essence_table) {
+                *stats.entry(stat).or_insert(0) += value;
             }
+            // Runtime item stat maps store only non-zero effective totals; if
+            // base and essence values cancel out, absence still means zero.
+            stats.retain(|_, value| *value != 0);
         }
 
         items.push(GearItem { name, slot, stats });
@@ -113,6 +127,48 @@ fn read_innate_stats(doc: &toml::Value) -> HashMap<Stat, i64> {
         }
     }
     stats
+}
+
+fn read_tracked_stats(table: &toml::value::Table) -> HashMap<Stat, i64> {
+    let mut stats = HashMap::new();
+    for (stat, key) in TRACKED_STATS {
+        if let Some(val) = table.get(*key).and_then(|v| v.as_integer()) {
+            if val != 0 {
+                stats.insert(*stat, val);
+            }
+        }
+    }
+    stats
+}
+
+fn is_tracked_stat_key(key: &str) -> bool {
+    TRACKED_STATS.iter().any(|(_, stat_key)| *stat_key == key)
+}
+
+fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
+    for key in table.keys() {
+        if key == "slot" || key == "name" || key == ESSENCE_TOTALS_KEY || is_tracked_stat_key(key) {
+            continue;
+        }
+        return Err(format!(
+            "Unknown stat key `{}` in `item` for item `{}`.",
+            key, item_name
+        ));
+    }
+    Ok(())
+}
+
+fn validate_essence_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
+    for key in table.keys() {
+        if is_tracked_stat_key(key) {
+            continue;
+        }
+        return Err(format!(
+            "Unknown stat key `{}` in `EssenceTotals` for item `{}`.",
+            key, item_name
+        ));
+    }
+    Ok(())
 }
 
 /// Scan `dir` for a file whose name matches `<prefix><X><suffix>` where
@@ -498,6 +554,102 @@ name = "Test Helm"
         assert_eq!(doc.innate_stats.get(&Stat::Power), Some(&50));
         assert_eq!(doc.innate_stats.get(&Stat::CriticalRating), Some(&25));
         assert!(!doc.innate_stats.contains_key(&Stat::Might));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_merges_full_essence_totals() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Essenced Helm"
+CriticalRating = 100
+Finesse = 10
+[item.EssenceTotals]
+CriticalRating = 25
+Finesse = 5
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must parse");
+        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 125);
+        assert_eq!(doc.items[0].stat(&Stat::Finesse), 15);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_treats_missing_essence_totals_as_zero() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Plain Helm"
+CriticalRating = 100
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must parse");
+        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].stat(&Stat::Finesse), 0);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_treats_partial_essence_totals_as_zero_for_omissions() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Partly Essenced Helm"
+CriticalRating = 100
+[item.EssenceTotals]
+Finesse = 5
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("must parse");
+        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].stat(&Stat::Finesse), 5);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_unknown_essence_key() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Typo Helm"
+[item.EssenceTotals]
+# Deliberately misspelled to verify unknown essence stat keys are hard errors.
+CritcalRating = 25
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("unknown essence key must fail");
+        assert!(err.contains("CritcalRating"));
+        assert!(err.contains("EssenceTotals"));
+        assert!(err.contains("Typo Helm"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_unknown_base_item_key() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Typo Helm"
+# Deliberately misspelled to verify unknown base stat keys are hard errors.
+CritcalRating = 25
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("unknown base key must fail");
+        assert!(err.contains("CritcalRating"));
+        assert!(err.contains("item"));
+        assert!(err.contains("Typo Helm"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }

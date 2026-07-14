@@ -21,7 +21,7 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use toml_edit::{value, ArrayOfTables, DocumentMut, Table};
+use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
 
 use crate::base_stats::{BaseStatDerivations, DerivationError};
 use crate::gear::Slot;
@@ -29,6 +29,7 @@ use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 /// Default path to the offline items DB, relative to the working directory.
 pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
+const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 
 // =============================================================================
 // ItemsDb — name → Slot index
@@ -492,9 +493,7 @@ fn apply_top_level_derivations(
         .map_err(|source| ResolveError::Derivation { source })?;
     let mut table = Table::new();
     for (stat, key) in TRACKED_STATS {
-        if let Some(stat_value) = innate.get(stat).copied().filter(|value| *value != 0) {
-            table.insert(key, value(stat_value));
-        }
+        table.insert(key, value(innate.get(stat).copied().unwrap_or(0)));
     }
     doc.insert("InnateStats", toml_edit::Item::Table(table));
     Ok(())
@@ -522,6 +521,8 @@ fn bucket_items(
     for mut table in tables {
         if let Some(context) = context {
             canonicalize_item_stats(&mut table, context)?;
+        } else {
+            canonicalize_item_stats_without_derivations(&mut table);
         }
         let name = table
             .get("name")
@@ -566,13 +567,14 @@ fn canonicalize_item_stats(
 ) -> Result<(), ResolveError> {
     let explicit = read_table_stats(table, TRACKED_STATS);
     let base = read_table_stats(table, BASE_STATS);
+    let essence = read_essence_stats(table);
+    let essence_decor = read_essence_decor(table);
+    let old_items = remove_canonical_stat_items(table);
 
     for (_, key) in BASE_STATS {
         table.remove(key);
     }
-    for (_, key) in TRACKED_STATS {
-        table.remove(key);
-    }
+    table.remove(ESSENCE_TOTALS_KEY);
 
     let final_stats = if base.is_empty() {
         explicit
@@ -582,12 +584,121 @@ fn canonicalize_item_stats(
             .merge_explicit_and_base(context.class_name, &explicit, &base)
             .map_err(|source| ResolveError::Derivation { source })?
     };
-    for (stat, key) in TRACKED_STATS {
-        if let Some(stat_value) = final_stats.get(stat).copied().filter(|value| *value != 0) {
-            table.insert(key, value(stat_value));
+    insert_canonical_stats(table, &final_stats, &old_items);
+    insert_essence_totals(table, &essence, essence_decor);
+    Ok(())
+}
+
+fn canonicalize_item_stats_without_derivations(table: &mut Table) {
+    let explicit = read_table_stats(table, TRACKED_STATS);
+    let essence = read_essence_stats(table);
+    let essence_decor = read_essence_decor(table);
+    let old_items = remove_canonical_stat_items(table);
+    table.remove(ESSENCE_TOTALS_KEY);
+    insert_canonical_stats(table, &explicit, &old_items);
+    insert_essence_totals(table, &essence, essence_decor);
+}
+
+#[derive(Clone)]
+struct RemovedStatItem {
+    key_decor: toml_edit::Decor,
+    item: Item,
+}
+
+fn remove_canonical_stat_items(table: &mut Table) -> HashMap<&'static str, RemovedStatItem> {
+    let mut removed = HashMap::new();
+    for (_, key) in TRACKED_STATS {
+        let key_decor = table
+            .get_key_value(key)
+            .map(|(key, _)| key.leaf_decor().clone())
+            .unwrap_or_default();
+        if let Some(item) = table.remove(key) {
+            removed.insert(*key, RemovedStatItem { key_decor, item });
         }
     }
-    Ok(())
+    removed
+}
+
+fn insert_canonical_stats(
+    table: &mut Table,
+    stats: &HashMap<Stat, i64>,
+    old_items: &HashMap<&'static str, RemovedStatItem>,
+) {
+    for (stat, key) in TRACKED_STATS {
+        let mut item = value(stats.get(stat).copied().unwrap_or(0));
+        if let (Some(old_value), Some(new_value)) = (
+            old_items
+                .get(key)
+                .and_then(|removed| removed.item.as_value()),
+            item.as_value_mut(),
+        ) {
+            *new_value.decor_mut() = old_value.decor().clone();
+        }
+        table.insert(key, item);
+        if let Some(removed) = old_items.get(key) {
+            if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
+                *key_mut.leaf_decor_mut() = removed.key_decor.clone();
+            }
+        }
+    }
+}
+
+fn insert_essence_totals(
+    table: &mut Table,
+    essence: &HashMap<Stat, i64>,
+    previous_decor: Option<Decor>,
+) {
+    let mut essence_table = Table::new();
+    if let Some(decor) = previous_decor {
+        *essence_table.decor_mut() = decor;
+    }
+    // toml_edit's default standard-table prefix is a blank line. This child
+    // table is intentionally attached to its parent item, so set table decor
+    // structurally instead of post-processing the rendered TOML text.
+    attach_table_to_previous_line(&mut essence_table);
+    for (stat, key) in TRACKED_STATS {
+        essence_table.insert(key, value(essence.get(stat).copied().unwrap_or(0)));
+    }
+    table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
+}
+
+fn attach_table_to_previous_line(table: &mut Table) {
+    let prefix = table
+        .decor()
+        .prefix()
+        .and_then(|prefix| prefix.as_str())
+        .map(strip_leading_blank_lines)
+        .unwrap_or("")
+        .to_string();
+    table.decor_mut().set_prefix(prefix);
+}
+
+fn strip_leading_blank_lines(mut prefix: &str) -> &str {
+    loop {
+        let Some(newline) = prefix.find('\n') else {
+            return prefix;
+        };
+        let line = &prefix[..newline];
+        if !line.trim().is_empty() {
+            return prefix;
+        }
+        prefix = &prefix[newline + 1..];
+    }
+}
+
+fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
+    table
+        .get(ESSENCE_TOTALS_KEY)
+        .and_then(|essence_item| essence_item.as_table())
+        .map(|essence_table| read_table_stats(essence_table, TRACKED_STATS))
+        .unwrap_or_default()
+}
+
+fn read_essence_decor(table: &Table) -> Option<Decor> {
+    table
+        .get(ESSENCE_TOTALS_KEY)
+        .and_then(|essence_item| essence_item.as_table())
+        .map(|essence_table| essence_table.decor().clone())
 }
 
 fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<Stat, i64> {
@@ -919,6 +1030,7 @@ pub fn merge_into_canonical(
     // pre-existing `# --- ... ---` divider lines from each table's prefix
     // first so dividers don't accumulate across runs (idempotency).
     for t in &mut merged_tables {
+        canonicalize_item_stats_without_derivations(t);
         strip_family_dividers_from_prefix(t);
     }
 
@@ -1112,13 +1224,18 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 }
 
 /// Compare two `[[item]]` tables on their canonical fields only:
-/// `name`, `slot`, and the 14 tracked stats. Comments, whitespace,
+/// `name`, `slot`, tracked base stats, and tracked EssenceTotals stats. Comments, whitespace,
 /// and other decor are ignored.
 fn item_data_equal(a: &Table, b: &Table) -> bool {
     if table_str(a, "name") == table_str(b, "name") && table_str(a, "slot") == table_str(b, "slot")
     {
         for (_, key) in TRACKED_STATS {
-            if table_int(a, key) != table_int(b, key) {
+            if table_int_or_zero(a, key) != table_int_or_zero(b, key) {
+                return false;
+            }
+            if table_nested_int_or_zero(a, ESSENCE_TOTALS_KEY, key)
+                != table_nested_int_or_zero(b, ESSENCE_TOTALS_KEY, key)
+            {
                 return false;
             }
         }
@@ -1132,8 +1249,16 @@ fn table_str(t: &Table, key: &str) -> Option<String> {
     t.get(key).and_then(|v| v.as_str()).map(String::from)
 }
 
-fn table_int(t: &Table, key: &str) -> Option<i64> {
-    t.get(key).and_then(|v| v.as_integer())
+fn table_int_or_zero(t: &Table, key: &str) -> i64 {
+    t.get(key).and_then(|v| v.as_integer()).unwrap_or(0)
+}
+
+fn table_nested_int_or_zero(t: &Table, nested: &str, key: &str) -> i64 {
+    t.get(nested)
+        .and_then(|item| item.as_table())
+        .and_then(|table| table.get(key))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0)
 }
 
 // =============================================================================
@@ -1889,7 +2014,11 @@ Agility = 1000\n";
             .and_then(|item| item.as_array_of_tables())
             .and_then(|items| items.iter().next())
             .expect("one item");
-        assert!(item.get("CriticalRating").is_none());
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(0)
+        );
         assert_eq!(
             item.get("Finesse").and_then(|item| item.as_integer()),
             Some(1000)
@@ -1946,6 +2075,160 @@ Armor = 0\n";
             out.contains("# WARNING: all stats unknown"),
             "per-item warning comment was lost:\n{}",
             out
+        );
+    }
+
+    #[test]
+    fn resolver_emits_all_stats_and_zeroed_essence_totals_without_blank_gap() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        let item_start = out.find("[[item]]").expect("item emitted");
+        let essence_start = out
+            .find("[item.EssenceTotals]")
+            .expect("EssenceTotals emitted");
+        let item_text = &out[item_start..essence_start];
+        let essence_text = &out[essence_start..];
+
+        assert!(
+            !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
+            "EssenceTotals must stay attached to base item:\n{}",
+            out
+        );
+        for (_, key) in TRACKED_STATS {
+            assert!(
+                item_text.contains(&format!("{} = ", key)),
+                "base item missing {}:\n{}",
+                key,
+                out
+            );
+            assert!(
+                essence_text.contains(&format!("{} = 0", key)),
+                "EssenceTotals missing zeroed {}:\n{}",
+                key,
+                out
+            );
+        }
+    }
+
+    #[test]
+    fn strip_leading_blank_lines_handles_crlf_prefixes() {
+        assert_eq!(
+            strip_leading_blank_lines("\r\n  \r\n# note\r\n"),
+            "# note\r\n"
+        );
+        assert_eq!(strip_leading_blank_lines("\r\n"), "");
+    }
+
+    #[test]
+    fn attach_table_to_previous_line_strips_only_leading_blank_lines() {
+        let mut table = Table::new();
+        table.decor_mut().set_prefix(
+            "\n  \r\n# user note: essence totals maintained by hand\n  # keep detail\n\n",
+        );
+
+        attach_table_to_previous_line(&mut table);
+
+        assert_eq!(
+            table.decor().prefix().and_then(|prefix| prefix.as_str()),
+            Some("# user note: essence totals maintained by hand\n  # keep detail\n\n")
+        );
+    }
+
+    #[test]
+    fn resolver_preserves_existing_essence_totals_on_normal_merge() {
+        let db = fixture_db();
+        let previous = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 300\n";
+        let (prev, _) = resolve_toml_str(previous, &db).expect("resolve previous");
+        let incoming_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 200\n";
+        let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
+
+        let outcome =
+            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
+        let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        let essence = item
+            .get(ESSENCE_TOTALS_KEY)
+            .and_then(|item| item.as_table())
+            .expect("EssenceTotals table");
+
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(100),
+            "normal merge preserves current base block under existing semantics"
+        );
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(300)
+        );
+    }
+
+    #[test]
+    fn merge_force_overwrite_resets_essence_totals_from_incoming() {
+        let db = fixture_db();
+        let previous = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 300\n";
+        let (prev, _) = resolve_toml_str(previous, &db).expect("resolve previous");
+        let incoming_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 200\n";
+        let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
+
+        let outcome = merge_into_canonical(
+            Some(&prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
+        )
+        .expect("merge");
+        let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        let essence = item
+            .get(ESSENCE_TOTALS_KEY)
+            .and_then(|item| item.as_table())
+            .expect("EssenceTotals table");
+
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(200)
+        );
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(0)
         );
     }
 
