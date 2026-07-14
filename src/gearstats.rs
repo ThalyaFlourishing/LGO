@@ -621,6 +621,7 @@ Finesse = 5
 slot = "Head"
 name = "Typo Helm"
 [item.EssenceTotals]
+# Deliberately misspelled to verify unknown essence stat keys are hard errors.
 CritcalRating = 25
 "#;
         std::fs::write(&path, toml).expect("write toml");
@@ -639,6 +640,7 @@ CritcalRating = 25
 [[item]]
 slot = "Head"
 name = "Typo Helm"
+# Deliberately misspelled to verify unknown base stat keys are hard errors.
 CritcalRating = 25
 "#;
         std::fs::write(&path, toml).expect("write toml");

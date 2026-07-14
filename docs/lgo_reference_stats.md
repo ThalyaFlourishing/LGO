@@ -5,7 +5,7 @@
 These are the only stats used by the optimizer and stats file.
 The JSON key column remains relevant for serialized stat maps,
 and the TOML key is what appears in `gearStats.toml` / `gearReady.toml`.
-The enum variant is defined in `src/stat.rs`.
+The enum variant and display name are defined in `src/stat.rs`.
 The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 
 | Abbreviation | Enum variant         | JSON key              | TOML key             | Display name        |

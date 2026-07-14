@@ -667,13 +667,13 @@ fn attach_table_to_previous_line(table: &mut Table) {
         .decor()
         .prefix()
         .and_then(|prefix| prefix.as_str())
-        .map(trim_leading_blank_lines)
+        .map(strip_leading_blank_lines)
         .unwrap_or("")
         .to_string();
     table.decor_mut().set_prefix(prefix);
 }
 
-fn trim_leading_blank_lines(mut prefix: &str) -> &str {
+fn strip_leading_blank_lines(mut prefix: &str) -> &str {
     loop {
         let Some(newline) = prefix.find('\n') else {
             return prefix;
