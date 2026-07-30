@@ -1079,7 +1079,9 @@ pub fn merge_into_canonical(
 }
 
 fn set_generated_timestamp_comment(doc: &mut DocumentMut) {
-    let stamp_line = format!("# gearReady.toml updated: {}\n", format_generated_timestamp());
+    const MARKER: &str = "# gearReady.toml updated:";
+
+    let stamp_line = format!("{} {}\n", MARKER, format_generated_timestamp());
 
     let existing = doc
         .decor()
@@ -1089,7 +1091,7 @@ fn set_generated_timestamp_comment(doc: &mut DocumentMut) {
 
     let kept: String = existing
         .split_inclusive('\n')
-        .filter(|line| !line.trim_start().starts_with("# gearReady.toml updated:"))
+        .filter(|line| !line.contains(MARKER))
         .collect();
 
     *doc.decor_mut() = Decor::new(format!("{}{}", stamp_line, kept), String::new());
@@ -2368,7 +2370,7 @@ name = \"Test Helm\"\n";
 
     fn strip_generated_timestamp_comment(src: &str) -> String {
         src.split_inclusive('\n')
-            .filter(|line| !line.trim_start().starts_with("# gearReady.toml updated:"))
+            .filter(|line| !line.contains("# gearReady.toml updated:"))
             .collect()
     }
 
