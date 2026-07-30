@@ -15,14 +15,14 @@
 //!
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
+use chrono::Local;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
-use chrono::Local;
 
 use serde::Deserialize;
-use toml_edit::{value, ArrayOfTables, DocumentMut, Item, Table};
+use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
 
 use crate::base_stats::{BaseStatDerivations, DerivationError};
 use crate::gear::Slot;
@@ -2378,9 +2378,7 @@ name = \"Test Helm\"\n";
         assert!(outcome.removed.is_empty());
         assert_eq!(count_generated_timestamp_comments(&outcome.merged_text), 1);
         assert!(
-            outcome
-                .merged_text
-                .starts_with("# gearReady.toml updated:"),
+            outcome.merged_text.starts_with("# gearReady.toml updated:"),
             "timestamp must be the first canonical output line:\n{}",
             outcome.merged_text
         );
@@ -2429,7 +2427,7 @@ name = \"Test Helm\"\n";
             first,
             second
         );
-        
+
         // And a third time, just to be sure dividers don't accumulate.
         let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
             .expect("third merge")
@@ -2512,7 +2510,8 @@ name = \"Test Helm\"\n";
         assert_eq!(
             strip_generated_timestamp_comment(&second),
             strip_generated_timestamp_comment(&third)
-        );        assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
+        );
+        assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
         assert!(third.contains("Armor = 100"));
         assert!(third.contains("Armor = 200"));
     }
