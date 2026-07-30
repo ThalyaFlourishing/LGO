@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use chrono::Local;
 
 use serde::Deserialize;
-use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
+use toml_edit::{value, ArrayOfTables, DocumentMut, Item, Table};
 
 use crate::base_stats::{BaseStatDerivations, DerivationError};
 use crate::gear::Slot;
@@ -414,8 +414,6 @@ fn resolve_toml_str_inner(
         path: PathBuf::from("<in-memory>"),
         source: Box::new(e),
     })?;
-
-    set_generated_timestamp_comment(&mut doc);
 
     if let Some(context) = context {
         apply_top_level_derivations(&mut doc, context)?;
@@ -884,7 +882,7 @@ pub fn merge_into_canonical(
                 overwritten: Vec::new(),
                 removed: Vec::new(),
                 unknown_slot,
-                merged_text: incoming_resolved.to_string(),
+                merged_text: apply_generated_timestamp_comment(incoming_resolved),
             });
         }
     };
@@ -928,8 +926,6 @@ pub fn merge_into_canonical(
             prev_doc.insert("InnateStats", val);
         }
     }
-
-    set_generated_timestamp_comment(&mut prev_doc);
 
     let (mut incoming_by_name, incoming_order) = group_incoming_by_name(incoming_tables);
 
@@ -1074,27 +1070,19 @@ pub fn merge_into_canonical(
         })?;
     *prev_items = new_arr;
 
-    outcome.merged_text = prev_doc.to_string();
+    outcome.merged_text = apply_generated_timestamp_comment(&prev_doc.to_string());
     Ok(outcome)
 }
 
-fn set_generated_timestamp_comment(doc: &mut DocumentMut) {
+fn apply_generated_timestamp_comment(src: &str) -> String {
     const MARKER: &str = "# gearReady.toml updated:";
 
-    let stamp_line = format!("{} {}\n", MARKER, format_generated_timestamp());
-
-    let existing = doc
-        .decor()
-        .prefix()
-        .and_then(|s| s.as_str())
-        .unwrap_or("");
-
-    let kept: String = existing
+    let kept: String = src
         .split_inclusive('\n')
         .filter(|line| !line.contains(MARKER))
         .collect();
 
-    *doc.decor_mut() = Decor::new(format!("{}{}", stamp_line, kept), String::new());
+    format!("{} {}\n{}", MARKER, format_generated_timestamp(), kept)
 }
 
 fn format_generated_timestamp() -> String {
@@ -2374,15 +2362,32 @@ name = \"Test Helm\"\n";
             .collect()
     }
 
+    fn count_generated_timestamp_comments(src: &str) -> usize {
+        src.lines()
+            .filter(|line| line.contains("# gearReady.toml updated:"))
+            .count()
+    }
+
     #[test]
-    fn merge_first_run_takes_incoming_verbatim() {
+    fn merge_first_run_takes_incoming_modulo_timestamp() {
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
         let outcome =
             merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Helm"]);
         assert!(outcome.preserved.is_empty());
         assert!(outcome.removed.is_empty());
-        assert_eq!(outcome.merged_text, incoming);
+        assert_eq!(count_generated_timestamp_comments(&outcome.merged_text), 1);
+        assert!(
+            outcome
+                .merged_text
+                .starts_with("# gearReady.toml updated:"),
+            "timestamp must be the first canonical output line:\n{}",
+            outcome.merged_text
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&outcome.merged_text),
+            incoming
+        );
     }
 
     #[test]
@@ -2433,6 +2438,52 @@ name = \"Test Helm\"\n";
             strip_generated_timestamp_comment(&second),
             strip_generated_timestamp_comment(&third),
             "third merge must also be identical apart from timestamp"
+        );
+        assert_eq!(count_generated_timestamp_comments(&third), 1);
+    }
+
+    #[test]
+    fn resolve_toml_str_does_not_insert_canonical_timestamp() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+
+        assert_eq!(count_generated_timestamp_comments(&resolved), 0);
+    }
+
+    #[test]
+    fn merge_removes_old_timestamp_comments_before_prepending_one() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let previous_with_extra_timestamp = first.replacen(
+            "[[item]]",
+            "# gearReady.toml updated: 01/01/25 00:00:00\n[[item]]",
+            1,
+        );
+
+        let second = merge_into_canonical(
+            Some(&previous_with_extra_timestamp),
+            &resolved,
+            ForceMode::NoForce,
+        )
+        .expect("second merge")
+        .merged_text;
+
+        assert_eq!(count_generated_timestamp_comments(&second), 1);
+        assert!(
+            second.starts_with("# gearReady.toml updated:"),
+            "fresh timestamp must be prepended:\n{}",
+            second
+        );
+        assert!(
+            !second.contains("01/01/25 00:00:00"),
+            "old timestamp comments must be removed:\n{}",
+            second
         );
     }
 
