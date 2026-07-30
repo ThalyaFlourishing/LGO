@@ -2366,6 +2366,12 @@ name = \"Test Helm\"\n";
             .count()
     }
 
+    fn strip_generated_timestamp_comment(src: &str) -> String {
+        src.split_inclusive('\n')
+            .filter(|line| !line.trim_start().starts_with("# gearReady.toml updated:"))
+            .collect()
+    }
+
     #[test]
     fn merge_first_run_takes_incoming_verbatim() {
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
@@ -2410,16 +2416,22 @@ name = \"Test Helm\"\n";
             .expect("second merge")
             .merged_text;
         assert_eq!(
-            first, second,
-            "second merge must be byte-identical:\n--- first ---\n{}\n--- second ---\n{}",
-            first, second
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second),
+            "second merge must be identical apart from timestamp:\n--- first ---\n{}\n--- second ---\n{}",
+            first,
+            second
         );
-
+        
         // And a third time, just to be sure dividers don't accumulate.
         let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
             .expect("third merge")
             .merged_text;
-        assert_eq!(second, third, "third merge must also be byte-identical");
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third),
+            "third merge must also be identical apart from timestamp"
+        );
     }
 
     #[test]
@@ -2440,9 +2452,14 @@ name = \"Test Helm\"\n";
             .expect("third merge")
             .merged_text;
 
-        assert_eq!(first, second);
-        assert_eq!(second, third);
-        assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
+        assert_eq!(
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second)
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third)
+        );        assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
         assert!(third.contains("Armor = 100"));
         assert!(third.contains("Armor = 200"));
     }
@@ -2859,8 +2876,9 @@ Armor = 100\n";
             second
         );
         assert_eq!(
-            first, second,
-            "metadata carry-forward must not disturb repeat-merge serialization"
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second),
+            "metadata carry-forward must not disturb repeat-merge serialization apart from timestamp"
         );
     }
 
