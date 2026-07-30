@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
+use chrono::Local;
 
 use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
@@ -413,6 +414,8 @@ fn resolve_toml_str_inner(
         path: PathBuf::from("<in-memory>"),
         source: Box::new(e),
     })?;
+
+    set_generated_timestamp_comment(&mut doc);
 
     if let Some(context) = context {
         apply_top_level_derivations(&mut doc, context)?;
@@ -926,6 +929,8 @@ pub fn merge_into_canonical(
         }
     }
 
+    set_generated_timestamp_comment(&mut prev_doc);
+
     let (mut incoming_by_name, incoming_order) = group_incoming_by_name(incoming_tables);
 
     let mut outcome = MergeOutcome {
@@ -1071,6 +1076,27 @@ pub fn merge_into_canonical(
 
     outcome.merged_text = prev_doc.to_string();
     Ok(outcome)
+}
+
+fn set_generated_timestamp_comment(doc: &mut DocumentMut) {
+    let stamp_line = format!("# gearReady.toml updated: {}\n", format_generated_timestamp());
+
+    let existing = doc
+        .decor()
+        .prefix()
+        .and_then(|s| s.as_str())
+        .unwrap_or("");
+
+    let kept: String = existing
+        .split_inclusive('\n')
+        .filter(|line| !line.trim_start().starts_with("# gearReady.toml updated:"))
+        .collect();
+
+    *doc.decor_mut() = Decor::new(format!("{}{}", stamp_line, kept), String::new());
+}
+
+fn format_generated_timestamp() -> String {
+    Local::now().format("%m/%d/%y %H:%M:%S").to_string()
 }
 
 /// Group incoming tables by display name while retaining one occurrence-order
