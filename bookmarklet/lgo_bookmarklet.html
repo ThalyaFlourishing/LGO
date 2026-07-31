@@ -256,7 +256,11 @@
             out += `slot               = \"${item.slot}\"\n`;
             out += `name               = \"${item.name.replace(/"/g, '\\\\"')}\"\n`;
             if (item.outcome === "auto-picked") {
-              out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+              if (item.pickedItemLevel === null) {
+                out += `# AUTO-PICKED only valid wiki variant: ${item.pickedTitle}\n`;
+              } else {
+                out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+              }
             } else if (item.outcome === "needs-pick") {
               out += "# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats\n";
             } else if (item.outcome === "no-tooltip") {
@@ -501,9 +505,10 @@
         }
 
         function candidateResultMatchesName(result, title, name) {
+          const titleMatches = candidateTitleMatchesName(title, name);
           const tooltipName = result.tooltipName;
-          if (tooltipName && !namesMatch(tooltipName, name)) return false;
-          return candidateTitleMatchesName(title, name);
+          const tooltipMatches = tooltipName && namesMatch(tooltipName, name);
+          return titleMatches || tooltipMatches;
         }
 
         function isUsableCandidateResult(result) {
