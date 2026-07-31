@@ -166,6 +166,40 @@
           return m ? m[1].trim() : "";
         }
 
+        function cleanWikiText(value) {
+          return String(value || "")
+            .replace(/<[^>]+>/g, "")
+            .replace(/\[\[([^|\]]*\|)?([^\]]+)\]\]/g, "$2")
+            .replace(/\{\{[^}]+\}\}/g, "")
+            .replace(/'''?/g, "")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&amp;/gi, "&")
+            .replace(/&#39;/g, "'")
+            .replace(/&quot;/gi, '"')
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function normalizedItemName(value) {
+          return cleanWikiText(value)
+            .replace(/^Item:/i, "")
+            .replace(/_/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function titleBaseName(title) {
+          return normalizedItemName(title).replace(/\s+\([^()]+\)$/, "").trim();
+        }
+
+        function namesMatch(a, b) {
+          return normalizedItemName(a) === normalizedItemName(b);
+        }
+
+        function extractTooltipDisplayName(template) {
+          return cleanWikiText(extractField(template, "name") || extractField(template, "title"));
+        }
+
         function parseAttribs(attribText) {
           const stats = zeroStats();
           const parts = attribText
@@ -222,7 +256,11 @@
             out += `slot               = \"${item.slot}\"\n`;
             out += `name               = \"${item.name.replace(/"/g, '\\\\"')}\"\n`;
             if (item.outcome === "auto-picked") {
-              out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+              if (item.pickedItemLevel === null) {
+                out += `# AUTO-PICKED only valid wiki variant: ${item.pickedTitle}\n`;
+              } else {
+                out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+              }
             } else if (item.outcome === "needs-pick") {
               out += "# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats\n";
             } else if (item.outcome === "no-tooltip") {
@@ -285,7 +323,7 @@
           }
 
           appendList(
-            "Auto-resolved via disambiguation: highest item level assumed:",
+            "Auto-resolved via disambiguation:",
             autoPicked,
             e => `${e.name} → ${e.pickedTitle}`
           );
@@ -385,7 +423,8 @@
         async function fetchByTitle(title) {
           /* Fetches the wiki page identified by full title (including
              namespace prefix, e.g. "Item:Foo (Item Level 563)"), extracts
-             the {{Item Tooltip}} template, and returns { slot, stats }.
+             the {{Item Tooltip}} template, and returns { slot, stats,
+             tooltipName }.
              Throws an Error with a `.code` property identifying the failure:
                "missing-page" — page does not exist or has empty wikitext
                "no-tooltip"   — page exists but has no {{Item Tooltip}}
@@ -425,7 +464,7 @@
             const m = armourRaw.replace(/<[^>]+>/g, "").match(/\d[\d,]*/);
             if (m) stats.Armor += parseInt(m[0].replace(/,/g, ""), 10) || 0;
           }
-          return { slot: mapSlot(slotRaw), stats };
+          return { slot: mapSlot(slotRaw), stats, tooltipName: extractTooltipDisplayName(tpl) };
         }
 
         async function findDisambigVariants(name) {
@@ -455,6 +494,49 @@
             const m = r.title && r.title.match(/\(Item Level (\d+)\)$/);
             return { title: r.title, itemLevel: m ? parseInt(m[1], 10) : null };
           });
+        }
+
+        function hasAnyStats(stats) {
+          return Object.keys(stats || {}).some(k => stats[k] !== 0);
+        }
+
+        function candidateTitleMatchesName(title, name) {
+          return namesMatch(titleBaseName(title), name);
+        }
+
+        function candidateResultMatchesName(result, title, name) {
+          const tooltipName = result.tooltipName;
+          if (tooltipName && !namesMatch(tooltipName, name)) return false;
+          return candidateTitleMatchesName(title, name);
+        }
+
+        function isUsableCandidateResult(result) {
+          return result.slot !== "Unknown" || hasAnyStats(result.stats);
+        }
+
+        async function inspectDisambigCandidates(name, variants) {
+          const candidates = [];
+          for (const variant of variants) {
+            if (!variant.title || !candidateTitleMatchesName(variant.title, name)) continue;
+            try {
+              const result = await fetchByTitle(variant.title);
+              if (!candidateResultMatchesName(result, variant.title, name)) continue;
+              if (!isUsableCandidateResult(result)) continue;
+              candidates.push({ title: variant.title, itemLevel: variant.itemLevel, result });
+            } catch (_) {
+              /* Prefixsearch often returns wrapper or otherwise unusable
+                 pages. Failed candidate inspection is noise unless another
+                 validated page proves this is a true variant set. */
+            }
+          }
+          return candidates;
+        }
+
+        function itemFromDisambigCandidate(name, candidate) {
+          return {
+            name, slot: candidate.result.slot, stats: candidate.result.stats,
+            outcome: "auto-picked", pickedTitle: candidate.title, pickedItemLevel: candidate.itemLevel
+          };
         }
 
         async function fetchItem(name) {
@@ -488,21 +570,28 @@
               outcome: directCode === "no-tooltip" ? "no-tooltip" : "missing"
             };
           }
-          if (variants.some(v => v.itemLevel === null)) {
+
+          /* Prefixsearch is intentionally broad: for a crafted item such as
+             "Grove-tender's Robe" it can return the real item-level pages
+             alongside wrapper/noise pages like "Grove-tender's Robe Recipe".
+             Only pages whose tooltip looks like a usable item for the exact
+             exported name participate in ambiguity decisions. */
+          const candidates = await inspectDisambigCandidates(name, variants);
+          if (candidates.length === 0) {
+            return {
+              name, slot: "Unknown", stats: zeroStats(),
+              outcome: directCode === "no-tooltip" ? "no-tooltip" : "missing"
+            };
+          }
+          if (candidates.length === 1) {
+            return itemFromDisambigCandidate(name, candidates[0]);
+          }
+          if (candidates.some(v => v.itemLevel === null)) {
             return { name, slot: "Unknown", stats: zeroStats(), outcome: "needs-pick" };
           }
 
-          variants.sort((a, b) => b.itemLevel - a.itemLevel);
-          const pick = variants[0];
-          try {
-            const result = await fetchByTitle(pick.title);
-            return {
-              name, slot: result.slot, stats: result.stats,
-              outcome: "auto-picked", pickedTitle: pick.title, pickedItemLevel: pick.itemLevel
-            };
-          } catch (_) {
-            return { name, slot: "Unknown", stats: zeroStats(), outcome: "missing" };
-          }
+          candidates.sort((a, b) => b.itemLevel - a.itemLevel);
+          return itemFromDisambigCandidate(name, candidates[0]);
         }
 
         async function run() {
