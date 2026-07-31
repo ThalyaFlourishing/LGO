@@ -123,11 +123,10 @@ zero.
 
 ### Outcome-typed comments emitted by the bookmarklet
 
-The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. Six comment forms exist:
+The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. Five forms exist:
 
 ```
 # AUTO-PICKED highest-item-level variant: Item:Foo (Item Level 563)
-# AUTO-PICKED only valid wiki variant: Item:Foo (DPS)
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 # UNRESOLVED: wiki page has no Item Tooltip (likely legendary) — you should hand-edit stats
 # UNRESOLVED: no wiki page found — you should hand-edit stats
