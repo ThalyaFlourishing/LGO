@@ -496,10 +496,6 @@
           });
         }
 
-        function hasAnyStats(stats) {
-          return Object.keys(stats || {}).some(k => stats[k] !== 0);
-        }
-
         function candidateTitleMatchesName(title, name) {
           return namesMatch(titleBaseName(title), name);
         }
@@ -511,10 +507,6 @@
           return titleMatches || tooltipMatches;
         }
 
-        function isUsableCandidateResult(result) {
-          return result.slot !== "Unknown" || hasAnyStats(result.stats);
-        }
-
         async function inspectDisambigCandidates(name, variants) {
           const candidates = [];
           for (const variant of variants) {
@@ -522,7 +514,6 @@
             try {
               const result = await fetchByTitle(variant.title);
               if (!candidateResultMatchesName(result, variant.title, name)) continue;
-              if (!isUsableCandidateResult(result)) continue;
               candidates.push({ title: variant.title, itemLevel: variant.itemLevel, result });
             } catch (_) {
               /* Prefixsearch often returns wrapper or otherwise unusable
