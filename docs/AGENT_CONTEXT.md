@@ -123,18 +123,15 @@ zero.
 
 ### Outcome-typed comments emitted by the bookmarklet
 
-The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. The current comment forms are:
+The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. Five forms exist:
 
-```toml
+```
 # AUTO-PICKED highest-item-level variant: Item:Foo (Item Level 563)
-# AUTO-PICKED only valid wiki variant: Item:Foo (DPS)
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 # UNRESOLVED: wiki page has no Item Tooltip (likely legendary) — you should hand-edit stats
 # UNRESOLVED: no wiki page found — you should hand-edit stats
 # UNRESOLVED: fetch error — retry or you should hand-edit stats
 ```
-
-Both `# AUTO-PICKED ...` forms correspond to the `auto-picked` outcome; they differ only in why the candidate was chosen.
 
 See Bug 7 / Bug 9 for the rationale. The downstream `resolve-slots` step preserves these comments via `toml_edit`.
 
