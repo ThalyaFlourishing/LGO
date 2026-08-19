@@ -259,17 +259,19 @@
             out += "[[item]]\n";
             out += `slot               = \"${item.slot}\"\n`;
             out += `name               = \"${item.name.replace(/"/g, '\\\\"')}\"\n`;
-            if (item.outcome === "auto-picked") {
-              out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
-            } else if (item.outcome === "needs-pick") {
-              out += "# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats\n";
-            } else if (item.outcome === "no-tooltip") {
-              out += "# UNRESOLVED: wiki page has no Item Tooltip (likely legendary) — you should hand-edit stats\n";
-            } else if (item.outcome === "missing") {
-              out += "# UNRESOLVED: no wiki page found — you should hand-edit stats\n";
-            } else if (item.outcome === "fetch-error") {
-              out += "# UNRESOLVED: fetch error — retry or you should hand-edit stats\n";
-            }
+             if (item.outcome === "auto-picked") {
+               out += `# AUTO-PICKED highest-item-level variant: ${item.pickedTitle}\n`;
+             } else if (item.outcome === "needs-pick") {
+               out += "# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats\n";
+             } else if (item.outcome === "legendary") {
+               out += "# UNRESOLVED: legendary item — you should hand-edit stats\n";
+             } else if (item.outcome === "no-tooltip") {
+               out += "# UNRESOLVED: wiki page has no Item Tooltip — you should hand-edit stats\n";
+             } else if (item.outcome === "missing") {
+               out += "# UNRESOLVED: no wiki page found — you should hand-edit stats\n";
+             } else if (item.outcome === "fetch-error") {
+               out += "# UNRESOLVED: fetch error — retry or you should hand-edit stats\n";
+             }
             for (const key of TRACKED) {
               out += `${padKey(key)}= ${item.stats[key]}\n`;
             }
@@ -290,7 +292,10 @@
           const autoPicked = items.filter(i => i.outcome === "auto-picked");
           const needsPick  = items.filter(i => i.outcome === "needs-pick");
           const noUsable   = items.filter(i =>
-            i.outcome === "missing" || i.outcome === "no-tooltip" || i.outcome === "fetch-error"
+            i.outcome === "missing" ||
+            i.outcome === "no-tooltip" ||
+            i.outcome === "legendary" ||
+            i.outcome === "fetch-error"
           );
 
           const prior = document.getElementById("lgo-bookmarklet-output");
@@ -458,6 +463,20 @@
           const slotRaw = extractField(tpl, "slot");
           const attribRaw = extractField(tpl, "attrib");
           const armourRaw = extractField(tpl, "armour") || extractField(tpl, "armor");
+
+          /* Legendary items can expose a real Item Tooltip and even contain
+             parsable stats, but they are still not bookmarklet-resolvable in
+             the normal gear workflow and should remain manual-entry items.
+             Search the extracted tooltip template text itself rather than a
+             single category field, because different LI pages may place the
+             "Legendary Items" marker under different field names such as
+             first-category or second-category. */
+          if (/legendary items/i.test(tpl)) {
+            const e = new Error("Legendary item page");
+            e.code = "legendary";
+            throw e;
+          }
+
           const stats = parseAttribs(attribRaw);
           if (armourRaw) {
             const m = armourRaw.replace(/<[^>]+>/g, "").match(/\d[\d,]*/);
@@ -516,6 +535,9 @@
           }
           if (directResult) {
             return { name, slot: directResult.slot, stats: directResult.stats, outcome: "resolved" };
+          }
+          if (directCode === "legendary") {
+            return { name, slot: "Unknown", stats: zeroStats(), outcome: "legendary" };
           }
           if (directCode !== "missing-page" && directCode !== "no-tooltip") {
             return { name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" };

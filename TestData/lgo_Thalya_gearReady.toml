@@ -1,3 +1,4 @@
+# gearReady.toml updated: 08/19/26 01:18:39
 character = "Thalya"
 class = "Lore-master"
 
@@ -993,6 +994,43 @@ Parry                 = 0
 Evade                 = 6226
 PhysicalMitigation    = 3113
 TacticalMitigation    = 3113
+[item.EssenceTotals]
+Morale = 0
+Power = 0
+Armor = 0
+CriticalRating = 0
+Finesse = 0
+PhysicalMastery = 0
+TacticalMastery = 0
+OutgoingHealing = 0
+Resistance = 0
+CriticalDefense = 0
+IncomingHealing = 0
+Block = 0
+Parry = 0
+Evade = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+[[item]]
+slot = "Feet"
+name               = "Forgotten Elvish Healer's Shoes"
+Morale = 12384
+Power = 0
+Armor                 = 8398
+CriticalRating        = 4143
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 12429
+OutgoingHealing       = 0
+Resistance            = 10843
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 8286
+PhysicalMitigation    = 4143
+TacticalMitigation    = 19072
 [item.EssenceTotals]
 Morale = 0
 Power = 0
@@ -2214,43 +2252,6 @@ TacticalMitigation = 0
 
 [[item]]
 slot = "Ear (1)"
-name               = "Subtle Conscript's Earring"
-Morale = 13923
-Power = 0
-Armor                 = 0
-CriticalRating        = 0
-Finesse               = 24686
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7458
-[item.EssenceTotals]
-Morale = 0
-Power = 0
-Armor = 0
-CriticalRating = 0
-Finesse = 0
-PhysicalMastery = 0
-TacticalMastery = 0
-OutgoingHealing = 0
-Resistance = 0
-CriticalDefense = 0
-IncomingHealing = 0
-Block = 0
-Parry = 0
-Evade = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
-
-[[item]]
-slot = "Ear (1)"
 name               = "Ornate Conscript's Earring"
 Morale = 13923
 Power = 0
@@ -2944,46 +2945,6 @@ Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 0
 OutgoingHealing       = 5
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-[item.EssenceTotals]
-Morale = 0
-Power = 0
-Armor = 0
-CriticalRating = 0
-Finesse = 0
-PhysicalMastery = 0
-TacticalMastery = 0
-OutgoingHealing = 0
-Resistance = 0
-CriticalDefense = 0
-IncomingHealing = 0
-Block = 0
-Parry = 0
-Evade = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
-
-# --- Unknown (not in items DB) ---
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Boots"
-Morale = 0
-Power = 0
-# UNRESOLVED: no wiki page found — you should hand-edit stats
-Armor                 = 0
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
 IncomingHealing       = 0

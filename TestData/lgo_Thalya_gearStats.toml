@@ -307,13 +307,14 @@ TacticalMitigation    = 0
 Vitality              = 3692
 
 [[item]]
-slot               = "Main-hand"
+slot               = "Unknown"
 name               = "Legendary Lore-keeper's Staff"
+# UNRESOLVED: legendary item — you should hand-edit stats
 Armor                 = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
-TacticalMastery       = 449
+TacticalMastery       = 0
 OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
@@ -365,12 +366,13 @@ TacticalMitigation    = 0
 [[item]]
 slot               = "Unknown"
 name               = "Lore-master's Book"
+# UNRESOLVED: legendary item — you should hand-edit stats
 Armor                 = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 0
-OutgoingHealing       = 5
+OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
 IncomingHealing       = 0
@@ -420,25 +422,6 @@ TacticalMitigation    = 7458
 Vitality              = 2412
 Will                  = 3113
 Fate                  = 866
-
-[[item]]
-slot               = "Ear (1)"
-name               = "Subtle Conscript's Earring"
-Armor                 = 0
-CriticalRating        = 0
-Finesse               = 24686
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7458
-Vitality              = 3094
 
 [[item]]
 slot               = "Unknown"
@@ -898,23 +881,24 @@ Will                  = 2767
 Fate                  = 1733
 
 [[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Boots"
-# UNRESOLVED: no wiki page found — you should hand-edit stats
-Armor                 = 0
+slot               = "Feet"
+name               = "Forgotten Elvish Healer's Shoes"
+Armor                 = 8398
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 0
 OutgoingHealing       = 0
-Resistance            = 0
+Resistance            = 6700
 CriticalDefense       = 0
 IncomingHealing       = 0
 Block                 = 0
 Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
-TacticalMitigation    = 0
+TacticalMitigation    = 14929
+Vitality              = 2752
+Will                  = 4143
 
 [[item]]
 slot               = "Unknown"
