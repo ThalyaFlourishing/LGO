@@ -166,6 +166,44 @@
           return m ? m[1].trim() : "";
         }
 
+        function cleanWikiText(value) {
+          return String(value || "")
+            .replace(/<[^>]+>/g, "")
+            .replace(/\[\[([^|\]]*\|)?([^\]]+)\]\]/g, "$2")
+            .replace(/\{\{[^}]+\}\}/g, "")
+            .replace(/'''?/g, "")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&amp;/gi, "&")
+            .replace(/&#39;/g, "'")
+            .replace(/&quot;/gi, '"')
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function normalizedItemName(value) {
+          return cleanWikiText(value)
+            .replace(/^Item:/i, "")
+            .replace(/_/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function titleBaseName(title) {
+          return normalizedItemName(title).replace(/\s+\([^()]+\)$/, "").trim();
+        }
+
+        function namesMatch(a, b) {
+          return normalizedItemName(a) === normalizedItemName(b);
+        }
+
+        function candidateTitleMatchesName(title, name) {
+          return namesMatch(titleBaseName(title), name);
+        }
+
+        function filterDisambigVariantsByName(name, variants) {
+          return variants.filter(v => v.title && candidateTitleMatchesName(v.title, name));
+        }
+
         function parseAttribs(attribText) {
           const stats = zeroStats();
           const parts = attribText
@@ -432,7 +470,10 @@
           /* Calls the MediaWiki prefixsearch API for "Item:<name>" within
              LotRO-wiki's Item namespace (id=100). Returns an array of:
                { title: "Item:Foo (Item Level 563)", itemLevel: 563 }
-               { title: "Item:Foo (DPS)", itemLevel: null }
+               { title: "Item:Foo Recipe", itemLevel: null }
+             Prefixsearch is intentionally broad, so callers must still filter
+             these titles against the exported item name before making
+             ambiguity decisions.
              Returns [] on any failure; the caller treats empty as
              "no variants found". */
           const search = encodeURIComponent("Item:" + name);
@@ -480,7 +521,11 @@
             return { name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" };
           }
 
-          /* Direct lookup failed in a way disambiguation might rescue. */
+          /* Direct lookup failed in a way disambiguation might rescue.
+             Prefixsearch is intentionally broad and may return wrapper/noise
+             pages such as "... Recipe". Filter to titles whose base name
+             matches the exported item name before deciding whether the set is
+             ambiguous. */
           const variants = await findDisambigVariants(name);
           if (variants.length === 0) {
             return {
@@ -488,21 +533,46 @@
               outcome: directCode === "no-tooltip" ? "no-tooltip" : "missing"
             };
           }
-          if (variants.some(v => v.itemLevel === null)) {
-            return { name, slot: "Unknown", stats: zeroStats(), outcome: "needs-pick" };
+
+          const matchingVariants = filterDisambigVariantsByName(name, variants);
+          if (matchingVariants.length === 0) {
+            return {
+              name, slot: "Unknown", stats: zeroStats(),
+              outcome: directCode === "no-tooltip" ? "no-tooltip" : "missing"
+            };
           }
 
-          variants.sort((a, b) => b.itemLevel - a.itemLevel);
-          const pick = variants[0];
-          try {
-            const result = await fetchByTitle(pick.title);
-            return {
-              name, slot: result.slot, stats: result.stats,
-              outcome: "auto-picked", pickedTitle: pick.title, pickedItemLevel: pick.itemLevel
-            };
-          } catch (_) {
-            return { name, slot: "Unknown", stats: zeroStats(), outcome: "missing" };
+          const leveledVariants = matchingVariants.filter(v => v.itemLevel !== null);
+          const unleveledVariants = matchingVariants.filter(v => v.itemLevel === null);
+
+          if (leveledVariants.length > 0) {
+            leveledVariants.sort((a, b) => b.itemLevel - a.itemLevel);
+            const pick = leveledVariants[0];
+            try {
+              const result = await fetchByTitle(pick.title);
+              return {
+                name, slot: result.slot, stats: result.stats,
+                outcome: "auto-picked", pickedTitle: pick.title, pickedItemLevel: pick.itemLevel
+              };
+            } catch (_) {
+              return { name, slot: "Unknown", stats: zeroStats(), outcome: "missing" };
+            }
           }
+
+          if (unleveledVariants.length === 1) {
+            const pick = unleveledVariants[0];
+            try {
+              const result = await fetchByTitle(pick.title);
+              return {
+                name, slot: result.slot, stats: result.stats,
+                outcome: "auto-picked", pickedTitle: pick.title, pickedItemLevel: pick.itemLevel
+              };
+            } catch (_) {
+              return { name, slot: "Unknown", stats: zeroStats(), outcome: "missing" };
+            }
+          }
+
+          return { name, slot: "Unknown", stats: zeroStats(), outcome: "needs-pick" };
         }
 
         async function run() {

@@ -758,10 +758,10 @@ Vitality              = 886
 Fate                  = 661
 
 [[item]]
-slot               = "Unknown"
+slot               = "Chest"
 name               = "Grove-tender's Robe"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-Armor                 = 0
+# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
+Armor                 = 19371
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -773,8 +773,10 @@ IncomingHealing       = 0
 Block                 = 0
 Parry                 = 0
 Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
+PhysicalMitigation    = 2900
+TacticalMitigation    = 10157
+Vitality              = 2982
+Will                  = 3352
 
 [[item]]
 slot               = "Ear (1)"
