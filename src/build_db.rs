@@ -695,8 +695,7 @@ mod tests {
         </items>"#;
         let out = load_items_from_str("serialize", xml);
         let json = serde_json::to_string(&out).expect("serialize db");
-        let parsed: HashMap<String, CachedItem> =
-            serde_json::from_str(&json).expect("reparse db");
+        let parsed: HashMap<String, CachedItem> = serde_json::from_str(&json).expect("reparse db");
         assert!(parsed["Example Greatsword"].two_handed);
         assert!(!parsed["Example Dagger"].two_handed);
         // `false` is skipped during serialization, so the only occurrence of

@@ -434,7 +434,7 @@ fn resolve_toml_str_inner(
     if let Some(context) = context {
         apply_top_level_derivations(&mut doc, context)?;
     }
- 
+
     {
         let items_arr = doc
             .get_mut("item")
@@ -523,10 +523,7 @@ fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
     innate.set_position(0);
     innate.decor_mut().set_prefix("\n");
 
-    if let Some(items) = doc
-        .get_mut("item")
-        .and_then(|i| i.as_array_of_tables_mut())
-    {
+    if let Some(items) = doc.get_mut("item").and_then(|i| i.as_array_of_tables_mut()) {
         for (offset, table) in items.iter_mut().enumerate() {
             table.set_position(offset + 1);
         }
@@ -985,15 +982,6 @@ pub fn merge_into_canonical(
         }
     }
 
-
-
-
-
-
-
-
-
-
     if let Some(val) = incoming_doc.get("InnateStats").cloned() {
         let changed = prev_doc
             .get("InnateStats")
@@ -1004,17 +992,6 @@ pub fn merge_into_canonical(
             prev_doc.insert("InnateStats", val);
         }
     }
-
-
-
-
-
-
-
-
-
-
-
 
     let (mut incoming_by_name, incoming_order) = group_incoming_by_name(incoming_tables);
 
@@ -1166,9 +1143,9 @@ pub fn merge_into_canonical(
             path: PathBuf::from("<previous>"),
         })?;
     *prev_items = new_arr;
-    
+
     reorder_resolved_header_before_items(&mut prev_doc);
-    
+
     outcome.merged_text = apply_generated_timestamp_comment(&prev_doc.to_string());
     Ok(outcome)
 }
@@ -2339,8 +2316,7 @@ name = \"Test Helm\"\n\
 CriticalRating = 200\n";
         let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
 
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
         let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
         let item = doc
             .get("item")
@@ -2537,8 +2513,7 @@ name = \"Test Helm\"\n";
     #[test]
     fn merge_first_run_takes_incoming_modulo_timestamp() {
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
-        let outcome =
-            merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Helm"]);
         assert!(outcome.preserved.is_empty());
         assert!(outcome.removed.is_empty());
@@ -2560,8 +2535,7 @@ name = \"Test Helm\"\n";
             ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
             ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
         ]);
-        let outcome =
-            merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.added, vec!["Test Bracelet", "Test Bracelet"]);
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
@@ -2743,8 +2717,7 @@ Armor = 100\n";
             ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
         ]);
 
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.added, vec!["Test Bracelet"]);
@@ -2760,8 +2733,7 @@ Armor = 100\n";
         ]);
         let incoming = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
 
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.removed, vec!["Test Bracelet"]);
@@ -2781,8 +2753,7 @@ Armor = 100\n";
             ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
         ]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.removed.is_empty());
@@ -2801,8 +2772,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.removed, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(!outcome.merged_text.contains("Test Sword"));
@@ -2816,8 +2786,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome =
-            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
         assert!(
@@ -2980,8 +2949,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome =
-            merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
+        let outcome = merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert!(
             outcome
                 .merged_text
@@ -3116,8 +3084,8 @@ Armor = 100\n";
         );
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
-        let outcome = merge_ic(Some(&prev_resolved), &resolved, ForceMode::NoForce)
-            .expect("must merge");
+        let outcome =
+            merge_ic(Some(&prev_resolved), &resolved, ForceMode::NoForce).expect("must merge");
         assert!(
             outcome.merged_text.contains("Thalya"),
             "character must be injected into pre-existing canonical:\n{}",
@@ -3127,6 +3095,180 @@ Armor = 100\n";
             outcome.merged_text.contains("Lore-master"),
             "class must be injected into pre-existing canonical:\n{}",
             outcome.merged_text
+        );
+    }
+
+    // ── two_handed metadata ───────────────────────────────────────────────────
+
+    #[test]
+    fn lookup_two_handed_reflects_db_flag() {
+        let db = fixture_db();
+        assert!(db.lookup_two_handed("Test Greatsword"));
+        assert!(
+            !db.lookup_two_handed("Test Sword"),
+            "entry without two_handed in JSON must default false"
+        );
+        assert!(!db.lookup_two_handed("No Such Item"));
+    }
+
+    #[test]
+    fn resolved_two_handed_item_gains_flag_after_name_before_stats() {
+        let db = fixture_db();
+        let input = make_doc(&[("Test Greatsword", "Unknown", &[("Armor", 100)])]);
+        let (out, _) = resolve_toml_str(&input, &db).expect("must resolve");
+        assert!(
+            out.contains("name = \"Test Greatsword\"\ntwo_handed = true\nMorale"),
+            "two_handed must sit after name and before the stat block:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn resolved_one_handed_item_omits_and_strips_two_handed() {
+        let db = fixture_db();
+        // Stale user flag on a known one-handed weapon: the DB is the source
+        // of truth, so the flag must be removed, not preserved.
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+two_handed = true\n\
+Armor = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        assert!(
+            !out.contains("two_handed"),
+            "known one-handed item must not carry two_handed:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn unknown_item_preserves_user_two_handed_flag() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Main-hand\"\n\
+name = \"Renamed Legendary Greatclub\"\n\
+two_handed = true\n\
+Armor = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        assert!(
+            out.contains("two_handed = true"),
+            "hand-edited two_handed on an unknown item must survive:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn merge_refreshes_two_handed_into_preserved_block() {
+        let db = fixture_db();
+        // Previous canonical block predates two-handed support (no flag) and
+        // carries hand-edited stats + essence totals that must survive.
+        let prev = "\
+[[item]]\n\
+slot = \"Main-hand\"\n\
+name = \"Test Greatsword\"\n\
+Armor = 555\n\
+[item.EssenceTotals]\n\
+Morale = 77\n";
+        let incoming = make_doc(&[("Test Greatsword", "Unknown", &[("Armor", 100)])]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        let merged = &outcome.merged_text;
+        assert!(
+            merged.contains("two_handed = true"),
+            "preserved block must gain the generated flag:\n{}",
+            merged
+        );
+        assert!(
+            merged.contains("Armor = 555"),
+            "hand-edited stats must be preserved:\n{}",
+            merged
+        );
+        assert!(
+            merged.contains("Morale = 77"),
+            "hand-edited essence totals must be preserved:\n{}",
+            merged
+        );
+    }
+
+    #[test]
+    fn merge_removes_stale_two_handed_from_known_one_handed_item() {
+        let db = fixture_db();
+        let prev = "\
+[[item]]\n\
+slot = \"Main-hand\"\n\
+name = \"Test Sword\"\n\
+two_handed = true\n\
+Armor = 555\n";
+        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armor", 100)])]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        let merged = &outcome.merged_text;
+        assert!(
+            !merged.contains("two_handed"),
+            "stale flag on a known one-handed item must be removed:\n{}",
+            merged
+        );
+        assert!(
+            merged.contains("Armor = 555"),
+            "hand-edited stats must still be preserved:\n{}",
+            merged
+        );
+    }
+
+    #[test]
+    fn merge_preserves_user_two_handed_on_unknown_item() {
+        let db = fixture_db();
+        let prev = "\
+[[item]]\n\
+slot = \"Main-hand\"\n\
+name = \"Renamed Legendary Greatclub\"\n\
+two_handed = true\n\
+Armor = 555\n";
+        let incoming = make_doc(&[(
+            "Renamed Legendary Greatclub",
+            "Main-hand",
+            &[("Armor", 100)],
+        )]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        assert!(
+            outcome.merged_text.contains("two_handed = true"),
+            "user flag on an item not in the DB must be preserved:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn merge_with_two_handed_flag_is_idempotent_modulo_timestamp() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[
+            ("Test Greatsword", "Unknown", &[("Armor", 100)]),
+            ("Test Helm", "Unknown", &[("Armor", 50)]),
+        ]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_ic(Some(&second), &resolved, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+
+        assert!(first.contains("two_handed = true"));
+        assert_eq!(
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second)
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third)
         );
     }
 }
