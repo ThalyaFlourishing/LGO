@@ -74,6 +74,10 @@ struct Candidate {
     name: String,
     stats: HashMap<Stat, i64>,
     original_slot: Slot,
+    /// True for two-handed `MainHand` weapons: legal only with an empty
+    /// off-hand in the combined hand pool. Sourced from `GearItem.two_handed`
+    /// (the optimizer never consults the items DB directly).
+    two_handed: bool,
 }
 
 impl Candidate {
@@ -88,6 +92,7 @@ impl Candidate {
             name,
             stats: HashMap::new(),
             original_slot: slot,
+            two_handed: false,
         }
     }
 }
@@ -115,6 +120,36 @@ impl PairCandidate {
     }
 }
 
+/// A "super-candidate" for the combined hand pool: one legal
+/// `MainHand` + `OffHand` configuration and its combined stats. Two-handed
+/// main hands only ever appear here paired with the empty off-hand, which
+/// is how off-hand suppression is enforced structurally rather than by a
+/// search-time constraint.
+#[derive(Debug, Clone)]
+struct HandsCandidate {
+    main: Candidate,
+    off: Candidate,
+    combined: HashMap<Stat, i64>,
+}
+
+impl HandsCandidate {
+    fn new(main: Candidate, off: Candidate) -> Self {
+        let mut combined: HashMap<Stat, i64> = main.stats.clone();
+        for (s, v) in &off.stats {
+            *combined.entry(*s).or_insert(0) += v;
+        }
+        HandsCandidate {
+            main,
+            off,
+            combined,
+        }
+    }
+
+    fn stat(&self, s: &Stat) -> i64 {
+        self.combined.get(s).copied().unwrap_or(0)
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Choice {
     Single {
@@ -126,6 +161,10 @@ enum Choice {
         slot2: Slot,
         pair: PairCandidate,
     },
+    /// One combined `MainHand` + `OffHand` configuration; slots are implied.
+    Hands {
+        hands: HandsCandidate,
+    },
 }
 
 impl Choice {
@@ -133,6 +172,7 @@ impl Choice {
         match self {
             Choice::Single { candidate, .. } => candidate.stat(stat),
             Choice::Pair { pair, .. } => pair.stat(stat),
+            Choice::Hands { hands } => hands.stat(stat),
         }
     }
 
@@ -145,6 +185,11 @@ impl Choice {
             Choice::Single { candidate, .. } => vec![candidate.key.clone()],
             Choice::Pair { pair, .. } => {
                 let mut keys = vec![pair.a.key.clone(), pair.b.key.clone()];
+                keys.sort();
+                keys
+            }
+            Choice::Hands { hands } => {
+                let mut keys = vec![hands.main.key.clone(), hands.off.key.clone()];
                 keys.sort();
                 keys
             }
@@ -178,6 +223,19 @@ impl Choice {
                 gear_set
                     .items
                     .insert(*slot2, candidate_to_gear_item(item_for_slot2, *slot2));
+            }
+            Choice::Hands { hands } => {
+                // A two-handed main hand carries the `[empty Off-hand]` zero
+                // placeholder as its off component, so the report follows the
+                // existing empty-slot conventions with no special tagging.
+                gear_set.items.insert(
+                    Slot::MainHand,
+                    candidate_to_gear_item(&hands.main, Slot::MainHand),
+                );
+                gear_set.items.insert(
+                    Slot::OffHand,
+                    candidate_to_gear_item(&hands.off, Slot::OffHand),
+                );
             }
         }
     }
@@ -304,6 +362,7 @@ fn build_search_pools(
             name: cached.name.clone(),
             stats: cached.stats.clone(),
             original_slot: cached.slot,
+            two_handed: cached.two_handed,
         };
         pools.entry(canonical).or_default().push(cand);
     }
@@ -312,6 +371,18 @@ fn build_search_pools(
 
     for &slot in Slot::ALL {
         let canonical = canonical_slot(slot);
+        // Hand slots get their empty candidates inside build_hand_choices
+        // (pre-filling a zero here would duplicate them in the combined
+        // pool); only the missing-candidates warning is kept.
+        if canonical == Slot::MainHand || canonical == Slot::OffHand {
+            if !pools.contains_key(&canonical) {
+                warnings.push(format!(
+                    "Slot {}: no candidates found; using zero placeholder.",
+                    slot_display(slot)
+                ));
+            }
+            continue;
+        }
         pools.entry(canonical).or_insert_with(|| {
             warnings.push(format!(
                 "Slot {}: no candidates found; using zero placeholder.",
@@ -333,8 +404,23 @@ fn build_search_pools(
         if !seen.insert(canonical) {
             continue;
         }
+        // The two hand slots form one combined pool, built when MainHand is
+        // reached (it precedes OffHand in Slot::ALL). The per-slot candidate
+        // cap was already enforced on the source pools above; the combined
+        // pool is deliberately allowed to exceed it pre-dominance.
+        if canonical == Slot::OffHand {
+            continue;
+        }
 
-        let mut choices: Vec<Choice> = if paired_canonicals.contains(&canonical) {
+        let mut choices: Vec<Choice> = if canonical == Slot::MainHand {
+            build_hand_choices(
+                pools.get(&Slot::MainHand).map(Vec::as_slice).unwrap_or(&[]),
+                pools.get(&Slot::OffHand).map(Vec::as_slice).unwrap_or(&[]),
+            )
+            .into_iter()
+            .map(|hands| Choice::Hands { hands })
+            .collect()
+        } else if paired_canonicals.contains(&canonical) {
             build_pairs(
                 pools.get(&canonical).map(Vec::as_slice).unwrap_or(&[]),
                 canonical,
@@ -601,10 +687,50 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
     pairs
 }
 
+/// Enumerate every legal `MainHand` + `OffHand` configuration:
+///
+/// - two-handed main + empty off (a two-handed weapon blocks the off-hand,
+///   so it never combines with a real off-hand candidate),
+/// - one-handed main × each real off,
+/// - one-handed main + empty off (always emitted, not only when the
+///   off-hand pool is empty: dominance filtering discards it whenever a
+///   real off-hand is at least as good on every goal stat, so it costs
+///   nothing yet stays correct for off-hands with negative goal stats),
+/// - empty main × each real off,
+/// - empty main + empty off.
+fn build_hand_choices(main_pool: &[Candidate], off_pool: &[Candidate]) -> Vec<HandsCandidate> {
+    let empty_main = Candidate::zero(
+        format!("[empty {}]", slot_display(Slot::MainHand)),
+        Slot::MainHand,
+    );
+    let empty_off = Candidate::zero(
+        format!("[empty {}]", slot_display(Slot::OffHand)),
+        Slot::OffHand,
+    );
+
+    let mut hands = Vec::new();
+    for main in main_pool {
+        if main.two_handed {
+            hands.push(HandsCandidate::new(main.clone(), empty_off.clone()));
+        } else {
+            for off in off_pool {
+                hands.push(HandsCandidate::new(main.clone(), off.clone()));
+            }
+            hands.push(HandsCandidate::new(main.clone(), empty_off.clone()));
+        }
+    }
+    for off in off_pool {
+        hands.push(HandsCandidate::new(empty_main.clone(), off.clone()));
+    }
+    hands.push(HandsCandidate::new(empty_main, empty_off));
+    hands
+}
+
 fn candidate_to_gear_item(c: &Candidate, slot: Slot) -> GearItem {
     GearItem {
         name: c.name.clone(),
         slot,
+        two_handed: c.two_handed,
         stats: c.stats.clone(),
     }
 }
@@ -694,6 +820,16 @@ mod tests {
         CachedItem {
             name: name.to_string(),
             slot,
+            two_handed: false,
+            stats: stats.iter().copied().collect(),
+        }
+    }
+
+    fn make_cached_2h(name: &str, stats: &[(Stat, i64)]) -> CachedItem {
+        CachedItem {
+            name: name.to_string(),
+            slot: Slot::MainHand,
+            two_handed: true,
             stats: stats.iter().copied().collect(),
         }
     }
@@ -704,6 +840,7 @@ mod tests {
             &CachedItem {
                 name: name.to_string(),
                 slot,
+                two_handed: false,
                 stats: HashMap::new(),
             },
         )
@@ -1584,6 +1721,278 @@ mod tests {
         assert_eq!(result.gear_set.items[&Slot::Head].name, "ItemA");
     }
 
+    // ── Two-handed hand-pool tests ────────────────────────────────────────────
+
+    #[test]
+    fn test_two_handed_main_suppresses_attractive_off_hand() {
+        // The shield's 999 CR would beat the greatsword's lone 1000 if it
+        // could combine with it (1999); a two-handed main must never take a
+        // real off-hand, so the best legal build is greatsword + empty off.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Greatsword".into(),
+            make_cached_2h("Greatsword", &[(Stat::CriticalRating, 1000)]),
+        );
+        resolved.insert(
+            "Shield".into(),
+            make_cached("Shield", Slot::OffHand, &[(Stat::CriticalRating, 999)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &["Greatsword".to_string(), "Shield".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(result.gear_set.items[&Slot::MainHand].name, "Greatsword");
+        assert_eq!(
+            result.gear_set.items[&Slot::OffHand].name,
+            "[empty Off-hand]",
+            "two-handed main must block the off-hand slot"
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 1000);
+    }
+
+    #[test]
+    fn test_one_handed_main_combines_with_off_hand() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Sword".into(),
+            make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
+        );
+        resolved.insert(
+            "Shield".into(),
+            make_cached("Shield", Slot::OffHand, &[(Stat::CriticalRating, 50)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &["Sword".to_string(), "Shield".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(result.gear_set.items[&Slot::MainHand].name, "Sword");
+        assert_eq!(result.gear_set.items[&Slot::OffHand].name, "Shield");
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 150);
+    }
+
+    #[test]
+    fn test_prefers_one_handed_plus_off_hand_when_stats_better() {
+        // 1H (100) + off (50) = 150 beats 2H (120) + blocked off.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Greatsword".into(),
+            make_cached_2h("Greatsword", &[(Stat::CriticalRating, 120)]),
+        );
+        resolved.insert(
+            "Sword".into(),
+            make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
+        );
+        resolved.insert(
+            "Shield".into(),
+            make_cached("Shield", Slot::OffHand, &[(Stat::CriticalRating, 50)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &[
+                "Greatsword".to_string(),
+                "Sword".to_string(),
+                "Shield".to_string(),
+            ],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(result.gear_set.items[&Slot::MainHand].name, "Sword");
+        assert_eq!(result.gear_set.items[&Slot::OffHand].name, "Shield");
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 150);
+    }
+
+    #[test]
+    fn test_prefers_two_handed_when_stats_better() {
+        // 2H (200) beats 1H (100) + off (50) = 150.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Greatsword".into(),
+            make_cached_2h("Greatsword", &[(Stat::CriticalRating, 200)]),
+        );
+        resolved.insert(
+            "Sword".into(),
+            make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
+        );
+        resolved.insert(
+            "Shield".into(),
+            make_cached("Shield", Slot::OffHand, &[(Stat::CriticalRating, 50)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &[
+                "Greatsword".to_string(),
+                "Sword".to_string(),
+                "Shield".to_string(),
+            ],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(result.gear_set.items[&Slot::MainHand].name, "Greatsword");
+        assert_eq!(
+            result.gear_set.items[&Slot::OffHand].name,
+            "[empty Off-hand]"
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 200);
+    }
+
+    #[test]
+    fn test_empty_main_with_real_off_hand_is_legal() {
+        // Only main-hand candidate hurts the goal; the optimizer may leave
+        // the main hand empty and still equip the off-hand.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Cursed Greatsword".into(),
+            make_cached_2h("Cursed Greatsword", &[(Stat::CriticalRating, -10)]),
+        );
+        resolved.insert(
+            "Shield".into(),
+            make_cached("Shield", Slot::OffHand, &[(Stat::CriticalRating, 100)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &["Cursed Greatsword".to_string(), "Shield".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(
+            result.gear_set.items[&Slot::MainHand].name,
+            "[empty Main-hand]"
+        );
+        assert_eq!(result.gear_set.items[&Slot::OffHand].name, "Shield");
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 100);
+    }
+
+    #[test]
+    fn test_one_handed_with_negative_off_hand_prefers_empty_off() {
+        // The always-emitted 1H + empty-off combination must survive
+        // dominance filtering when every real off-hand hurts the goals.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Sword".into(),
+            make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
+        );
+        resolved.insert(
+            "Cursed Shield".into(),
+            make_cached(
+                "Cursed Shield",
+                Slot::OffHand,
+                &[(Stat::CriticalRating, -40)],
+            ),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &["Sword".to_string(), "Cursed Shield".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        assert_eq!(result.gear_set.items[&Slot::MainHand].name, "Sword");
+        assert_eq!(
+            result.gear_set.items[&Slot::OffHand].name,
+            "[empty Off-hand]"
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 100);
+    }
+
+    #[test]
+    fn test_full_hand_source_pools_are_allowed() {
+        // 8 main-hands × 8 off-hands respects the per-slot source caps; the
+        // combined hand pool may exceed MAX_CANDIDATES_PER_SLOT pre-dominance
+        // without tripping the cap check.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=8usize {
+            let main = format!("Main{}", i);
+            let cached = if i % 2 == 0 {
+                make_cached_2h(&main, &[(Stat::CriticalRating, i as i64 * 10)])
+            } else {
+                make_cached(
+                    &main,
+                    Slot::MainHand,
+                    &[(Stat::CriticalRating, i as i64 * 10)],
+                )
+            };
+            resolved.insert(main.clone(), cached);
+            names.push(main);
+            let off = format!("Off{}", i);
+            resolved.insert(
+                off.clone(),
+                make_cached(&off, Slot::OffHand, &[(Stat::CriticalRating, i as i64)]),
+            );
+            names.push(off);
+        }
+        let result = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        );
+        assert!(result.is_ok(), "combined hand pool must be exempt from cap");
+        // Best: Main8 (80, two-handed) beats Main7 (70, 1H) + Off8 (8) = 78.
+        let result = result.unwrap();
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 80);
+    }
+
+    #[test]
+    fn test_too_many_main_hand_candidates_is_refused() {
+        // The per-slot source cap still applies to each hand slot.
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for i in 1..=9usize {
+            let name = format!("Main{}", i);
+            resolved.insert(
+                name.clone(),
+                make_cached(&name, Slot::MainHand, &[(Stat::CriticalRating, i as i64)]),
+            );
+            names.push(name);
+        }
+        let err = optimize(
+            &resolved,
+            &names,
+            &[goal(Stat::CriticalRating, 0)],
+            &HashMap::new(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            *err,
+            OptimizeError::TooManyCandidates {
+                slot_label: "Main-hand".to_string(),
+                count: 9,
+                max: 8,
+            }
+        );
+    }
+
+    #[test]
+    fn test_missing_hand_slots_emit_placeholder_warnings() {
+        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        resolved.insert(
+            "Helm".into(),
+            make_cached("Helm", Slot::Head, &[(Stat::CriticalRating, 100)]),
+        );
+        let result = optimize_ok(
+            &resolved,
+            &["Helm".to_string()],
+            &[goal(Stat::CriticalRating, 0)],
+        );
+        for label in ["Main-hand", "Off-hand"] {
+            assert!(
+                result
+                    .warnings
+                    .iter()
+                    .any(|w| w.contains(label) && w.contains("no candidates found")),
+                "expected placeholder warning for {}: {:?}",
+                label,
+                result.warnings
+            );
+        }
+        assert_eq!(
+            result.gear_set.items[&Slot::MainHand].name,
+            "[empty Main-hand]"
+        );
+        assert_eq!(
+            result.gear_set.items[&Slot::OffHand].name,
+            "[empty Off-hand]"
+        );
+    }
+
     fn run_fuzzer_cases(case_count: usize, seed: u64) {
         let stats = [
             Stat::CriticalRating,
@@ -1598,6 +2007,8 @@ mod tests {
             Slot::Wrist1,
             Slot::Finger1,
             Slot::Ear1,
+            Slot::MainHand,
+            Slot::OffHand,
         ];
         let mut rng = Lcg::new(seed);
 
@@ -1630,7 +2041,15 @@ mod tests {
                         .iter()
                         .map(|stat| (*stat, rng.range_i64(-3, 15)))
                         .collect();
-                    resolved.insert(key.clone(), make_cached(&name, slot, &item_stats));
+                    // Half of the main-hand candidates are two-handed so the
+                    // fuzzer exercises every legal hand combination against
+                    // the oracle.
+                    let cached = if family == Slot::MainHand && rng.chance(1, 2) {
+                        make_cached_2h(&name, &item_stats)
+                    } else {
+                        make_cached(&name, slot, &item_stats)
+                    };
+                    resolved.insert(key.clone(), cached);
                     names.push(key);
                 }
             }

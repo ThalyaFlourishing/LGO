@@ -60,6 +60,16 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
 
         validate_item_keys(entry_table, &name)?;
 
+        let two_handed = match entry_table.get("two_handed") {
+            None => false,
+            Some(v) => v.as_bool().ok_or_else(|| {
+                format!(
+                    "Key `two_handed` for item `{}` must be a boolean (true/false).",
+                    name
+                )
+            })?,
+        };
+
         let slot = match parse_slot_str(slot_str) {
             Some(s) => s,
             None => {
@@ -96,7 +106,12 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             stats.retain(|_, value| *value != 0);
         }
 
-        items.push(GearItem { name, slot, stats });
+        items.push(GearItem {
+            name,
+            slot,
+            two_handed,
+            stats,
+        });
     }
 
     let character = doc
@@ -147,7 +162,12 @@ fn is_tracked_stat_key(key: &str) -> bool {
 
 fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
     for key in table.keys() {
-        if key == "slot" || key == "name" || key == ESSENCE_TOTALS_KEY || is_tracked_stat_key(key) {
+        if key == "slot"
+            || key == "name"
+            || key == "two_handed"
+            || key == ESSENCE_TOTALS_KEY
+            || is_tracked_stat_key(key)
+        {
             continue;
         }
         return Err(format!(
@@ -650,6 +670,78 @@ CritcalRating = 25
         assert!(err.contains("CritcalRating"));
         assert!(err.contains("item"));
         assert!(err.contains("Typo Helm"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    // ── two_handed parsing ─────────────────────────────────────────────────────
+
+    #[test]
+    fn read_stats_file_parses_two_handed_true() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Main-hand"
+name = "Example Greatsword"
+two_handed = true
+CriticalRating = 100
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.items.len(), 1);
+        assert!(result.items[0].two_handed);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_missing_two_handed_defaults_false() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Main-hand"
+name = "Example Dagger"
+CriticalRating = 100
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.items.len(), 1);
+        assert!(!result.items[0].two_handed);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_non_bool_two_handed() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Main-hand"
+name = "Example Greatsword"
+two_handed = "yes"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("non-bool two_handed must fail");
+        assert!(err.contains("two_handed"));
+        assert!(err.contains("Example Greatsword"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_rejects_two_handed_under_essence_totals() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Main-hand"
+name = "Example Greatsword"
+[item.EssenceTotals]
+two_handed = true
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("two_handed under EssenceTotals must fail");
+        assert!(err.contains("two_handed"));
+        assert!(err.contains("EssenceTotals"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 }
