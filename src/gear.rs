@@ -120,6 +120,11 @@ pub struct GearItem {
     /// Display name as returned by the plugin and used as wiki lookup key.
     pub name: String,
     pub slot: Slot,
+    /// True for two-handed `MainHand` weapons, which occupy both hand slots
+    /// and forbid any `OffHand` selection. Sourced from `precludedSlots` in
+    /// `data/items.xml`; false (and omitted from JSON) for everything else.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub two_handed: bool,
     /// All stats on this item. Missing stats are treated as 0.
     pub stats: HashMap<Stat, i64>,
 }
@@ -276,6 +281,7 @@ mod tests {
             GearItem {
                 name: "Test Helm".to_string(),
                 slot: Slot::Head,
+                two_handed: false,
                 stats: [(Stat::CriticalRating, 25)].into_iter().collect(),
             },
         );

@@ -74,6 +74,10 @@ struct Candidate {
     name: String,
     stats: HashMap<Stat, i64>,
     original_slot: Slot,
+    /// True for two-handed `MainHand` weapons: legal only with an empty
+    /// off-hand in the combined hand pool. Sourced from `GearItem.two_handed`
+    /// (the optimizer never consults the items DB directly).
+    two_handed: bool,
 }
 
 impl Candidate {
@@ -88,6 +92,7 @@ impl Candidate {
             name,
             stats: HashMap::new(),
             original_slot: slot,
+            two_handed: false,
         }
     }
 }
@@ -115,6 +120,32 @@ impl PairCandidate {
     }
 }
 
+/// A "super-candidate" for the combined hand pool: one legal
+/// `MainHand` + `OffHand` configuration and its combined stats. Two-handed
+/// main hands only ever appear here paired with the empty off-hand, which
+/// is how off-hand suppression is enforced structurally rather than by a
+/// search-time constraint.
+#[derive(Debug, Clone)]
+struct HandsCandidate {
+    main: Candidate,
+    off: Candidate,
+    combined: HashMap<Stat, i64>,
+}
+
+impl HandsCandidate {
+    fn new(main: Candidate, off: Candidate) -> Self {
+        let mut combined: HashMap<Stat, i64> = main.stats.clone();
+        for (s, v) in &off.stats {
+            *combined.entry(*s).or_insert(0) += v;
+        }
+        HandsCandidate { main, off, combined }
+    }
+
+    fn stat(&self, s: &Stat) -> i64 {
+        self.combined.get(s).copied().unwrap_or(0)
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Choice {
     Single {
@@ -126,6 +157,10 @@ enum Choice {
         slot2: Slot,
         pair: PairCandidate,
     },
+    /// One combined `MainHand` + `OffHand` configuration; slots are implied.
+    Hands {
+        hands: HandsCandidate,
+    },
 }
 
 impl Choice {
@@ -133,6 +168,7 @@ impl Choice {
         match self {
             Choice::Single { candidate, .. } => candidate.stat(stat),
             Choice::Pair { pair, .. } => pair.stat(stat),
+            Choice::Hands { hands } => hands.stat(stat),
         }
     }
 
@@ -145,6 +181,11 @@ impl Choice {
             Choice::Single { candidate, .. } => vec![candidate.key.clone()],
             Choice::Pair { pair, .. } => {
                 let mut keys = vec![pair.a.key.clone(), pair.b.key.clone()];
+                keys.sort();
+                keys
+            }
+            Choice::Hands { hands } => {
+                let mut keys = vec![hands.main.key.clone(), hands.off.key.clone()];
                 keys.sort();
                 keys
             }
@@ -178,6 +219,17 @@ impl Choice {
                 gear_set
                     .items
                     .insert(*slot2, candidate_to_gear_item(item_for_slot2, *slot2));
+            }
+            Choice::Hands { hands } => {
+                // A two-handed main hand carries the `[empty Off-hand]` zero
+                // placeholder as its off component, so the report follows the
+                // existing empty-slot conventions with no special tagging.
+                gear_set
+                    .items
+                    .insert(Slot::MainHand, candidate_to_gear_item(&hands.main, Slot::MainHand));
+                gear_set
+                    .items
+                    .insert(Slot::OffHand, candidate_to_gear_item(&hands.off, Slot::OffHand));
             }
         }
     }
@@ -304,6 +356,7 @@ fn build_search_pools(
             name: cached.name.clone(),
             stats: cached.stats.clone(),
             original_slot: cached.slot,
+            two_handed: cached.two_handed,
         };
         pools.entry(canonical).or_default().push(cand);
     }
@@ -312,6 +365,18 @@ fn build_search_pools(
 
     for &slot in Slot::ALL {
         let canonical = canonical_slot(slot);
+        // Hand slots get their empty candidates inside build_hand_choices
+        // (pre-filling a zero here would duplicate them in the combined
+        // pool); only the missing-candidates warning is kept.
+        if canonical == Slot::MainHand || canonical == Slot::OffHand {
+            if !pools.contains_key(&canonical) {
+                warnings.push(format!(
+                    "Slot {}: no candidates found; using zero placeholder.",
+                    slot_display(slot)
+                ));
+            }
+            continue;
+        }
         pools.entry(canonical).or_insert_with(|| {
             warnings.push(format!(
                 "Slot {}: no candidates found; using zero placeholder.",
@@ -333,8 +398,23 @@ fn build_search_pools(
         if !seen.insert(canonical) {
             continue;
         }
+        // The two hand slots form one combined pool, built when MainHand is
+        // reached (it precedes OffHand in Slot::ALL). The per-slot candidate
+        // cap was already enforced on the source pools above; the combined
+        // pool is deliberately allowed to exceed it pre-dominance.
+        if canonical == Slot::OffHand {
+            continue;
+        }
 
-        let mut choices: Vec<Choice> = if paired_canonicals.contains(&canonical) {
+        let mut choices: Vec<Choice> = if canonical == Slot::MainHand {
+            build_hand_choices(
+                pools.get(&Slot::MainHand).map(Vec::as_slice).unwrap_or(&[]),
+                pools.get(&Slot::OffHand).map(Vec::as_slice).unwrap_or(&[]),
+            )
+            .into_iter()
+            .map(|hands| Choice::Hands { hands })
+            .collect()
+        } else if paired_canonicals.contains(&canonical) {
             build_pairs(
                 pools.get(&canonical).map(Vec::as_slice).unwrap_or(&[]),
                 canonical,
@@ -601,10 +681,50 @@ fn build_pairs(pool: &[Candidate], slot1: Slot, slot2: Slot) -> Vec<PairCandidat
     pairs
 }
 
+/// Enumerate every legal `MainHand` + `OffHand` configuration:
+///
+/// - two-handed main + empty off (a two-handed weapon blocks the off-hand,
+///   so it never combines with a real off-hand candidate),
+/// - one-handed main × each real off,
+/// - one-handed main + empty off (always emitted, not only when the
+///   off-hand pool is empty: dominance filtering discards it whenever a
+///   real off-hand is at least as good on every goal stat, so it costs
+///   nothing yet stays correct for off-hands with negative goal stats),
+/// - empty main × each real off,
+/// - empty main + empty off.
+fn build_hand_choices(main_pool: &[Candidate], off_pool: &[Candidate]) -> Vec<HandsCandidate> {
+    let empty_main = Candidate::zero(
+        format!("[empty {}]", slot_display(Slot::MainHand)),
+        Slot::MainHand,
+    );
+    let empty_off = Candidate::zero(
+        format!("[empty {}]", slot_display(Slot::OffHand)),
+        Slot::OffHand,
+    );
+
+    let mut hands = Vec::new();
+    for main in main_pool {
+        if main.two_handed {
+            hands.push(HandsCandidate::new(main.clone(), empty_off.clone()));
+        } else {
+            for off in off_pool {
+                hands.push(HandsCandidate::new(main.clone(), off.clone()));
+            }
+            hands.push(HandsCandidate::new(main.clone(), empty_off.clone()));
+        }
+    }
+    for off in off_pool {
+        hands.push(HandsCandidate::new(empty_main.clone(), off.clone()));
+    }
+    hands.push(HandsCandidate::new(empty_main, empty_off));
+    hands
+}
+
 fn candidate_to_gear_item(c: &Candidate, slot: Slot) -> GearItem {
     GearItem {
         name: c.name.clone(),
         slot,
+        two_handed: c.two_handed,
         stats: c.stats.clone(),
     }
 }
@@ -694,6 +814,16 @@ mod tests {
         CachedItem {
             name: name.to_string(),
             slot,
+            two_handed: false,
+            stats: stats.iter().copied().collect(),
+        }
+    }
+
+    fn make_cached_2h(name: &str, stats: &[(Stat, i64)]) -> CachedItem {
+        CachedItem {
+            name: name.to_string(),
+            slot: Slot::MainHand,
+            two_handed: true,
             stats: stats.iter().copied().collect(),
         }
     }
@@ -704,6 +834,7 @@ mod tests {
             &CachedItem {
                 name: name.to_string(),
                 slot,
+                two_handed: false,
                 stats: HashMap::new(),
             },
         )

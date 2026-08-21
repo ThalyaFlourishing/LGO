@@ -199,6 +199,7 @@ fn load_items(
     let mut cur_name: Option<String> = None;
     let mut cur_slot: Option<Slot> = None;
     let mut cur_level: Option<i32> = None;
+    let mut cur_two_handed = false;
     let mut cur_stats: HashMap<Stat, i64> = HashMap::new();
     let mut in_stats = false;
 
@@ -222,12 +223,14 @@ fn load_items(
                             cur_name = None;
                             cur_slot = None;
                             cur_level = None;
+                            cur_two_handed = false;
                             cur_stats.clear();
                             in_stats = false;
                         } else {
                             cur_name = attrs.get("name").cloned();
                             cur_level = attrs.get("level").and_then(|v| v.parse().ok());
                             cur_slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
+                            cur_two_handed = is_two_handed(cur_slot, &attrs);
                             cur_stats.clear();
                             in_stats = false;
                         }
@@ -273,12 +276,14 @@ fn load_items(
                                     CachedItem {
                                         name,
                                         slot,
+                                        two_handed: cur_two_handed,
                                         stats: cur_stats.clone(),
                                     },
                                 );
                             }
                         }
                         cur_level = None;
+                        cur_two_handed = false;
                         cur_stats.clear();
                     }
                     _ => {}
@@ -341,6 +346,17 @@ fn handle_stat_element(
 }
 
 // ── Slot key mapping ──────────────────────────────────────────────────────────
+
+/// True when this XML item is a two-handed `MainHand` weapon: it carries a
+/// `precludedSlots` attribute referencing the off-hand. `precludedSlots` is
+/// the game data's marker that equipping the item blocks the `OFF_HAND`
+/// slot; only `MAIN_HAND` items carry it.
+fn is_two_handed(slot: Option<Slot>, attrs: &HashMap<String, String>) -> bool {
+    slot == Some(Slot::MainHand)
+        && attrs
+            .get("precludedSlots")
+            .is_some_and(|precluded| precluded.contains("OFF_HAND"))
+}
 
 fn parse_slot_key(s: &str) -> Option<Slot> {
     match s {
@@ -562,6 +578,7 @@ mod tests {
                 CachedItem {
                     name: name.clone(),
                     slot: Slot::Wrist1,
+                    two_handed: false,
                     stats: low_stats,
                 },
             );
@@ -577,6 +594,7 @@ mod tests {
                 CachedItem {
                     name: name.clone(),
                     slot: Slot::Wrist1,
+                    two_handed: false,
                     stats: high_stats,
                 },
             );
@@ -604,6 +622,7 @@ mod tests {
                 CachedItem {
                     name: name.clone(),
                     slot: Slot::Wrist1,
+                    two_handed: false,
                     stats: high_stats,
                 },
             );
@@ -620,11 +639,68 @@ mod tests {
                 CachedItem {
                     name: name.clone(),
                     slot: Slot::Wrist1,
+                    two_handed: false,
                     stats: low_stats,
                 },
             );
         }
 
         assert_eq!(out[&name].stats[&Stat::CriticalRating], 8713);
+    }
+
+    // ── Two-handed detection via precludedSlots ────────────────────────────────
+
+    /// Writes `xml` to a unique temp file and runs `load_items` on it.
+    fn load_items_from_str(label: &str, xml: &str) -> HashMap<String, CachedItem> {
+        let path = std::env::temp_dir().join(format!(
+            "lgo_build_db_test_{}_{}.xml",
+            label,
+            std::process::id()
+        ));
+        fs::write(&path, xml).expect("write temp xml");
+        let result = load_items(path.to_str().unwrap(), &HashMap::new());
+        let _ = fs::remove_file(&path);
+        result.expect("load_items should succeed")
+    }
+
+    #[test]
+    fn main_hand_with_precluded_slots_is_two_handed() {
+        let xml = r#"<items>
+            <item name="Example Greatsword" level="160" slot="MAIN_HAND" precludedSlots="OFF_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("two_handed", xml);
+        let item = &out["Example Greatsword"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(item.two_handed);
+    }
+
+    #[test]
+    fn main_hand_without_precluded_slots_is_one_handed() {
+        let xml = r#"<items>
+            <item name="Example Dagger" level="160" slot="MAIN_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("one_handed", xml);
+        let item = &out["Example Dagger"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(!item.two_handed);
+    }
+
+    #[test]
+    fn two_handed_flag_serializes_and_one_handed_flag_is_omitted() {
+        // The JSON DB is the transport for two-handedness into resolve-slots:
+        // `true` must round-trip and `false` must be omitted entirely.
+        let xml = r#"<items>
+            <item name="Example Greatsword" level="160" slot="MAIN_HAND" precludedSlots="OFF_HAND"></item>
+            <item name="Example Dagger" level="160" slot="MAIN_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("serialize", xml);
+        let json = serde_json::to_string(&out).expect("serialize db");
+        let parsed: HashMap<String, CachedItem> =
+            serde_json::from_str(&json).expect("reparse db");
+        assert!(parsed["Example Greatsword"].two_handed);
+        assert!(!parsed["Example Dagger"].two_handed);
+        // `false` is skipped during serialization, so the only occurrence of
+        // the key belongs to the greatsword.
+        assert_eq!(json.matches("two_handed").count(), 1);
     }
 }

@@ -49,11 +49,13 @@ pub struct ItemsDb {
     by_name: HashMap<String, Vec<DbItem>>,
 }
 
-/// A single resolved entry: an item name and its canonical equipment Slot.
+/// A single resolved entry: an item name, its canonical equipment Slot, and
+/// whether it is a two-handed `MainHand` weapon (occupies both hand slots).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DbItem {
     pub name: String,
     pub slot: Slot,
+    pub two_handed: bool,
 }
 
 /// Errors that can occur when loading or parsing the items DB.
@@ -110,6 +112,9 @@ impl std::error::Error for ItemsDbError {}
 struct RawEntry {
     name: String,
     slot: String,
+    /// Absent in DBs built before two-handed support; defaults to false.
+    #[serde(default)]
+    two_handed: bool,
 }
 
 impl ItemsDb {
@@ -149,6 +154,7 @@ impl ItemsDb {
             by_name.entry(entry.name.clone()).or_default().push(DbItem {
                 name: entry.name,
                 slot,
+                two_handed: entry.two_handed,
             });
         }
 
@@ -182,6 +188,16 @@ impl ItemsDb {
             .get(name)
             .and_then(|v| v.first())
             .map(|item| item.slot)
+    }
+
+    /// True when the named item is a two-handed `MainHand` weapon per the DB.
+    /// Unknown names return false — the resolver preserves any user-provided
+    /// `two_handed` flag for those instead of consulting the DB.
+    pub fn lookup_two_handed(&self, name: &str) -> bool {
+        self.by_name
+            .get(name)
+            .and_then(|v| v.first())
+            .is_some_and(|item| item.two_handed)
     }
 }
 
@@ -537,11 +553,6 @@ fn bucket_items(
     let mut outcomes: Vec<ResolutionOutcome> = Vec::new();
 
     for mut table in tables {
-        if let Some(context) = context {
-            canonicalize_item_stats(&mut table, context)?;
-        } else {
-            canonicalize_item_stats_without_derivations(&mut table);
-        }
         let name = table
             .get("name")
             .and_then(|v| v.as_str())
@@ -552,7 +563,23 @@ fn bucket_items(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
-        match db.lookup(&name) {
+        let db_slot = db.lookup(&name);
+        // Refresh generated two-handed metadata before canonicalization so
+        // the flag lands after `name` and before the re-inserted stat block
+        // (canonicalization removes all stat keys and re-appends them).
+        // Unknown items are left untouched: a user-provided `two_handed`
+        // flag on a hand-edited legendary/renamed item is preserved.
+        if db_slot.is_some() {
+            set_two_handed_flag(&mut table, db.lookup_two_handed(&name));
+        }
+
+        if let Some(context) = context {
+            canonicalize_item_stats(&mut table, context)?;
+        } else {
+            canonicalize_item_stats_without_derivations(&mut table);
+        }
+
+        match db_slot {
             Some(slot) => {
                 // Rewrite slot field to canonical Display form. Existing key
                 // decor (whitespace alignment) is preserved because we're
@@ -577,6 +604,23 @@ fn bucket_items(
     }
 
     Ok((buckets, unknowns, outcomes))
+}
+
+/// Enforce the DB-derived `two_handed` flag on an item table.
+///
+/// Generated metadata, not a user stat: the DB is the source of truth for
+/// items it knows, so any existing value (stale, hand-edited, or non-bool)
+/// is discarded. The key is re-inserted only when true — `gearReady.toml`
+/// omits the flag for one-handed items and "missing means false".
+///
+/// Call this *before* stat canonicalization: canonicalization strips and
+/// re-appends every stat key, which is what places `two_handed` after
+/// `name` and before the stat block in the rendered output.
+fn set_two_handed_flag(table: &mut Table, two_handed: bool) {
+    table.remove("two_handed");
+    if two_handed {
+        table.insert("two_handed", value(true));
+    }
 }
 
 fn canonicalize_item_stats(
@@ -879,9 +923,15 @@ pub struct MergeOutcome {
 /// `previous = None` is the first-run case: the canonical file is taken
 /// from `incoming_resolved` verbatim and every item is reported as
 /// `added`.
+///
+/// `db` is consulted to refresh generated metadata (`two_handed`) on merged
+/// item tables: preserving a previous block must not preserve a stale flag,
+/// and only the DB can distinguish "known one-handed item" (remove flag)
+/// from "unknown item" (preserve the user's hand-edited flag).
 pub fn merge_into_canonical(
     previous: Option<&str>,
     incoming_resolved: &str,
+    db: &ItemsDb,
     mut force: ForceMode,
 ) -> Result<MergeOutcome, ResolveError> {
     // Collect names whose resolved slot is still "Unknown" in incoming —
@@ -1069,7 +1119,15 @@ pub fn merge_into_canonical(
     // Regroup the merged set by canonical slot family. Strip any
     // pre-existing `# --- ... ---` divider lines from each table's prefix
     // first so dividers don't accumulate across runs (idempotency).
+    // Also refresh generated `two_handed` metadata from the DB: a preserved
+    // previous block must gain/lose the flag per current DB truth, while
+    // unknown items keep whatever the user wrote by hand.
     for t in &mut merged_tables {
+        if let Some(name) = table_name(t) {
+            if db.lookup(&name).is_some() {
+                set_two_handed_flag(t, db.lookup_two_handed(&name));
+            }
+        }
         canonicalize_item_stats_without_derivations(t);
         strip_family_dividers_from_prefix(t);
     }
@@ -1283,6 +1341,10 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 /// Compare two `[[item]]` tables on their canonical fields only:
 /// `name`, `slot`, tracked base stats, and tracked EssenceTotals stats. Comments, whitespace,
 /// and other decor are ignored.
+///
+/// `two_handed` is deliberately *not* compared: it is generated metadata
+/// that the merge refreshes from the DB unconditionally, so a flag-only
+/// difference must not trigger an overwrite prompt under `--force`.
 fn item_data_equal(a: &Table, b: &Table) -> bool {
     if table_str(a, "name") == table_str(b, "name") && table_str(a, "slot") == table_str(b, "slot")
     {
@@ -1521,7 +1583,7 @@ pub fn resolve_stats_file(
         None
     };
 
-    let outcome = merge_into_canonical(previous_src.as_deref(), &resolved_src, force).map_err(
+    let outcome = merge_into_canonical(previous_src.as_deref(), &resolved_src, db, force).map_err(
         |e| match e {
             ResolveError::ParseToml { path, source } if path == Path::new("<previous>") => {
                 ResolveError::ParseToml {
@@ -1578,6 +1640,8 @@ mod tests {
     /// Small synthetic fixture exercising five slot shapes:
     /// identity (Head), paired (Wrist1), weapon (MainHand), space-split
     /// (ClassItem), and an item with empty stats (legitimate in the real DB).
+    /// "Test Greatsword" additionally carries `two_handed: true` as emitted
+    /// by `build-db` for `MAIN_HAND` items with `precludedSlots`.
     const FIXTURE: &str = r#"{
         "Test Helm": {
             "name": "Test Helm",
@@ -1594,6 +1658,12 @@ mod tests {
             "slot": "MainHand",
             "stats": { "critical_rating": 50 }
         },
+        "Test Greatsword": {
+            "name": "Test Greatsword",
+            "slot": "MainHand",
+            "two_handed": true,
+            "stats": { "critical_rating": 80 }
+        },
         "Test Tome": {
             "name": "Test Tome",
             "slot": "ClassItem",
@@ -1609,17 +1679,27 @@ mod tests {
         ItemsDb::from_json_str(FIXTURE, dummy_path()).expect("fixture must parse")
     }
 
+    /// Test shorthand for `merge_into_canonical` against the shared fixture DB.
+    fn merge_ic(
+        previous: Option<&str>,
+        incoming_resolved: &str,
+        force: ForceMode,
+    ) -> Result<MergeOutcome, ResolveError> {
+        merge_into_canonical(previous, incoming_resolved, &fixture_db(), force)
+    }
+
     // -- ItemsDb tests (from step 3) --
 
     #[test]
     fn loads_fixture_and_resolves_known_items() {
         let db = fixture_db();
-        assert_eq!(db.len(), 4);
+        assert_eq!(db.len(), 5);
         assert!(!db.is_empty());
 
         assert_eq!(db.lookup("Test Helm"), Some(Slot::Head));
         assert_eq!(db.lookup("Test Bracelet"), Some(Slot::Wrist1));
         assert_eq!(db.lookup("Test Sword"), Some(Slot::MainHand));
+        assert_eq!(db.lookup("Test Greatsword"), Some(Slot::MainHand));
         assert_eq!(db.lookup("Test Tome"), Some(Slot::ClassItem));
     }
 
@@ -2260,7 +2340,7 @@ CriticalRating = 200\n";
         let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
 
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("merge");
         let doc: DocumentMut = outcome.merged_text.parse().expect("output parses");
         let item = doc
             .get("item")
@@ -2304,7 +2384,7 @@ name = \"Test Helm\"\n\
 CriticalRating = 200\n";
         let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
@@ -2458,7 +2538,7 @@ name = \"Test Helm\"\n";
     fn merge_first_run_takes_incoming_modulo_timestamp() {
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
         let outcome =
-            merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Helm"]);
         assert!(outcome.preserved.is_empty());
         assert!(outcome.removed.is_empty());
@@ -2481,7 +2561,7 @@ name = \"Test Helm\"\n";
             ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
         ]);
         let outcome =
-            merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.added, vec!["Test Bracelet", "Test Bracelet"]);
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
@@ -2500,10 +2580,10 @@ name = \"Test Helm\"\n";
             ("Test Bracelet", "Unknown", &[("Armor", 50)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
-        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
             .merged_text;
-        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
             .expect("second merge")
             .merged_text;
         assert_eq!(
@@ -2515,7 +2595,7 @@ name = \"Test Helm\"\n";
         );
 
         // And a third time, just to be sure dividers don't accumulate.
-        let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
+        let third = merge_ic(Some(&second), &resolved, ForceMode::NoForce)
             .expect("third merge")
             .merged_text;
         assert_eq!(
@@ -2541,7 +2621,7 @@ name = \"Test Helm\"\n";
         let db = fixture_db();
         let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
-        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
             .merged_text;
         let previous_with_extra_timestamp = first.replacen(
@@ -2550,7 +2630,7 @@ name = \"Test Helm\"\n";
             1,
         );
 
-        let second = merge_into_canonical(
+        let second = merge_ic(
             Some(&previous_with_extra_timestamp),
             &resolved,
             ForceMode::NoForce,
@@ -2579,13 +2659,13 @@ name = \"Test Helm\"\n";
             ("Test Bracelet", "Unknown", &[("Armor", 200)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
-        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
             .merged_text;
-        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
             .expect("second merge")
             .merged_text;
-        let third = merge_into_canonical(Some(&second), &resolved, ForceMode::NoForce)
+        let third = merge_ic(Some(&second), &resolved, ForceMode::NoForce)
             .expect("third merge")
             .merged_text;
 
@@ -2620,7 +2700,7 @@ Armor = 900\n";
             ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
         ]);
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(prev),
             &incoming,
             force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
@@ -2645,7 +2725,7 @@ name = \"Test Helm\"\n\
 Armor = 100\n";
         let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
 
-        let outcome = merge_into_canonical(Some(prev), &incoming, force_with(vec![]))
+        let outcome = merge_ic(Some(prev), &incoming, force_with(vec![]))
             .expect("must merge without prompting");
 
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
@@ -2664,7 +2744,7 @@ Armor = 100\n";
         ]);
 
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.added, vec!["Test Bracelet"]);
@@ -2681,7 +2761,7 @@ Armor = 100\n";
         let incoming = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
 
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.removed, vec!["Test Bracelet"]);
@@ -2702,7 +2782,7 @@ Armor = 100\n";
         ]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.removed.is_empty());
@@ -2722,7 +2802,7 @@ Armor = 100\n";
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.removed, vec!["Test Sword"]);
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(!outcome.merged_text.contains("Test Sword"));
@@ -2737,7 +2817,7 @@ Armor = 100\n";
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome =
-            merge_into_canonical(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
         assert!(
@@ -2755,7 +2835,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
@@ -2774,7 +2854,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![(PromptCategory::Overwrite, PromptAnswer::No)]),
@@ -2804,7 +2884,7 @@ Armor = 100\n";
 
         // Expect: first overwrite → 'a'; second overwrite never asked;
         // removal of "Test Sword" → still asked (independent).
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![
@@ -2829,7 +2909,7 @@ Armor = 100\n";
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         // Empty answer queue: any prompt would panic.
-        let outcome = merge_into_canonical(Some(&prev), &incoming, force_with(vec![]))
+        let outcome = merge_ic(Some(&prev), &incoming, force_with(vec![]))
             .expect("must merge with no prompts");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
@@ -2843,7 +2923,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![(PromptCategory::Remove, PromptAnswer::Yes)]),
@@ -2861,7 +2941,7 @@ Armor = 100\n";
         let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(
+        let outcome = merge_ic(
             Some(&prev),
             &incoming,
             force_with(vec![(PromptCategory::Remove, PromptAnswer::No)]),
@@ -2883,7 +2963,7 @@ slot = \"Unknown\"\n\
 name = \"Mystery Renamed Legendary\"\n\
 ";
         let (incoming, _) = resolve_toml_str(inc_in, &db).expect("resolve incoming");
-        let outcome = merge_into_canonical(None, &incoming, ForceMode::NoForce).expect("merge");
+        let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("merge");
         assert_eq!(outcome.unknown_slot, vec!["Mystery Renamed Legendary"]);
     }
 
@@ -2901,7 +2981,7 @@ Armor = 100\n";
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome =
-            merge_into_canonical(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
+            merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert!(
             outcome
                 .merged_text
@@ -2970,7 +3050,7 @@ Armor = 100\n";
             &[("Test Helm", "Unknown", &[("Armor", 100)])],
         );
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
-        let outcome = merge_into_canonical(None, &resolved, ForceMode::NoForce).expect("merge");
+        let outcome = merge_ic(None, &resolved, ForceMode::NoForce).expect("merge");
         assert!(
             outcome.merged_text.contains("Thalya"),
             "character must be in first-run canonical output:\n{}",
@@ -2994,12 +3074,12 @@ Armor = 100\n";
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
 
         // First run — creates canonical.
-        let first = merge_into_canonical(None, &resolved, ForceMode::NoForce)
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
             .merged_text;
 
         // Second run — merge back in.
-        let second = merge_into_canonical(Some(&first), &resolved, ForceMode::NoForce)
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
             .expect("second merge")
             .merged_text;
 
@@ -3036,7 +3116,7 @@ Armor = 100\n";
         );
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
-        let outcome = merge_into_canonical(Some(&prev_resolved), &resolved, ForceMode::NoForce)
+        let outcome = merge_ic(Some(&prev_resolved), &resolved, ForceMode::NoForce)
             .expect("must merge");
         assert!(
             outcome.merged_text.contains("Thalya"),
