@@ -121,6 +121,37 @@ base-vs-essence separation in the runtime model. Unknown stat keys in either the
 base item block or `EssenceTotals` are hard errors; omitted stats are treated as
 zero.
 
+### `two_handed` generated metadata
+
+Two-handed `Main-hand` items carry `two_handed = true` between `name` and the
+stat block:
+
+```toml
+[[item]]
+slot       = "Main-hand"
+name       = "Example Greatsword"
+two_handed = true
+# ...stats and [item.EssenceTotals] as usual...
+```
+
+- **Source of truth:** the `precludedSlots` attribute in `data/items.xml`
+  (present exactly on `MAIN_HAND` items that block `OFF_HAND`). `build-db`
+  emits `two_handed: true` into `data/lgo_items.json`, and `resolve-slots`
+  carries it into `gearReady.toml`. `optimize` never reads the items DB —
+  the TOML flag is its only source.
+- **Generated, not hand-edited:** on every merge, `resolve-slots` refreshes
+  the flag from the DB for items the DB knows (adding it or removing a stale
+  one) while still preserving hand-edited stats/essence totals. For items
+  *not* in the DB (legendary/renamed), a user-provided `two_handed = true`
+  is preserved.
+- The flag is omitted unless true; missing means false. It must never appear
+  under `[item.EssenceTotals]`.
+- **Optimizer effect:** `MainHand` + `OffHand` form one combined search pool
+  of legal hand configurations; a two-handed main hand only ever pairs with
+  an empty off-hand, which suppresses real off-hand candidates structurally.
+  The final report shows the usual empty-slot placeholder, with no
+  "2-Handed" tag.
+
 ### Outcome-typed comments emitted by the bookmarklet
 
 The bookmarklet annotates each `[[item]]` with an outcome-typed comment when resolution wasn't a clean direct hit. Five forms exist:

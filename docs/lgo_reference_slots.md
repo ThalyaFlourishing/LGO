@@ -39,3 +39,15 @@ Players do not need to unequip these items before running `/lgo export`.
 | 21           | Bridle     | Mount equipment |
 
 Note: Wrist, Finger, and Ear are paired slots handled by optimizer logic.
+
+## Main-hand / Off-hand special handling (two-handed weapons)
+
+`MainHand` and `OffHand` are optimized as one combined hand pool rather than
+two independent single slots. A `Main-hand` item flagged `two_handed = true`
+in `gearReady.toml` (sourced from `precludedSlots` in `data/items.xml` via
+`build-db` and `resolve-slots`) occupies both hand slots: the optimizer never
+combines it with a real `Off-hand` candidate and reports the off-hand as
+empty. One-handed main hands combine with off-hand candidates as before, and
+either hand slot may also be left empty when that is optimal. Note that
+`build_db` maps `EITHER_HAND` items to `Slot::OffHand` (a known modeling
+simplification).
