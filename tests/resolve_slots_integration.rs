@@ -1056,3 +1056,88 @@ fn current_plugindata_excludes_craft_tool_and_bridle() {
         "bridle (slot 21) must be absent from the current plugindata export"
     );
 }
+
+/// Regression test for the [InnateStats] position-drift bug.
+///
+/// toml_edit renders top-level tables by their internal `position` index,
+/// not map insertion order. Before the fix, `push_group` renumbered every
+/// [[item]] table to 0..n while [InnateStats] kept a stale position (from
+/// wherever it physically sat in the previous gearReady.toml), so the block
+/// drifted to a different mid-file location on every run — each run's
+/// output feeding the next run's input.
+///
+/// This test runs resolve_stats_file three times and asserts after every
+/// run that [InnateStats] sits between the `class = ...` line and the
+/// first `# --- Head ---` divider. Three runs matter: the first exercises
+/// first-run creation, the second exercises the merge path against a
+/// correct file, and the third catches any single-run-delayed drift.
+#[test]
+fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns() {
+    let dir = make_temp_dir("innate_position");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
+
+    // [InnateStats] is only derived when a plugindata export supplies base
+    // stats; copy the fixture in under the test character's name.
+    std::fs::copy(
+        current_plugindata_fixture_path(),
+        dir.join(format!(
+            "lgo_{}_gearNames_20260820_000000.plugindata",
+            character
+        )),
+    )
+    .expect("copy plugindata fixture");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+
+    for run in 1..=3 {
+        // Re-copy the bookmarklet output each iteration: resolve_stats_file
+        // consumes it, and each run must exercise a fresh export → merge.
+        std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+
+        let class_pos = out
+            .find("\nclass")
+            .unwrap_or_else(|| panic!("run {}: class line missing:\n{}", run, out));
+        let innate_pos = out
+            .find("[InnateStats]")
+            .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
+        let divider_pos = out
+            .find("# --- Head ---")
+            .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
+
+        assert_eq!(
+            out.matches("[InnateStats]").count(),
+            1,
+            "run {}: exactly one [InnateStats] block expected:\n{}",
+            run,
+            out
+        );
+        assert!(
+            class_pos < innate_pos,
+            "run {}: [InnateStats] must come after the class line (drift regression):\n{}",
+            run,
+            out
+        );
+        assert!(
+            innate_pos < divider_pos,
+            "run {}: [InnateStats] must come before the first slot divider (drift regression):\n{}",
+            run,
+            out
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

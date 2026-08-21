@@ -88,4 +88,55 @@ Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an 
 
 The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored `fetchItem` in `bookmarklet/lgo_bookmarklet.html`. `buildToml` and `renderResult` switch on the per-item `outcome` field to produce the typed TOML comments and the three-sub-list summary panel.
 
+### Bug 10 — `[InnateStats]` drifts to a different location on every `resolve-slots` run ✅ FIXED
+
+**Symptom:** the `[InnateStats]` block was supposed to sit in the file header of
+`lgo_<characterName>_gearReady.toml` — after `class = "..."`, before the first
+`# --- Head ---` divider. Instead it appeared at arbitrary mid-file or end-of-file
+positions, **and moved to a different position on each successive `resolve-slots`
+run even with identical bookmarklet input**. It looked exactly like a race
+condition / asynchronicity bug. It was neither.
+
+**Root cause (two-part):**
+
+1. **`toml_edit` renders top-level tables by each table's internal `position`
+   index, not by map insertion order.** The original
+   `reorder_resolved_header_before_items` did `doc.remove("InnateStats")` +
+   `doc.insert(...)` — which changes map order but is a **no-op for
+   serialization**. Meanwhile `push_group` explicitly renumbers every `[[item]]`
+   table to positions `0..n`, while `[InnateStats]` kept a stale position:
+   `None` when freshly built via `Table::new()`, or its original parse position
+   when carried forward from an existing `gearReady.toml`.
+
+2. **The canonical file is both output and next-run input**, so the stale
+   position compounded into drift: run N serializes `[InnateStats]` at whatever
+   spot its stale position dictates; run N+1 parses that file, picks up a *new*
+   stale position from the block's *new* physical location, renumbers the items
+   again, and emits the block somewhere else. Deterministic at every step —
+   but the observable position changed every run, masquerading as
+   nondeterminism.
+
+**Fix** (`Move-InnateStats-To-Top` branch): `reorder_resolved_header_before_items`
+now assigns positions explicitly — `innate.set_position(0)` and every `[[item]]`
+table shifted to `offset + 1` — and normalizes the block's prefix decor to a
+single blank line. Both call sites (`resolve_toml_str_inner` and
+`merge_into_canonical`) invoke it after the item array is rebuilt. Pinning the
+position also breaks the feedback loop, restoring idempotency across re-runs.
+(`character` / `class` need no handling: root-level *values* always serialize
+before any table.)
+
+**Regression test:**
+`tests/resolve_slots_integration.rs::file_level_innate_stats_stays_between_class_and_first_divider_across_reruns`
+runs `resolve_stats_file` three times end-to-end and asserts after every run
+that exactly one `[InnateStats]` block exists, positioned between the `class`
+line and the first `# --- Head ---` divider. Three runs matter: first-run
+creation, merge against a correct file, and single-run-delayed drift.
+
+**⚠ Lesson for future agents:** in `toml_edit`, moving a top-level table
+requires `set_position()` on it **and consistent renumbering of its sibling
+tables** — `remove()`/`insert()` alone never changes serialized order. And any
+bug affecting `gearReady.toml`'s layout will *compound across runs* because the
+file feeds back into the next merge; a bit-identical idempotency test (modulo
+the timestamp line) is the tripwire for this class of bug.
+
 ---

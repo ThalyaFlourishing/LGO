@@ -501,19 +501,22 @@ fn apply_top_level_derivations(
 }
 
 fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
-    let Some(innate_stats) = doc.remove("InnateStats") else {
+    let Some(innate) = doc.get_mut("InnateStats").and_then(|i| i.as_table_mut()) else {
         return;
     };
+    innate.set_position(0);
+    innate.decor_mut().set_prefix("\n");
 
-    let Some(item_array) = doc.remove("item") else {
-        doc.insert("InnateStats", innate_stats);
-        return;
-    };
-
-    doc.insert("InnateStats", innate_stats);
-    doc.insert("item", item_array);
+    if let Some(items) = doc
+        .get_mut("item")
+        .and_then(|i| i.as_array_of_tables_mut())
+    {
+        for (offset, table) in items.iter_mut().enumerate() {
+            table.set_position(offset + 1);
+        }
+    }
 }
- 
+
 /// Helper: bucket the input tables by canonical slot family (resolved) /
 /// unknown bucket (not in DB), and emit a `ResolutionOutcome` per item.
 #[allow(clippy::type_complexity)]
