@@ -1,6 +1,24 @@
-# gearReady.toml updated: 08/20/26 21:31:37
+# gearReady.toml updated: 08/20/26 21:54:01
 character = "Thalya"
 class = "Lore-master"
+
+[InnateStats]
+Morale = 45900
+Power = 6000
+Armor = 0
+CriticalRating = 21200
+Finesse = 10600
+PhysicalMastery = 0
+TacticalMastery = 39750
+OutgoingHealing = 0
+Resistance = 7950
+CriticalDefense = 0
+IncomingHealing = 0
+Block = 0
+Parry = 5300
+Evade = 18550
+PhysicalMitigation = 7950
+TacticalMitigation = 7950
 
 # --- Head ---
 
@@ -12,7 +30,7 @@ Power = 0
 Armor                 = 6181
 CriticalRating        = 27476
 Finesse               = 0
-PhysicalMastery       = 0
+PhysicalMastery       = 1927
 TacticalMastery       = 4158
 OutgoingHealing       = 0
 Resistance            = 1386
@@ -31,7 +49,7 @@ CriticalRating = 0
 Finesse = 0
 PhysicalMastery = 0
 TacticalMastery = 0
-OutgoingHealing = 0
+OutgoingHealing = 1000
 Resistance = 0
 CriticalDefense = 0
 IncomingHealing = 0
@@ -114,24 +132,6 @@ Parry = 0
 Evade = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
-
-[InnateStats]
-Morale = 45900
-Power = 6000
-Armor = 0
-CriticalRating = 21200
-Finesse = 10600
-PhysicalMastery = 0
-TacticalMastery = 39750
-OutgoingHealing = 0
-Resistance = 7950
-CriticalDefense = 0
-IncomingHealing = 0
-Block = 0
-Parry = 5300
-Evade = 18550
-PhysicalMitigation = 7950
-TacticalMitigation = 7950
 
 [[item]]
 slot = "Head"
