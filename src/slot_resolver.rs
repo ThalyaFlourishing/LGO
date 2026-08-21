@@ -948,12 +948,7 @@ pub fn merge_into_canonical(
             != Some(val.to_string());
         if changed {
             prev_doc.remove("InnateStats");
-            prev_doc.insert_formatted(
-                "InnateStats",
-                val,
-                "class",
-                toml_edit::Item::None,
-            );
+            prev_doc.insert("InnateStats", val);
         }
     }
 
@@ -1110,7 +1105,9 @@ pub fn merge_into_canonical(
             path: PathBuf::from("<previous>"),
         })?;
     *prev_items = new_arr;
-
+    
+    reorder_resolved_header_before_items(&mut prev_doc);
+    
     outcome.merged_text = apply_generated_timestamp_comment(&prev_doc.to_string());
     Ok(outcome)
 }
