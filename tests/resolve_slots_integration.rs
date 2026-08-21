@@ -513,6 +513,21 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
     )
     .expect("copy fixture");
 
+    // resolve_stats_file derives [InnateStats] from the latest plugindata
+    // export in the same directory. Without one, base stats are empty and
+    // apply_top_level_derivations returns early — no [InnateStats] block is
+    // ever emitted. Copy the fixture in, renamed so its `lgo_TestChar_` prefix
+    // matches the character under test (matching is case-insensitive on the
+    // character segment, but the prefix itself must be present).
+    std::fs::copy(
+        current_plugindata_fixture_path(),
+        dir.join(format!(
+            "lgo_{}_gearNames_20260820_000000.plugindata",
+            character
+        )),
+    )
+    .expect("copy plugindata fixture");
+
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
 
     let first_report = lgo::slot_resolver::resolve_stats_file(
