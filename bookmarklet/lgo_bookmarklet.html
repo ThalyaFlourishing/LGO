@@ -307,9 +307,14 @@
           const summary = document.createElement("div");
           summary.className = "summary";
           summary.innerHTML =
-            `<strong>Done.</strong> Resolved directly: ${resolved.length}, ` +
-            `auto-picked from disambiguation: ${autoPicked.length}, ` +
-            `you should hand-edit stats: ${needsPick.length + noUsable.length}`;
+            `<BR><strong>Done.</strong> Items resolved directly: ${resolved.length}\n` +
+            `<BR>Items auto-picked from disambiguation: ${autoPicked.length}\n` +
+            `<BR>Items for which you should hand-edit stats: ${needsPick.length + noUsable.length}\n` +
+            `<BR>Some items can\'t resolve. You\'ll have to enter them manually. e.g.\n` +
+            `<UL><LI> - LI\'s\: you\'ll have to enter them manually.\n` +
+            `<LI> - Socketed essences\n` +
+            `<LI> - Ambiguous items like \'Blade of the Traveler\'\n` +
+            `<LI> - By default, lgo always chooses the higher (crit success) level of crafted items and other leveled items. e.g. if an item exists as level 567 and also as level 569, the higher level is always chosen. Check the stats on such items and adjust them as needed.\n<\UL>`;
           wrap.appendChild(summary);
 
           function appendList(titleText, entries, formatEntry) {
