@@ -93,7 +93,7 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 
 ---
 
-## 5. `.toml` format expected by `gearstats::read_stats_file` includes sections near the top for `character`, `class`, and `[InnateStats]`. After that, the format for each item is as follows:
+## ## 5. `.toml` format expected by `gearstats::read_stats_file` begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. After that, the format for each item is as follows:
 
 ```toml
 [[item]]

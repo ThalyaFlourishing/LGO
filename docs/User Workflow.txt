@@ -89,7 +89,9 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     
    Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
 
-   Each item has normal stat lines for the base item plus an attached
+   Near the top of the file you will see the header fields `character`, 
+   `class`, and `[InnateStats]`. The item list begins after that. Each 
+   item has normal stat lines for the base item plus an attached
    [item.EssenceTotals] block. Put the sum of that item's socketed essence
    stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but
    resolve-slots writes every tracked stat explicitly to reduce copy/paste

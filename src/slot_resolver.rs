@@ -418,7 +418,7 @@ fn resolve_toml_str_inner(
     if let Some(context) = context {
         apply_top_level_derivations(&mut doc, context)?;
     }
-
+ 
     {
         let items_arr = doc
             .get_mut("item")
@@ -469,7 +469,7 @@ fn resolve_toml_str_inner(
         }
 
         *items_arr = new_arr;
-
+        reorder_resolved_header_before_items(&mut doc);
         // Stash outcomes in an outer-scope binding by returning early.
         Ok((doc.to_string(), outcomes_local))
     }
@@ -500,6 +500,20 @@ fn apply_top_level_derivations(
     Ok(())
 }
 
+fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
+    let Some(innate_stats) = doc.remove("InnateStats") else {
+        return;
+    };
+
+    let Some(item_array) = doc.remove("item") else {
+        doc.insert("InnateStats", innate_stats);
+        return;
+    };
+
+    doc.insert("InnateStats", innate_stats);
+    doc.insert("item", item_array);
+}
+ 
 /// Helper: bucket the input tables by canonical slot family (resolved) /
 /// unknown bucket (not in DB), and emit a `ResolutionOutcome` per item.
 #[allow(clippy::type_complexity)]
@@ -917,15 +931,42 @@ pub fn merge_into_canonical(
             }
         }
     }
+
+
+
+
+
+
+
+
+
+
     if let Some(val) = incoming_doc.get("InnateStats").cloned() {
-        if prev_doc
+        let changed = prev_doc
             .get("InnateStats")
             .map(|existing| existing.to_string())
-            != Some(val.to_string())
-        {
-            prev_doc.insert("InnateStats", val);
+            != Some(val.to_string());
+        if changed {
+            prev_doc.remove("InnateStats");
+            prev_doc.insert_formatted(
+                "InnateStats",
+                val,
+                "class",
+                toml_edit::Item::None,
+            );
         }
     }
+
+
+
+
+
+
+
+
+
+
+
 
     let (mut incoming_by_name, incoming_order) = group_incoming_by_name(incoming_tables);
 
@@ -1955,6 +1996,51 @@ name = \"Test Helm\"\n";
         assert!(!out.contains("Vitality ="));
         assert!(!out.contains("Will ="));
         assert!(!out.contains("Fate ="));
+    }
+
+    #[test]
+    fn resolver_places_innate_stats_as_last_pre_items_header_block() {
+        let db = fixture_db();
+        let derivations = BaseStatDerivations::load_default().expect("derivations load");
+        let base_stats: HashMap<Stat, i64> =
+            [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
+                .into_iter()
+                .collect();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+
+        let (out, _) = resolve_toml_str_with_derivations(
+            input,
+            &db,
+            &derivations,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+        )
+        .expect("must resolve with derivations");
+
+        let character_pos = out.find("character").expect("character field exists");
+        let class_pos = out.find("class").expect("class field exists");
+        let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
+        let item_pos = out.find("[[item]]").expect("item array exists");
+
+        assert!(
+            character_pos < class_pos,
+            "character should appear before class:\n{}",
+            out
+        );
+        assert!(
+            class_pos < innate_pos,
+            "class should appear before InnateStats:\n{}",
+            out
+        );
+        assert!(
+            innate_pos < item_pos,
+            "InnateStats should appear before the first [[item]] block:\n{}",
+            out
+        );
     }
 
     #[test]

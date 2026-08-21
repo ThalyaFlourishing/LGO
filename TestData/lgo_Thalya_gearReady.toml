@@ -1,4 +1,4 @@
-# gearReady.toml updated: 08/19/26 01:18:39
+# gearReady.toml updated: 08/20/26 19:46:09
 character = "Thalya"
 class = "Lore-master"
 
@@ -40,6 +40,24 @@ Parry = 0
 Evade = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+
+[InnateStats]
+Morale = 45900
+Power = 6000
+Armor = 0
+CriticalRating = 21200
+Finesse = 10600
+PhysicalMastery = 0
+TacticalMastery = 39750
+OutgoingHealing = 0
+Resistance = 7950
+CriticalDefense = 0
+IncomingHealing = 0
+Block = 0
+Parry = 5300
+Evade = 18550
+PhysicalMitigation = 7950
+TacticalMitigation = 7950
 
 [[item]]
 slot = "Head"
@@ -231,23 +249,23 @@ TacticalMitigation = 0
 [[item]]
 slot = "Chest"
 name               = "Grove-tender's Robe"
-Morale = 0
+Morale = 13419
 Power = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-Armor                 = 0
-CriticalRating        = 0
+# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
+Armor                 = 19371
+CriticalRating        = 3352
 Finesse               = 0
 PhysicalMastery       = 0
-TacticalMastery       = 0
+TacticalMastery       = 10056
 OutgoingHealing       = 0
-Resistance            = 0
+Resistance            = 3352
 CriticalDefense       = 0
 IncomingHealing       = 0
 Block                 = 0
 Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
+Evade                 = 6704
+PhysicalMitigation    = 6252
+TacticalMitigation    = 13509
 [item.EssenceTotals]
 Morale = 0
 Power = 0
@@ -903,6 +921,43 @@ TacticalMitigation = 0
 
 [[item]]
 slot = "Feet"
+name               = "Forgotten Elvish Healer's Shoes"
+Morale = 12384
+Power = 0
+Armor                 = 8398
+CriticalRating        = 4143
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 12429
+OutgoingHealing       = 0
+Resistance            = 10843
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 8286
+PhysicalMitigation    = 4143
+TacticalMitigation    = 19072
+[item.EssenceTotals]
+Morale = 0
+Power = 0
+Armor = 0
+CriticalRating = 0
+Finesse = 0
+PhysicalMastery = 0
+TacticalMastery = 0
+OutgoingHealing = 0
+Resistance = 0
+CriticalDefense = 0
+IncomingHealing = 0
+Block = 0
+Parry = 0
+Evade = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+[[item]]
+slot = "Feet"
 name               = "Umbari Veteran's Shoes"
 Morale = 12384
 Power = 4334
@@ -994,43 +1049,6 @@ Parry                 = 0
 Evade                 = 6226
 PhysicalMitigation    = 3113
 TacticalMitigation    = 3113
-[item.EssenceTotals]
-Morale = 0
-Power = 0
-Armor = 0
-CriticalRating = 0
-Finesse = 0
-PhysicalMastery = 0
-TacticalMastery = 0
-OutgoingHealing = 0
-Resistance = 0
-CriticalDefense = 0
-IncomingHealing = 0
-Block = 0
-Parry = 0
-Evade = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
-
-[[item]]
-slot = "Feet"
-name               = "Forgotten Elvish Healer's Shoes"
-Morale = 12384
-Power = 0
-Armor                 = 8398
-CriticalRating        = 4143
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 12429
-OutgoingHealing       = 0
-Resistance            = 10843
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 8286
-PhysicalMitigation    = 4143
-TacticalMitigation    = 19072
 [item.EssenceTotals]
 Morale = 0
 Power = 0
@@ -2631,11 +2649,12 @@ slot = "Main-hand"
 name               = "Legendary Lore-keeper's Staff"
 Morale = 0
 Power = 0
+# UNRESOLVED: legendary item — you should hand-edit stats
 Armor                 = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
-TacticalMastery       = 449
+TacticalMastery       = 0
 OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
@@ -2939,12 +2958,13 @@ slot = "Class Item"
 name               = "Lore-master's Book"
 Morale = 0
 Power = 0
+# UNRESOLVED: legendary item — you should hand-edit stats
 Armor                 = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 0
-OutgoingHealing       = 5
+OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
 IncomingHealing       = 0
@@ -2970,22 +2990,3 @@ Parry = 0
 Evade = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
-
-[InnateStats]
-Morale = 45900
-Power = 6000
-Armor = 0
-CriticalRating = 21200
-Finesse = 10600
-PhysicalMastery = 0
-TacticalMastery = 39750
-OutgoingHealing = 0
-Resistance = 7950
-CriticalDefense = 0
-IncomingHealing = 0
-Block = 0
-Parry = 5300
-Evade = 18550
-PhysicalMitigation = 7950
-TacticalMitigation = 7950
-

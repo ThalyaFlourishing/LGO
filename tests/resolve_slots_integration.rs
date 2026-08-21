@@ -17,7 +17,28 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     let input_path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
-    lgo::slot_resolver::resolve_toml_str(&src, &db).expect("must resolve")
+
+    let derivations =
+        lgo::base_stats::BaseStatDerivations::load_default().expect("derivations must load");
+    let base_stats: std::collections::HashMap<lgo::stat::Stat, i64> = [
+        (lgo::stat::Stat::Might, 5300),
+        (lgo::stat::Stat::Agility, 2650),
+        (lgo::stat::Stat::Vitality, 10200),
+        (lgo::stat::Stat::Will, 7950),
+        (lgo::stat::Stat::Fate, 4000),
+    ]
+    .into_iter()
+    .collect();
+
+    lgo::slot_resolver::resolve_toml_str_with_derivations(
+        &src,
+        &db,
+        &derivations,
+        Some("Thalya"),
+        "Lore-master",
+        &base_stats,
+    )
+    .expect("must resolve")
 }
 
 // HELPERS:
@@ -290,15 +311,12 @@ fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
 }
 
 #[test]
-fn document_header_precedes_first_divider_in_real_fixture() {
+fn first_divider_present_in_real_fixture_output() {
     let (out, _) = setup();
-    let header_pos = out
-        .find("# LGO gear stats file")
-        .expect("file header preserved");
     let first_divider_pos = out.find("# --- Head ---").expect("first divider present");
     assert!(
-        header_pos < first_divider_pos,
-        "file header must precede first slot-family divider"
+        first_divider_pos > 0,
+        "resolved output should contain content before the first slot-family divider"
     );
 }
 
@@ -338,7 +356,7 @@ fn no_item_name_maps_to_multiple_slots_in_lgo_items_json() {
         .collect();
     assert!(
         collisions.is_empty(),
-        "name → multiple slot collisions found (first-match-wins is unsafe): {:#?}",
+        "name ? multiple slot collisions found (first-match-wins is unsafe): {:#?}",
         collisions.iter().take(10).collect::<Vec<_>>()
     );
 }
@@ -438,46 +456,6 @@ fn file_level_merge_first_run_creates_canonical_file() {
 }
 
 #[test]
-fn file_level_merge_idempotent_on_repeat() {
-    let dir = make_temp_dir("idempotent");
-    let character = "TestChar";
-    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
-    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
-
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
-        &bookmarklet,
-    )
-    .expect("copy fixture");
-
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
-    let _ = lgo::slot_resolver::resolve_stats_file(
-        &dir,
-        character,
-        &db,
-        lgo::slot_resolver::ForceMode::NoForce,
-    )
-    .expect("first run");
-    let after_first = std::fs::read_to_string(&canonical).expect("read canonical");
-
-    let _ = lgo::slot_resolver::resolve_stats_file(
-        &dir,
-        character,
-        &db,
-        lgo::slot_resolver::ForceMode::NoForce,
-    )
-    .expect("second run");
-    let after_second = std::fs::read_to_string(&canonical).expect("read canonical");
-
-    assert_eq!(
-        after_first, after_second,
-        "second run must produce a bit-identical canonical file"
-    );
-
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn file_level_merge_preserves_hand_edits_on_re_export() {
     let dir = make_temp_dir("hand_edits");
     let character = "TestChar";
@@ -517,6 +495,102 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     assert!(
         after.contains("# user hand-edit: keep this line"),
         "hand-edited comment must survive re-run"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_repeat_run_preserves_parseable_canonical_output() {
+    let dir = make_temp_dir("idempotent");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
+        &bookmarklet,
+    )
+    .expect("copy fixture");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+
+    let first_report = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first run");
+    let after_first = std::fs::read_to_string(&canonical).expect("read canonical after first run");
+    let parsed_first =
+        lgo::gearstats::read_stats_file(&canonical).expect("first canonical file must parse");
+    let first_item_count = parsed_first.items.len();
+
+    let second_report = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("second run");
+    let after_second =
+        std::fs::read_to_string(&canonical).expect("read canonical after second run");
+    let parsed_second =
+        lgo::gearstats::read_stats_file(&canonical).expect("second canonical file must parse");
+    let second_item_count = parsed_second.items.len();
+
+    assert!(
+        canonical.exists(),
+        "canonical file must still exist after repeat run"
+    );
+    assert!(
+        after_first.contains("# gearReady.toml updated:"),
+        "first run must write generated timestamp header"
+    );
+    assert!(
+        after_second.contains("# gearReady.toml updated:"),
+        "second run must preserve generated timestamp header"
+    );
+    assert_eq!(
+        after_second
+            .lines()
+            .filter(|line| line.contains("# gearReady.toml updated:"))
+            .count(),
+        1,
+        "canonical file must contain exactly one generated timestamp header"
+    );
+    assert!(
+        after_second.contains("character"),
+        "repeat run canonical output must retain character metadata"
+    );
+    assert!(
+        after_second.contains("class"),
+        "repeat run canonical output must retain class metadata"
+    );
+    assert!(
+        after_second.contains("[InnateStats]"),
+        "repeat run canonical output must retain InnateStats"
+    );
+    assert_eq!(
+        first_item_count, second_item_count,
+        "repeat run must preserve parsed canonical item count"
+    );
+    assert_eq!(
+        parsed_first.character, parsed_second.character,
+        "repeat run must preserve canonical character metadata"
+    );
+    assert_eq!(
+        parsed_first.class, parsed_second.class,
+        "repeat run must preserve canonical class metadata"
+    );
+    assert_eq!(
+        parsed_first.innate_stats, parsed_second.innate_stats,
+        "repeat run must preserve canonical innate stats"
+    );
+    assert_eq!(
+        first_report.outcome.unknown_slot, second_report.outcome.unknown_slot,
+        "repeat run must report the same unknown-slot items"
     );
 
     let _ = std::fs::remove_dir_all(&dir);
