@@ -62,12 +62,6 @@
           "fate":                "Fate"
         };
 
-        /* Diagnostic accumulator: any tooltip-attrib stat name not found in
-           STAT_MAP after the rating-strip is recorded here, deduped, and
-           shown in the result panel. Helps surface new wiki vocabulary
-           (or genuinely-new stats) without a silent drop. See Bug 6.*/
-        const unknownStatNames = new Set();
-
         /* Slot resolution is now handled by the `resolve-slots` Rust subcommand
            (see docs/RESOLVER_DESIGN.md). The bookmarklet only does a best-effort
            direct mapping here; anything unrecognised is emitted as "Unknown" and
@@ -223,11 +217,6 @@
             const key = STAT_MAP[statName];
             if (key) {
               stats[key] += value;
-            } else {
-              /* Record (deduped) for the diagnostic panel. These are either
-                 genuinely-new stats LGO does not track or missing STAT_MAP
-                 aliases that need review.*/
-              unknownStatNames.add(rawName);
             }
           }
           return stats;
@@ -309,9 +298,9 @@
           summary.innerHTML =
             `<BR><strong>Done.</strong> Items resolved directly: ${resolved.length}\n` +
             `<BR>Items auto-picked from disambiguation: ${autoPicked.length}\n` +
-            `<BR>Items for which you should hand-edit stats: ${needsPick.length + noUsable.length}\n` +
-            `<BR>Some items can\'t resolve. You\'ll have to enter them manually. e.g.\n` +
-            `<UL><LI> - LI\'s\: you\'ll have to enter them manually.\n` +
+            `<BR>Items for which you should hand-edit stats: ${needsPick.length + noUsable.length}\n` + 
+            `<BR>Some items can\'t resolve. You\'ll have to enter them manually. e.g.\n` + 
+            `<UL><LI> - LI\'s\n` +
             `<LI> - Socketed essences\n` +
             `<LI> - Ambiguous items like \'Blade of the Traveler\'\n` +
             `<LI> - By default, lgo always chooses the higher (crit success) level of crafted items and other leveled items. e.g. if an item exists as level 567 and also as level 569, the higher level is always chosen. Check the stats on such items and adjust them as needed.\n<\UL>`;
@@ -322,6 +311,7 @@
             const title = document.createElement("div");
             title.textContent = titleText;
             title.style.marginTop = "1rem";
+            /* title.style.color = "#b00020";   // red */
             wrap.appendChild(title);
             const list = document.createElement("ul");
             for (const e of entries) {
@@ -333,34 +323,20 @@
           }
 
           appendList(
-            "Auto-resolved via disambiguation: highest item level assumed:",
+            "These were auto-resolved via disambiguation: so the highest item level was assumed. Check the item level and hand-edit if it's wrong:",
             autoPicked,
             e => `${e.name} → ${e.pickedTitle}`
           );
           appendList(
-            "Multiple variants exist; auto-pick declined — you should hand-edit stats:",
+            "Multiple variants of these exist; so auto-pick was declined — you should hand-edit their stats:",
             needsPick,
             e => e.name
           );
           appendList(
-            "No usable wiki page — you should hand-edit stats:",
+            "No usable wiki pages for these were found — you should hand-edit their stats:",
             noUsable,
             e => `${e.name} (${e.outcome})`
           );
-
-          if (unknownStatNames.size > 0) {
-            const title = document.createElement("div");
-            title.textContent = "Unrecognised stat names (not added to TOML — likely a genuinely untracked stat or missing STAT_MAP alias):";
-            wrap.appendChild(title);
-            const list = document.createElement("ul");
-            const sorted = Array.from(unknownStatNames).sort();
-            for (const n of sorted) {
-              const li = document.createElement("li");
-              li.textContent = n;
-              list.appendChild(li);
-            }
-            wrap.appendChild(list);
-          }
 
           const saveBtn = document.createElement("button");
           saveBtn.textContent = "Save TOML...";
