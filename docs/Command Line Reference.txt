@@ -174,14 +174,14 @@ Build the items database (data/lgo_items.json):
   Dev: cargo run --release -- build-db
   User: lgo build-db
 
-This reads data/items.xml and data/progressions.xml and produces 'data/lgo_items.json'.
+This reads data/items.xml and produces 'data/lgo_items.json' — each item's canonical slot plus the two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
 
 The JSON file is consumed by resolve-slots.
 
-Working directory matters. db_build resolves data/items.xml, data/progressions.xml, and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps). Alternatively they can pass explicit paths:
+Working directory matters. db_build resolves data/items.xml and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps). Alternatively they can pass explicit paths:
 
-cargo run --release -- build-db --items   data/items.xml --progressions   data/progressions.xml --out   data/lgo_items.json
-                       db_build --items <path>\items.xml --progressions <path>\progressions.xml --out <path>\lgo_items.json
+cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
+                       db_build --items <path>\items.xml --out <path>\lgo_items.json
 
 
 

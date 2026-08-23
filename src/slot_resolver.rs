@@ -105,9 +105,10 @@ impl std::error::Error for ItemsDbError {}
 
 /// Raw shape of an entry in `data/lgo_items.json`.
 ///
-/// The actual file also has a `stats` field, but the resolver doesn't care
-/// about stats — only slots. Serde silently ignores unknown fields by
-/// default, so the `stats` object is skipped without ceremony.
+/// The DB carries only `name`, `slot`, and (for two-handed weapons)
+/// `two_handed` — stats come from the bookmarklet, not the DB. Serde
+/// silently ignores unknown fields by default, so old DBs that still
+/// carry a `stats` object are tolerated without ceremony.
 #[derive(Debug, Deserialize)]
 struct RawEntry {
     name: String,
@@ -134,7 +135,7 @@ impl ItemsDb {
 
     /// Parse a JSON string. Split out from `load` so tests can avoid disk I/O.
     pub fn from_json_str(json: &str, path_for_errors: &Path) -> Result<Self, ItemsDbError> {
-        // Top-level shape: { "<item name>": { name, slot, stats }, ... }
+        // Top-level shape: { "<item name>": { name, slot[, two_handed] }, ... }
         let raw: HashMap<String, RawEntry> =
             serde_json::from_str(json).map_err(|e| ItemsDbError::ParseJson {
                 path: path_for_errors.to_path_buf(),
@@ -1614,37 +1615,32 @@ mod tests {
     type TestStats<'a> = &'a [(&'a str, i64)];
     type TestItem<'a> = (&'a str, &'a str, TestStats<'a>);
 
-    /// Small synthetic fixture exercising five slot shapes:
-    /// identity (Head), paired (Wrist1), weapon (MainHand), space-split
-    /// (ClassItem), and an item with empty stats (legitimate in the real DB).
+    /// Small synthetic fixture exercising four slot shapes:
+    /// identity (Head), paired (Wrist1), weapon (MainHand), and space-split
+    /// (ClassItem).
     /// "Test Greatsword" additionally carries `two_handed: true` as emitted
     /// by `build-db` for `MAIN_HAND` items with `precludedSlots`.
     const FIXTURE: &str = r#"{
         "Test Helm": {
             "name": "Test Helm",
-            "slot": "Head",
-            "stats": {}
+            "slot": "Head"
         },
         "Test Bracelet": {
             "name": "Test Bracelet",
-            "slot": "Wrist1",
-            "stats": { "armor": 100 }
+            "slot": "Wrist1"
         },
         "Test Sword": {
             "name": "Test Sword",
-            "slot": "MainHand",
-            "stats": { "critical_rating": 50 }
+            "slot": "MainHand"
         },
         "Test Greatsword": {
             "name": "Test Greatsword",
             "slot": "MainHand",
-            "two_handed": true,
-            "stats": { "critical_rating": 80 }
+            "two_handed": true
         },
         "Test Tome": {
             "name": "Test Tome",
-            "slot": "ClassItem",
-            "stats": {}
+            "slot": "ClassItem"
         }
     }"#;
 
@@ -1692,8 +1688,7 @@ mod tests {
         let bad = r#"{
             "Bad Item": {
                 "name": "Bad Item",
-                "slot": "Frobnicate",
-                "stats": {}
+                "slot": "Frobnicate"
             }
         }"#;
         let err =
@@ -1715,8 +1710,7 @@ mod tests {
         let bad = r#"{
             "Mining Pick": {
                 "name": "Mining Pick",
-                "slot": "CraftItem",
-                "stats": {}
+                "slot": "CraftItem"
             }
         }"#;
         let err = ItemsDb::from_json_str(bad, dummy_path()).expect_err("excluded slot must error");
@@ -1765,7 +1759,7 @@ mod tests {
 
     /// Confirms `data/lgo_items.json` actually loads end-to-end with the
     /// expected schema. Skipped in regular `cargo test` runs because it
-    /// requires the 8 MB file on disk. To run it:
+    /// requires the 5 MB file on disk. To run it:
     ///
     ///     cargo test -- --ignored
     #[test]

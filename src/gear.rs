@@ -129,7 +129,19 @@ pub struct GearItem {
     pub stats: HashMap<Stat, i64>,
 }
 
-pub type CachedItem = GearItem;
+/// One entry in the offline items DB (`data/lgo_items.json`): the item's
+/// canonical slot plus the `two_handed` flag. Item stats come from the
+/// bookmarklet, not the DB, so no stats are carried here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedItem {
+    /// Display name as it appears in `data/items.xml`; also the map key.
+    pub name: String,
+    pub slot: Slot,
+    /// True for two-handed `MainHand` weapons (from `precludedSlots` in
+    /// `data/items.xml`); false (and omitted from JSON) for everything else.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub two_handed: bool,
+}
 
 /// Synthetic optimizer key for one TOML item instance.
 ///

@@ -47,8 +47,8 @@ a final optimization report according to user's specified stats of interest.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right progress panel, and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). `mapSlot()` returns `"Unknown"` for any wiki vocabulary not in `SLOT_MAP` (Bug 2 fix).
-- `data/items.xml` (~71 MB), `data/lgo_items.json` (~8 MB), `data/progressions.xml` (~3.6 MB) — canonical game data dumps.
-- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml` + `data/progressions.xml`, writes `data/lgo_items.json`. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
+- `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
+- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` flag) index; no stats (those come from the bookmarklet). Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — fresh in-game plugin export (input for the bookmarklet).
   - `lgo_Thalya_gearStats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
@@ -183,7 +183,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 - The `bing-search` tool returns LLM-summarized results, not raw page content. It is the **wrong instrument** for "what does this wiki template actually say." For wiki source, ask the user to open the page in a browser and view source.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
-- `data/lgo_items.json` (~8 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
+- `data/lgo_items.json` (~5 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
 - Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 16-stat list. Do not invent or paraphrase.
 - Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
