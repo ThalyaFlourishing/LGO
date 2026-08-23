@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::gear::{CachedItem, GearItem, GearSet, Slot};
+use crate::gear::{GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ struct SearchBuild {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn optimize(
-    resolved: &HashMap<String, CachedItem>,
+    resolved: &HashMap<String, GearItem>,
     candidates: &[String],
     goals: &[StatGoal],
     innate_stats: &HashMap<Stat, i64>,
@@ -340,7 +340,7 @@ fn should_replace_best(
 // ── Exact production search ──────────────────────────────────────────────────
 
 fn build_search_pools(
-    resolved: &HashMap<String, CachedItem>,
+    resolved: &HashMap<String, GearItem>,
     candidates: &[String],
     goals: &[StatGoal],
     apply_dominance: bool,
@@ -816,8 +816,8 @@ mod tests {
         }
     }
 
-    fn make_cached(name: &str, slot: Slot, stats: &[(Stat, i64)]) -> CachedItem {
-        CachedItem {
+    fn make_cached(name: &str, slot: Slot, stats: &[(Stat, i64)]) -> GearItem {
+        GearItem {
             name: name.to_string(),
             slot,
             two_handed: false,
@@ -825,8 +825,8 @@ mod tests {
         }
     }
 
-    fn make_cached_2h(name: &str, stats: &[(Stat, i64)]) -> CachedItem {
-        CachedItem {
+    fn make_cached_2h(name: &str, stats: &[(Stat, i64)]) -> GearItem {
+        GearItem {
             name: name.to_string(),
             slot: Slot::MainHand,
             two_handed: true,
@@ -837,7 +837,7 @@ mod tests {
     fn instance_key(idx: usize, slot: Slot, name: &str) -> String {
         crate::gear::optimizer_candidate_key(
             idx,
-            &CachedItem {
+            &GearItem {
                 name: name.to_string(),
                 slot,
                 two_handed: false,
@@ -851,7 +851,7 @@ mod tests {
     }
 
     fn optimize_ok(
-        resolved: &HashMap<String, CachedItem>,
+        resolved: &HashMap<String, GearItem>,
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
@@ -859,7 +859,7 @@ mod tests {
     }
 
     fn single_slot_result(
-        resolved: &HashMap<String, CachedItem>,
+        resolved: &HashMap<String, GearItem>,
         names: &[&str],
         goals: Vec<StatGoal>,
         slot: Slot,
@@ -882,7 +882,7 @@ mod tests {
     }
 
     fn oracle_optimize(
-        resolved: &HashMap<String, CachedItem>,
+        resolved: &HashMap<String, GearItem>,
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
@@ -1038,7 +1038,7 @@ mod tests {
     #[test]
     fn test_spec_run1_c2_wins() {
         // C2 is the first candidate to meet all four minima exactly enough; extra CR/TT elsewhere does not matter.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         for (name, cr, tm, fnv, tt) in [
             ("C1", 480, 420, 310, 190),
             ("C2", 500, 450, 310, 200),
@@ -1077,7 +1077,7 @@ mod tests {
 
     #[test]
     fn test_spec_run1_feasible() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "C2".into(),
             make_cached(
@@ -1105,7 +1105,7 @@ mod tests {
     #[test]
     fn test_spec_run2_c6_wins_infeasible() {
         // Neither candidate is feasible, so the comparator prefers the stronger first-goal progress on CR.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "C6".into(),
             make_cached(
@@ -1145,7 +1145,7 @@ mod tests {
 
     #[test]
     fn innate_stats_seed_search_goal_totals() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "A".into(),
             make_cached("A", Slot::Chest, &[(Stat::CriticalRating, 50)]),
@@ -1183,7 +1183,7 @@ mod tests {
     #[test]
     fn test_c5_over_c4_same_slot() {
         // Both meet CR/FN/TT, so hitting the TM minimum with C5 beats C4's extra CR.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "C4".into(),
             make_cached(
@@ -1223,7 +1223,7 @@ mod tests {
     #[test]
     fn dominance_safety_keeps_lower_priority_met_ratchet_candidate() {
         // Dominance filtering must keep the build that preserves the later-goal ratchet, then match the brute-force oracle.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Balanced".into(),
             make_cached(
@@ -1269,7 +1269,7 @@ mod tests {
     #[test]
     fn branch_and_bound_exactness_rejects_high_priority_overshoot_for_lower_goal() {
         // Exact search must honor Stage 1 minima before Stage 3 overflow, so 10/10 beats 100/0.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Overshoot".into(),
             make_cached(
@@ -1297,7 +1297,7 @@ mod tests {
     #[test]
     fn test_paired_slots_use_two_distinct_instances_and_sum_once_each() {
         // Paired slots consume two distinct wrists and total 100 + 80 = 180 exactly once each.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "WristA".into(),
             make_cached("WristA", Slot::Wrist1, &[(Stat::Vitality, 100)]),
@@ -1323,7 +1323,7 @@ mod tests {
 
     #[test]
     fn test_no_goals_returns_first_candidates() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
             make_cached("ItemA", Slot::Head, &[(Stat::Vitality, 50)]),
@@ -1336,7 +1336,7 @@ mod tests {
     #[test]
     fn test_single_paired_instance_cannot_fill_both_slots() {
         // One wrist item may satisfy the minimum alone, but it cannot be duplicated into the second wrist slot.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "WristX".into(),
             make_cached("WristX", Slot::Wrist1, &[(Stat::CriticalRating, 500)]),
@@ -1354,7 +1354,7 @@ mod tests {
     #[test]
     fn test_no_self_pair_for_tight_minimum_is_infeasible() {
         // The best legal ring pair is 500 + 300 = 800, so a 900 minimum stays infeasible without self-pairing.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
             make_cached("RingA", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
@@ -1376,7 +1376,7 @@ mod tests {
     #[test]
     fn test_two_distinct_same_name_instances_can_fill_paired_slots() {
         // Duplicate display names are fine when the instance keys are distinct; both 500-value rings can be worn together.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             instance_key(1, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
@@ -1400,7 +1400,7 @@ mod tests {
     #[test]
     fn test_one_same_name_instance_alone_is_infeasible_but_two_are_feasible() {
         let goals = vec![goal(Stat::CriticalRating, 900)];
-        let mut one: HashMap<String, CachedItem> = HashMap::new();
+        let mut one: HashMap<String, GearItem> = HashMap::new();
         one.insert(
             instance_key(1, Slot::Finger1, "Same Ring"),
             make_cached("Same Ring", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
@@ -1427,7 +1427,7 @@ mod tests {
     #[test]
     fn test_pair_family_consistency_for_ear_singleton_and_duplicate_copy() {
         let goals = vec![goal(Stat::TacticalMitigation, 700)];
-        let mut one: HashMap<String, CachedItem> = HashMap::new();
+        let mut one: HashMap<String, GearItem> = HashMap::new();
         one.insert(
             "EarOnly".into(),
             make_cached(
@@ -1463,7 +1463,7 @@ mod tests {
     #[test]
     fn test_pair_infeasible_when_minimum_exceeds_best_legal_pair() {
         // Raising the minimum from 800 to 801 keeps the same best pair but flips feasibility.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "RingA".into(),
             make_cached("RingA", Slot::Finger1, &[(Stat::CriticalRating, 500)]),
@@ -1485,7 +1485,7 @@ mod tests {
     #[test]
     fn test_single_candidate_meets_minimum_exactly() {
         // Equality counts as satisfied: 300 TMit meets a 300 minimum.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::TacticalMitigation, 300)]),
@@ -1501,7 +1501,7 @@ mod tests {
     #[test]
     fn test_single_candidate_one_below_minimum() {
         // Falling short by one point should report the exact 300 vs 299 deficit.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::TacticalMitigation, 299)]),
@@ -1523,7 +1523,7 @@ mod tests {
 
     #[test]
     fn test_too_many_single_slot_candidates_is_refused() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
             let name = format!("Head{}", i);
@@ -1552,7 +1552,7 @@ mod tests {
 
     #[test]
     fn test_too_many_paired_family_candidates_is_refused() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
             let name = format!("Ring{}", i);
@@ -1586,7 +1586,7 @@ mod tests {
 
     #[test]
     fn test_exactly_eight_candidates_is_allowed() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=8usize {
             let name = format!("Head{}", i);
@@ -1607,7 +1607,7 @@ mod tests {
 
     #[test]
     fn test_eight_per_family_paired_is_allowed() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=8usize {
             let name = format!("Ring{}", i);
@@ -1633,7 +1633,7 @@ mod tests {
 
     #[test]
     fn test_missing_slot_emits_placeholder_warning() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::CriticalRating, 100)]),
@@ -1653,7 +1653,7 @@ mod tests {
     #[test]
     fn test_negative_stat_compensated_across_slots() {
         // Negative contributions still add algebraically: -50 + 300 = 250, so another slot can compensate.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
             make_cached(
@@ -1680,7 +1680,7 @@ mod tests {
     #[test]
     fn test_negative_stat_causes_infeasibility() {
         // A negative goal stat may drive the achieved total below zero and must surface as an unmet minimum.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
             make_cached("ItemA", Slot::Head, &[(Stat::TacticalMitigation, -50)]),
@@ -1703,7 +1703,7 @@ mod tests {
     #[test]
     fn test_negative_stat_on_non_goal_stat_does_not_crash() {
         // Off-goal negatives are ignored by the objective but must still pass through the optimizer safely.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "ItemA".into(),
             make_cached(
@@ -1728,7 +1728,7 @@ mod tests {
         // The shield's 999 CR would beat the greatsword's lone 1000 if it
         // could combine with it (1999); a two-handed main must never take a
         // real off-hand, so the best legal build is greatsword + empty off.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Greatsword".into(),
             make_cached_2h("Greatsword", &[(Stat::CriticalRating, 1000)]),
@@ -1753,7 +1753,7 @@ mod tests {
 
     #[test]
     fn test_one_handed_main_combines_with_off_hand() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Sword".into(),
             make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
@@ -1775,7 +1775,7 @@ mod tests {
     #[test]
     fn test_prefers_one_handed_plus_off_hand_when_stats_better() {
         // 1H (100) + off (50) = 150 beats 2H (120) + blocked off.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Greatsword".into(),
             make_cached_2h("Greatsword", &[(Stat::CriticalRating, 120)]),
@@ -1805,7 +1805,7 @@ mod tests {
     #[test]
     fn test_prefers_two_handed_when_stats_better() {
         // 2H (200) beats 1H (100) + off (50) = 150.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Greatsword".into(),
             make_cached_2h("Greatsword", &[(Stat::CriticalRating, 200)]),
@@ -1839,7 +1839,7 @@ mod tests {
     fn test_empty_main_with_real_off_hand_is_legal() {
         // Only main-hand candidate hurts the goal; the optimizer may leave
         // the main hand empty and still equip the off-hand.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Cursed Greatsword".into(),
             make_cached_2h("Cursed Greatsword", &[(Stat::CriticalRating, -10)]),
@@ -1865,7 +1865,7 @@ mod tests {
     fn test_one_handed_with_negative_off_hand_prefers_empty_off() {
         // The always-emitted 1H + empty-off combination must survive
         // dominance filtering when every real off-hand hurts the goals.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Sword".into(),
             make_cached("Sword", Slot::MainHand, &[(Stat::CriticalRating, 100)]),
@@ -1896,7 +1896,7 @@ mod tests {
         // 8 main-hands × 8 off-hands respects the per-slot source caps; the
         // combined hand pool may exceed MAX_CANDIDATES_PER_SLOT pre-dominance
         // without tripping the cap check.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=8usize {
             let main = format!("Main{}", i);
@@ -1933,7 +1933,7 @@ mod tests {
     #[test]
     fn test_too_many_main_hand_candidates_is_refused() {
         // The per-slot source cap still applies to each hand slot.
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
             let name = format!("Main{}", i);
@@ -1962,7 +1962,7 @@ mod tests {
 
     #[test]
     fn test_missing_hand_slots_emit_placeholder_warnings() {
-        let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+        let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert(
             "Helm".into(),
             make_cached("Helm", Slot::Head, &[(Stat::CriticalRating, 100)]),
@@ -2013,7 +2013,7 @@ mod tests {
         let mut rng = Lcg::new(seed);
 
         for case_idx in 0..case_count {
-            let mut resolved: HashMap<String, CachedItem> = HashMap::new();
+            let mut resolved: HashMap<String, GearItem> = HashMap::new();
             let mut names = Vec::new();
             let family_count = rng.range_usize(2, 4);
             let mut selected_families = Vec::new();

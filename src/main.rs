@@ -253,7 +253,7 @@ fn print_resolve_slots_report(report: &slot_resolver::Report) {
 }
 
 fn run_build_db(cli: &BuildDbCli) {
-    if let Err(e) = build_db::build(&cli.items, &cli.progressions, &cli.out) {
+    if let Err(e) = build_db::build(&cli.items, &cli.out) {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
@@ -292,7 +292,6 @@ struct ResolveSlotsCli {
 #[derive(Debug)]
 struct BuildDbCli {
     items: PathBuf,
-    progressions: PathBuf,
     out: PathBuf,
 }
 
@@ -376,7 +375,6 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
 
 fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
     let mut items = PathBuf::from("data/items.xml");
-    let mut progressions = PathBuf::from("data/progressions.xml");
     let mut out = PathBuf::from("data/lgo_items.json");
     let mut i = 0;
 
@@ -385,10 +383,6 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
             "--items" => {
                 i += 1;
                 items = PathBuf::from(args.get(i).ok_or("--items requires a path")?);
-            }
-            "--progressions" => {
-                i += 1;
-                progressions = PathBuf::from(args.get(i).ok_or("--progressions requires a path")?);
             }
             "--out" => {
                 i += 1;
@@ -402,11 +396,7 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
         i += 1;
     }
 
-    Ok(BuildDbCli {
-        items,
-        progressions,
-        out,
-    })
+    Ok(BuildDbCli { items, out })
 }
 
 fn resolve_character_allservers(character_opt: Option<&str>) -> Result<(PathBuf, String), String> {
@@ -506,7 +496,6 @@ fn print_usage() {
     println!();
     println!("Options (build-db):");
     println!("  --items        <path>  Items XML  (default: data/items.xml)");
-    println!("  --progressions <path>  Progressions XML  (default: data/progressions.xml)");
     println!("  --out          <path>  Output JSON  (default: data/lgo_items.json)");
     println!();
     println!("Workflow:");
@@ -536,7 +525,7 @@ fn print_usage() {
     println!("    lgo resolve-slots");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
-    println!("    lgo build-db --items data/items.xml --progressions data/progressions.xml --out data/lgo_items.json");
+    println!("    lgo build-db --items data/items.xml --out data/lgo_items.json");
 }
 
 #[cfg(test)]
@@ -648,7 +637,6 @@ mod tests {
         match cmd {
             Command::BuildDb(cli) => {
                 assert_eq!(cli.items, PathBuf::from("data/items.xml"));
-                assert_eq!(cli.progressions, PathBuf::from("data/progressions.xml"));
                 assert_eq!(cli.out, PathBuf::from("data/lgo_items.json"));
             }
             _ => panic!("expected build-db command"),
@@ -661,8 +649,6 @@ mod tests {
             "build-db",
             "--items",
             "my/items.xml",
-            "--progressions",
-            "my/prog.xml",
             "--out",
             "my/out.json",
         ]))
@@ -670,7 +656,6 @@ mod tests {
         match cmd {
             Command::BuildDb(cli) => {
                 assert_eq!(cli.items, PathBuf::from("my/items.xml"));
-                assert_eq!(cli.progressions, PathBuf::from("my/prog.xml"));
                 assert_eq!(cli.out, PathBuf::from("my/out.json"));
             }
             _ => panic!("expected build-db command"),
