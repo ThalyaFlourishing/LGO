@@ -1152,16 +1152,44 @@ pub fn merge_into_canonical(
 }
 
 fn apply_generated_timestamp_comment(src: &str) -> String {
-    const MARKER: &str = "# LGO 2026, by Thalya\n# gearReady.toml updated:";
+    const AUTHOR_LINE: &str = "# LGO 2026, by Thalya";
+    const TIMESTAMP_PREFIX: &str = "# gearReady.toml updated:";
 
     let kept: String = src
         .split_inclusive('\n')
-        .filter(|line| !line.contains(MARKER))
+        .filter(|line| {
+            let trimmed = line.trim_end_matches(['\r', '\n']);
+            trimmed != AUTHOR_LINE && !trimmed.starts_with(TIMESTAMP_PREFIX)
+        })
         .collect();
 
-    format!("{} {}\n{}", MARKER, format_generated_timestamp(), kept)
+    format!(
+        "{}\n{} {}\n{}",
+        AUTHOR_LINE,
+        TIMESTAMP_PREFIX,
+        format_generated_timestamp(),
+        kept
+    )
 }
 
+fn strip_generated_timestamp_comment(src: &str) -> String {
+    src.split_inclusive('\n')
+        .filter(|line| {
+            let trimmed = line.trim_end_matches(['\r', '\n']);
+            trimmed != "# LGO 2026, by Thalya"
+                && !trimmed.starts_with("# gearReady.toml updated:")
+        })
+        .collect()
+}
+
+fn count_generated_timestamp_comments(src: &str) -> usize {
+    src.lines()
+        .filter(|line| {
+            line.trim_end_matches(['\r', '\n'])
+                .starts_with("# gearReady.toml updated:")
+        })
+        .count()
+}
 fn format_generated_timestamp() -> String {
     Local::now().format("%m/%d/%y %H:%M:%S").to_string()
 }
