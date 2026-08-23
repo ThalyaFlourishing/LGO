@@ -251,8 +251,31 @@ fn load_items(
                     .unwrap_or("")
                     .to_string();
                 let attrs = collect_attrs(e);
-                if tag == "stat" && in_stats {
-                    handle_stat_element(&attrs, cur_level, progressions, &mut cur_stats);
+                match tag.as_str() {
+                    "item" => {
+                        let category = attrs.get("category").map(|s| s.as_str()).unwrap_or("");
+                        if category != "LEGENDARY_WEAPON" {
+                            let name = attrs.get("name").cloned();
+                            let level = attrs.get("level").and_then(|v| v.parse().ok());
+                            let slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
+                            let two_handed = is_two_handed(slot, &attrs);
+                            if let (Some(name), Some(slot)) = (name, slot) {
+                                insert_item_if_highest_level(
+                                    &mut out,
+                                    &mut out_levels,
+                                    name,
+                                    level,
+                                    slot,
+                                    two_handed,
+                                    HashMap::new(),
+                                );
+                            }
+                        }
+                    }
+                    "stat" if in_stats => {
+                        handle_stat_element(&attrs, cur_level, progressions, &mut cur_stats);
+                    }
+                    _ => {}
                 }
             }
 
@@ -267,20 +290,15 @@ fn load_items(
                     }
                     "item" => {
                         if let (Some(name), Some(slot)) = (cur_name.take(), cur_slot.take()) {
-                            let new_level = cur_level.unwrap_or(0);
-                            let best_level = out_levels.get(&name).copied().unwrap_or(-1);
-                            if new_level > best_level {
-                                out_levels.insert(name.clone(), new_level);
-                                out.insert(
-                                    name.clone(),
-                                    CachedItem {
-                                        name,
-                                        slot,
-                                        two_handed: cur_two_handed,
-                                        stats: cur_stats.clone(),
-                                    },
-                                );
-                            }
+                            insert_item_if_highest_level(
+                                &mut out,
+                                &mut out_levels,
+                                name,
+                                cur_level,
+                                slot,
+                                cur_two_handed,
+                                cur_stats.clone(),
+                            );
                         }
                         cur_level = None;
                         cur_two_handed = false;
@@ -295,6 +313,31 @@ fn load_items(
         buf.clear();
     }
     Ok(out)
+}
+
+fn insert_item_if_highest_level(
+    out: &mut HashMap<String, CachedItem>,
+    out_levels: &mut HashMap<String, i32>,
+    name: String,
+    level: Option<i32>,
+    slot: Slot,
+    two_handed: bool,
+    stats: HashMap<Stat, i64>,
+) {
+    let new_level = level.unwrap_or(0);
+    let best_level = out_levels.get(&name).copied().unwrap_or(-1);
+    if new_level > best_level {
+        out_levels.insert(name.clone(), new_level);
+        out.insert(
+            name.clone(),
+            CachedItem {
+                name,
+                slot,
+                two_handed,
+                stats,
+            },
+        );
+    }
 }
 
 fn handle_stat_element(
