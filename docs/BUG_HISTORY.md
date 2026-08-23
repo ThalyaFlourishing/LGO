@@ -1,4 +1,4 @@
-### Bug 1 — `Shoulder` vs `Shoulders` ? FIXED
+### Bug 1 — `Shoulder` vs `Shoulders` ✅ FIXED
 
 `SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both `"shoulder"` and `"shoulders"` (lower-cased keys) to `SLOT_MAP`.
 
@@ -8,9 +8,9 @@
 
 **Fix:** `mapSlot` now returns `"Unknown"` instead of the raw cleaned string. Combined with the `gearstats::read_stats_file` change to skip items with non-canonical slots (silently for `"Unknown"`, with a stderr warning for any other unrecognised string), the optimizer no longer chokes on these items.
 
-### Bug 3 — Items with parsed stats emit `slot = "Unknown"` ? FIXED
+### Bug 3 — Items with parsed stats emit `slot = "Unknown"` ✅ FIXED
 
-Fixed by the `resolve-slots` subcommand (see `docs/RESOLVER_DESIGN.md`). Wired into the CLI in PR #18 and integration-tested against the 66-item bookmarklet fixture in PR #19.
+**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. (Full design was in `docs/RESOLVER_DESIGN.md`, since removed; the surviving design rationale lives in `src/slot_resolver.rs`'s module and item docs.) Implementation:
 
 Observed examples:
 - `Faded Watcher's Bracers` — Armor 8631, Finesse 6583 — slot Unknown.
@@ -23,15 +23,15 @@ Observed examples:
 
 **Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. See `docs/RESOLVER_DESIGN.md` for the full design. Implementation underway:
 
-- ? Step 1 — JSON schema verified (matches `RESOLVER_DESIGN.md` §3).
-- ? Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip + rejection tests.
-- ? Step 3 — `ItemsDb::load_default` + `lookup`.
-- ? Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
-- ? Step 5 — wired `optimize` / `resolve-slots` subcommands into `main.rs` (bare verbs, case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` aliases). [PR #18]
-- ? Step 6 — integration test against the 66-item bookmarklet output (`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
-- ? Step 7 — synced `docs/AGENT_CONTEXT.md` and `docs/RESOLVER_DESIGN.md` to the new CLI. `docs/User Workflow.txt` was updated in PR #28.
+- ✅ Step 1 — JSON schema verified.
+updated in PR #28.- ? Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip + rejection tests.
+- ✅ Step 3 — `ItemsDb::load_default` + `lookup`.
+- ✅ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
+- ✅ Step 5 — wired `optimize` / `resolve-slots` subcommands into `main.rs` (bare verbs, case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` aliases). [PR #18]
+- ✅ Step 6 — integration test against the 66-item bookmarklet output (`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
+- ✅ Step 7 — synced `docs/AGENT_CONTEXT.md` to the new CLI. `docs/User Workflow.txt` was updated in PR #28.
 
-### Bug 4 — Many wiki pages fail to resolve ? FIXED
+### Bug 4 — Many wiki pages fail to resolve ✅ FIXED
 
 The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki (e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`). Two confounding causes:
 
@@ -40,13 +40,13 @@ The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* 
 
 **Fix (PR #21):** `encodeURIComponent` the title portion (after the `Item:` prefix), and add `&redirects=1` to the API call. Both `bookmarklet/lgo_bookmarklet.html` lines 263 and 269 reflect the fix.
 
-### Bug 5 — TOML output is no longer slot-grouped ? FIXED
+### Bug 5 — TOML output is no longer slot-grouped ✅ FIXED
 
 Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer expected to be slot-grouped.
 
 The bookmarklet's `buildToml()` emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is now produced downstream.
 
-### Bug 6 — Bookmarklet drops most stats from successfully-fetched pages ? FIXED
+### Bug 6 — Bookmarklet drops most stats from successfully-fetched pages ✅ FIXED
 
 **Symptom:** for some items whose wiki page was fetched successfully (page exists, no Bug 4 redirect/encoding issue), the bookmarklet emitted the `.toml` with only a subset of stats populated and silently dropped the rest.
 
@@ -58,11 +58,11 @@ The bookmarklet's `buildToml()` emits items in fetch order with blank-line separ
 
 **Probe input** (cross-class items chosen to exercise stats the 66-item Lore-master fixture cannot reach): `docs/probes/lgo_itemnames_StatProbe_20260603_000000.plugindata`. Manual diagnostic — does not have an automated test.
 
-### Bug 7 — `# WARNING: all stats unknown` is misleading ? FIXED
+### Bug 7 — `# WARNING: all stats unknown` is misleading ✅ FIXED
 
 Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an `outcome` (`resolved`, `auto-picked`, `needs-pick`, `no-tooltip`, `missing`, `fetch-error`) and emits a distinct TOML comment for each non-`resolved` outcome (see §5). The generic "WARNING: all stats unknown" line is gone; the user can now tell at a glance *why* any given item needs hand-editing.
 
-### Bug 8 — `//` line comments inside `runBookmarklet` break the `javascript:` URL ? FIXED
+### Bug 8 — `//` line comments inside `runBookmarklet` break the `javascript:` URL ✅ FIXED
 
 **Symptom:** after PR #24 (Bug 6 fix) merged, clicking the bookmarklet on lotro-wiki.com produced no dialog. The browser console showed `Uncaught SyntaxError: Unexpected end of input`.
 
@@ -72,7 +72,7 @@ Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an 
 
 **? Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside `runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** A second offence will be much harder to notice in review.
 
-### Bug 9 — Crafted items always emit `# WARNING: all stats unknown` ? FIXED
+### Bug 9 — Crafted items always emit `# WARNING: all stats unknown` ✅ FIXED
 
 **Symptom:** items like `Keen Pristine Madáshi Earring`, the three `Pristine Mûrai Stickpin of ...` variants, `Elegant Blade of the Adventurer`, `Grove-tender's Robe`, and `Kinta Sword of the Herbalist` consistently failed to resolve through the bookmarklet, even though they exist on lotro-wiki. Roughly one item per crafted recipe was affected.
 

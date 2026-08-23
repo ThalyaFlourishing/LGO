@@ -48,12 +48,14 @@ a final optimization report according to user's specified stats of interest.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right progress panel, and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). `mapSlot()` returns `"Unknown"` for any wiki vocabulary not in `SLOT_MAP` (Bug 2 fix).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
-- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` flag) index; no stats (those come from the bookmarklet). Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
+- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` flag) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — fresh in-game plugin export (input for the bookmarklet).
   - `lgo_Thalya_gearStats.toml` — bookmarklet's TOML output (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `MODEL_GUIDANCE.md`, and `Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` (authoritative optimizer spec). The optimizer audit chain and PR prompt docs under `docs/Optimizer_Overhaul/` are historical records retained for traceability; do not treat them as the live optimizer spec.
+
+**Recent structural changes (2026-08):** `data/progressions.xml` removed from the repo and from `build-db` entirely. `data/lgo_items.json` no longer carries item stats — it is a slot + `two_handed` index only; item stats come exclusively from the bookmarklet's lotro-wiki lookups. `CachedItem` (DB entry: name/slot/two_handed) and `GearItem` (TOML-derived, with stats) are now distinct types. [PRs #53, #55]
 
 ---
 
@@ -93,7 +95,9 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 
 ---
 
-## ## 5. `.toml` format expected by `gearstats::read_stats_file` begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. After that, the format for each item is as follows:
+## 5. `.toml` format expected by `gearstats::read_stats_file`
+
+The file begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. After that, the format per item is:
 
 ```toml
 [[item]]
@@ -195,6 +199,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - When the agent finds itself unsure what was previously decided, **ask the user** rather than reconstructing from inference. Reconstruction from inference is what produced the speculative "Cloakroom of Dol Amroth" episode in earlier sessions; the user's tolerance for it is low and rightly so.
 - **`toml_edit` serializes top-level tables by internal `position` index, not map insertion order.** `doc.remove(key)` + `doc.insert(key, ...)` does NOT move a table in the rendered output. To relocate a table you must call `set_position()` on it *and* renumber its sibling tables consistently (see `reorder_resolved_header_before_items` in `src/slot_resolver.rs`, and Bug 10 in `docs/BUG_HISTORY.md`). Note `push_group` renumbers every `[[item]]` table to `0..n` — any header table must be positioned relative to that. Root-level *values* (`character`, `class`) are unaffected; they always render before all tables.
 - **`gearReady.toml` is both output and next-run input.** Any layout/decor bug in the merge path compounds across runs (each run's output seeds the next run's parse positions), producing drift that convincingly masquerades as a race condition or nondeterminism. It never is — re-running from an identical file snapshot reproduces byte-identically. Diagnose by diffing consecutive outputs, and guard with bit-identical idempotency tests (modulo the `# gearReady.toml updated:` timestamp line).
+- **The Copilot coding agent cannot push to an existing PR's branch from a new task.** A new task always branches from `main` — a prompt instruction to "work on branch X" will be garbled into a fresh branch off `main`, silently producing code against the wrong base (this burned a full agent run as PR #54). To amend an existing agent PR, comment on that PR mentioning `@copilot` instead of starting a new task.
 
 ---
 

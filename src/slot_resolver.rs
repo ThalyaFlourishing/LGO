@@ -40,7 +40,7 @@ const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 /// `data/lgo_items.json` at startup.
 ///
 /// Lookups are O(1). The internal `Vec<DbItem>` per name is a deliberate
-/// shape choice (see RESOLVER_DESIGN.md §8) leaving room for future
+/// shape choice (deliberate future-proofing) leaving room for future
 /// disambiguation by tier / item-level / quality if that ever becomes
 /// necessary; today, JSON object keys are unique by construction so each
 /// Vec has length 1.
@@ -181,7 +181,7 @@ impl ItemsDb {
     /// new items added to the game after `data/lgo_items.json` was last
     /// rebuilt.
     ///
-    /// Resolution policy is "first match wins" (RESOLVER_DESIGN.md §9). In
+    /// Resolution policy is "first match wins" (policy: first match wins). In
     /// practice every Vec has length 1 because JSON object keys are unique;
     /// the Vec is structural future-proofing only.
     pub fn lookup(&self, name: &str) -> Option<Slot> {
