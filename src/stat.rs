@@ -66,6 +66,32 @@ pub const TRACKED_STATS: &[(Stat, &str)] = &[
     (Stat::TacticalMitigation, "TacticalMitigation"),
 ];
 
+/// Returns the canonical two-letter CLI abbreviation for tracked stats.
+///
+/// Mitigation uses `pt`/`tt` to avoid colliding with the mastery abbreviations
+/// `pm`/`tm`.
+pub fn abbreviation_for(stat: Stat) -> Option<&'static str> {
+    match stat {
+        Stat::Morale => Some("ml"),
+        Stat::Power => Some("pw"),
+        Stat::Armor => Some("am"),
+        Stat::CriticalRating => Some("cr"),
+        Stat::Finesse => Some("fn"),
+        Stat::PhysicalMastery => Some("pm"),
+        Stat::TacticalMastery => Some("tm"),
+        Stat::OutgoingHealing => Some("oh"),
+        Stat::Resistance => Some("rs"),
+        Stat::CriticalDefense => Some("cd"),
+        Stat::IncomingHealing => Some("ih"),
+        Stat::Block => Some("bl"),
+        Stat::Parry => Some("pa"),
+        Stat::Evade => Some("ev"),
+        Stat::PhysicalMitigation => Some("pt"),
+        Stat::TacticalMitigation => Some("tt"),
+        _ => None,
+    }
+}
+
 impl fmt::Display for Stat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
@@ -232,6 +258,34 @@ mod tests {
                 "TacticalMitigation",
             ]
         );
+    }
+
+    #[test]
+    fn tracked_stats_have_abbreviations_in_canonical_order() {
+        let actual: Vec<&str> = TRACKED_STATS
+            .iter()
+            .map(|(stat, _)| abbreviation_for(*stat).unwrap())
+            .collect();
+
+        assert_eq!(
+            actual,
+            vec![
+                "ml", "pw", "am", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev",
+                "pt", "tt",
+            ]
+        );
+    }
+
+    #[test]
+    fn abbreviation_for_internal_stats_is_none() {
+        assert_eq!(abbreviation_for(Stat::Might), None);
+        assert_eq!(abbreviation_for(Stat::Agility), None);
+        assert_eq!(abbreviation_for(Stat::Vitality), None);
+        assert_eq!(abbreviation_for(Stat::Will), None);
+        assert_eq!(abbreviation_for(Stat::Fate), None);
+        assert_eq!(abbreviation_for(Stat::DevRating), None);
+        assert_eq!(abbreviation_for(Stat::OffensiveOverpower), None);
+        assert_eq!(abbreviation_for(Stat::IncMitigations), None);
     }
 }
 
