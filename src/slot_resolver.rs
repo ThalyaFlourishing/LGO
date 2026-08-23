@@ -1152,7 +1152,7 @@ pub fn merge_into_canonical(
 }
 
 fn apply_generated_timestamp_comment(src: &str) -> String {
-    const MARKER: &str = "# gearReady.toml updated:";
+    const MARKER: &str = "# LGO 2026, by Thalya\n# gearReady.toml updated:";
 
     let kept: String = src
         .split_inclusive('\n')
