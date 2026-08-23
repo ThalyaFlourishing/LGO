@@ -37,6 +37,7 @@ Detailed User Instructions
 
        /lgo export
 
+   NOTE: The plug-in will refuse to export if you have more than 8 items for any one slot type in your 'LGO' chest.
    The plugin writes one file into your character's plugin-data
    directory:
 
@@ -138,7 +139,9 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
     If any single slot or paired family (Wrist/Finger/Ear) has more
     than 8 candidates, `lgo optimize` refuses and tells you to remove
-    some items before re-running the workflow.
+    some items before re-running the workflow. This check exists 
+    independently because you may also add items to gearReady.toml by 
+    hand.
 
 11. Read the report printed to the terminal. It lists the chosen item
     for each gear slot and the resulting total for each tracked stat.
