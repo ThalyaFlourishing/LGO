@@ -1152,34 +1152,66 @@ pub fn merge_into_canonical(
 }
 
 fn apply_generated_timestamp_comment(src: &str) -> String {
+    const HEADER_DELIM: &str = "# _-=-_-=-_-=-_-=-_-=-_-=-_";
     const AUTHOR_LINE: &str = "# LGO 2026, by Thalya";
     const TIMESTAMP_PREFIX: &str = "# gearReady.toml updated:";
 
-    let kept: String = src
-        .split_inclusive('\n')
-        .filter(|line| {
-            let trimmed = line.trim_end_matches(['\r', '\n']);
-            trimmed != AUTHOR_LINE && !trimmed.starts_with(TIMESTAMP_PREFIX)
-        })
-        .collect();
+    let stripped = strip_generated_header_block(src);
 
     format!(
-        "{}\n{} {}\n{}",
-        AUTHOR_LINE,
-        TIMESTAMP_PREFIX,
-        format_generated_timestamp(),
-        kept
+        "{delim}\n{author}\n{timestamp_prefix} {timestamp}\n{delim}\n{body}",
+        delim = HEADER_DELIM,
+        author = AUTHOR_LINE,
+        timestamp_prefix = TIMESTAMP_PREFIX,
+        timestamp = format_generated_timestamp(),
+        body = stripped
     )
 }
 
-fn strip_generated_timestamp_comment(src: &str) -> String {
-    src.split_inclusive('\n')
-        .filter(|line| {
-            let trimmed = line.trim_end_matches(['\r', '\n']);
-            trimmed != "# LGO 2026, by Thalya"
-                && !trimmed.starts_with("# gearReady.toml updated:")
-        })
-        .collect()
+fn strip_generated_header_block(src: &str) -> String {
+    const HEADER_DELIM: &str = "# _-=-_-=-_-=-_-=-_-=-_-=-_";
+    const AUTHOR_LINE: &str = "# LGO 2026, by Thalya";
+    const TIMESTAMP_PREFIX: &str = "# gearReady.toml updated:";
+
+    let lines: Vec<&str> = src.split_inclusive('\n').collect();
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let mut start = 0usize;
+
+    while start < lines.len() {
+        let trimmed = lines[start].trim_end_matches(['\r', '\n']);
+
+        if trimmed == HEADER_DELIM {
+            let mut end = start + 1;
+            while end < lines.len() {
+                let trimmed_end = lines[end].trim_end_matches(['\r', '\n']);
+                if trimmed_end == HEADER_DELIM {
+                    end += 1;
+                    break;
+                }
+                end += 1;
+            }
+
+            let mut kept = String::new();
+            for (idx, line) in lines.iter().enumerate() {
+                if idx < start || idx >= end {
+                    kept.push_str(line);
+                }
+            }
+            return strip_generated_header_block(&kept);
+        }
+
+        if trimmed == AUTHOR_LINE || trimmed.starts_with(TIMESTAMP_PREFIX) {
+            start += 1;
+            continue;
+        }
+
+        break;
+    }
+
+    lines[start..].concat()
 }
 
 fn count_generated_timestamp_comments(src: &str) -> usize {
@@ -1190,6 +1222,11 @@ fn count_generated_timestamp_comments(src: &str) -> usize {
         })
         .count()
 }
+
+fn strip_generated_timestamp_comment(src: &str) -> String {
+    strip_generated_header_block(src)
+}
+
 fn format_generated_timestamp() -> String {
     Local::now().format("%m/%d/%y %H:%M:%S").to_string()
 }
