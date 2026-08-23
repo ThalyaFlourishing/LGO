@@ -201,6 +201,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **`gearReady.toml` is both output and next-run input.** Any layout/decor bug in the merge path compounds across runs (each run's output seeds the next run's parse positions), producing drift that convincingly masquerades as a race condition or nondeterminism. It never is — re-running from an identical file snapshot reproduces byte-identically. Diagnose by diffing consecutive outputs, and guard with bit-identical idempotency tests (modulo the `# gearReady.toml updated:` timestamp line).
 - **The Copilot coding agent cannot push to an existing PR's branch from a new task.** A new task always branches from `main` — a prompt instruction to "work on branch X" will be garbled into a fresh branch off `main`, silently producing code against the wrong base (this burned a full agent run as PR #54). To amend an existing agent PR, comment on that PR mentioning `@copilot` instead of starting a new task.
 - **CI now runs these gates automatically. A green check is expected and a red X on your own PR means to fix it.
+- **"ItemInfo:GetCategory() maps 1:1 to slot for armour, but returns a single Jewelry (49) category for all Ear/Finger/Wrist/Neck/Pocket items, and weapon categories encode type not hand. Per-family overflow bucketing in the Lua plugin is therefore impossible for the slots that matter. Verified empirically 2026-08 via a temporary slot probe (since removed)."
 
 ---
 

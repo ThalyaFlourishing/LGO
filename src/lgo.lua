@@ -434,7 +434,7 @@ local function ExportCombined(sharedChestName)
   Print("export: saved " .. tostring(#out.names) .. " owned item instances");
   Print("NOTE: exported " .. tostring(#out.names) .. " item names. The optimizer allows at most "
     .. tostring(MAX_CANDIDATES_PER_SLOT)
-    .. " candidates per slot/family; if one slot exceeds that, 'lgo optimize' will refuse until you remove some. (Rust performs the authoritative per-slot check after resolve-slots.)");
+    .. " candidates per slot/family; if one slot exceeds that, 'lgo optimize' will refuse to produce results until you remove some.)");
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────
@@ -451,7 +451,7 @@ function Thalya.lgo.Command:Execute(command, arguments)
     Print("");
     Print("Workflow:");
     Print("  1) Open Shared Storage panel at least once");
-    Print("  2) Put candidate items in chest named 'lgo'");
+    Print("  2) Put candidate items in chest named 'lgo'. DO NOT put in more than 8 items for any one slot type.");
     Print("  3) Run: /lgo export");
     return;
   end
