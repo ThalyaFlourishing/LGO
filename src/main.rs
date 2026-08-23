@@ -13,6 +13,7 @@ mod slot_resolver;
 mod stat;
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -46,6 +47,7 @@ fn main() {
         Command::Help => {
             print_usage();
         }
+        Command::StatList => print_stat_list(),
         Command::Optimize(cli) => run_optimize(&cli),
         Command::ResolveSlots(cli) => run_resolve_slots(&cli),
         Command::BuildDb(cli) => run_build_db(&cli),
@@ -262,6 +264,7 @@ fn run_build_db(cli: &BuildDbCli) {
 #[derive(Debug)]
 enum Command {
     Help,
+    StatList,
     Optimize(OptimizeCli),
     ResolveSlots(ResolveSlotsCli),
     BuildDb(BuildDbCli),
@@ -299,6 +302,7 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
     let verb = args[0].to_ascii_lowercase();
     match verb.as_str() {
         "--help" | "-h" | "help" => Ok(Command::Help),
+        "--statlist" => Ok(Command::StatList),
         "optimize" | "--optimize" | "-o" => parse_optimize_args(&args[1..])
             .map(Command::Optimize)
             .map_err(CliParseError::Message),
@@ -472,6 +476,35 @@ fn documents_dir() -> Result<PathBuf, String> {
     std::env::current_dir().map_err(|e| format!("Cannot determine working directory: {}", e))
 }
 
+fn format_stat_list() -> String {
+    let mut output = String::new();
+    writeln!(
+        &mut output,
+        "{:<17}  {}",
+        "Stat Abbreviation", "Stat Name"
+    )
+    .expect("writing to String cannot fail");
+    writeln!(
+        &mut output,
+        "{:<17}  {}",
+        "-----------------", "------------------"
+    )
+    .expect("writing to String cannot fail");
+
+    for (stat, name) in stat::TRACKED_STATS {
+        let abbreviation = stat::abbreviation_for(*stat)
+            .expect("every TRACKED_STATS entry must have an abbreviation");
+        writeln!(&mut output, "{:<17}  {}", abbreviation, name)
+            .expect("writing to String cannot fail");
+    }
+
+    output
+}
+
+fn print_stat_list() {
+    print!("{}", format_stat_list());
+}
+
 fn print_usage() {
     println!("LGO - Thalya's LOTRO Gear Optimizer");
     println!();
@@ -479,7 +512,11 @@ fn print_usage() {
     println!("  lgo optimize      [options] <stat:min> [<stat:min> ...]");
     println!("  lgo resolve-slots [options]");
     println!("  lgo build-db      [options]");
+    println!("  lgo --statlist");
     println!("  lgo --help | -h | help");
+    println!();
+    println!("Top-level commands:");
+    println!("  --statlist          Print stat abbreviations and full stat names");
     println!();
     println!("Options (optimize):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
@@ -542,6 +579,25 @@ mod tests {
             let cmd = parse_command(&s(&[token])).expect("help token should parse");
             assert!(matches!(cmd, Command::Help));
         }
+    }
+
+    #[test]
+    fn statlist_switch_parses_as_statlist_command() {
+        let cmd = parse_command(&s(&["--statlist"])).expect("--statlist should parse");
+        assert!(matches!(cmd, Command::StatList));
+    }
+
+    #[test]
+    fn statlist_output_contains_headers_and_canonical_pairs() {
+        let output = format_stat_list();
+        assert!(output.contains("Stat Abbreviation"));
+        assert!(output.contains("Stat Name"));
+        assert!(output.contains("ml"));
+        assert!(output.contains("Morale"));
+        assert!(output.contains("tm"));
+        assert!(output.contains("TacticalMastery"));
+        assert!(output.contains("tt"));
+        assert!(output.contains("TacticalMitigation"));
     }
 
     #[test]
