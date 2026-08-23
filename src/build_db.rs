@@ -707,6 +707,57 @@ mod tests {
     }
 
     #[test]
+    fn self_closing_item_is_loaded() {
+        let xml = r#"<items>
+            <item name="Compact Dagger" level="160" slot="MAIN_HAND"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_item", xml);
+        let item = &out["Compact Dagger"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(!item.two_handed);
+    }
+
+    #[test]
+    fn self_closing_two_handed_item_gets_flag() {
+        let xml = r#"<items>
+            <item name="Compact Greatsword" level="160" slot="MAIN_HAND" precludedSlots="OFF_HAND"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_two_handed", xml);
+        let item = &out["Compact Greatsword"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(item.two_handed);
+    }
+
+    #[test]
+    fn mixed_paired_then_self_closing_keeps_highest_level_entry() {
+        let xml = r#"<items>
+            <item name="Mixed Collision" level="122" slot="WRIST"></item>
+            <item name="Mixed Collision" level="160" slot="MAIN_HAND"/>
+        </items>"#;
+        let out = load_items_from_str("mixed_paired_then_empty", xml);
+        assert_eq!(out["Mixed Collision"].slot, Slot::MainHand);
+    }
+
+    #[test]
+    fn mixed_self_closing_then_paired_keeps_highest_level_entry() {
+        let xml = r#"<items>
+            <item name="Mixed Collision" level="160" slot="MAIN_HAND"/>
+            <item name="Mixed Collision" level="122" slot="WRIST"></item>
+        </items>"#;
+        let out = load_items_from_str("mixed_empty_then_paired", xml);
+        assert_eq!(out["Mixed Collision"].slot, Slot::MainHand);
+    }
+
+    #[test]
+    fn self_closing_legendary_weapon_is_skipped() {
+        let xml = r#"<items>
+            <item name="Compact Legendary Weapon" level="160" slot="MAIN_HAND" category="LEGENDARY_WEAPON"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_legendary", xml);
+        assert!(!out.contains_key("Compact Legendary Weapon"));
+    }
+
+    #[test]
     fn main_hand_with_precluded_slots_is_two_handed() {
         let xml = r#"<items>
             <item name="Example Greatsword" level="160" slot="MAIN_HAND" precludedSlots="OFF_HAND"></item>
