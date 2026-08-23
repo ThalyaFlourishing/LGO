@@ -487,10 +487,10 @@ fn format_stat_list() -> String {
     )
     .expect("writing to String cannot fail");
 
-    for (stat, name) in stat::TRACKED_STATS {
+    for (stat, _) in stat::TRACKED_STATS {
         let abbreviation = stat::abbreviation_for(*stat)
             .expect("every TRACKED_STATS entry must have an abbreviation");
-        writeln!(&mut output, "     {:<12}  {}", abbreviation, name)
+        writeln!(&mut output, "     {:<12}  {}", abbreviation, stat)
             .expect("writing to String cannot fail");
     }
 
