@@ -93,22 +93,44 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
 
                 if tag == "item" {
                     if let (Some(name), Some(slot)) = (cur_name.take(), cur_slot.take()) {
-                        let new_level = cur_level.unwrap_or(0);
-                        let best_level = out_levels.get(&name).copied().unwrap_or(-1);
-                        if new_level > best_level {
-                            out_levels.insert(name.clone(), new_level);
-                            out.insert(
-                                name.clone(),
-                                CachedItem {
-                                    name,
-                                    slot,
-                                    two_handed: cur_two_handed,
-                                },
-                            );
-                        }
+                        insert_if_highest_level(
+                            &mut out,
+                            &mut out_levels,
+                            name,
+                            slot,
+                            cur_level,
+                            cur_two_handed,
+                        );
                     }
                     cur_level = None;
                     cur_two_handed = false;
+                }
+            }
+
+            Ok(Event::Empty(ref e)) => {
+                let name_bytes = e.name();
+                let tag = std::str::from_utf8(name_bytes.as_ref()).unwrap_or("");
+
+                if tag == "item" {
+                    let attrs = collect_attrs(e);
+                    let category = attrs.get("category").map(|s| s.as_str()).unwrap_or("");
+                    if category != "LEGENDARY_WEAPON" {
+                        let name = attrs.get("name").cloned();
+                        let level = attrs.get("level").and_then(|v| v.parse().ok());
+                        let slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
+                        let two_handed = is_two_handed(slot, &attrs);
+
+                        if let (Some(name), Some(slot)) = (name, slot) {
+                            insert_if_highest_level(
+                                &mut out,
+                                &mut out_levels,
+                                name,
+                                slot,
+                                level,
+                                two_handed,
+                            );
+                        }
+                    }
                 }
             }
 
@@ -117,6 +139,29 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
         buf.clear();
     }
     Ok(out)
+}
+
+fn insert_if_highest_level(
+    out: &mut HashMap<String, CachedItem>,
+    out_levels: &mut HashMap<String, i32>,
+    name: String,
+    slot: Slot,
+    level: Option<i32>,
+    two_handed: bool,
+) {
+    let new_level = level.unwrap_or(0);
+    let best_level = out_levels.get(&name).copied().unwrap_or(-1);
+    if new_level > best_level {
+        out_levels.insert(name.clone(), new_level);
+        out.insert(
+            name.clone(),
+            CachedItem {
+                name,
+                slot,
+                two_handed,
+            },
+        );
+    }
 }
 
 // ── Slot key mapping ──────────────────────────────────────────────────────────
@@ -213,6 +258,56 @@ mod tests {
         </items>"#;
         let out = load_items_from_str("no_overwrite", xml);
         assert_eq!(out["Test Item"].slot, Slot::Neck);
+    }
+
+    #[test]
+    fn mixed_paired_and_self_closing_forms_highest_level_wins() {
+        let low_paired_then_high_empty = r#"<items>
+            <item name="Mixed Form Item" level="122" slot="WRIST"></item>
+            <item name="Mixed Form Item" level="160" slot="NECK"/>
+        </items>"#;
+        let out = load_items_from_str("mixed_forms_high_empty", low_paired_then_high_empty);
+        assert_eq!(out["Mixed Form Item"].slot, Slot::Neck);
+
+        let high_empty_then_low_paired = r#"<items>
+            <item name="Mixed Form Item" level="160" slot="NECK"/>
+            <item name="Mixed Form Item" level="122" slot="WRIST"></item>
+        </items>"#;
+        let out = load_items_from_str("mixed_forms_high_first", high_empty_then_low_paired);
+        assert_eq!(out["Mixed Form Item"].slot, Slot::Neck);
+    }
+
+    // ── Self-closing item elements ─────────────────────────────────────────────
+
+    #[test]
+    fn self_closing_item_is_loaded() {
+        let xml = r#"<items>
+            <item name="Compact Dagger" level="160" slot="MAIN_HAND"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_loaded", xml);
+        let item = &out["Compact Dagger"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(!item.two_handed);
+    }
+
+    #[test]
+    fn self_closing_two_handed_item_sets_flag() {
+        let xml = r#"<items>
+            <item name="Compact Greatsword" level="160" slot="MAIN_HAND" precludedSlots="OFF_HAND"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_two_handed", xml);
+        let item = &out["Compact Greatsword"];
+        assert_eq!(item.slot, Slot::MainHand);
+        assert!(item.two_handed);
+    }
+
+    #[test]
+    fn self_closing_legendary_weapon_is_skipped() {
+        let xml = r#"<items>
+            <item name="Compact Legendary" level="160" slot="MAIN_HAND" category="LEGENDARY_WEAPON"/>
+        </items>"#;
+        let out = load_items_from_str("self_closing_legendary", xml);
+        assert!(!out.contains_key("Compact Legendary"));
     }
 
     // ── Two-handed detection via precludedSlots ────────────────────────────────
