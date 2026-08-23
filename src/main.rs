@@ -478,12 +478,8 @@ fn documents_dir() -> Result<PathBuf, String> {
 
 fn format_stat_list() -> String {
     let mut output = String::new();
-    writeln!(
-        &mut output,
-        "{:<17}  {}",
-        "Stat Abbreviation", "Stat Name"
-    )
-    .expect("writing to String cannot fail");
+    writeln!(&mut output, "{:<17}  {}", "Stat Abbreviation", "Stat Name")
+        .expect("writing to String cannot fail");
     writeln!(
         &mut output,
         "{:<17}  {}",

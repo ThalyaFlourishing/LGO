@@ -67,6 +67,9 @@ pub const TRACKED_STATS: &[(Stat, &str)] = &[
 ];
 
 /// Returns the canonical two-letter CLI abbreviation for tracked stats.
+///
+/// Mitigation uses `pt`/`tt` to avoid colliding with the mastery abbreviations
+/// `pm`/`tm`.
 pub fn abbreviation_for(stat: Stat) -> Option<&'static str> {
     match stat {
         Stat::Morale => Some("ml"),
@@ -267,8 +270,8 @@ mod tests {
         assert_eq!(
             actual,
             vec![
-                "ml", "pw", "am", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa",
-                "ev", "pt", "tt",
+                "ml", "pw", "am", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev",
+                "pt", "tt",
             ]
         );
     }

@@ -146,9 +146,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0
 
 3.6 Help
-  lgo --statlist
-    Print the stat abbreviation reference table and exit.
-
   lgo
   lgo --help
   lgo -h
@@ -213,7 +210,6 @@ Working directory matters. db_build resolves data/items.xml and data/lgo_items.j
 
 cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --out <path>\lgo_items.json
-
 
 
 
