@@ -478,12 +478,12 @@ fn documents_dir() -> Result<PathBuf, String> {
 
 fn format_stat_list() -> String {
     let mut output = String::new();
-    writeln!(&mut output, "{:<17}  {}", "Stat Abbreviation", "Stat Name")
+    writeln!(&mut output, "{:<17}  Stat Name", "Stat Abbreviation")
         .expect("writing to String cannot fail");
     writeln!(
         &mut output,
-        "{:<17}  {}",
-        "-----------------", "------------------"
+        "{:<17}  ------------------",
+        "-----------------"
     )
     .expect("writing to String cannot fail");
 
@@ -591,9 +591,9 @@ mod tests {
         assert!(output.contains("ml"));
         assert!(output.contains("Morale"));
         assert!(output.contains("tm"));
-        assert!(output.contains("TacticalMastery"));
+        assert!(output.contains("Tactical Mastery"));
         assert!(output.contains("tt"));
-        assert!(output.contains("TacticalMitigation"));
+        assert!(output.contains("Tactical Mitigation"));
     }
 
     #[test]

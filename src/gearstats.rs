@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::gear::{GearItem, Slot};
-use crate::stat::{Stat, TRACKED_STATS};
+use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 
@@ -17,7 +17,10 @@ pub struct GearDoc {
     pub character: Option<String>,
     /// Character class, if present as `class = "..."` at top level.
     pub class: Option<String>,
-    /// Already-derived naked character totals from top-level `[InnateStats]`.
+    /// Tracked-stat totals a user hand-added to top-level `[InnateStats]`.
+    /// The five raw Base-stat keys the resolver writes there are accepted on
+    /// read but never loaded into this map — Base stats must not seed any
+    /// tracked total.
     pub innate_stats: HashMap<Stat, i64>,
     /// Parsed gear items from `[[item]]` entries.
     pub items: Vec<GearItem>,
@@ -119,6 +122,12 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         .and_then(|v| v.as_str())
         .map(String::from);
     let class = doc.get("class").and_then(|v| v.as_str()).map(String::from);
+    if let Some(innate) = doc.get("InnateStats") {
+        let innate_table = innate
+            .as_table()
+            .ok_or_else(|| "`InnateStats` must be a TOML table".to_string())?;
+        validate_innate_keys(innate_table)?;
+    }
     let innate_stats = read_innate_stats(&doc);
 
     Ok(GearDoc {
@@ -160,13 +169,24 @@ fn is_tracked_stat_key(key: &str) -> bool {
     TRACKED_STATS.iter().any(|(_, stat_key)| *stat_key == key)
 }
 
+fn is_base_stat_key(key: &str) -> bool {
+    BASE_STATS.iter().any(|(_, stat_key)| *stat_key == key)
+}
+
+/// A key allowed wherever stat values live: the 16 tracked stats plus the
+/// five raw Base stats the resolver passes through. Anything else is a typo
+/// and must hard-error rather than silently dropping user data.
+fn is_allowed_stat_key(key: &str) -> bool {
+    is_tracked_stat_key(key) || is_base_stat_key(key)
+}
+
 fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
     for key in table.keys() {
         if key == "slot"
             || key == "name"
             || key == "two_handed"
             || key == ESSENCE_TOTALS_KEY
-            || is_tracked_stat_key(key)
+            || is_allowed_stat_key(key)
         {
             continue;
         }
@@ -180,13 +200,23 @@ fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(),
 
 fn validate_essence_keys(table: &toml::value::Table, item_name: &str) -> Result<(), String> {
     for key in table.keys() {
-        if is_tracked_stat_key(key) {
+        if is_allowed_stat_key(key) {
             continue;
         }
         return Err(format!(
             "Unknown stat key `{}` in `EssenceTotals` for item `{}`.",
             key, item_name
         ));
+    }
+    Ok(())
+}
+
+fn validate_innate_keys(table: &toml::value::Table) -> Result<(), String> {
+    for key in table.keys() {
+        if is_allowed_stat_key(key) {
+            continue;
+        }
+        return Err(format!("Unknown stat key `{}` in `InnateStats`.", key));
     }
     Ok(())
 }
@@ -670,6 +700,79 @@ CritcalRating = 25
         assert!(err.contains("CritcalRating"));
         assert!(err.contains("item"));
         assert!(err.contains("Typo Helm"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_accepts_base_stat_keys_in_all_three_locations() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[InnateStats]
+Might = 5300
+Agility = 2650
+Vitality = 10200
+Will = 7950
+Fate = 4000
+
+[[item]]
+slot = "Head"
+name = "Base Stat Helm"
+CriticalRating = 100
+Might = 9
+Vitality = 3434
+[item.EssenceTotals]
+Finesse = 5
+Will = 12
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let doc = read_stats_file(&path).expect("base stat keys must be accepted");
+        // Accepted for parse, but never loaded into any tracked total:
+        // item stat maps and innate stats carry tracked stats only.
+        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].stat(&Stat::Finesse), 5);
+        assert!(!doc.items[0].stats.contains_key(&Stat::Might));
+        assert!(!doc.items[0].stats.contains_key(&Stat::Vitality));
+        assert!(!doc.items[0].stats.contains_key(&Stat::Will));
+        assert!(doc.innate_stats.is_empty());
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_unknown_innate_stats_key() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[InnateStats]
+Might = 5300
+Wisdom = 42
+
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("unknown InnateStats key must fail");
+        assert!(err.contains("Wisdom"));
+        assert!(err.contains("InnateStats"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_genuinely_unknown_key_next_to_base_stats() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Wise Helm"
+Might = 9
+Wisdom = 42
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("unknown key must fail even beside base keys");
+        assert!(err.contains("Wisdom"));
+        assert!(err.contains("Wise Helm"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 

@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
 
-use crate::base_stats::{BaseStatDerivations, DerivationError};
+use crate::base_stats::DerivationError;
 use crate::gear::Slot;
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
@@ -398,25 +398,22 @@ pub fn resolve_toml_str(
     resolve_toml_str_inner(src, db, None)
 }
 
-pub fn resolve_toml_str_with_derivations(
+pub fn resolve_toml_str_with_metadata(
     src: &str,
     db: &ItemsDb,
-    derivations: &BaseStatDerivations,
     character: Option<&str>,
     class_name: &str,
     base_stats: &HashMap<Stat, i64>,
 ) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
-    let context = CanonicalizationContext {
-        derivations,
+    let metadata = ResolveMetadata {
         character,
         class_name,
         base_stats,
     };
-    resolve_toml_str_inner(src, db, Some(&context))
+    resolve_toml_str_inner(src, db, Some(&metadata))
 }
 
-struct CanonicalizationContext<'a> {
-    derivations: &'a BaseStatDerivations,
+struct ResolveMetadata<'a> {
     character: Option<&'a str>,
     class_name: &'a str,
     base_stats: &'a HashMap<Stat, i64>,
@@ -425,15 +422,15 @@ struct CanonicalizationContext<'a> {
 fn resolve_toml_str_inner(
     src: &str,
     db: &ItemsDb,
-    context: Option<&CanonicalizationContext<'_>>,
+    metadata: Option<&ResolveMetadata<'_>>,
 ) -> Result<(String, Vec<ResolutionOutcome>), ResolveError> {
     let mut doc: DocumentMut = src.parse().map_err(|e| ResolveError::ParseToml {
         path: PathBuf::from("<in-memory>"),
         source: Box::new(e),
     })?;
 
-    if let Some(context) = context {
-        apply_top_level_derivations(&mut doc, context)?;
+    if let Some(metadata) = metadata {
+        apply_top_level_metadata(&mut doc, metadata);
     }
 
     {
@@ -449,7 +446,7 @@ fn resolve_toml_str_inner(
         let taken = std::mem::replace(items_arr, ArrayOfTables::new());
         let original_tables: Vec<Table> = taken.iter().cloned().collect();
 
-        let outcomes_and_buckets = bucket_items(original_tables, db, context)?;
+        let outcomes_and_buckets = bucket_items(original_tables, db);
         let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
 
         // Rebuild the array in canonical family order with divider comments.
@@ -492,29 +489,30 @@ fn resolve_toml_str_inner(
     }
 }
 
-fn apply_top_level_derivations(
-    doc: &mut DocumentMut,
-    context: &CanonicalizationContext<'_>,
-) -> Result<(), ResolveError> {
-    if let Some(character) = context.character {
+/// Write `character`, `class`, and `[InnateStats]` into the document header.
+///
+/// `[InnateStats]` carries the character's five *raw* Base stats from the
+/// plugindata export — no derivation happens in the resolver. Derivation into
+/// tracked stats is the optimize path's job (future work); see the
+/// pass-through design in the repo docs.
+fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_>) {
+    if let Some(character) = metadata.character {
         doc.insert("character", value(character));
     }
-    doc.insert("class", value(context.class_name));
+    doc.insert("class", value(metadata.class_name));
 
-    if context.base_stats.is_empty() {
-        return Ok(());
+    if metadata.base_stats.is_empty() {
+        return;
     }
 
-    let innate = context
-        .derivations
-        .derive_stats(context.class_name, context.base_stats)
-        .map_err(|source| ResolveError::Derivation { source })?;
     let mut table = Table::new();
-    for (stat, key) in TRACKED_STATS {
-        table.insert(key, value(innate.get(stat).copied().unwrap_or(0)));
+    for (stat, key) in BASE_STATS {
+        table.insert(
+            key,
+            value(metadata.base_stats.get(stat).copied().unwrap_or(0)),
+        );
     }
     doc.insert("InnateStats", toml_edit::Item::Table(table));
-    Ok(())
 }
 
 fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
@@ -537,15 +535,11 @@ fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
 fn bucket_items(
     tables: Vec<Table>,
     db: &ItemsDb,
-    context: Option<&CanonicalizationContext<'_>>,
-) -> Result<
-    (
-        HashMap<Slot, Vec<Table>>,
-        Vec<Table>,
-        Vec<ResolutionOutcome>,
-    ),
-    ResolveError,
-> {
+) -> (
+    HashMap<Slot, Vec<Table>>,
+    Vec<Table>,
+    Vec<ResolutionOutcome>,
+) {
     let mut buckets: HashMap<Slot, Vec<Table>> = HashMap::new();
     let mut unknowns: Vec<Table> = Vec::new();
     let mut outcomes: Vec<ResolutionOutcome> = Vec::new();
@@ -571,12 +565,7 @@ fn bucket_items(
             set_two_handed_flag(&mut table, db.lookup_two_handed(&name));
         }
 
-        if let Some(context) = context {
-            canonicalize_item_stats(&mut table, context)?;
-        } else {
-            canonicalize_item_stats_without_derivations(&mut table);
-        }
-
+        canonicalize_item_stats(&mut table);
         match db_slot {
             Some(slot) => {
                 // Rewrite slot field to canonical Display form. Existing key
@@ -601,7 +590,7 @@ fn bucket_items(
         }
     }
 
-    Ok((buckets, unknowns, outcomes))
+    (buckets, unknowns, outcomes)
 }
 
 /// Enforce the DB-derived `two_handed` flag on an item table.
@@ -621,36 +610,20 @@ fn set_two_handed_flag(table: &mut Table, two_handed: bool) {
     }
 }
 
-fn canonicalize_item_stats(
-    table: &mut Table,
-    context: &CanonicalizationContext<'_>,
-) -> Result<(), ResolveError> {
-    let explicit = read_table_stats(table, TRACKED_STATS);
-    let base = read_table_stats(table, BASE_STATS);
-    let essence = read_essence_stats(table);
-    let essence_decor = read_essence_decor(table);
-    let old_items = remove_canonical_stat_items(table);
-
-    for (_, key) in BASE_STATS {
-        table.remove(key);
-    }
-    table.remove(ESSENCE_TOTALS_KEY);
-
-    let final_stats = if base.is_empty() {
-        explicit
-    } else {
-        context
-            .derivations
-            .merge_explicit_and_base(context.class_name, &explicit, &base)
-            .map_err(|source| ResolveError::Derivation { source })?
-    };
-    insert_canonical_stats(table, &final_stats, &old_items);
-    insert_essence_totals(table, &essence, essence_decor);
-    Ok(())
+/// The canonical per-item stat key layout: the 16 tracked stats in canonical
+/// order, then the five raw Base stats (Might, Agility, Vitality, Will,
+/// Fate). Base-stat lines pass through the resolver verbatim — they are never
+/// derived into (or added to) tracked totals here.
+fn canonical_stat_entries() -> impl Iterator<Item = &'static (Stat, &'static str)> {
+    TRACKED_STATS.iter().chain(BASE_STATS.iter())
 }
 
-fn canonicalize_item_stats_without_derivations(table: &mut Table) {
-    let explicit = read_table_stats(table, TRACKED_STATS);
+/// Rewrite an item's stat block into canonical shape: all 16 tracked stats
+/// followed by the five raw Base stats (zeros for omissions), then a fully
+/// populated `[item.EssenceTotals]` child table with the same key layout.
+/// Existing values — tracked and Base alike — pass through unchanged.
+fn canonicalize_item_stats(table: &mut Table) {
+    let explicit = read_item_stats(table);
     let essence = read_essence_stats(table);
     let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
@@ -667,7 +640,7 @@ struct RemovedStatItem {
 
 fn remove_canonical_stat_items(table: &mut Table) -> HashMap<&'static str, RemovedStatItem> {
     let mut removed = HashMap::new();
-    for (_, key) in TRACKED_STATS {
+    for (_, key) in canonical_stat_entries() {
         let key_decor = table
             .get_key_value(key)
             .map(|(key, _)| key.leaf_decor().clone())
@@ -684,7 +657,7 @@ fn insert_canonical_stats(
     stats: &HashMap<Stat, i64>,
     old_items: &HashMap<&'static str, RemovedStatItem>,
 ) {
-    for (stat, key) in TRACKED_STATS {
+    for (stat, key) in canonical_stat_entries() {
         let mut item = value(stats.get(stat).copied().unwrap_or(0));
         if let (Some(old_value), Some(new_value)) = (
             old_items
@@ -716,7 +689,7 @@ fn insert_essence_totals(
     // table is intentionally attached to its parent item, so set table decor
     // structurally instead of post-processing the rendered TOML text.
     attach_table_to_previous_line(&mut essence_table);
-    for (stat, key) in TRACKED_STATS {
+    for (stat, key) in canonical_stat_entries() {
         essence_table.insert(key, value(essence.get(stat).copied().unwrap_or(0)));
     }
     table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
@@ -750,7 +723,7 @@ fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
     table
         .get(ESSENCE_TOTALS_KEY)
         .and_then(|essence_item| essence_item.as_table())
-        .map(|essence_table| read_table_stats(essence_table, TRACKED_STATS))
+        .map(read_item_stats)
         .unwrap_or_default()
 }
 
@@ -761,9 +734,11 @@ fn read_essence_decor(table: &Table) -> Option<Decor> {
         .map(|essence_table| essence_table.decor().clone())
 }
 
-fn read_table_stats(table: &Table, stats: &[(Stat, &'static str)]) -> HashMap<Stat, i64> {
+/// Read all canonical stat keys (tracked + Base) from a table. Zero values
+/// are omitted — absence means zero throughout the pipeline.
+fn read_item_stats(table: &Table) -> HashMap<Stat, i64> {
     let mut values = HashMap::new();
-    for (stat, key) in stats {
+    for (stat, key) in canonical_stat_entries() {
         if let Some(stat_value) = table.get(key).and_then(|v| v.as_integer()) {
             if stat_value != 0 {
                 values.insert(*stat, stat_value);
@@ -983,14 +958,31 @@ pub fn merge_into_canonical(
         }
     }
 
-    if let Some(val) = incoming_doc.get("InnateStats").cloned() {
-        let changed = prev_doc
-            .get("InnateStats")
-            .map(|existing| existing.to_string())
-            != Some(val.to_string());
-        if changed {
-            prev_doc.remove("InnateStats");
-            prev_doc.insert("InnateStats", val);
+    // Carry forward `[InnateStats]` from the incoming resolved TOML. The block
+    // holds the five raw Base stats from the plugindata export; refresh those
+    // keys per current export truth, but leave any other keys the user
+    // hand-added (e.g. tracked stats) untouched so hand-edits survive merges.
+    // When nothing changes, the previous table is left completely alone so
+    // repeat merges serialize byte-identically.
+    if let Some(incoming_innate) = incoming_doc.get("InnateStats").and_then(|i| i.as_table()) {
+        match prev_doc
+            .get_mut("InnateStats")
+            .and_then(|i| i.as_table_mut())
+        {
+            Some(prev_innate) => {
+                for (_, key) in BASE_STATS {
+                    let Some(incoming_val) = incoming_innate.get(key).and_then(|v| v.as_integer())
+                    else {
+                        continue;
+                    };
+                    if prev_innate.get(key).and_then(|v| v.as_integer()) != Some(incoming_val) {
+                        prev_innate.insert(key, value(incoming_val));
+                    }
+                }
+            }
+            None => {
+                prev_doc.insert("InnateStats", Item::Table(incoming_innate.clone()));
+            }
         }
     }
 
@@ -1106,7 +1098,7 @@ pub fn merge_into_canonical(
                 set_two_handed_flag(t, db.lookup_two_handed(&name));
             }
         }
-        canonicalize_item_stats_without_derivations(t);
+        canonicalize_item_stats(t);
         strip_family_dividers_from_prefix(t);
     }
 
@@ -1211,7 +1203,19 @@ fn strip_generated_header_block(src: &str) -> String {
         break;
     }
 
-    lines[start..].concat()
+    // Beyond the top-of-file banner, also drop stray generated lines anywhere
+    // in the body (e.g. an old-format timestamp comment left mid-file) so
+    // generated header lines never accumulate across merges.
+    lines[start..]
+        .iter()
+        .filter(|line| {
+            let trimmed = line.trim_end_matches(['\r', '\n']);
+            trimmed != HEADER_DELIM
+                && trimmed != AUTHOR_LINE
+                && !trimmed.starts_with(TIMESTAMP_PREFIX)
+        })
+        .copied()
+        .collect()
 }
 
 fn count_generated_timestamp_comments(src: &str) -> usize {
@@ -1382,8 +1386,8 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 }
 
 /// Compare two `[[item]]` tables on their canonical fields only:
-/// `name`, `slot`, tracked base stats, and tracked EssenceTotals stats. Comments, whitespace,
-/// and other decor are ignored.
+/// `name`, `slot`, all canonical stats (tracked + Base), and the same key set
+/// in EssenceTotals. Comments, whitespace, and other decor are ignored.
 ///
 /// `two_handed` is deliberately *not* compared: it is generated metadata
 /// that the merge refreshes from the DB unconditionally, so a flag-only
@@ -1391,7 +1395,7 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 fn item_data_equal(a: &Table, b: &Table) -> bool {
     if table_str(a, "name") == table_str(b, "name") && table_str(a, "slot") == table_str(b, "slot")
     {
-        for (_, key) in TRACKED_STATS {
+        for (_, key) in canonical_stat_entries() {
             if table_int_or_zero(a, key) != table_int_or_zero(b, key) {
                 return false;
             }
@@ -1549,12 +1553,10 @@ pub fn resolve_stats_file(
             source: e,
         })?;
 
-    let derivations = BaseStatDerivations::load_default()
-        .map_err(|source| ResolveError::Derivation { source })?;
     let plugin_export = find_latest_plugindata_file(char_dir, character)?
         .map(|path| {
             // `plugindata` parses the in-game `gearNames` export, including
-            // character class and naked base stats for resolver canonicalization.
+            // character class and raw base stats for the `[InnateStats]` block.
             crate::plugindata::load(&path)
                 .map_err(|message| ResolveError::PluginData { path, message })
         })
@@ -1593,10 +1595,9 @@ pub fn resolve_stats_file(
     let base_stats_ref = base_stats.as_ref().unwrap_or(&empty_base_stats);
 
     let (resolved_src, _outcomes) = if let Some(class_name) = class_name {
-        resolve_toml_str_with_derivations(
+        resolve_toml_str_with_metadata(
             &bookmarklet_src,
             db,
-            &derivations,
             character_name,
             class_name,
             base_stats_ref,
@@ -2066,9 +2067,8 @@ name = \"Mystery Renamed Legendary\"\n";
     }
 
     #[test]
-    fn resolver_derives_innate_stats_and_omits_raw_base_stats() {
+    fn resolver_writes_raw_base_stats_into_innate_stats() {
         let db = fixture_db();
-        let derivations = BaseStatDerivations::load_default().expect("derivations load");
         let base_stats: HashMap<Stat, i64> =
             [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
                 .into_iter()
@@ -2078,46 +2078,44 @@ name = \"Mystery Renamed Legendary\"\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
 
-        let (out, _) = resolve_toml_str_with_derivations(
-            input,
-            &db,
-            &derivations,
-            Some("Thalya"),
-            "Lore-master",
-            &base_stats,
-        )
-        .expect("must resolve with derivations");
+        let (out, _) =
+            resolve_toml_str_with_metadata(input, &db, Some("Thalya"), "Lore-master", &base_stats)
+                .expect("must resolve with metadata");
 
         let doc: DocumentMut = out.parse().expect("output parses");
         let innate = doc
             .get("InnateStats")
             .and_then(|item| item.as_table())
             .expect("InnateStats table exists");
+        // Exactly the five raw Base stats, in canonical order, no derived
+        // tracked stats. Missing plugindata values are written as zero.
+        let keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
+        assert_eq!(keys, vec!["Might", "Agility", "Vitality", "Will", "Fate"]);
         assert_eq!(
-            innate
-                .get("CriticalRating")
-                .and_then(|item| item.as_integer()),
-            Some(2000)
+            innate.get("Might").and_then(|item| item.as_integer()),
+            Some(0)
         );
         assert_eq!(
-            innate.get("Morale").and_then(|item| item.as_integer()),
-            Some(9)
+            innate.get("Agility").and_then(|item| item.as_integer()),
+            Some(1000)
         );
         assert_eq!(
-            innate.get("Power").and_then(|item| item.as_integer()),
-            Some(3)
+            innate.get("Vitality").and_then(|item| item.as_integer()),
+            Some(2)
         );
-        assert!(!out.contains("Might ="));
-        assert!(!out.contains("Agility ="));
-        assert!(!out.contains("Vitality ="));
-        assert!(!out.contains("Will ="));
-        assert!(!out.contains("Fate ="));
+        assert_eq!(
+            innate.get("Will").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(
+            innate.get("Fate").and_then(|item| item.as_integer()),
+            Some(2)
+        );
     }
 
     #[test]
     fn resolver_places_innate_stats_as_last_pre_items_header_block() {
         let db = fixture_db();
-        let derivations = BaseStatDerivations::load_default().expect("derivations load");
         let base_stats: HashMap<Stat, i64> =
             [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
                 .into_iter()
@@ -2127,15 +2125,9 @@ name = \"Test Helm\"\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
 
-        let (out, _) = resolve_toml_str_with_derivations(
-            input,
-            &db,
-            &derivations,
-            Some("Thalya"),
-            "Lore-master",
-            &base_stats,
-        )
-        .expect("must resolve with derivations");
+        let (out, _) =
+            resolve_toml_str_with_metadata(input, &db, Some("Thalya"), "Lore-master", &base_stats)
+                .expect("must resolve with metadata");
 
         let character_pos = out.find("character").expect("character field exists");
         let class_pos = out.find("class").expect("class field exists");
@@ -2160,9 +2152,8 @@ name = \"Test Helm\"\n";
     }
 
     #[test]
-    fn resolver_sums_item_explicit_and_derived_stats_without_raw_base() {
+    fn resolver_passes_item_base_stats_through_verbatim() {
         let db = fixture_db();
-        let derivations = BaseStatDerivations::load_default().expect("derivations load");
         let input = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
@@ -2171,15 +2162,14 @@ CriticalRating = 1000\n\
 Agility = 1000\n";
         let empty_base_stats = HashMap::new();
 
-        let (out, _) = resolve_toml_str_with_derivations(
+        let (out, _) = resolve_toml_str_with_metadata(
             input,
             &db,
-            &derivations,
             Some("Thalya"),
             "Lore-master",
             &empty_base_stats,
         )
-        .expect("must resolve with derivations");
+        .expect("must resolve with metadata");
 
         let doc: DocumentMut = out.parse().expect("output parses");
         let item = doc
@@ -2187,72 +2177,67 @@ Agility = 1000\n";
             .and_then(|item| item.as_array_of_tables())
             .and_then(|items| items.iter().next())
             .expect("one item");
+        // No derivation: explicit tracked stats and raw Base stats survive
+        // untouched, and no derived contributions appear anywhere.
         assert_eq!(
             item.get("CriticalRating")
                 .and_then(|item| item.as_integer()),
-            Some(3000)
+            Some(1000)
+        );
+        assert_eq!(
+            item.get("Agility").and_then(|item| item.as_integer()),
+            Some(1000)
         );
         assert_eq!(
             item.get("Finesse").and_then(|item| item.as_integer()),
-            Some(1000)
+            Some(0)
         );
         assert_eq!(
             item.get("TacticalMastery")
                 .and_then(|item| item.as_integer()),
-            Some(2000)
+            Some(0)
         );
-        assert!(item.get("Agility").is_none());
     }
 
     #[test]
-    fn resolver_removes_tracked_stats_omitted_after_base_merge() {
+    fn resolver_writes_base_stats_after_tracked_stats_in_canonical_order() {
         let db = fixture_db();
-        let derivations = BaseStatDerivations::load_default().expect("derivations load");
         let input = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n\
-CriticalRating = -2000\n\
-Agility = 1000\n";
+Fate = 7\n\
+Might = 9\n";
         let empty_base_stats = HashMap::new();
 
-        let (out, _) = resolve_toml_str_with_derivations(
+        let (out, _) = resolve_toml_str_with_metadata(
             input,
             &db,
-            &derivations,
             Some("Thalya"),
             "Lore-master",
             &empty_base_stats,
         )
-        .expect("must resolve with derivations");
+        .expect("must resolve with metadata");
 
-        let doc: DocumentMut = out.parse().expect("output parses");
-        let item = doc
-            .get("item")
-            .and_then(|item| item.as_array_of_tables())
-            .and_then(|items| items.iter().next())
-            .expect("one item");
-        assert_eq!(
-            item.get("CriticalRating")
-                .and_then(|item| item.as_integer()),
-            Some(0)
+        // The five Base stats come after all 16 tracked stats, in canonical
+        // Might/Agility/Vitality/Will/Fate order, and pass through verbatim.
+        assert!(
+            out.contains(
+                "TacticalMitigation = 0\n\
+                 Might = 9\n\
+                 Agility = 0\n\
+                 Vitality = 0\n\
+                 Will = 0\n\
+                 Fate = 7\n"
+            ),
+            "base stats not in canonical position/order:\n{}",
+            out
         );
-        assert_eq!(
-            item.get("Finesse").and_then(|item| item.as_integer()),
-            Some(1000)
-        );
-        assert_eq!(
-            item.get("TacticalMastery")
-                .and_then(|item| item.as_integer()),
-            Some(2000)
-        );
-        assert!(item.get("Agility").is_none());
     }
 
     #[test]
-    fn resolver_allows_morale_and_power_but_no_regen_stats() {
+    fn resolver_keeps_base_stats_out_of_morale_and_power() {
         let db = fixture_db();
-        let derivations = BaseStatDerivations::load_default().expect("derivations load");
         let input = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
@@ -2261,18 +2246,21 @@ Vitality = 2\n\
 Fate = 2\n";
         let empty_base_stats = HashMap::new();
 
-        let (out, _) = resolve_toml_str_with_derivations(
+        let (out, _) = resolve_toml_str_with_metadata(
             input,
             &db,
-            &derivations,
             Some("Thalya"),
             "Lore-master",
             &empty_base_stats,
         )
-        .expect("must resolve with derivations");
+        .expect("must resolve with metadata");
 
-        assert!(out.contains("Morale = 9"));
-        assert!(out.contains("Power = 3"));
+        // Pass-through means no derived Morale/Power contributions: the raw
+        // Base lines survive and tracked totals stay zero.
+        assert!(out.contains("Vitality = 2"));
+        assert!(out.contains("Fate = 2"));
+        assert!(out.contains("Morale = 0"));
+        assert!(out.contains("Power = 0"));
         assert!(!out.contains("Regen"));
     }
 
@@ -2313,11 +2301,11 @@ CriticalRating = 100\n";
         let essence_text = &out[essence_start..];
 
         assert!(
-            !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
+            !out.contains("Fate = 0\n\n[item.EssenceTotals]"),
             "EssenceTotals must stay attached to base item:\n{}",
             out
         );
-        for (_, key) in TRACKED_STATS {
+        for (_, key) in canonical_stat_entries() {
             assert!(
                 item_text.contains(&format!("{} = ", key)),
                 "base item missing {}:\n{}",
@@ -2557,9 +2545,16 @@ name = \"Test Helm\"\n";
             .count()
     }
 
+    /// Strip every generated-header line (delimiters, author line, timestamp)
+    /// so outputs can be compared modulo the generated banner block.
     fn strip_generated_timestamp_comment(src: &str) -> String {
         src.split_inclusive('\n')
-            .filter(|line| !line.contains("# gearReady.toml updated:"))
+            .filter(|line| {
+                let trimmed = line.trim_end_matches(['\r', '\n']);
+                trimmed != "# _-=-_-=-_-=-_-=-_-=-_-=-_"
+                    && trimmed != "# LGO 2026, by Thalya"
+                    && !trimmed.contains("# gearReady.toml updated:")
+            })
             .collect()
     }
 
@@ -2578,8 +2573,10 @@ name = \"Test Helm\"\n";
         assert!(outcome.removed.is_empty());
         assert_eq!(count_generated_timestamp_comments(&outcome.merged_text), 1);
         assert!(
-            outcome.merged_text.starts_with("# gearReady.toml updated:"),
-            "timestamp must be the first canonical output line:\n{}",
+            outcome.merged_text.starts_with(
+                "# _-=-_-=-_-=-_-=-_-=-_-=-_\n# LGO 2026, by Thalya\n# gearReady.toml updated:"
+            ),
+            "generated banner with timestamp must open the canonical output:\n{}",
             outcome.merged_text
         );
         assert_eq!(
@@ -2673,8 +2670,10 @@ name = \"Test Helm\"\n";
 
         assert_eq!(count_generated_timestamp_comments(&second), 1);
         assert!(
-            second.starts_with("# gearReady.toml updated:"),
-            "fresh timestamp must be prepended:\n{}",
+            second.starts_with(
+                "# _-=-_-=-_-=-_-=-_-=-_-=-_\n# LGO 2026, by Thalya\n# gearReady.toml updated:"
+            ),
+            "fresh generated banner must be prepended:\n{}",
             second
         );
         assert!(
@@ -3124,6 +3123,128 @@ Armor = 100\n";
             strip_generated_timestamp_comment(&first),
             strip_generated_timestamp_comment(&second),
             "metadata carry-forward must not disturb repeat-merge serialization apart from timestamp"
+        );
+    }
+
+    #[test]
+    fn merge_base_stat_pass_through_is_idempotent() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [
+            (Stat::Might, 5300),
+            (Stat::Agility, 2650),
+            (Stat::Vitality, 10200),
+            (Stat::Will, 7950),
+            (Stat::Fate, 4000),
+        ]
+        .into_iter()
+        .collect();
+        let bookmarklet = make_doc(&[(
+            "Test Helm",
+            "Unknown",
+            &[("Armor", 100), ("Might", 9), ("Vitality", 3434)],
+        )]);
+        let (resolved, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+        )
+        .expect("resolve");
+
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_ic(Some(&second), &resolved, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+
+        for (label, out) in [("first", &first), ("second", &second), ("third", &third)] {
+            assert!(
+                out.contains("Might = 9") && out.contains("Vitality = 3434"),
+                "{} merge must pass per-item base stats through verbatim:\n{}",
+                label,
+                out
+            );
+        }
+        assert_eq!(
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second),
+            "base-stat pass-through must merge idempotently:\n--- first ---\n{}\n--- second ---\n{}",
+            first,
+            second
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third),
+            "third merge must also be identical apart from timestamp"
+        );
+    }
+
+    #[test]
+    fn merge_refreshes_innate_base_stats_but_preserves_hand_added_tracked_keys() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+
+        let stale_base: HashMap<Stat, i64> = [(Stat::Might, 100)].into_iter().collect();
+        let (resolved_stale, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &stale_base,
+        )
+        .expect("resolve");
+        let first = merge_ic(None, &resolved_stale, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+
+        // Simulate a user hand-adding a tracked stat inside [InnateStats].
+        let hand_edited = first.replace("[InnateStats]\n", "[InnateStats]\nCriticalRating = 25\n");
+        assert_ne!(hand_edited, first, "hand-edit must apply");
+
+        let fresh_base: HashMap<Stat, i64> = [(Stat::Might, 5300), (Stat::Fate, 4000)]
+            .into_iter()
+            .collect();
+        let (resolved_fresh, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &fresh_base,
+        )
+        .expect("resolve");
+        let merged = merge_ic(Some(&hand_edited), &resolved_fresh, ForceMode::NoForce)
+            .expect("merge")
+            .merged_text;
+
+        let doc: DocumentMut = merged.parse().expect("merged output parses");
+        let innate = doc
+            .get("InnateStats")
+            .and_then(|item| item.as_table())
+            .expect("InnateStats table exists");
+        assert_eq!(
+            innate
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(25),
+            "hand-added tracked key must survive the merge untouched:\n{}",
+            merged
+        );
+        assert_eq!(
+            innate.get("Might").and_then(|item| item.as_integer()),
+            Some(5300),
+            "base keys must refresh to current export truth:\n{}",
+            merged
+        );
+        assert_eq!(
+            innate.get("Fate").and_then(|item| item.as_integer()),
+            Some(4000),
+            "base keys must refresh to current export truth:\n{}",
+            merged
         );
     }
 
