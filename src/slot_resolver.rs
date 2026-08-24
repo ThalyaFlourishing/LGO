@@ -693,16 +693,22 @@ fn insert_canonical_stats(
                 .and_then(|removed| removed.item.as_value()),
             item.as_value_mut(),
         ) {
-            new_value
-                .decor_mut()
-                .set_suffix(old_value.decor().suffix().map_or("", |s| s.as_str().unwrap_or("")));
+            new_value.decor_mut().set_suffix(
+                old_value
+                    .decor()
+                    .suffix()
+                    .map_or("", |s| s.as_str().unwrap_or("")),
+            );
         }
         table.insert(key, item);
         if let Some(removed) = old_items.get(key) {
             if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
-                key_mut
-                    .leaf_decor_mut()
-                    .set_prefix(removed.key_decor.prefix().map_or("", |s| s.as_str().unwrap_or("")));
+                key_mut.leaf_decor_mut().set_prefix(
+                    removed
+                        .key_decor
+                        .prefix()
+                        .map_or("", |s| s.as_str().unwrap_or("")),
+                );
             }
         }
         normalize_assignment_decor(table, key);
@@ -1788,7 +1794,10 @@ mod tests {
                 );
             }
         }
-        assert!(saw_stat_line, "test input should contain stat assignment lines");
+        assert!(
+            saw_stat_line,
+            "test input should contain stat assignment lines"
+        );
     }
 
     /// Test shorthand for `merge_into_canonical` against the shared fixture DB.
@@ -2419,14 +2428,9 @@ Might=9\n";
             .into_iter()
             .collect();
 
-        let (out, _) = resolve_toml_str_with_metadata(
-            input,
-            &db,
-            Some("Thalya"),
-            "Lore-master",
-            &base_stats,
-        )
-        .expect("must resolve with metadata");
+        let (out, _) =
+            resolve_toml_str_with_metadata(input, &db, Some("Thalya"), "Lore-master", &base_stats)
+                .expect("must resolve with metadata");
 
         assert_stat_assignments_align_to_column_20(&out);
     }
