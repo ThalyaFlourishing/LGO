@@ -81,7 +81,10 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
    a text editor and review it. You will need to hand-edit some kinds of
    data:
        - Legendary Items
-       - Essence stats: enter them in each item's [item.EssenceTotals] block
+       - Essence stats: enter them in each item's [item.EssenceTotals] block.
+         Enter essence Base stats (e.g. Vitality or Will essences) verbatim
+         from the essence tooltips too — the optimizer derives them into
+         tracked stats automatically, so no manual derivation is needed.
        - Items flagged with '# UNRESOLVED'.
        - Items left with slot = "Unknown" by resolve-slots.
 
@@ -142,6 +145,20 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     some items before re-running the workflow. This check exists 
     independently because you may also add items to gearReady.toml by 
     hand.
+
+    NOTE: optimize needs the class coefficient table in
+    data/base_stat_derivations.json to derive your raw Base stats
+    (Might, Agility, Vitality, Will, Fate) into tracked stats, so run
+    it from a directory containing the 'data' folder (the same
+    convention as build-db).
+
+    To see just your character's raw innate Base stats and the
+    tracked-stat contributions derived from them (already included in
+    optimize totals), run:
+
+        lgo base-stats
+
+    This does not run an optimization.
 
 11. Read the report printed to the terminal. It lists the chosen item
     for each gear slot and the resulting total for each tracked stat.

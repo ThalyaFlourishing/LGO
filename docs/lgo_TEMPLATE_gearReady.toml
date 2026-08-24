@@ -6,22 +6,15 @@ character = "<YOUR CHARACTER NAME HERE>"
 class = "<YOUR CLASS NAME HERE>"
 
 [InnateStats]
-Morale             = 0
-Power              = 0
-Armor              = 0
-CriticalRating     = 0
-Finesse            = 0
-PhysicalMastery    = 0
-TacticalMastery    = 0
-OutgoingHealing    = 0
-Resistance         = 0     
-CriticalDefense    = 0
-IncomingHealing    = 0
-Block              = 0
-Parry              = 0
-Evade              = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
+# Raw Base stats (derivation inputs; resolve-slots fills these from plugindata).
+# You may also hand-add any of the 16 tracked-stat keys here (e.g. Morale,
+# Power, Armor, CriticalRating, ...); see docs/lgo_reference_stats.md for the
+# exact key spellings. Mistyped keys are hard errors at optimize time.
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Head ---
 
@@ -44,6 +37,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -61,6 +59,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Chest ---
 
@@ -83,6 +86,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -100,6 +108,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Legs ---
 
@@ -122,6 +135,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -139,6 +157,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Hands ---
 
@@ -161,6 +184,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -178,6 +206,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Feet ---
 
@@ -200,6 +233,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -217,6 +255,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Shoulders ---
 
@@ -239,6 +282,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -256,6 +304,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Back ---
 
@@ -278,6 +331,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -295,6 +353,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Wrist ---
 
@@ -317,6 +380,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -334,6 +402,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Neck ---
 
@@ -356,6 +429,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -373,6 +451,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Finger ---
 
@@ -395,6 +478,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -412,6 +500,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Ear ---
 
@@ -434,6 +527,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -451,6 +549,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Pocket ---
 
@@ -473,6 +576,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -490,6 +598,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Main-hand ---
 
@@ -512,6 +625,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -529,6 +647,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Off-hand ---
 
@@ -551,6 +674,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -568,6 +696,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Ranged ---
 
@@ -590,6 +723,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -607,6 +745,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 
 # --- Class Item ---
 
@@ -629,6 +772,11 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
     [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -646,3 +794,8 @@ Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0

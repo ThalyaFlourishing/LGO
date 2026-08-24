@@ -38,8 +38,9 @@ pub enum Stat {
 
 /// The five raw Base stats, in canonical order, keyed by PascalCase TOML key.
 /// The resolver passes them through untouched (`[InnateStats]` and per-item
-/// lines); derivation into tracked stats is the optimize path's job (future
-/// work). Never tracked, never abbreviated, never valid as optimize goals.
+/// lines); the optimize path derives them into tracked stats via the
+/// per-class coefficients in `data/base_stat_derivations.json`. Never
+/// tracked, never abbreviated, never valid as optimize goals.
 pub const BASE_STATS: &[(Stat, &str)] = &[
     (Stat::Might, "Might"),
     (Stat::Agility, "Agility"),

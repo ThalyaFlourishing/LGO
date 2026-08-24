@@ -39,6 +39,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   - Verb aliases:
       optimize       | --optimize       | -o
       resolve-slots  | --resolve-slots  | -r
+      base-stats     | --base-stats
   - Top-level reference switch:
       --statlist
   - Help/usage banner is printed by:
@@ -114,10 +115,35 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Per-item [item.EssenceTotals] values in gearReady.toml are merged into the
     effective item totals before optimization.
 
+    optimize also derives the raw Base stats (Might, Agility, Vitality, Will,
+    Fate) carried in gearReady.toml — innate, per-item, and essence values —
+    into tracked-stat contributions using the per-class coefficients in
+    data/base_stat_derivations.json. That file is resolved relative to the
+    current directory (same convention as build-db), so run optimize from a
+    directory containing the data/ folder. optimize errors clearly if the
+    file or the class entry is missing.
+
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
-3.5 Stat goal syntax
+3.5 base-stats
+  lgo base-stats
+    Print the five raw innate Base stats from [InnateStats] in
+    lgo_<character>_gearReady.toml, and the 16 derived tracked-stat
+    contributions computed from them (already included in optimize totals).
+    Does not run an optimization. Requires data/base_stat_derivations.json in
+    the current directory's data/ folder, like optimize.
+    Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
+
+  lgo base-stats --character <name>
+  lgo base-stats -c <name>
+    Use the specified character's AllServers folder for auto-discovery.
+
+  lgo base-stats --file <path>
+  lgo base-stats -f <path>
+    Read the explicit canonical gear TOML you provide.
+
+3.6 Stat goal syntax
   Goal format: <stat>:<minimum>
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
@@ -145,17 +171,20 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     lgo optimize tm:450000 cr:350000 fn:0
     lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0
 
-3.6 Help
+3.7 Help
   lgo
   lgo --help
   lgo -h
   lgo help
     Print the usage banner and exit.
 
+
 SECTION 4 - DEVELOPER COMMANDS (cargo)
 --------------------------------------
 (used when developing LGO itself)
 
+  cargo clean
+    Remove build artifacts (target/).
   cargo build
     Build debug binaries into target/debug/.
 
@@ -193,8 +222,6 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo fmt --check
     Check Rust formatting without rewriting files.
 
-  cargo clean
-    Remove build artifacts (target/).
 
 SECTION 5 - ITEMS DATABASE BUILDER
 -------------------------------------------------

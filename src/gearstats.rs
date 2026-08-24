@@ -18,12 +18,28 @@ pub struct GearDoc {
     /// Character class, if present as `class = "..."` at top level.
     pub class: Option<String>,
     /// Tracked-stat totals a user hand-added to top-level `[InnateStats]`.
-    /// The five raw Base-stat keys the resolver writes there are accepted on
-    /// read but never loaded into this map — Base stats must not seed any
-    /// tracked total.
+    /// Raw Base-stat keys never land here — Base stats must not seed any
+    /// tracked total; they go to `innate_base_stats` for derivation instead.
     pub innate_stats: HashMap<Stat, i64>,
+    /// The five raw Base-stat values from top-level `[InnateStats]`
+    /// (Might/Agility/Vitality/Will/Fate). Derivation inputs only: the
+    /// optimize path converts them into tracked-stat contributions via
+    /// per-class coefficients before optimization.
+    pub innate_base_stats: HashMap<Stat, i64>,
     /// Parsed gear items from `[[item]]` entries.
-    pub items: Vec<GearItem>,
+    pub items: Vec<DocItem>,
+}
+
+/// One `[[item]]` entry as read from the TOML: the optimizer-facing item plus
+/// its raw Base-stat values, kept apart from the tracked-stat map so Base
+/// stats can never leak raw into any tracked total.
+#[derive(Debug)]
+pub struct DocItem {
+    /// The optimizer-facing item (tracked stats only).
+    pub item: GearItem,
+    /// Raw Base-stat values from the item block, with `[item.EssenceTotals]`
+    /// base values merged in — derivation inputs for the optimize pre-pass.
+    pub base_stats: HashMap<Stat, i64>,
 }
 
 /// Parse a TOML gear stats file back into a `GearDoc` carrying top-level
@@ -92,7 +108,8 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             }
         };
 
-        let mut stats = read_tracked_stats(entry_table);
+        let mut stats = read_stats_map(entry_table, TRACKED_STATS);
+        let mut base_stats = read_stats_map(entry_table, BASE_STATS);
         if let Some(essence_totals) = entry_table.get(ESSENCE_TOTALS_KEY) {
             let essence_table = essence_totals.as_table().ok_or_else(|| {
                 format!(
@@ -101,19 +118,26 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
                 )
             })?;
             validate_essence_keys(essence_table, &name)?;
-            for (stat, value) in read_tracked_stats(essence_table) {
+            for (stat, value) in read_stats_map(essence_table, TRACKED_STATS) {
                 *stats.entry(stat).or_insert(0) += value;
+            }
+            for (stat, value) in read_stats_map(essence_table, BASE_STATS) {
+                *base_stats.entry(stat).or_insert(0) += value;
             }
             // Runtime item stat maps store only non-zero effective totals; if
             // base and essence values cancel out, absence still means zero.
             stats.retain(|_, value| *value != 0);
+            base_stats.retain(|_, value| *value != 0);
         }
 
-        items.push(GearItem {
-            name,
-            slot,
-            two_handed,
-            stats,
+        items.push(DocItem {
+            item: GearItem {
+                name,
+                slot,
+                two_handed,
+                stats,
+            },
+            base_stats,
         });
     }
 
@@ -128,34 +152,30 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             .ok_or_else(|| "`InnateStats` must be a TOML table".to_string())?;
         validate_innate_keys(innate_table)?;
     }
-    let innate_stats = read_innate_stats(&doc);
+    let innate_stats = read_innate_stats(&doc, TRACKED_STATS);
+    let innate_base_stats = read_innate_stats(&doc, BASE_STATS);
 
     Ok(GearDoc {
         character,
         class,
         innate_stats,
+        innate_base_stats,
         items,
     })
 }
 
-fn read_innate_stats(doc: &toml::Value) -> HashMap<Stat, i64> {
-    let mut stats = HashMap::new();
+fn read_innate_stats(doc: &toml::Value, keys: &[(Stat, &str)]) -> HashMap<Stat, i64> {
     let Some(table) = doc.get("InnateStats").and_then(|v| v.as_table()) else {
-        return stats;
+        return HashMap::new();
     };
-    for (stat, key) in TRACKED_STATS {
-        if let Some(val) = table.get(*key).and_then(|v| v.as_integer()) {
-            if val != 0 {
-                stats.insert(*stat, val);
-            }
-        }
-    }
-    stats
+    read_stats_map(table, keys)
 }
 
-fn read_tracked_stats(table: &toml::value::Table) -> HashMap<Stat, i64> {
+/// Read the non-zero values for `keys` (a `(Stat, TOML key)` table such as
+/// `TRACKED_STATS` or `BASE_STATS`) out of a TOML table.
+fn read_stats_map(table: &toml::value::Table, keys: &[(Stat, &str)]) -> HashMap<Stat, i64> {
     let mut stats = HashMap::new();
-    for (stat, key) in TRACKED_STATS {
+    for (stat, key) in keys {
         if let Some(val) = table.get(*key).and_then(|v| v.as_integer()) {
             if val != 0 {
                 stats.insert(*stat, val);
@@ -452,7 +472,7 @@ name = "Mystery Item"
             1,
             "Unknown slot must be silently skipped"
         );
-        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
+        assert_eq!(result.items[0].item.slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -472,7 +492,7 @@ name = "Scholar's Light Bridle"
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(result.items.len(), 1, "Bridle slot must be skipped");
-        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
+        assert_eq!(result.items[0].item.slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -504,7 +524,7 @@ name = "Craft Tool C"
             1,
             "all tool slot variants must be skipped"
         );
-        assert_eq!(result.items[0].slot, crate::gear::Slot::Head);
+        assert_eq!(result.items[0].item.slot, crate::gear::Slot::Head);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -604,6 +624,7 @@ name = "Test Helm"
         assert_eq!(doc.innate_stats.get(&Stat::Power), Some(&50));
         assert_eq!(doc.innate_stats.get(&Stat::CriticalRating), Some(&25));
         assert!(!doc.innate_stats.contains_key(&Stat::Might));
+        assert_eq!(doc.innate_base_stats.get(&Stat::Might), Some(&999));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -623,8 +644,8 @@ Finesse = 5
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let doc = read_stats_file(&path).expect("must parse");
-        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 125);
-        assert_eq!(doc.items[0].stat(&Stat::Finesse), 15);
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 125);
+        assert_eq!(doc.items[0].item.stat(&Stat::Finesse), 15);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -640,8 +661,8 @@ CriticalRating = 100
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let doc = read_stats_file(&path).expect("must parse");
-        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
-        assert_eq!(doc.items[0].stat(&Stat::Finesse), 0);
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].item.stat(&Stat::Finesse), 0);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -659,8 +680,8 @@ Finesse = 5
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let doc = read_stats_file(&path).expect("must parse");
-        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
-        assert_eq!(doc.items[0].stat(&Stat::Finesse), 5);
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].item.stat(&Stat::Finesse), 5);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -727,14 +748,23 @@ Will = 12
 "#;
         std::fs::write(&path, toml).expect("write toml");
         let doc = read_stats_file(&path).expect("base stat keys must be accepted");
-        // Accepted for parse, but never loaded into any tracked total:
-        // item stat maps and innate stats carry tracked stats only.
-        assert_eq!(doc.items[0].stat(&Stat::CriticalRating), 100);
-        assert_eq!(doc.items[0].stat(&Stat::Finesse), 5);
-        assert!(!doc.items[0].stats.contains_key(&Stat::Might));
-        assert!(!doc.items[0].stats.contains_key(&Stat::Vitality));
-        assert!(!doc.items[0].stats.contains_key(&Stat::Will));
+        // Base values are carried in the separate base-stat maps, never in
+        // any tracked total: item stat maps and innate stats stay tracked-only.
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 100);
+        assert_eq!(doc.items[0].item.stat(&Stat::Finesse), 5);
+        assert!(!doc.items[0].item.stats.contains_key(&Stat::Might));
+        assert!(!doc.items[0].item.stats.contains_key(&Stat::Vitality));
+        assert!(!doc.items[0].item.stats.contains_key(&Stat::Will));
+        assert_eq!(doc.items[0].base_stats.get(&Stat::Might), Some(&9));
+        assert_eq!(doc.items[0].base_stats.get(&Stat::Vitality), Some(&3434));
+        // EssenceTotals base values merge into the item's base-stat map.
+        assert_eq!(doc.items[0].base_stats.get(&Stat::Will), Some(&12));
         assert!(doc.innate_stats.is_empty());
+        assert_eq!(doc.innate_base_stats.get(&Stat::Might), Some(&5300));
+        assert_eq!(doc.innate_base_stats.get(&Stat::Agility), Some(&2650));
+        assert_eq!(doc.innate_base_stats.get(&Stat::Vitality), Some(&10200));
+        assert_eq!(doc.innate_base_stats.get(&Stat::Will), Some(&7950));
+        assert_eq!(doc.innate_base_stats.get(&Stat::Fate), Some(&4000));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -792,7 +822,7 @@ CriticalRating = 100
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(result.items.len(), 1);
-        assert!(result.items[0].two_handed);
+        assert!(result.items[0].item.two_handed);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
@@ -809,7 +839,7 @@ CriticalRating = 100
         std::fs::write(&path, toml).expect("write toml");
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(result.items.len(), 1);
-        assert!(!result.items[0].two_handed);
+        assert!(!result.items[0].item.two_handed);
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 

@@ -49,12 +49,100 @@ fn main() {
         }
         Command::StatList => print_stat_list(),
         Command::Optimize(cli) => run_optimize(&cli),
+        Command::BaseStats(cli) => run_base_stats(&cli),
         Command::ResolveSlots(cli) => run_resolve_slots(&cli),
         Command::BuildDb(cli) => run_build_db(&cli),
     }
 }
 
 const UNKNOWN: &str = "Unknown";
+
+/// Locate the canonical gear file for optimize/base-stats: an explicit
+/// `--file` path when given, otherwise auto-discovery of
+/// `lgo_<character>_gearReady.toml` in the character's AllServers directory.
+/// Returns the path plus the auto-discovered character name (if any).
+/// Exits the process with a clear message on failure.
+fn locate_canonical_gear_file(
+    character: Option<&str>,
+    file: Option<&PathBuf>,
+) -> (PathBuf, Option<String>) {
+    if let Some(path) = file {
+        if !path.exists() {
+            eprintln!("Error: File not found: {}", path.display());
+            process::exit(1);
+        }
+        return (path.clone(), None);
+    }
+    let (char_dir, resolved_character) = match resolve_character_allservers(character) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+    let auto_discovered_character = if character.is_none() {
+        Some(resolved_character.clone())
+    } else {
+        None
+    };
+
+    let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &resolved_character) {
+        Ok(Some(path)) => path,
+        Ok(None) => {
+            eprintln!(
+                "No lgo_{}_gearReady.toml file found in {}",
+                resolved_character,
+                char_dir.display()
+            );
+            eprintln!(
+                "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
+            );
+            eprintln!("Please follow these steps:");
+            eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
+            eprintln!("  2) Run /lgo export in-game");
+            eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
+            eprintln!("  4) Click the LGO bookmarklet");
+            eprintln!(
+                "  5) Paste lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted"
+            );
+            eprintln!(
+                "  6) The bookmarklet generates lgo_{}_gearStats.toml — save it to your AllServers directory",
+                resolved_character
+            );
+            eprintln!(
+                "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gearReady.toml)",
+                resolved_character
+            );
+            eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
+            process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+    (stats_file, auto_discovered_character)
+}
+
+/// Load `data/base_stat_derivations.json` (resolved relative to the current
+/// directory, same convention as `build-db`), exiting with a clear message
+/// if the file is missing or malformed.
+fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
+    match base_stats::BaseStatDerivations::load_default() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!(
+                "Failed to load base-stat derivation data ({}): {}",
+                base_stats::DEFAULT_DERIVATIONS_PATH,
+                e
+            );
+            eprintln!(
+                "Run lgo from a directory containing a data/ folder with that file (same working-directory convention as build-db)."
+            );
+            process::exit(1);
+        }
+    }
+}
 
 fn run_optimize(cli: &OptimizeCli) {
     if cli.goals.is_empty() {
@@ -63,63 +151,10 @@ fn run_optimize(cli: &OptimizeCli) {
         process::exit(1);
     }
 
-    let (stats_file, auto_discovered_character) = if let Some(path) = &cli.file {
-        if !path.exists() {
-            eprintln!("Error: File not found: {}", path.display());
-            process::exit(1);
-        }
-        (path.clone(), None)
-    } else {
-        let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        let auto_discovered_character = if cli.character.is_none() {
-            Some(character.clone())
-        } else {
-            None
-        };
+    let (stats_file, auto_discovered_character) =
+        locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
 
-        let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &character) {
-            Ok(Some(path)) => path,
-            Ok(None) => {
-                eprintln!(
-                    "No lgo_{}_gearReady.toml file found in {}",
-                    character,
-                    char_dir.display()
-                );
-                eprintln!(
-                    "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
-                );
-                eprintln!("Please follow these steps:");
-                eprintln!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
-                eprintln!("  2) Run /lgo export in-game");
-                eprintln!("  3) Navigate to https://lotro-wiki.com in your browser");
-                eprintln!("  4) Click the LGO bookmarklet");
-                eprintln!("  5) Paste lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted");
-                eprintln!(
-                    "  6) The bookmarklet generates lgo_{}_gearStats.toml — save it to your AllServers directory",
-                    character
-                );
-                eprintln!(
-                    "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gearReady.toml)",
-                    character
-                );
-                eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
-                process::exit(1);
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        (stats_file, auto_discovered_character)
-    };
-
-    let gear_doc = match gearstats::read_stats_file(&stats_file) {
+    let mut gear_doc = match gearstats::read_stats_file(&stats_file) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("Error reading gear stats file: {}", e);
@@ -128,15 +163,27 @@ fn run_optimize(cli: &OptimizeCli) {
     };
 
     let character = resolve_report_character(
-        gear_doc.character,
+        gear_doc.character.clone(),
         cli.character.as_deref(),
         auto_discovered_character,
     );
-    let class = gear_doc.class.unwrap_or_else(|| UNKNOWN.to_string());
+    let class = gear_doc
+        .class
+        .clone()
+        .unwrap_or_else(|| UNKNOWN.to_string());
+
+    // Derivation pre-pass: fold raw Base stats (innate and per item) into
+    // tracked-stat contributions before candidates enter the optimizer.
+    let derivations = load_derivations_or_exit();
+    if let Err(e) = derivations.derive_doc(&class, &mut gear_doc) {
+        eprintln!("Error deriving Base stats for class '{}': {}", class, e);
+        process::exit(1);
+    }
 
     let resolved: HashMap<String, gear::GearItem> = gear_doc
         .items
         .into_iter()
+        .map(|doc_item| doc_item.item)
         .enumerate()
         // Candidate identity is per owned TOML item instance, not per display
         // name: duplicate owned copies must remain distinct optimizer inputs.
@@ -177,6 +224,46 @@ fn resolve_report_character(
         .or_else(|| cli_character.map(String::from))
         .or(auto_discovered_character)
         .unwrap_or_else(|| UNKNOWN.to_string())
+}
+
+fn run_base_stats(cli: &BaseStatsCli) {
+    let (stats_file, auto_discovered_character) =
+        locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
+
+    let gear_doc = match gearstats::read_stats_file(&stats_file) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Error reading gear stats file: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let character = resolve_report_character(
+        gear_doc.character.clone(),
+        cli.character.as_deref(),
+        auto_discovered_character,
+    );
+    let class = gear_doc
+        .class
+        .clone()
+        .unwrap_or_else(|| UNKNOWN.to_string());
+
+    let derivations = load_derivations_or_exit();
+    let derived = match derivations.derive_stats(&class, &gear_doc.innate_base_stats) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Error deriving Base stats for class '{}': {}", class, e);
+            process::exit(1);
+        }
+    };
+
+    report::print_base_stats_report(
+        &character,
+        &class,
+        &stats_file.display().to_string(),
+        &gear_doc.innate_base_stats,
+        &derived,
+    );
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
@@ -266,6 +353,7 @@ enum Command {
     Help,
     StatList,
     Optimize(OptimizeCli),
+    BaseStats(BaseStatsCli),
     ResolveSlots(ResolveSlotsCli),
     BuildDb(BuildDbCli),
 }
@@ -281,6 +369,14 @@ struct OptimizeCli {
     character: Option<String>,
     file: Option<PathBuf>,
     goals: Vec<StatGoal>,
+}
+
+/// `lgo base-stats`: show the raw innate Base stats and the tracked-stat
+/// contributions derived from them. Shares `optimize`'s file discovery.
+#[derive(Debug)]
+struct BaseStatsCli {
+    character: Option<String>,
+    file: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -305,6 +401,9 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
         "--statlist" => Ok(Command::StatList),
         "optimize" | "--optimize" | "-o" => parse_optimize_args(&args[1..])
             .map(Command::Optimize)
+            .map_err(CliParseError::Message),
+        "base-stats" | "--base-stats" => parse_base_stats_args(&args[1..])
+            .map(Command::BaseStats)
             .map_err(CliParseError::Message),
         "resolve-slots" | "--resolve-slots" | "-r" => parse_resolve_slots_args(&args[1..])
             .map(Command::ResolveSlots)
@@ -350,6 +449,32 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
         file,
         goals,
     })
+}
+
+fn parse_base_stats_args(args: &[String]) -> Result<BaseStatsCli, String> {
+    let mut character = None;
+    let mut file = None;
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--character" | "-c" => {
+                i += 1;
+                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+            }
+            "--file" | "-f" => {
+                i += 1;
+                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+            }
+            arg if arg.starts_with('-') => {
+                return Err(format!("Unknown option: '{}'", arg));
+            }
+            _ => return Err("'base-stats' takes no positional arguments".to_string()),
+        }
+        i += 1;
+    }
+
+    Ok(BaseStatsCli { character, file })
 }
 
 fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> {
@@ -506,6 +631,7 @@ fn print_usage() {
     println!();
     println!("Usage:");
     println!("  lgo optimize      [options] <stat:min> [<stat:min> ...]");
+    println!("  lgo base-stats    [options]");
     println!("  lgo resolve-slots [options]");
     println!("  lgo build-db      [options]");
     println!("  lgo --statlist");
@@ -520,6 +646,17 @@ fn print_usage() {
         "  --file      <path>  Explicit canonical gear TOML to optimize instead of auto-detect"
     );
     println!("  --help              Show this message");
+    println!();
+    println!("  optimize requires data/base_stat_derivations.json (resolved relative to the");
+    println!("  current directory) to derive Base-stat contributions before optimization.");
+    println!();
+    println!("Options (base-stats):");
+    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --file      <path>  Explicit canonical gear TOML to read instead of auto-detect");
+    println!();
+    println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
+    println!("  tracked-stat contributions derived from them (already included in optimize");
+    println!("  totals). It does not run an optimization.");
     println!();
     println!("Options (resolve-slots):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
@@ -555,6 +692,8 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
+    println!("    lgo base-stats");
+    println!("    lgo base-stats --character Thalya");
     println!("    lgo resolve-slots");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
@@ -604,6 +743,54 @@ mod tests {
                 Command::Optimize(cli) => assert_eq!(cli.goals.len(), 1),
                 _ => panic!("expected optimize command"),
             }
+        }
+    }
+
+    #[test]
+    fn base_stats_verb_is_case_insensitive_across_aliases() {
+        for verb in ["base-stats", "Base-Stats", "BASE-STATS", "--Base-Stats"] {
+            let cmd = parse_command(&s(&[verb])).expect("base-stats alias should parse");
+            assert!(matches!(cmd, Command::BaseStats(_)));
+        }
+    }
+
+    #[test]
+    fn base_stats_accepts_character_and_file_flags() {
+        let cmd = parse_command(&s(&[
+            "base-stats",
+            "--character",
+            "Thalya",
+            "--file",
+            "my/gear.toml",
+        ]))
+        .expect("base-stats flags should parse");
+        match cmd {
+            Command::BaseStats(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.file, Some(PathBuf::from("my/gear.toml")));
+            }
+            _ => panic!("expected base-stats command"),
+        }
+
+        let cmd = parse_command(&s(&["base-stats", "-c", "Thalya", "-f", "gear.toml"]))
+            .expect("base-stats short flags should parse");
+        match cmd {
+            Command::BaseStats(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+            }
+            _ => panic!("expected base-stats command"),
+        }
+    }
+
+    #[test]
+    fn base_stats_rejects_positional_arguments() {
+        let err = parse_command(&s(&["base-stats", "tm:450000"])).unwrap_err();
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "'base-stats' takes no positional arguments")
+            }
+            _ => panic!("expected message parse error"),
         }
     }
 
