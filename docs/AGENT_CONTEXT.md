@@ -135,6 +135,17 @@ added raw to any tracked total; at optimize time they are derived into
 tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
 `docs/lgo_reference_stats.md`).
 
+### Stat-line alignment (canonical, enforced)
+
+Every stat assignment line in `gearReady.toml` — the 16 tracked stats and the
+5 Base stats, in `[[item]]` blocks, `[item.EssenceTotals]`, and
+`[InnateStats]` — is written with its `=` at column 20 (key padded to width
+19). This is normalized, not preserved: `resolve-slots` re-aligns spacing on
+every resolve/merge regardless of incoming decor, so hand-edited spacing does
+not survive, while values and comments do. Any change that lets
+non-conforming spacing survive a merge will break the merge-idempotency
+invariant (output decor feeds the next run's input decor).
+
 ### `two_handed` generated metadata
 
 Two-handed `Main-hand` items carry `two_handed = true` between `name` and the

@@ -183,6 +183,9 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
 --------------------------------------
 (used when developing LGO itself)
 
+  All Section 3 verbs and flags work via cargo run -- <verb> [flags]
+    See Section 3 for the full catalog.
+
   cargo clean
     Remove build artifacts (target/).
   cargo build
@@ -196,7 +199,15 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
                    e.g. tm:450000 cr:350000 fn:0
   
   cargo run -- resolve-slots
-    Build (if needed) and run lgo; args after -- are passed through to lgo.
+    Build (if needed) and run lgo; args after -- are passed through to lgo. All Section 3 verbs and flags work this way: cargo run -- <verb> [flags]
+    (e.g. cargo run -- base-stats, cargo run -- --statlist). Section 3 is the
+    authoritative catalog of verbs and flags; Section 4 only covers build and
+    test tooling.
+
+    Tip: cargo build --release produces target/release/lgo, which you can run
+    directly (lgo <verb> ...) — but still from a directory containing data/,
+    since resolve-slots and optimize resolve data files relative to the
+    current directory.
 
   cargo test
     Run all unit and integration tests.

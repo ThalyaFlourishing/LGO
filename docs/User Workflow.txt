@@ -85,6 +85,9 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
          Enter essence Base stats (e.g. Vitality or Will essences) verbatim
          from the essence tooltips too — the optimizer derives them into
          tracked stats automatically, so no manual derivation is needed.
+       - Note: don't bother aligning or prettifying the '= value' spacing when
+       hand-editing; resolve-slots automatically re-aligns every stat line
+       (= at column 20) on its next run. Your values and comments are kept.
        - Items flagged with '# UNRESOLVED'.
        - Items left with slot = "Unknown" by resolve-slots.
 
