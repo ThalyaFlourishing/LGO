@@ -36,7 +36,10 @@ pub enum Stat {
     TacticalMitigation,
 }
 
-/// Raw primary stats read by the resolver as internal derivation inputs.
+/// The five raw Base stats, in canonical order, keyed by PascalCase TOML key.
+/// The resolver passes them through untouched (`[InnateStats]` and per-item
+/// lines); derivation into tracked stats is the optimize path's job (future
+/// work). Never tracked, never abbreviated, never valid as optimize goals.
 pub const BASE_STATS: &[(Stat, &str)] = &[
     (Stat::Might, "Might"),
     (Stat::Agility, "Agility"),
@@ -199,9 +202,22 @@ impl FromStr for StatGoal {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parse_goal_stat = |stat_str: &str| -> Result<Stat, String> {
+            let stat = stat_str.parse::<Stat>()?;
+            // Only the 16 tracked stats are valid optimizer goals. Base and
+            // other internal stats parse (wiki/plugindata handling) but must
+            // be rejected here rather than silently optimizing nothing.
+            if !TRACKED_STATS.iter().any(|(tracked, _)| *tracked == stat) {
+                return Err(format!(
+                    "Stat '{}' is not an optimizer goal stat; see --statlist for valid goal stats",
+                    stat_str
+                ));
+            }
+            Ok(stat)
+        };
         match s.split_once(':') {
             Some((stat_str, min_str)) => {
-                let stat = stat_str.parse::<Stat>()?;
+                let stat = parse_goal_stat(stat_str)?;
                 let minimum = min_str
                     .parse::<i64>()
                     .map_err(|_| format!("Invalid minimum '{}' in goal '{}'", min_str, s))?;
@@ -209,7 +225,7 @@ impl FromStr for StatGoal {
             }
             None => {
                 // No colon — treat as stat name with minimum 0.
-                let stat = s.parse::<Stat>()?;
+                let stat = parse_goal_stat(s)?;
                 Ok(StatGoal { stat, minimum: 0 })
             }
         }
@@ -286,6 +302,44 @@ mod tests {
         assert_eq!(abbreviation_for(Stat::DevRating), None);
         assert_eq!(abbreviation_for(Stat::OffensiveOverpower), None);
         assert_eq!(abbreviation_for(Stat::IncMitigations), None);
+    }
+
+    #[test]
+    fn stat_goal_accepts_tracked_stats() {
+        let goal = "CriticalRating:450000".parse::<StatGoal>().expect("parses");
+        assert_eq!(goal.stat, Stat::CriticalRating);
+        assert_eq!(goal.minimum, 450000);
+
+        let goal = "tm".parse::<StatGoal>().expect("parses");
+        assert_eq!(goal.stat, Stat::TacticalMastery);
+        assert_eq!(goal.minimum, 0);
+    }
+
+    #[test]
+    fn stat_goal_rejects_base_stats() {
+        for name in ["Might", "Agility", "Vitality", "Will", "Fate"] {
+            let err = format!("{}:100", name)
+                .parse::<StatGoal>()
+                .expect_err("base stats must not be optimize goals");
+            assert!(
+                err.contains("not an optimizer goal stat"),
+                "unexpected error for {}: {}",
+                name,
+                err
+            );
+            let err = name
+                .parse::<StatGoal>()
+                .expect_err("base stats must not be optimize goals without minimum either");
+            assert!(err.contains("not an optimizer goal stat"));
+        }
+    }
+
+    #[test]
+    fn stat_goal_rejects_other_internal_stats() {
+        let err = "DevRating:100"
+            .parse::<StatGoal>()
+            .expect_err("internal stats must not be optimize goals");
+        assert!(err.contains("not an optimizer goal stat"));
     }
 }
 

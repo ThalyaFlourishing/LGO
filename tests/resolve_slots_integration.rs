@@ -1,5 +1,5 @@
 use lgo::slot_resolver::ResolutionOutcome;
-use lgo::stat::TRACKED_STATS;
+use lgo::stat::{BASE_STATS, TRACKED_STATS};
 use std::path::{Path, PathBuf};
 
 fn data_json_path() -> PathBuf {
@@ -18,8 +18,6 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
 
-    let derivations =
-        lgo::base_stats::BaseStatDerivations::load_default().expect("derivations must load");
     let base_stats: std::collections::HashMap<lgo::stat::Stat, i64> = [
         (lgo::stat::Stat::Might, 5300),
         (lgo::stat::Stat::Agility, 2650),
@@ -30,10 +28,9 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
     .into_iter()
     .collect();
 
-    lgo::slot_resolver::resolve_toml_str_with_derivations(
+    lgo::slot_resolver::resolve_toml_str_with_metadata(
         &src,
         &db,
-        &derivations,
         Some("Thalya"),
         "Lore-master",
         &base_stats,
@@ -75,8 +72,13 @@ fn with_item_tables<R>(src: &str, f: impl FnOnce(&toml_edit::ArrayOfTables) -> R
     f(tables)
 }
 
-fn tracked_stat_keys() -> Vec<&'static str> {
-    TRACKED_STATS.iter().map(|(_, key)| *key).collect()
+/// Canonical per-item key layout: the 16 tracked stats then the 5 Base stats.
+fn canonical_stat_keys() -> Vec<&'static str> {
+    TRACKED_STATS
+        .iter()
+        .chain(BASE_STATS.iter())
+        .map(|(_, key)| *key)
+        .collect()
 }
 
 fn current_plugindata_fixture_path() -> PathBuf {
@@ -251,18 +253,18 @@ fn divider_comments_appear_in_canonical_family_order() {
 #[test]
 fn resolved_output_has_essence_totals_for_every_item_with_all_tracked_stats() {
     let (out, _) = setup();
-    let tracked = tracked_stat_keys();
+    let keys = canonical_stat_keys();
 
     with_item_tables(&out, |tables| {
         for item in tables.iter() {
-            for key in &tracked {
+            for key in &keys {
                 assert!(item.contains_key(key), "base item missing {}", key);
             }
             let essence = item
                 .get("EssenceTotals")
                 .and_then(|essence_item| essence_item.as_table())
                 .expect("every item has EssenceTotals");
-            for key in &tracked {
+            for key in &keys {
                 assert_eq!(
                     essence.get(key).and_then(|value| value.as_integer()),
                     Some(0),
@@ -283,14 +285,14 @@ fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
         .expect("EssenceTotals emitted");
     let base = &out[first_item..first_essence];
     let essence = &out[first_essence..];
-    let tracked = tracked_stat_keys();
+    let keys = canonical_stat_keys();
 
     assert!(
-        !out.contains("TacticalMitigation = 0\n\n[item.EssenceTotals]"),
+        !out.contains("\n\n[item.EssenceTotals]"),
         "base and EssenceTotals blocks must not have a blank line between them"
     );
 
-    let base_positions: Vec<usize> = tracked
+    let base_positions: Vec<usize> = keys
         .iter()
         .map(|key| {
             base.find(key)
@@ -299,7 +301,7 @@ fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
         .collect();
     assert!(base_positions.windows(2).all(|pair| pair[0] < pair[1]));
 
-    let essence_positions: Vec<usize> = tracked
+    let essence_positions: Vec<usize> = keys
         .iter()
         .map(|key| {
             essence
@@ -513,9 +515,9 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
     )
     .expect("copy fixture");
 
-    // resolve_stats_file derives [InnateStats] from the latest plugindata
+    // resolve_stats_file fills [InnateStats] from the latest plugindata
     // export in the same directory. Without one, base stats are empty and
-    // apply_top_level_derivations returns early — no [InnateStats] block is
+    // apply_top_level_metadata returns early — no [InnateStats] block is
     // ever emitted. Copy the fixture in, renamed so its `lgo_TestChar_` prefix
     // matches the character under test (matching is case-insensitive on the
     // character segment, but the prefix itself must be present).
@@ -690,7 +692,7 @@ CriticalRating = 200
             Some(5),
             "partial EssenceTotals data must survive rerun"
         );
-        for key in tracked_stat_keys() {
+        for key in canonical_stat_keys() {
             assert!(item.contains_key(key), "base item missing {}", key);
             assert!(essence.contains_key(key), "EssenceTotals missing {}", key);
         }
@@ -699,7 +701,7 @@ CriticalRating = 200
     // a blank gap makes the note look detached from the hand-maintained data.
     assert!(
         after_first.contains(
-            "TacticalMitigation = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"
+            "Fate = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"
         ),
         "EssenceTotals comment should remain attached without a blank gap:\n{}",
         after_first
@@ -1080,7 +1082,7 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
 
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
 
-    // [InnateStats] is only derived when a plugindata export supplies base
+    // [InnateStats] is only written when a plugindata export supplies base
     // stats; copy the fixture in under the test character's name.
     std::fs::copy(
         current_plugindata_fixture_path(),
@@ -1134,6 +1136,96 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
         assert!(
             innate_pos < divider_pos,
             "run {}: [InnateStats] must come before the first slot divider (drift regression):\n{}",
+            run,
+            out
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The pass-through design: [InnateStats] holds exactly the character's five
+/// *raw* Base stats from the plugindata export — no derived tracked stats.
+/// Assert content, canonical key order, and position (between the `class`
+/// line and the first `# --- Head ---` divider) across three consecutive
+/// runs: fresh creation, merge against a correct file, and delayed drift.
+#[test]
+fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
+    let dir = make_temp_dir("innate_raw");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
+
+    std::fs::copy(
+        current_plugindata_fixture_path(),
+        dir.join(format!(
+            "lgo_{}_gearNames_20260820_000000.plugindata",
+            character
+        )),
+    )
+    .expect("copy plugindata fixture");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+
+    for run in 1..=3 {
+        std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        let doc: toml_edit::DocumentMut = out.parse().expect("canonical output parses");
+        let innate = doc
+            .get("InnateStats")
+            .and_then(|item| item.as_table())
+            .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
+
+        // Exactly the five raw Base stats, in canonical order, with the
+        // plugindata fixture's values — no derived tracked stats.
+        let keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
+        assert_eq!(
+            keys,
+            vec!["Might", "Agility", "Vitality", "Will", "Fate"],
+            "run {}: [InnateStats] must hold exactly the five raw Base stats:\n{}",
+            run,
+            out
+        );
+        for (key, expected) in [
+            ("Might", 5300),
+            ("Agility", 2650),
+            ("Vitality", 10200),
+            ("Will", 7950),
+            ("Fate", 4000),
+        ] {
+            assert_eq!(
+                innate.get(key).and_then(|value| value.as_integer()),
+                Some(expected),
+                "run {}: [InnateStats] {} must pass through raw:\n{}",
+                run,
+                key,
+                out
+            );
+        }
+
+        let class_pos = out
+            .find("\nclass")
+            .unwrap_or_else(|| panic!("run {}: class line missing:\n{}", run, out));
+        let innate_pos = out
+            .find("[InnateStats]")
+            .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
+        let divider_pos = out
+            .find("# --- Head ---")
+            .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
+        assert!(
+            class_pos < innate_pos && innate_pos < divider_pos,
+            "run {}: [InnateStats] must sit between class and the first divider:\n{}",
             run,
             out
         );
