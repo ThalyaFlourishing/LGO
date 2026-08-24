@@ -55,22 +55,22 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Example output:
       Stat Abbreviation  Stat Name
       -----------------  ------------------
-      ml                 Morale
-      pw                 Power
-      am                 Armor
-      cr                 CriticalRating
-      fn                 Finesse
-      pm                 PhysicalMastery
-      tm                 TacticalMastery
-      oh                 OutgoingHealing
-      rs                 Resistance
-      cd                 CriticalDefense
-      ih                 IncomingHealing
-      bl                 Block
-      pa                 Parry
-      ev                 Evade
-      pt                 PhysicalMitigation
-      tt                 TacticalMitigation
+          ml             Morale
+          pw             Power
+          am             Armor
+          cr             CriticalRating
+          fn             Finesse
+          pm             PhysicalMastery
+          tm             TacticalMastery
+          oh             OutgoingHealing
+          rs             Resistance
+          cd             CriticalDefense
+          ih             IncomingHealing
+          bl             Block
+          pa             Parry
+          ev             Evade
+          pt             PhysicalMitigation
+          tt             TacticalMitigation
 
 3.3 resolve-slots
   lgo resolve-slots
@@ -110,7 +110,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize -f <path> <stat:min> ...
     Optimize using the explicit canonical gear TOML you provide.
     The file is read directly; no plugindata input is needed.
-    character and class are read from the TOML's top-level fields if present.
+    Character and class are read from the TOML's top-level fields if present.
     Per-item [item.EssenceTotals] values in gearReady.toml are merged into the
     effective item totals before optimization.
 

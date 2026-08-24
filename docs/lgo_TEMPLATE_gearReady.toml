@@ -1,0 +1,648 @@
+# _-=-_-=-_-=-_-=-_-=-_-=-_
+# LGO 2026, by Thalya
+# gearReady.toml updated: 08/23/26 15:43:20
+# _-=-_-=-_-=-_-=-_-=-_-=-_
+character = "<YOUR CHARACTER NAME HERE>"
+class = "<YOUR CLASS NAME HERE>"
+
+[InnateStats]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0     
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Head ---
+
+[[item]]
+slot = "Head"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Chest ---
+
+[[item]]
+slot = "Chest"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Legs ---
+
+[[item]]
+slot = "Legs"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Hands ---
+
+[[item]]
+slot = "Hands"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Feet ---
+
+[[item]]
+slot = "Feet"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Shoulders ---
+
+[[item]]
+slot = "Shoulders"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Back ---
+
+[[item]]
+slot = "Back"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Wrist ---
+
+[[item]]
+slot = "Wrist (1)"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Neck ---
+
+[[item]]
+slot = "Neck"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Finger ---
+
+[[item]]
+slot = "Finger (1)"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Ear ---
+
+[[item]]
+slot = "Ear (1)"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Pocket ---
+
+[[item]]
+slot = "Pocket"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Main-hand ---
+
+[[item]]
+slot = "Main-hand"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Off-hand ---
+
+[[item]]
+slot = "Off-hand"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Ranged ---
+
+[[item]]
+slot = "Ranged"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+
+# --- Class Item ---
+
+[[item]]
+slot = "Class Item"
+name               = "<YOUR ITEM NAME HERE>"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+    [item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
