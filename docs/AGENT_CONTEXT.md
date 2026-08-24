@@ -31,8 +31,12 @@ file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
 - User hand-edits persistent corrections, including per-item essence totals, in `gearReady.toml` only.
-- User invokes 'lgo optimize' which reads the canonical file and provides
-a final optimization report according to user's specified stats of interest.
+- User invokes 'lgo optimize' which reads the canonical file, derives the raw
+Base stats (Might/Agility/Vitality/Will/Fate) into tracked-stat contributions
+via the per-class coefficients in `data/base_stat_derivations.json`, and
+provides a final optimization report according to user's specified stats of
+interest. Derivation happens at optimize time, before candidates enter the
+optimizer; `optimize` must be run from a directory containing `data/`.
 
 ---
 
@@ -97,7 +101,7 @@ The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-
 
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
 
-The file begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. After that, the format per item is:
+The file begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. `[InnateStats]` holds the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`; users may also hand-add tracked-stat keys there. After that, the format per item is:
 
 ```toml
 [[item]]
@@ -109,13 +113,16 @@ Armor              = 0
 CriticalRating     = 12345
 # ...all 16 tracked stats, canonical order...
 TacticalMitigation = 0
+# ...then the 5 raw Base stats...
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
-Power              = 0
-Armor              = 0
-CriticalRating     = 0
-# ...all 16 tracked stats, canonical order...
-TacticalMitigation = 0
+# ...same 21 keys: 16 tracked stats then 5 Base stats...
+Fate               = 0
 ```
 
 `gearReady.toml` is the canonical hand-edited file. Each item has an attached
@@ -123,7 +130,10 @@ TacticalMitigation = 0
 The loader immediately adds those values to the base item stats and discards the
 base-vs-essence separation in the runtime model. Unknown stat keys in either the
 base item block or `EssenceTotals` are hard errors; omitted stats are treated as
-zero.
+zero. Raw Base stats are carried separately from tracked stats and are never
+added raw to any tracked total; at optimize time they are derived into
+tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
+`docs/lgo_reference_stats.md`).
 
 ### `two_handed` generated metadata
 

@@ -258,17 +258,52 @@ impl BaseStatDerivations {
                     base_stat: stat_key(*base_stat).unwrap_or("<unknown>"),
                 })?;
             for (derived_stat, coeff) in row {
-                // Derived stats are stored as integers everywhere downstream.
-                // The JSON coefficients are decimal game formulas (mostly .0
-                // and .5); round each final base-stat contribution once so
-                // fractional half-point formulas do not leak out of this layer.
-                let contribution = (*base_value as f64 * coeff).round() as i64;
+                // Rounding rule (empirically confirmed in-game): each product
+                // `coefficient × base_stat_value` rounds UP via `f64::ceil()`,
+                // per item, per stat. Negative values follow plain `ceil()`
+                // semantics (round toward zero).
+                let contribution = (*base_value as f64 * coeff).ceil() as i64;
                 if contribution != 0 {
                     *derived.entry(*derived_stat).or_insert(0) += contribution;
                 }
             }
         }
         Ok(derived)
+    }
+
+    /// The derivation pre-pass primitive: convert `base_stats` into
+    /// tracked-stat contributions for `class_name` (per-product `ceil()`
+    /// rule) and add them into `tracked`. Zero-valued entries are dropped
+    /// afterwards, matching the runtime convention that absence means zero.
+    pub fn apply_derivations(
+        &self,
+        class_name: &str,
+        base_stats: &HashMap<Stat, i64>,
+        tracked: &mut HashMap<Stat, i64>,
+    ) -> Result<(), DerivationError> {
+        for (stat, value) in self.derive_stats(class_name, base_stats)? {
+            *tracked.entry(stat).or_insert(0) += value;
+        }
+        tracked.retain(|_, value| *value != 0);
+        Ok(())
+    }
+
+    /// Apply the derivation pre-pass to a whole gear document: once to the
+    /// innate base stats (into the innate tracked-stat map) and once per item
+    /// (over item base stats, essence base values already merged by the
+    /// reader). Runs in the optimize code path, before `optimize()` — the
+    /// optimizer sees ordinary tracked-stat maps and is never aware of Base
+    /// stats.
+    pub fn derive_doc(
+        &self,
+        class_name: &str,
+        doc: &mut crate::gearstats::GearDoc,
+    ) -> Result<(), DerivationError> {
+        self.apply_derivations(class_name, &doc.innate_base_stats, &mut doc.innate_stats)?;
+        for doc_item in &mut doc.items {
+            self.apply_derivations(class_name, &doc_item.base_stats, &mut doc_item.item.stats)?;
+        }
+        Ok(())
     }
 
     pub fn merge_explicit_and_base(
@@ -278,10 +313,7 @@ impl BaseStatDerivations {
         base_stats: &HashMap<Stat, i64>,
     ) -> Result<HashMap<Stat, i64>, DerivationError> {
         let mut merged = explicit_stats.clone();
-        for (stat, value) in self.derive_stats(class_name, base_stats)? {
-            *merged.entry(stat).or_insert(0) += value;
-        }
-        merged.retain(|_, value| *value != 0);
+        self.apply_derivations(class_name, base_stats, &mut merged)?;
         Ok(merged)
     }
 }
@@ -337,5 +369,120 @@ mod tests {
         let err = BaseStatDerivations::from_json_str("{}", Path::new("<test>"))
             .expect_err("missing class should fail");
         assert!(matches!(err, DerivationError::MissingClass { .. }));
+    }
+
+    // ── Ceil rounding rule ────────────────────────────────────────────────────
+
+    #[test]
+    fn fractional_products_round_up_per_product() {
+        // A Lore-master +9 Might item contributes ceil(9 × 1.5) = 14
+        // Critical Rating (empirically confirmed in-game).
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Might, 9)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        assert_eq!(derived.get(&Stat::CriticalRating), Some(&14));
+        assert_eq!(derived.get(&Stat::Finesse), Some(&14));
+        assert_eq!(derived.get(&Stat::TacticalMastery), Some(&18));
+        assert_eq!(derived.get(&Stat::Parry), Some(&9));
+    }
+
+    #[test]
+    fn exact_products_stay_exact() {
+        // ceil() must not disturb integral products: 10 × 1.5 = 15 exactly.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Might, 10)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        assert_eq!(derived.get(&Stat::CriticalRating), Some(&15));
+        assert_eq!(derived.get(&Stat::TacticalMastery), Some(&20));
+    }
+
+    #[test]
+    fn negative_values_follow_plain_ceil_semantics() {
+        // Pinned: ceil(-9 × 1.5) = ceil(-13.5) = -13 (rounds toward zero).
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Might, -9)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        assert_eq!(derived.get(&Stat::CriticalRating), Some(&-13));
+        assert_eq!(derived.get(&Stat::Finesse), Some(&-13));
+        assert_eq!(derived.get(&Stat::TacticalMastery), Some(&-18));
+        assert_eq!(derived.get(&Stat::Parry), Some(&-9));
+    }
+
+    // ── Real-data derivation ──────────────────────────────────────────────────
+
+    #[test]
+    fn lore_master_might_derives_real_coefficients() {
+        // Real data/base_stat_derivations.json: Lore-master Might row is
+        // CriticalRating 1.5, Finesse 1.5, TacticalMastery 2.0, Parry 1.0.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Might, 1000)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        let expected: HashMap<Stat, i64> = [
+            (Stat::CriticalRating, 1500),
+            (Stat::Finesse, 1500),
+            (Stat::TacticalMastery, 2000),
+            (Stat::Parry, 1000),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(derived, expected);
+    }
+
+    #[test]
+    fn lore_master_will_derives_real_coefficients() {
+        // Real data/base_stat_derivations.json: Lore-master Will row is
+        // CriticalRating 1.0, TacticalMastery 3.0, Resistance 1.0,
+        // Evade 2.0, PhysicalMitigation 1.0, TacticalMitigation 1.0.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Will, 1000)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        let expected: HashMap<Stat, i64> = [
+            (Stat::CriticalRating, 1000),
+            (Stat::TacticalMastery, 3000),
+            (Stat::Resistance, 1000),
+            (Stat::Evade, 2000),
+            (Stat::PhysicalMitigation, 1000),
+            (Stat::TacticalMitigation, 1000),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(derived, expected);
+    }
+
+    #[test]
+    fn apply_derivations_adds_into_existing_tracked_map() {
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Might, 1000)].into_iter().collect();
+        let mut tracked: HashMap<Stat, i64> = [(Stat::CriticalRating, 100), (Stat::Morale, 50)]
+            .into_iter()
+            .collect();
+        derivations
+            .apply_derivations("Lore-master", &base, &mut tracked)
+            .expect("apply");
+        assert_eq!(tracked.get(&Stat::CriticalRating), Some(&1600));
+        assert_eq!(tracked.get(&Stat::Morale), Some(&50));
+        assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&2000));
+    }
+
+    #[test]
+    fn empty_base_stats_never_require_a_class_entry() {
+        // Documents with no Base stats must keep working even when the class
+        // is unknown to the derivations table.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let mut tracked: HashMap<Stat, i64> = [(Stat::Morale, 50)].into_iter().collect();
+        derivations
+            .apply_derivations("Unknown", &HashMap::new(), &mut tracked)
+            .expect("empty base stats must not error");
+        assert_eq!(tracked.get(&Stat::Morale), Some(&50));
     }
 }

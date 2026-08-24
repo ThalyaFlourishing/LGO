@@ -9,7 +9,9 @@
 
 use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
-use crate::stat::{Stat, StatGoal};
+use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
+use std::collections::HashMap;
+use std::fmt::Write as _;
 
 // ?? Column widths ?????????????????????????????????????????????????????????????
 
@@ -47,6 +49,86 @@ pub fn print_report(
     }
 
     println!();
+}
+
+/// Print the `lgo base-stats` report to stdout.
+pub fn print_base_stats_report(
+    character: &str,
+    class: &str,
+    input_file: &str,
+    innate_base: &HashMap<Stat, i64>,
+    derived: &HashMap<Stat, i64>,
+) {
+    print!(
+        "{}",
+        format_base_stats_report(character, class, input_file, innate_base, derived)
+    );
+}
+
+/// Build the `lgo base-stats` report: the five raw innate Base stats from
+/// `[InnateStats]`, then the 16 tracked-stat contributions derived from them.
+/// Base stats are derivation inputs only — they are never added raw to any
+/// tracked total, and the derived contributions shown here are already
+/// included in `lgo optimize` totals.
+pub fn format_base_stats_report(
+    character: &str,
+    class: &str,
+    input_file: &str,
+    innate_base: &HashMap<Stat, i64>,
+    derived: &HashMap<Stat, i64>,
+) -> String {
+    let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
+    let mut out = String::new();
+    let w = &mut out;
+
+    writeln!(w).unwrap();
+    writeln!(w, "  LGO — Innate Base Stats").unwrap();
+    writeln!(w, "  Character : {} ({})", character, class).unwrap();
+    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Raw Base stats from [InnateStats] (derivation inputs only):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, _) in BASE_STATS {
+        let value = innate_base.get(stat).copied().unwrap_or(0);
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(value),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Derived tracked-stat contributions (already included in optimize totals):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, _) in TRACKED_STATS {
+        let value = derived.get(stat).copied().unwrap_or(0);
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(value),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
+
+    out
 }
 
 fn print_header(character: &str, class: &str, input_file: &str) {
@@ -264,5 +346,65 @@ mod tests {
             truncate("Umbari Robe of Beasts of the Nameless Deeps and More", 20),
             "Umbari Robe of Beas…"
         );
+    }
+
+    #[test]
+    fn base_stats_report_lists_raw_and_derived_sections() {
+        let innate_base: HashMap<Stat, i64> = [
+            (Stat::Might, 5300),
+            (Stat::Agility, 2650),
+            (Stat::Vitality, 10200),
+            (Stat::Will, 7950),
+            (Stat::Fate, 4000),
+        ]
+        .into_iter()
+        .collect();
+        let derived: HashMap<Stat, i64> = [
+            (Stat::Morale, 45900),
+            (Stat::TacticalMastery, 39750),
+            (Stat::CriticalRating, 21200),
+        ]
+        .into_iter()
+        .collect();
+
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &innate_base,
+            &derived,
+        );
+
+        assert!(report.contains("Character : Thalya (Lore-master)"));
+        assert!(report.contains("Stats file: lgo_Thalya_gearReady.toml"));
+        // Raw section: all five Base stats, labeled as derivation inputs.
+        assert!(report.contains("derivation inputs only"));
+        for (name, value) in [
+            ("Might", "5,300"),
+            ("Agility", "2,650"),
+            ("Vitality", "10,200"),
+            ("Will", "7,950"),
+            ("Fate", "4,000"),
+        ] {
+            assert!(
+                report.contains(name) && report.contains(value),
+                "raw section must list {} = {}",
+                name,
+                value
+            );
+        }
+        // Derived section: labeled as already included in optimize totals,
+        // with all 16 tracked stats present (zeros included).
+        assert!(report.contains("already included in optimize totals"));
+        assert!(report.contains("45,900"));
+        assert!(report.contains("39,750"));
+        assert!(report.contains("21,200"));
+        for (stat, _) in TRACKED_STATS {
+            assert!(
+                report.contains(&format!("{}", stat)),
+                "derived section must list tracked stat {}",
+                stat
+            );
+        }
     }
 }
