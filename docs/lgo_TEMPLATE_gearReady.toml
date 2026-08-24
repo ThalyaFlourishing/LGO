@@ -42,7 +42,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -91,7 +91,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -140,7 +140,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -189,7 +189,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -238,7 +238,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -287,7 +287,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -336,7 +336,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -385,7 +385,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -434,7 +434,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -483,7 +483,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -532,7 +532,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -581,7 +581,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -630,7 +630,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -679,7 +679,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -728,7 +728,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0
@@ -777,7 +777,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-    [item.EssenceTotals]
+[item.EssenceTotals]
 Morale             = 0
 Power              = 0
 Armor              = 0

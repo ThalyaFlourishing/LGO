@@ -31,6 +31,8 @@ use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 /// Default path to the offline items DB, relative to the working directory.
 pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
+const STAT_EQUALS_COLUMN: usize = 20;
+const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
 
 // =============================================================================
 // ItemsDb — name → Slot index
@@ -511,6 +513,7 @@ fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_
             key,
             value(metadata.base_stats.get(stat).copied().unwrap_or(0)),
         );
+        normalize_assignment_decor(&mut table, key);
     }
     doc.insert("InnateStats", toml_edit::Item::Table(table));
 }
@@ -618,6 +621,31 @@ fn canonical_stat_entries() -> impl Iterator<Item = &'static (Stat, &'static str
     TRACKED_STATS.iter().chain(BASE_STATS.iter())
 }
 
+fn assignment_key_spacing(key: &str) -> String {
+    if key.len() >= STAT_KEY_PAD_WIDTH {
+        " ".to_string()
+    } else {
+        " ".repeat(STAT_KEY_PAD_WIDTH - key.len())
+    }
+}
+
+fn normalize_assignment_decor(table: &mut Table, key: &str) {
+    if let Some((mut key_mut, item)) = table.get_key_value_mut(key) {
+        key_mut
+            .leaf_decor_mut()
+            .set_suffix(assignment_key_spacing(key));
+        if let Some(value) = item.as_value_mut() {
+            value.decor_mut().set_prefix(" ");
+        }
+    }
+}
+
+fn normalize_existing_canonical_stat_decor(table: &mut Table) {
+    for (_, key) in canonical_stat_entries() {
+        normalize_assignment_decor(table, key);
+    }
+}
+
 /// Rewrite an item's stat block into canonical shape: all 16 tracked stats
 /// followed by the five raw Base stats (zeros for omissions), then a fully
 /// populated `[item.EssenceTotals]` child table with the same key layout.
@@ -665,14 +693,19 @@ fn insert_canonical_stats(
                 .and_then(|removed| removed.item.as_value()),
             item.as_value_mut(),
         ) {
-            *new_value.decor_mut() = old_value.decor().clone();
+            new_value
+                .decor_mut()
+                .set_suffix(old_value.decor().suffix().map_or("", |s| s.as_str().unwrap_or("")));
         }
         table.insert(key, item);
         if let Some(removed) = old_items.get(key) {
             if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
-                *key_mut.leaf_decor_mut() = removed.key_decor.clone();
+                key_mut
+                    .leaf_decor_mut()
+                    .set_prefix(removed.key_decor.prefix().map_or("", |s| s.as_str().unwrap_or("")));
             }
         }
+        normalize_assignment_decor(table, key);
     }
 }
 
@@ -691,6 +724,7 @@ fn insert_essence_totals(
     attach_table_to_previous_line(&mut essence_table);
     for (stat, key) in canonical_stat_entries() {
         essence_table.insert(key, value(essence.get(stat).copied().unwrap_or(0)));
+        normalize_assignment_decor(&mut essence_table, key);
     }
     table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
 }
@@ -979,9 +1013,12 @@ pub fn merge_into_canonical(
                         prev_innate.insert(key, value(incoming_val));
                     }
                 }
+                normalize_existing_canonical_stat_decor(prev_innate);
             }
             None => {
-                prev_doc.insert("InnateStats", Item::Table(incoming_innate.clone()));
+                let mut incoming_innate = incoming_innate.clone();
+                normalize_existing_canonical_stat_decor(&mut incoming_innate);
+                prev_doc.insert("InnateStats", Item::Table(incoming_innate));
             }
         }
     }
@@ -1718,6 +1755,42 @@ mod tests {
         ItemsDb::from_json_str(FIXTURE, dummy_path()).expect("fixture must parse")
     }
 
+    fn has_assignment_line(src: &str, key: &str, expected: i64) -> bool {
+        let expected = expected.to_string();
+        src.lines().any(|line| {
+            let trimmed = line.trim_start();
+            let Some(rest) = trimmed.strip_prefix(key) else {
+                return false;
+            };
+            let Some(rest) = rest.trim_start_matches(' ').strip_prefix('=') else {
+                return false;
+            };
+            rest.trim_start_matches(' ') == expected
+        })
+    }
+
+    fn assert_stat_assignments_align_to_column_20(src: &str) {
+        let mut saw_stat_line = false;
+        for line in src.lines() {
+            let trimmed = line.trim_start();
+            let Some((key, _)) = trimmed.split_once('=') else {
+                continue;
+            };
+            let key = key.trim_end_matches([' ', '\t']);
+            if canonical_stat_entries().any(|(_, canonical_key)| *canonical_key == key) {
+                saw_stat_line = true;
+                assert_eq!(
+                    trimmed.find('=').map(|idx| idx + 1),
+                    Some(STAT_EQUALS_COLUMN),
+                    "stat assignment must align '=' to column {}:\n{}",
+                    STAT_EQUALS_COLUMN,
+                    line
+                );
+            }
+        }
+        assert!(saw_stat_line, "test input should contain stat assignment lines");
+    }
+
     /// Test shorthand for `merge_into_canonical` against the shared fixture DB.
     fn merge_ic(
         previous: Option<&str>,
@@ -2221,18 +2294,30 @@ Might = 9\n";
 
         // The five Base stats come after all 16 tracked stats, in canonical
         // Might/Agility/Vitality/Will/Fate order, and pass through verbatim.
+        let positions: Vec<usize> = [
+            "TacticalMitigation",
+            "Might",
+            "Agility",
+            "Vitality",
+            "Will",
+            "Fate",
+        ]
+        .into_iter()
+        .map(|key| {
+            out.find(&format!("{key} "))
+                .unwrap_or_else(|| panic!("missing {} in output:\n{}", key, out))
+        })
+        .collect();
         assert!(
-            out.contains(
-                "TacticalMitigation = 0\n\
-                 Might = 9\n\
-                 Agility = 0\n\
-                 Vitality = 0\n\
-                 Will = 0\n\
-                 Fate = 7\n"
-            ),
+            positions.windows(2).all(|pair| pair[0] < pair[1]),
             "base stats not in canonical position/order:\n{}",
             out
         );
+        assert!(has_assignment_line(&out, "Might", 9));
+        assert!(has_assignment_line(&out, "Agility", 0));
+        assert!(has_assignment_line(&out, "Vitality", 0));
+        assert!(has_assignment_line(&out, "Will", 0));
+        assert!(has_assignment_line(&out, "Fate", 7));
     }
 
     #[test]
@@ -2257,10 +2342,10 @@ Fate = 2\n";
 
         // Pass-through means no derived Morale/Power contributions: the raw
         // Base lines survive and tracked totals stay zero.
-        assert!(out.contains("Vitality = 2"));
-        assert!(out.contains("Fate = 2"));
-        assert!(out.contains("Morale = 0"));
-        assert!(out.contains("Power = 0"));
+        assert!(has_assignment_line(&out, "Vitality", 2));
+        assert!(has_assignment_line(&out, "Fate", 2));
+        assert!(has_assignment_line(&out, "Morale", 0));
+        assert!(has_assignment_line(&out, "Power", 0));
         assert!(!out.contains("Regen"));
     }
 
@@ -2307,18 +2392,43 @@ CriticalRating = 100\n";
         );
         for (_, key) in canonical_stat_entries() {
             assert!(
-                item_text.contains(&format!("{} = ", key)),
+                item_text.contains(key),
                 "base item missing {}:\n{}",
                 key,
                 out
             );
             assert!(
-                essence_text.contains(&format!("{} = 0", key)),
+                has_assignment_line(essence_text, key, 0),
                 "EssenceTotals missing zeroed {}:\n{}",
                 key,
                 out
             );
         }
+    }
+
+    #[test]
+    fn resolver_aligns_all_stat_assignments_to_column_20() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating\t=\t100\n\
+Might=9\n";
+        let base_stats: HashMap<Stat, i64> = [(Stat::Vitality, 3434), (Stat::Will, 77)]
+            .into_iter()
+            .collect();
+
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+        )
+        .expect("must resolve with metadata");
+
+        assert_stat_assignments_align_to_column_20(&out);
     }
 
     #[test]
@@ -2595,8 +2705,8 @@ name = \"Test Helm\"\n";
 
         assert_eq!(outcome.added, vec!["Test Bracelet", "Test Bracelet"]);
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
-        assert!(outcome.merged_text.contains("Armor = 100"));
-        assert!(outcome.merged_text.contains("Armor = 200"));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 200));
     }
 
     /// The cornerstone idempotency test: running the merge twice in a row
@@ -2634,6 +2744,60 @@ name = \"Test Helm\"\n";
             "third merge must also be identical apart from timestamp"
         );
         assert_eq!(count_generated_timestamp_comments(&third), 1);
+    }
+
+    #[test]
+    fn merge_normalizes_sloppy_stat_spacing_and_stays_idempotent() {
+        let previous = "\
+character = \"Thalya\"\n\
+class = \"Lore-master\"\n\
+\n\
+[InnateStats]\n\
+CriticalRating\t=\t7\n\
+Might=5300\n\
+Fate              = 4000\n\
+\n\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+CriticalRating\t=\t100\n\
+Armor        = 5\n\
+Might=9\n\
+[item.EssenceTotals]\n\
+CriticalRating\t=\t3\n\
+Vitality=12\n";
+        let incoming = "\
+character = \"Thalya\"\n\
+class = \"Lore-master\"\n\
+\n\
+[InnateStats]\n\
+Might = 5300\n\
+Fate = 4000\n\
+\n\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+Armor = 5\n\
+Might = 9\n";
+
+        let first = merge_ic(Some(previous), incoming, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        assert_stat_assignments_align_to_column_20(&first);
+        assert!(has_assignment_line(&first, "CriticalRating", 7));
+        assert!(has_assignment_line(&first, "Might", 5300));
+        assert!(has_assignment_line(&first, "Armor", 5));
+        assert!(has_assignment_line(&first, "Vitality", 12));
+
+        let second = merge_ic(Some(&first), incoming, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        assert_eq!(
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second),
+            "normalized output must be idempotent after the first merge"
+        );
     }
 
     #[test]
@@ -2710,8 +2874,8 @@ name = \"Test Helm\"\n";
             strip_generated_timestamp_comment(&third)
         );
         assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
-        assert!(third.contains("Armor = 100"));
-        assert!(third.contains("Armor = 200"));
+        assert!(has_assignment_line(&third, "Armor", 100));
+        assert!(has_assignment_line(&third, "Armor", 200));
     }
 
     #[test]
@@ -2741,9 +2905,9 @@ Armor = 900\n";
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.overwritten, vec!["Test Bracelet"]);
-        assert!(outcome.merged_text.contains("Armor = 100"));
-        assert!(outcome.merged_text.contains("Armor = 200"));
-        assert!(!outcome.merged_text.contains("Armor = 900"));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 200));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 900));
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
     }
 
@@ -2797,8 +2961,8 @@ Armor = 100\n";
         assert_eq!(outcome.removed, vec!["Test Bracelet"]);
         assert!(outcome.added.is_empty());
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 1);
-        assert!(outcome.merged_text.contains("Armor = 100"));
-        assert!(!outcome.merged_text.contains("Armor = 200"));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 200));
     }
 
     #[test]
@@ -2848,7 +3012,7 @@ Armor = 100\n";
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
         assert!(
-            outcome.merged_text.contains("Armor = 999"),
+            has_assignment_line(&outcome.merged_text, "Armor", 999),
             "previous value must be preserved:\n{}",
             outcome.merged_text
         );
@@ -2869,8 +3033,8 @@ Armor = 100\n";
         )
         .expect("must merge");
         assert_eq!(outcome.overwritten, vec!["Test Helm"]);
-        assert!(outcome.merged_text.contains("Armor = 100"));
-        assert!(!outcome.merged_text.contains("Armor = 999"));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 999));
     }
 
     #[test]
@@ -2889,7 +3053,7 @@ Armor = 100\n";
         .expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
-        assert!(outcome.merged_text.contains("Armor = 999"));
+        assert!(has_assignment_line(&outcome.merged_text, "Armor", 999));
     }
 
     #[test]
@@ -3164,7 +3328,7 @@ Armor = 100\n";
 
         for (label, out) in [("first", &first), ("second", &second), ("third", &third)] {
             assert!(
-                out.contains("Might = 9") && out.contains("Vitality = 3434"),
+                has_assignment_line(out, "Might", 9) && has_assignment_line(out, "Vitality", 3434),
                 "{} merge must pass per-item base stats through verbatim:\n{}",
                 label,
                 out
@@ -3362,12 +3526,12 @@ Morale = 77\n";
             merged
         );
         assert!(
-            merged.contains("Armor = 555"),
+            has_assignment_line(merged, "Armor", 555),
             "hand-edited stats must be preserved:\n{}",
             merged
         );
         assert!(
-            merged.contains("Morale = 77"),
+            has_assignment_line(merged, "Morale", 77),
             "hand-edited essence totals must be preserved:\n{}",
             merged
         );
@@ -3393,7 +3557,7 @@ Armor = 555\n";
             merged
         );
         assert!(
-            merged.contains("Armor = 555"),
+            has_assignment_line(merged, "Armor", 555),
             "hand-edited stats must still be preserved:\n{}",
             merged
         );

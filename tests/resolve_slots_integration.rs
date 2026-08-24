@@ -81,6 +81,42 @@ fn canonical_stat_keys() -> Vec<&'static str> {
         .collect()
 }
 
+fn has_assignment_line(src: &str, key: &str, expected: i64) -> bool {
+    let expected = expected.to_string();
+    src.lines().any(|line| {
+        let trimmed = line.trim_start();
+        let Some(rest) = trimmed.strip_prefix(key) else {
+            return false;
+        };
+        let Some(rest) = rest.trim_start_matches(' ').strip_prefix('=') else {
+            return false;
+        };
+        rest.trim_start_matches(' ') == expected
+    })
+}
+
+fn assert_stat_assignments_align_to_column_20(src: &str) {
+    let keys = canonical_stat_keys();
+    let mut saw_stat_line = false;
+    for line in src.lines() {
+        let trimmed = line.trim_start();
+        let Some((key, _)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim_end_matches([' ', '\t']);
+        if keys.iter().any(|candidate| *candidate == key) {
+            saw_stat_line = true;
+            assert_eq!(
+                trimmed.find('=').map(|idx| idx + 1),
+                Some(20),
+                "stat assignment must align '=' to column 20:\n{}",
+                line
+            );
+        }
+    }
+    assert!(saw_stat_line, "test input should contain stat assignment lines");
+}
+
 fn current_plugindata_fixture_path() -> PathBuf {
     let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
     let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
@@ -310,6 +346,12 @@ fn resolved_output_keeps_base_and_essence_blocks_attached_in_canonical_order() {
         })
         .collect();
     assert!(essence_positions.windows(2).all(|pair| pair[0] < pair[1]));
+}
+
+#[test]
+fn resolved_output_aligns_all_stat_assignments_to_column_20() {
+    let (out, _) = setup();
+    assert_stat_assignments_align_to_column_20(&out);
 }
 
 #[test]
@@ -700,9 +742,8 @@ CriticalRating = 200
     // Keep the user's EssenceTotals note visually attached to the child table;
     // a blank gap makes the note look detached from the hand-maintained data.
     assert!(
-        after_first.contains(
-            "Fate = 0\n# user note: essence totals maintained by hand\n[item.EssenceTotals]"
-        ),
+        has_assignment_line(&after_first, "Fate", 0)
+            && after_first.contains("# user note: essence totals maintained by hand\n[item.EssenceTotals]"),
         "EssenceTotals comment should remain attached without a blank gap:\n{}",
         after_first
     );
