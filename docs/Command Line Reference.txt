@@ -178,10 +178,13 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo help
     Print the usage banner and exit.
 
+
 SECTION 4 - DEVELOPER COMMANDS (cargo)
 --------------------------------------
 (used when developing LGO itself)
 
+  cargo clean
+    Remove build artifacts (target/).
   cargo build
     Build debug binaries into target/debug/.
 
@@ -219,8 +222,6 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo fmt --check
     Check Rust formatting without rewriting files.
 
-  cargo clean
-    Remove build artifacts (target/).
 
 SECTION 5 - ITEMS DATABASE BUILDER
 -------------------------------------------------
