@@ -1863,7 +1863,7 @@ Fate               = 0
 # --- Wrist ---
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Keen Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
@@ -1910,7 +1910,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Ensorceled Bracelet"
 Morale             = 0
 Power              = 0
@@ -1957,7 +1957,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
@@ -2004,7 +2004,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Wilful Bracer of the Bear in Winter"
 Morale             = 0
 Power              = 0
@@ -2051,7 +2051,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Ornate Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
@@ -2098,7 +2098,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Delicate Gold Armlet of the Traveller"
 Morale             = 0
 Power              = 0
@@ -2146,7 +2146,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
@@ -2193,7 +2193,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "Brass Alchemist's Bracelet"
 Morale             = 0
 Power              = 0
@@ -2385,7 +2385,7 @@ Fate               = 0
 # --- Finger ---
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Tri-colour Gemstone Ring"
 Morale             = 0
 Power              = 0
@@ -2432,7 +2432,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
@@ -2480,7 +2480,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Resonant Brilliant Elvish Ring"
 Morale             = 0
 Power              = 0
@@ -2527,7 +2527,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Ornate Ordâkhai Ring"
 Morale             = 0
 Power              = 0
@@ -2574,7 +2574,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Heavy Ordâkhai Ring"
 Morale             = 0
 Power              = 0
@@ -2621,7 +2621,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
@@ -2669,7 +2669,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Subtle Ordâkhai Ring"
 Morale             = 0
 Power              = 0
@@ -2716,7 +2716,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "Subtle Conscript's Ring"
 Morale             = 0
 Power              = 0
@@ -2765,7 +2765,7 @@ Fate               = 0
 # --- Ear ---
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
@@ -2813,7 +2813,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
@@ -2861,7 +2861,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Ornate Conscript's Earring"
 Morale             = 0
 Power              = 0
@@ -2908,7 +2908,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Gold Teardrop Earring"
 Morale             = 0
 Power              = 0
@@ -2955,7 +2955,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Topaz Gold Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
@@ -3003,7 +3003,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Lapis Silver Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
@@ -3051,7 +3051,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Blighted Brass Earring"
 Morale             = 0
 Power              = 0
@@ -3098,7 +3098,7 @@ Will               = 0
 Fate               = 0
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "Blighted Brass Earring"
 Morale             = 0
 Power              = 0

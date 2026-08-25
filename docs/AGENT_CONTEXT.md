@@ -65,19 +65,19 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 
 ## 4. Canonical reference data
 
-### 4.1 The 19 canonical slot strings (from `src/gear.rs` Display + `src/gearstats.rs::parse_slot_str`)
+### 4.1 Canonical external slot strings (from `src/gear.rs` Display + `src/gearstats.rs::parse_slot_str`)
 
 ```
-Head            Wrist (1)       Pocket
-Chest           Wrist (2)       Main-hand
-Legs            Neck            Off-hand
-Hands           Finger (1)      Ranged
-Feet            Finger (2)      Class Item
-Shoulders       Ear (1)
-Back            Ear (2)
+Head            Wrist          Pocket
+Chest           Neck           Main-hand
+Legs            Finger         Off-hand
+Hands           Ear            Ranged
+Feet                           Class Item
+Shoulders
+Back
 ```
 
-The TOML loader exact-matches against this list. Items with any other slot string are **skipped** by `read_stats_file` (silently for `"Unknown"`, with a stderr warning otherwise). The optimizer continues with the items that did match.
+The TOML loader exact-matches against this list. Items with any other slot string are **skipped** by `read_stats_file` (silently for `"Unknown"`, with a stderr warning otherwise). The optimizer continues with the items that did match. The internal `Slot` enum still has 19 variants, including `Wrist1`/`Wrist2`, `Finger1`/`Finger2`, and `Ear1`/`Ear2`; the external strings for those pooled families are intentionally unnumbered.
 
 ### 4.2 The 16 tracked stats (canonical order)
 
@@ -91,11 +91,11 @@ Two-letter CLI abbreviations: `ml pw am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 |---|---|---|---|
 | 1 | `data/items.xml` (game data dump) | UPPERCASE enum values | `HEAD`, `SHOULDER`, `HAND`, `FEET`, `CHEST`, `LEGS` |
 | 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` field | Free-text, editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders` |
-| 3 | `src/gear.rs` `Slot::Display` (canonical) | Curated display strings | `Wrist (1)`, `Main-hand`, `Class Item` |
+| 3 | `src/gear.rs` `Slot::Display` (canonical) | Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
 
 The Rust code is vocabulary #3. The bookmarklet translates #2 → #3 via a hand-maintained `SLOT_MAP` in `lgo_bookmarklet.html`; anything not in `SLOT_MAP` is converged to the literal string `"Unknown"` (Bug 2 fix). `data/items.xml` (#1) is the game's source of truth for which slot an item goes in.
 
-**A fourth representation** also exists: `data/lgo_items.json`'s `slot` values use bare PascalCase variant names (`Head`, `Wrist1`, `MainHand`, `ClassItem`, etc.) — this is Rust's *default* enum serialization. The `resolve-slots` subcommand bridges #4 → #3 via `Slot::from_json_variant`.
+**A fourth representation** also exists: `data/lgo_items.json`'s `slot` values use DB slot strings (`Head`, `Wrist`, `MainHand`, `ClassItem`, etc.). The `resolve-slots` subcommand bridges #4 → #3 via `Slot::from_json_variant`, mapping pooled family strings such as `Wrist` to the first internal variant for optimizer input.
 
 ---
 

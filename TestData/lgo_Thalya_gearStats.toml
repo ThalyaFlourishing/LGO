@@ -147,7 +147,7 @@ TacticalMitigation    = 0
 Vitality              = 3094
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Keen Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 18644
@@ -167,7 +167,7 @@ Agility               = 1731
 Vitality              = 3094
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Ensorceled Bracelet"
 Armor                 = 0
 CriticalRating        = 18645
@@ -205,7 +205,7 @@ TacticalMitigation    = 0
 Vitality              = 4026
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Tri-colour Gemstone Ring"
 Armor                 = 0
 CriticalRating        = 11161
@@ -225,7 +225,7 @@ Vitality              = 3434
 Will                  = 2767
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor                 = 0
@@ -246,7 +246,7 @@ Agility               = 2662
 Vitality              = 2619
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor                 = 0
@@ -267,7 +267,7 @@ Vitality              = 2619
 Will                  = 2662
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor                 = 0
@@ -504,7 +504,7 @@ TacticalMitigation    = 0
 Fate                  = 557
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Ornate Conscript's Earring"
 Armor                 = 0
 CriticalRating        = 9303
@@ -581,7 +581,7 @@ Vitality              = 1019
 Will                  = 1359
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -641,7 +641,7 @@ Vitality              = 2619
 Will                  = 3319
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Resonant Brilliant Elvish Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -661,7 +661,7 @@ Vitality              = 3558
 Fate                  = 1796
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Wilful Bracer of the Bear in Winter"
 Armor                 = 0
 CriticalRating        = 8713
@@ -701,7 +701,7 @@ TacticalMitigation    = 0
 Vitality              = 2412
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Ornate Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 3722
@@ -762,7 +762,7 @@ Vitality              = 2982
 Will                  = 3352
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Gold Teardrop Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -800,7 +800,7 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Ornate Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 9302
@@ -819,7 +819,7 @@ TacticalMitigation    = 7457
 Vitality              = 3094
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Heavy Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -839,7 +839,7 @@ Might                 = 2767
 Vitality              = 3094
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor                 = 0
@@ -1058,7 +1058,7 @@ TacticalMitigation    = 2986
 Vitality              = 3094
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Blighted Brass Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1077,7 +1077,7 @@ TacticalMitigation    = 0
 Vitality              = 3434
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -1097,7 +1097,7 @@ Vitality              = 3094
 Will                  = 2767
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Subtle Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1117,7 +1117,7 @@ Vitality              = 3094
 Will                  = 2767
 
 [[item]]
-slot               = "Finger (1)"
+slot               = "Finger"
 name               = "Subtle Conscript's Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1257,7 +1257,7 @@ Vitality              = 3094
 Fate                  = 578
 
 [[item]]
-slot               = "Wrist (1)"
+slot               = "Wrist"
 name               = "Brass Alchemist's Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -1315,7 +1315,7 @@ Vitality              = 3434
 Fate                  = 1155
 
 [[item]]
-slot               = "Ear (1)"
+slot               = "Ear"
 name               = "Blighted Brass Earring"
 Armor                 = 0
 CriticalRating        = 0

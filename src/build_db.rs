@@ -351,4 +351,22 @@ mod tests {
         // the key belongs to the greatsword.
         assert_eq!(json.matches("two_handed").count(), 1);
     }
+
+    #[test]
+    fn pooled_family_slots_serialize_unnumbered() {
+        let xml = r#"<items>
+            <item name="Example Bracelet" level="160" slot="WRIST"></item>
+            <item name="Example Ring" level="160" slot="FINGER"></item>
+            <item name="Example Earring" level="160" slot="EAR"></item>
+        </items>"#;
+        let out = load_items_from_str("pooled_slots", xml);
+        let json = serde_json::to_string(&out).expect("serialize db");
+
+        assert!(json.contains(r#""slot":"Wrist""#), "{json}");
+        assert!(json.contains(r#""slot":"Finger""#), "{json}");
+        assert!(json.contains(r#""slot":"Ear""#), "{json}");
+        assert!(!json.contains("Wrist1"), "{json}");
+        assert!(!json.contains("Finger1"), "{json}");
+        assert!(!json.contains("Ear1"), "{json}");
+    }
 }

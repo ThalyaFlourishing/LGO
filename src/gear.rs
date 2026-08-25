@@ -1,5 +1,5 @@
 use crate::stat::Stat;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -51,14 +51,11 @@ impl Slot {
         Slot::ClassItem,
     ];
 
-    /// Parse the bare PascalCase variant name as it appears in
-    /// `data/lgo_items.json` (e.g. `"Head"`, `"Wrist1"`, `"MainHand"`,
-    /// `"ClassItem"`).
+    /// Parse the slot string as it appears in `data/lgo_items.json`
+    /// (e.g. `"Head"`, `"Wrist"`, `"MainHand"`, `"ClassItem"`).
     ///
-    /// This is the JSON-side (serde default) representation of `Slot`,
-    /// which is *not* the same as `Display` (the canonical display form
-    /// used in the `.toml` and accepted by `gearstats::parse_slot_str`).
-    /// The resolver uses this to translate JSON → canonical at load time.
+    /// This is the DB-side representation of `Slot`. The pooled families use
+    /// one unnumbered external string that maps to the first internal variant.
     ///
     /// Returns `None` for any unrecognised input.
     pub fn from_json_variant(s: &str) -> Option<Slot> {
@@ -70,19 +67,38 @@ impl Slot {
             "Feet" => Some(Slot::Feet),
             "Shoulders" => Some(Slot::Shoulders),
             "Back" => Some(Slot::Back),
-            "Wrist1" => Some(Slot::Wrist1),
-            "Wrist2" => Some(Slot::Wrist2),
+            "Wrist" => Some(Slot::Wrist1),
             "Neck" => Some(Slot::Neck),
-            "Finger1" => Some(Slot::Finger1),
-            "Finger2" => Some(Slot::Finger2),
-            "Ear1" => Some(Slot::Ear1),
-            "Ear2" => Some(Slot::Ear2),
+            "Finger" => Some(Slot::Finger1),
+            "Ear" => Some(Slot::Ear1),
             "Pocket" => Some(Slot::Pocket),
             "MainHand" => Some(Slot::MainHand),
             "OffHand" => Some(Slot::OffHand),
             "Ranged" => Some(Slot::Ranged),
             "ClassItem" => Some(Slot::ClassItem),
             _ => None,
+        }
+    }
+
+    /// String used for serialized item DB entries.
+    pub fn json_variant(self) -> &'static str {
+        match self {
+            Slot::Head => "Head",
+            Slot::Chest => "Chest",
+            Slot::Legs => "Legs",
+            Slot::Hands => "Hands",
+            Slot::Feet => "Feet",
+            Slot::Shoulders => "Shoulders",
+            Slot::Back => "Back",
+            Slot::Wrist1 | Slot::Wrist2 => "Wrist",
+            Slot::Neck => "Neck",
+            Slot::Finger1 | Slot::Finger2 => "Finger",
+            Slot::Ear1 | Slot::Ear2 => "Ear",
+            Slot::Pocket => "Pocket",
+            Slot::MainHand => "MainHand",
+            Slot::OffHand => "OffHand",
+            Slot::Ranged => "Ranged",
+            Slot::ClassItem => "ClassItem",
         }
     }
 }
@@ -97,13 +113,10 @@ impl fmt::Display for Slot {
             Slot::Feet => "Feet",
             Slot::Shoulders => "Shoulders",
             Slot::Back => "Back",
-            Slot::Wrist1 => "Wrist (1)",
-            Slot::Wrist2 => "Wrist (2)",
+            Slot::Wrist1 | Slot::Wrist2 => "Wrist",
             Slot::Neck => "Neck",
-            Slot::Finger1 => "Finger (1)",
-            Slot::Finger2 => "Finger (2)",
-            Slot::Ear1 => "Ear (1)",
-            Slot::Ear2 => "Ear (2)",
+            Slot::Finger1 | Slot::Finger2 => "Finger",
+            Slot::Ear1 | Slot::Ear2 => "Ear",
             Slot::Pocket => "Pocket",
             Slot::MainHand => "Main-hand",
             Slot::OffHand => "Off-hand",
@@ -136,11 +149,31 @@ pub struct GearItem {
 pub struct CachedItem {
     /// Display name as it appears in `data/items.xml`; also the map key.
     pub name: String,
+    #[serde(
+        serialize_with = "serialize_json_slot",
+        deserialize_with = "deserialize_json_slot"
+    )]
     pub slot: Slot,
     /// True for two-handed `MainHand` weapons (from `precludedSlots` in
     /// `data/items.xml`); false (and omitted from JSON) for everything else.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub two_handed: bool,
+}
+
+fn serialize_json_slot<S>(slot: &Slot, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(slot.json_variant())
+}
+
+fn deserialize_json_slot<'de, D>(deserializer: D) -> Result<Slot, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let slot = String::deserialize(deserializer)?;
+    Slot::from_json_variant(&slot)
+        .ok_or_else(|| serde::de::Error::custom(format!("unknown slot '{}'", slot)))
 }
 
 /// Synthetic optimizer key for one TOML item instance.
@@ -190,11 +223,9 @@ impl Default for GearSet {
 mod tests {
     use super::*;
 
-    /// Every Slot variant must round-trip JSON-form ↔ canonical-form.
-    /// Catches drift between Display (canonical) and from_json_variant
-    /// (JSON form), and between either of those and Slot::ALL.
+    /// Every external JSON-form slot must translate to the canonical display form.
     #[test]
-    fn from_json_variant_round_trips_for_all_slots() {
+    fn from_json_variant_translates_external_slots() {
         // (json_form, canonical_form)
         let pairs: &[(&str, &str)] = &[
             ("Head", "Head"),
@@ -204,22 +235,16 @@ mod tests {
             ("Feet", "Feet"),
             ("Shoulders", "Shoulders"),
             ("Back", "Back"),
-            ("Wrist1", "Wrist (1)"),
-            ("Wrist2", "Wrist (2)"),
+            ("Wrist", "Wrist"),
             ("Neck", "Neck"),
-            ("Finger1", "Finger (1)"),
-            ("Finger2", "Finger (2)"),
-            ("Ear1", "Ear (1)"),
-            ("Ear2", "Ear (2)"),
+            ("Finger", "Finger"),
+            ("Ear", "Ear"),
             ("Pocket", "Pocket"),
             ("MainHand", "Main-hand"),
             ("OffHand", "Off-hand"),
             ("Ranged", "Ranged"),
             ("ClassItem", "Class Item"),
         ];
-
-        // Sanity: the table covers exactly the 19 ALL slots.
-        assert_eq!(pairs.len(), Slot::ALL.len());
 
         for (json_form, canonical_form) in pairs {
             let slot = Slot::from_json_variant(json_form)
@@ -239,18 +264,16 @@ mod tests {
         }
     }
 
-    /// Specific spot-checks for the four variants whose JSON form differs
-    /// most from the canonical form. If any of these regress, the resolver
-    /// will silently emit wrong slot strings.
+    /// Specific spot-checks for variants whose JSON form differs from display.
     #[test]
     fn punctuation_variants_translate_correctly() {
         assert_eq!(
-            format!("{}", Slot::from_json_variant("Wrist1").unwrap()),
-            "Wrist (1)"
+            format!("{}", Slot::from_json_variant("Wrist").unwrap()),
+            "Wrist"
         );
         assert_eq!(
-            format!("{}", Slot::from_json_variant("Finger2").unwrap()),
-            "Finger (2)"
+            format!("{}", Slot::from_json_variant("Finger").unwrap()),
+            "Finger"
         );
         assert_eq!(
             format!("{}", Slot::from_json_variant("MainHand").unwrap()),
@@ -262,7 +285,17 @@ mod tests {
         );
     }
 
-    /// Defensive: anything not in the 19-variant table must be rejected,
+    #[test]
+    fn json_variant_uses_unnumbered_pooled_families() {
+        assert_eq!(Slot::Wrist1.json_variant(), "Wrist");
+        assert_eq!(Slot::Wrist2.json_variant(), "Wrist");
+        assert_eq!(Slot::Finger1.json_variant(), "Finger");
+        assert_eq!(Slot::Finger2.json_variant(), "Finger");
+        assert_eq!(Slot::Ear1.json_variant(), "Ear");
+        assert_eq!(Slot::Ear2.json_variant(), "Ear");
+    }
+
+    /// Defensive: anything not in the external slot table must be rejected,
     /// not silently accepted as a near-match.
     #[test]
     fn from_json_variant_rejects_unknown_inputs() {
@@ -270,11 +303,12 @@ mod tests {
         assert!(Slot::from_json_variant("").is_none());
         // Canonical form (with spaces/parens) is NOT the JSON form
         assert!(Slot::from_json_variant("Wrist (1)").is_none());
+        assert!(Slot::from_json_variant("Wrist1").is_none());
         assert!(Slot::from_json_variant("Main-hand").is_none());
         assert!(Slot::from_json_variant("Class Item").is_none());
         // Wrong case
         assert!(Slot::from_json_variant("head").is_none());
-        assert!(Slot::from_json_variant("WRIST1").is_none());
+        assert!(Slot::from_json_variant("WRIST").is_none());
         // Excluded LotRO slots
         assert!(Slot::from_json_variant("CraftItem").is_none());
         assert!(Slot::from_json_variant("Bridle").is_none());
