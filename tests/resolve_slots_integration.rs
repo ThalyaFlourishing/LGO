@@ -24,7 +24,8 @@ fn load_committed_items_db_fixture() -> lgo::slot_resolver::ItemsDb {
                 "MainHand" => "Main-hand",
                 "OffHand" => "Off-hand",
                 "ClassItem" => "Class Item",
-                _ => continue,
+                other if lgo::gear::parse_slot_display(other).is_some() => continue,
+                other => panic!("unrecognised slot in committed DB fixture: {other}"),
             };
             entry["slot"] = serde_json::Value::String(display_slot.to_string());
         }
