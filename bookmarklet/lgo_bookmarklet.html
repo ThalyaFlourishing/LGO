@@ -616,17 +616,54 @@
           status.style.maxWidth    = "30rem";
           document.body.appendChild(status);
 
+          /* Warm-up: verify the API session before burning the item list. BOINK
+             Must verify the body parses as JSON — Cloudflare challenges can
+             return HTTP 200 with an HTML interstitial, which r.ok misses. */
+          status.textContent = "Checking wiki API session...";
+          async function apiAlive() {
+            try {
+              const r = await fetch(
+                "https://lotro-wiki.com/api.php?action=query&meta=siteinfo&format=json",
+                { credentials: "include" }
+              );
+              if (!r.ok) return false;
+              const j = await r.json();
+              return !!(j && j.query);
+            } catch (_) {
+              return false;
+            }
+          }
+
+          if (!(await apiAlive())) {
+            await new Promise(res => setTimeout(res, 3000));
+            if (!(await apiAlive())) {
+              updateStatusError(
+                "Wiki API not reachable (likely a Cloudflare challenge). " +
+                "Reload lotro-wiki.com in this tab, then click the bookmarklet again."
+              );
+              return;
+            }
+          }
+
           const items = [];
 
           for (let i = 0; i < names.length; i++) {
             const name = names[i];
             status.textContent = `Fetching item ${i + 1} of ${names.length}: ${name}...`;
+
             try {
               const item = await fetchItem(name);
               items.push(item);
             } catch (_err) {
               /* fetchItem is supposed to never throw — defensive guard. */
               items.push({ name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" });
+            }
+            if (i === 2 && items.every(it => it.outcome === "fetch-error")) {
+              updateStatusError(
+                "First 3 items all failed at transport level — aborting. " +
+                "Reload the wiki page and re-run."
+              );
+              return;
             }
           }
 

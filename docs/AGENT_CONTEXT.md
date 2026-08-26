@@ -50,7 +50,7 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working). This also contains a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract.
-- `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right progress panel, and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). `mapSlot()` returns `"Unknown"` for any wiki vocabulary not in `SLOT_MAP` (Bug 2 fix).
+- `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). `mapSlot()` returns `"Unknown"` for any wiki vocabulary not in `SLOT_MAP` (Bug 2 fix).
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
 - `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` flag) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
@@ -223,6 +223,9 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **The Copilot coding agent cannot push to an existing PR's branch from a new task.** A new task always branches from `main` — a prompt instruction to "work on branch X" will be garbled into a fresh branch off `main`, silently producing code against the wrong base (this burned a full agent run as PR #54). To amend an existing agent PR, comment on that PR mentioning `@copilot` instead of starting a new task.
 - **CI now runs these gates automatically. A green check is expected and a red X on your own PR means to fix it.
 - **"ItemInfo:GetCategory() maps 1:1 to slot for armour, but returns a single Jewelry (49) category for all Ear/Finger/Wrist/Neck/Pocket items, and weapon categories encode type not hand. Per-family overflow bucketing in the Lua plugin is therefore impossible for the slots that matter. Verified empirically 2026-08 via a temporary slot probe (since removed)."
+- **The bookmarklet must never contain `//` line comments — block comments (`/* */`) only.** The harness serializes `runBookmarklet.toString()` into a `javascript:` URL; browsers collapse newlines in bookmark URLs, so a single `//` comments out the entire remainder of the script and the bookmarklet silently fails to parse. Every existing comment in the file is a block comment for this reason.
+- **After any edit to `bookmarklet/lgo_bookmarklet.html`, the user must reload the harness page and re-drag the link to the bookmarks bar.** The bookmarks-bar copy is a snapshot of the generated URL; editing the file does nothing to already-installed bookmarks. When debugging "my edit had no effect," check this first.
+- **Cloudflare challenges on lotro-wiki.com can return HTTP 200 with an HTML interstitial body, not a 403.** `resp.ok` checks do NOT detect them; only attempting `resp.json()` does. This produced the "first run speeds through and everything is a fetch-error" symptom (Bug 10). The bookmarklet's warm-up probe therefore verifies the body parses as JSON (`j && j.query`), not just the status code.
 
 ---
 
@@ -254,3 +257,43 @@ These are known, decided-but-not-urgent items. Do **not** silently fold them int
 - **Rename detection.** The merge step matches items by exact byte-for-byte name. If the wiki renames an item between exports, or if a Unicode encoding glitch alters a character, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem.
 
 ---
+
+### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item `fetch-error` ✅ FIXED
+
+**Symptom:** on the first run in a fresh browser session (typically noticed right
+after updating the bookmarklet), the fetch loop completed near-instantly and every
+item was emitted as `slot = "Unknown"` with the `fetch-error` outcome comment. The
+second and all subsequent runs worked normally. Looked like a server-side glitch;
+it was Cloudflare.
+
+**Root cause:** Cloudflare bot mitigation on lotro-wiki.com answers `api.php`
+fetches from a not-yet-cleared session with an **HTTP 200 HTML challenge
+interstitial**, not a 403. `fetchByTitle` passed its `resp.ok` check, then threw
+inside `resp.json()` — a plain `SyntaxError` with no `.code` — which `fetchItem`
+mapped to `fetch-error`. Because the failure is instant (no wikitext download, no
+prefixsearch fallback), the whole list burned in milliseconds. The first run's
+requests let the challenge resolve and set the `cf_clearance` cookie, so run two
+succeeded. The correlation with "just updated the bookmarklet" was incidental —
+updating is simply when a fresh session starts.
+
+**Fix:** two additions to `run()` in `bookmarklet/lgo_bookmarklet.html`:
+
+1. **Warm-up probe** before the fetch loop: fetch
+   `action=query&meta=siteinfo` and require the body to *parse as JSON with a
+   `query` key* — `resp.ok` alone cannot detect the 200-HTML challenge. On
+   failure, wait 3 s and retry once (the challenge usually auto-clears after the
+   first request); if still failing, abort with an instructive status message
+   before burning the item list.
+2. **Circuit breaker** in the loop: if the first 3 items all come back
+   `fetch-error`, abort with a "reload the wiki page and re-run" message instead
+   of emitting a garbage TOML.
+
+During the fix, Bug 8 struck again: the first draft of the warm-up used a `//`
+line comment, which broke the entire serialized `javascript:` URL. Block comments
+only — see Bug 8's lesson.
+
+**⚠ Lesson for future agents:** a Cloudflare-fronted API can fail with
+**HTTP 200 + HTML body**; status-code checks are not sufficient liveness checks —
+verify the payload parses. And an instant, uniform failure across all items in a
+fetch loop is the signature of a transport/session problem, not a data problem:
+fail fast and loud rather than emitting plausible-looking all-zero output.
