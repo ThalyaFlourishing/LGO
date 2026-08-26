@@ -9,6 +9,9 @@ struct SlotRow {
     display_str: &'static str,
 }
 
+// This is the single source of truth for external slot strings. Keep pooled
+// slot families ordered with the first internal variant before the second;
+// parsing intentionally returns the first matching row.
 const SLOT_TABLE: &[SlotRow] = &[
     SlotRow {
         slot: Slot::Head,
