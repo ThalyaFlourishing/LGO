@@ -162,7 +162,7 @@ fn print_gear_table(gear_set: &GearSet) {
 
     // Print slots in a fixed, readable order.
     for &slot in Slot::ALL {
-        let slot_label = slot_label(slot);
+        let slot_label = slot.display_name();
         let item_name = gear_set
             .items
             .get(&slot)
@@ -266,30 +266,6 @@ fn print_infeasible_banner(failed_minima: &[(Stat, i64, i64)]) {
     println!("  to their targets as possible; once a goal is met, extra");
     println!("  points in it are not pursued at the expense of lower-priority");
     println!("  goals still short of target.");
-}
-
-// ?? Formatting helpers ????????????????????????????????????????????????????????
-
-/// Slot label for the gear table — uses the display name from Slot::ALL order.
-fn slot_label(slot: Slot) -> &'static str {
-    match slot {
-        Slot::Head => "Head",
-        Slot::Chest => "Chest",
-        Slot::Legs => "Legs",
-        Slot::Hands => "Hands",
-        Slot::Feet => "Feet",
-        Slot::Shoulders => "Shoulders",
-        Slot::Back => "Back",
-        Slot::Wrist1 | Slot::Wrist2 => "Wrist",
-        Slot::Neck => "Neck",
-        Slot::Finger1 | Slot::Finger2 => "Finger",
-        Slot::Ear1 | Slot::Ear2 => "Ear",
-        Slot::Pocket => "Pocket",
-        Slot::MainHand => "Main-hand",
-        Slot::OffHand => "Off-hand",
-        Slot::Ranged => "Ranged",
-        Slot::ClassItem => "Class Item",
-    }
 }
 
 /// Format an i64 with thousands separators: 1234567 ? "1,234,567".

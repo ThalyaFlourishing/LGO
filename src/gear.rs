@@ -101,11 +101,11 @@ impl Slot {
             Slot::ClassItem => "ClassItem",
         }
     }
-}
-
-impl fmt::Display for Slot {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
+    
+        /// Canonical display string, used in TOML `slot = "..."` values,
+    /// report labels, and anywhere the slot is shown to the user.
+    pub fn display_name(self) -> &'static str {
+        match self {
             Slot::Head => "Head",
             Slot::Chest => "Chest",
             Slot::Legs => "Legs",
@@ -122,8 +122,13 @@ impl fmt::Display for Slot {
             Slot::OffHand => "Off-hand",
             Slot::Ranged => "Ranged",
             Slot::ClassItem => "Class Item",
-        };
-        write!(f, "{}", s)
+        }
+    }
+}
+
+impl fmt::Display for Slot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.display_name())
     }
 }
 
@@ -264,25 +269,52 @@ mod tests {
         }
     }
 
-    /// Specific spot-checks for variants whose JSON form differs from display.
+    /// Spot-checks for variants whose DB slot string differs from the
+    /// display form. If any of these regress, the resolver will silently
+    /// emit wrong slot strings.
     #[test]
-    fn punctuation_variants_translate_correctly() {
-        assert_eq!(
-            format!("{}", Slot::from_json_variant("Wrist").unwrap()),
-            "Wrist"
-        );
-        assert_eq!(
-            format!("{}", Slot::from_json_variant("Finger").unwrap()),
-            "Finger"
-        );
+    fn db_string_and_display_differences_translate_correctly() {
         assert_eq!(
             format!("{}", Slot::from_json_variant("MainHand").unwrap()),
             "Main-hand"
         );
         assert_eq!(
+            format!("{}", Slot::from_json_variant("OffHand").unwrap()),
+            "Off-hand"
+        );
+        assert_eq!(
             format!("{}", Slot::from_json_variant("ClassItem").unwrap()),
             "Class Item"
         );
+    }
+
+    /// Every internal variant's DB slot string must round-trip through
+    /// from_json_variant back to the first variant of its family. This
+    /// guarantees Slot::ALL, json_variant, and from_json_variant can
+    /// never drift apart.
+    #[test]
+    fn json_variant_round_trips_to_family_first_variant_for_all_slots() {
+        for &slot in Slot::ALL.iter() {
+            let expected = match slot {
+                Slot::Wrist2 => Slot::Wrist1,
+                Slot::Finger2 => Slot::Finger1,
+                Slot::Ear2 => Slot::Ear1,
+                other => other,
+            };
+            let parsed = Slot::from_json_variant(slot.json_variant())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "from_json_variant rejected json_variant of {:?} ({:?})",
+                        slot,
+                        slot.json_variant()
+                    )
+                });
+            assert_eq!(
+                parsed, expected,
+                "{:?} must round-trip to its family's first variant",
+                slot
+            );
+        }
     }
 
     #[test]
