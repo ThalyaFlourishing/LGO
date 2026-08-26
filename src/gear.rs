@@ -90,6 +90,7 @@ const SLOT_TABLE: &[SlotRow] = &[
 
 /// Equipment slots that the optimizer considers.
 /// Excluded: CraftItem (19), Bridle (21).
+#[repr(usize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Slot {
     Head,
@@ -122,11 +123,9 @@ impl Slot {
     /// item DB entries, report labels, and anywhere the slot is shown to the
     /// user.
     pub fn display_name(self) -> &'static str {
-        SLOT_TABLE
-            .iter()
-            .find(|row| row.slot == self)
-            .map(|row| row.display_str)
-            .expect("every Slot variant must appear in SLOT_TABLE")
+        let row = &SLOT_TABLE[self as usize];
+        debug_assert_eq!(row.slot, self);
+        row.display_str
     }
 }
 
