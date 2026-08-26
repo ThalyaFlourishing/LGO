@@ -1725,7 +1725,7 @@ mod tests {
     type TestItem<'a> = (&'a str, &'a str, TestStats<'a>);
 
     /// Small synthetic fixture exercising four slot shapes:
-    /// identity (Head), paired (Wrist1), weapon (MainHand), and space-split
+    /// identity (Head), paired (Wrist), weapon (MainHand), and space-split
     /// (ClassItem).
     /// "Test Greatsword" additionally carries `two_handed: true` as emitted
     /// by `build-db` for `MAIN_HAND` items with `precludedSlots`.
@@ -1736,7 +1736,7 @@ mod tests {
         },
         "Test Bracelet": {
             "name": "Test Bracelet",
-            "slot": "Wrist1"
+            "slot": "Wrist"
         },
         "Test Sword": {
             "name": "Test Sword",
@@ -2702,8 +2702,8 @@ name = \"Test Helm\"\n";
     #[test]
     fn merge_first_run_preserves_duplicate_same_name_instances() {
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
         ]);
         let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
 
@@ -2886,18 +2886,18 @@ Might = 9\n";
     fn merge_duplicate_matching_prefers_exact_canonical_data_before_occurrence_order() {
         let prev = "\
 [[item]]\n\
-slot = \"Wrist (1)\"\n\
+slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
 # user note that must not affect identity\n\
 Armor = 100\n\
 \n\
 [[item]]\n\
-slot = \"Wrist (1)\"\n\
+slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
 Armor = 900\n";
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
         ]);
 
         let outcome = merge_ic(
@@ -2937,10 +2937,10 @@ Armor = 100\n";
 
     #[test]
     fn merge_count_increase_adds_only_new_duplicate_instances() {
-        let prev = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
+        let prev = make_doc(&[("Test Bracelet", "Wrist", &[("Armor", 100)])]);
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
         ]);
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
@@ -2954,10 +2954,10 @@ Armor = 100\n";
     #[test]
     fn merge_count_decrease_removes_only_missing_duplicate_instances() {
         let prev = make_doc(&[
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist (1)", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
         ]);
-        let incoming = make_doc(&[("Test Bracelet", "Wrist (1)", &[("Armor", 100)])]);
+        let incoming = make_doc(&[("Test Bracelet", "Wrist", &[("Armor", 100)])]);
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 

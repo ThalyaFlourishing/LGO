@@ -362,7 +362,7 @@ Fate               = 0
 # --- Wrist ---
 
 [[item]]
-slot = "Wrist (1)"
+slot = "Wrist"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0
 Power              = 0
@@ -460,7 +460,7 @@ Fate               = 0
 # --- Finger ---
 
 [[item]]
-slot = "Finger (1)"
+slot = "Finger"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0
 Power              = 0
@@ -509,7 +509,7 @@ Fate               = 0
 # --- Ear ---
 
 [[item]]
-slot = "Ear (1)"
+slot = "Ear"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0
 Power              = 0

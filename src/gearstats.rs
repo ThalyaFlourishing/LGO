@@ -337,13 +337,10 @@ fn parse_slot_str(s: &str) -> Option<Slot> {
         "Feet" => Some(Slot::Feet),
         "Shoulders" => Some(Slot::Shoulders),
         "Back" => Some(Slot::Back),
-        "Wrist (1)" => Some(Slot::Wrist1),
-        "Wrist (2)" => Some(Slot::Wrist2),
+        "Wrist" => Some(Slot::Wrist1),
         "Neck" => Some(Slot::Neck),
-        "Finger (1)" => Some(Slot::Finger1),
-        "Finger (2)" => Some(Slot::Finger2),
-        "Ear (1)" => Some(Slot::Ear1),
-        "Ear (2)" => Some(Slot::Ear2),
+        "Finger" => Some(Slot::Finger1),
+        "Ear" => Some(Slot::Ear1),
         "Pocket" => Some(Slot::Pocket),
         "Main-hand" => Some(Slot::MainHand),
         "Off-hand" => Some(Slot::OffHand),
@@ -547,9 +544,19 @@ name = "Craft Tool C"
         assert_eq!(
             result.items.len(),
             crate::gear::Slot::ALL.len(),
-            "all 19 canonical slots must parse; Unknown and Bridle must be skipped"
+            "all internal slots' external display strings must parse; Unknown and Bridle must be skipped"
         );
         std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_rejects_legacy_numbered_pooled_slots() {
+        assert!(parse_slot_display("Wrist (1)").is_none());
+        assert!(parse_slot_display("Wrist (2)").is_none());
+        assert!(parse_slot_display("Finger (1)").is_none());
+        assert!(parse_slot_display("Finger (2)").is_none());
+        assert!(parse_slot_display("Ear (1)").is_none());
+        assert!(parse_slot_display("Ear (2)").is_none());
     }
 
     #[test]
