@@ -44,10 +44,10 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
-- `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `parse_slot_str` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
+- `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, paired-slot super-candidates for Wrist/Finger/Ear, and a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
-- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), `from_json_variant`, `Display` impl, `GearItem`, `GearSet`.
+- `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working). This also contains a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract.
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
@@ -65,7 +65,7 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 
 ## 4. Canonical reference data
 
-### 4.1 Canonical external slot strings (from `src/gear.rs` Display + `src/gearstats.rs::parse_slot_str`)
+### 4.1 Canonical external slot strings (from `src/gear.rs` Display + `parse_slot_display`)
 
 ```
 Head            Wrist          Pocket
@@ -91,10 +91,9 @@ Two-letter CLI abbreviations: `ml pw am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 |---|---|---|---|
 | 1 | `data/items.xml` (game data dump) | UPPERCASE enum values | `HEAD`, `SHOULDER`, `HAND`, `FEET`, `CHEST`, `LEGS` |
 | 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` / slot-bearing `type=` fields | Free-text, editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders`, `One-Handed Axe` |
-| 3 | `src/gear.rs` `Slot::Display` (canonical) | Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
-| 4 | `data/lgo_items.json` `slot` values | DB slot strings | `Head`, `Wrist`, `MainHand`, `ClassItem` |
+| 3 | `src/gear.rs` slot table, TOML, reports, and `data/lgo_items.json` `slot` values (canonical) | Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
 
-The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of truth for which slot an item goes in. The bookmarklet no longer reads wiki slot vocabulary #2 at all; every emitted `[[item]]` block carries the literal placeholder `slot = "Unknown"`. The `resolve-slots` subcommand then uses `data/lgo_items.json` (#4) to bridge DB slot strings (`Head`, `Wrist`, `MainHand`, `ClassItem`, etc.) into vocabulary #3 via `Slot::from_json_variant`, mapping pooled family strings such as `Wrist` to the first internal variant for optimizer input.
+The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of truth for which slot an item goes in. The bookmarklet no longer reads wiki slot vocabulary #2 at all; every emitted `[[item]]` block carries the literal placeholder `slot = "Unknown"`. The `resolve-slots` subcommand then uses `data/lgo_items.json` entries whose `slot` values already use vocabulary #3 (`Head`, `Wrist`, `Main-hand`, `Class Item`, etc.), mapping pooled family strings such as `Wrist` to the first internal variant for optimizer input.
 
 ---
 
@@ -192,7 +191,7 @@ See Bug 7 / Bug 9 for the rationale. The downstream `resolve-slots` step preserv
 
 ### Formatting decisions (now handled by `resolve-slots`)
 
-- Group `[[item]]` entries by slot, in canonical `Slot::ALL` order.
+- Group `[[item]]` entries by slot, in canonical `Slot::all()` order.
 - Insert a visible divider comment between slot groups.
 
 The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
@@ -209,7 +208,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
 - `data/lgo_items.json` (~5 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
-- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_str` and the canonical 16-stat list. Do not invent or paraphrase.
+- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_display` and the canonical 16-stat list. Do not invent or paraphrase.
 - Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
 - The bookmarklet does **not** trust or parse the wiki's free-text `slot=` / slot-bearing `type=` vocabulary. It always writes `slot = "Unknown"` and leaves slot resolution to `resolve-slots` and `data/lgo_items.json`.
 - **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).

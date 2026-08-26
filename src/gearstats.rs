@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::gear::{GearItem, Slot};
+use crate::gear::{parse_slot_display, GearItem};
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
@@ -89,7 +89,7 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             })?,
         };
 
-        let slot = match parse_slot_str(slot_str) {
+        let slot = match parse_slot_display(slot_str) {
             Some(s) => s,
             None => {
                 // "Unknown" is the bookmarklet's explicit marker for items it
@@ -320,36 +320,6 @@ pub fn find_bookmarklet_output(dir: &Path, character: &str) -> Result<Option<Pat
     find_case_insensitive_char_file(dir, "lgo_", character, "_gearStats.toml")
 }
 
-/// Parse a slot display string back to a Slot variant.
-/// Must match the Display impl in gear.rs exactly.
-pub fn parse_slot_display(s: &str) -> Option<Slot> {
-    parse_slot_str(s)
-}
-
-/// Parse a slot display string back to a Slot variant.
-/// Must match the Display impl in gear.rs exactly.
-fn parse_slot_str(s: &str) -> Option<Slot> {
-    match s {
-        "Head" => Some(Slot::Head),
-        "Chest" => Some(Slot::Chest),
-        "Legs" => Some(Slot::Legs),
-        "Hands" => Some(Slot::Hands),
-        "Feet" => Some(Slot::Feet),
-        "Shoulders" => Some(Slot::Shoulders),
-        "Back" => Some(Slot::Back),
-        "Wrist" => Some(Slot::Wrist1),
-        "Neck" => Some(Slot::Neck),
-        "Finger" => Some(Slot::Finger1),
-        "Ear" => Some(Slot::Ear1),
-        "Pocket" => Some(Slot::Pocket),
-        "Main-hand" => Some(Slot::MainHand),
-        "Off-hand" => Some(Slot::OffHand),
-        "Ranged" => Some(Slot::Ranged),
-        "Class Item" => Some(Slot::ClassItem),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,7 +500,7 @@ name = "Craft Tool C"
         let dir = make_test_dir();
         let path = dir.join("test.toml");
         let mut toml = String::new();
-        for slot in crate::gear::Slot::ALL {
+        for slot in crate::gear::Slot::all() {
             toml.push_str(&format!(
                 "\n[[item]]\nslot = \"{}\"\nname = \"Item for {}\"\n",
                 slot, slot
@@ -543,7 +513,7 @@ name = "Craft Tool C"
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(
             result.items.len(),
-            crate::gear::Slot::ALL.len(),
+            crate::gear::Slot::all().len(),
             "all internal slots' external display strings must parse; Unknown and Bridle must be skipped"
         );
         std::fs::remove_dir_all(&dir).expect("cleanup");
