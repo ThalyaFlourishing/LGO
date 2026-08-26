@@ -20,6 +20,9 @@ fn load_committed_items_db_fixture() -> lgo::slot_resolver::ItemsDb {
             let Some(slot) = entry.get_mut("slot").and_then(|slot| slot.as_str()) else {
                 continue;
             };
+            // Temporary test-fixture shim: the committed DB is intentionally
+            // not regenerated in this PR. Delete this when data/lgo_items.json
+            // has been rebuilt with display-form slot strings.
             let display_slot = match slot {
                 "MainHand" => "Main-hand",
                 "OffHand" => "Off-hand",

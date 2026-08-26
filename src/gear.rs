@@ -114,7 +114,7 @@ pub enum Slot {
 }
 
 impl Slot {
-    pub fn all() -> impl ExactSizeIterator<Item = Slot> {
+    pub fn all() -> impl Iterator<Item = Slot> {
         SLOT_TABLE.iter().map(|row| row.slot)
     }
 

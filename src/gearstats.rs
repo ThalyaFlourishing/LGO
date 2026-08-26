@@ -513,7 +513,7 @@ name = "Craft Tool C"
         let result = read_stats_file(&path).expect("must return Ok");
         assert_eq!(
             result.items.len(),
-            crate::gear::Slot::all().len(),
+            crate::gear::Slot::all().count(),
             "all internal slots' external display strings must parse; Unknown and Bridle must be skipped"
         );
         std::fs::remove_dir_all(&dir).expect("cleanup");
