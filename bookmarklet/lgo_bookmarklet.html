@@ -375,7 +375,9 @@
         async function fetchByTitle(title) {
           /* Fetches the wiki page identified by full title (including
              namespace prefix, e.g. "Item:Foo (Item Level 563)"), extracts
-             the {{Item Tooltip}} template, and returns { stats }.
+             the {{Item Tooltip}} template, and returns { stats } only.
+             Slot data is intentionally ignored; buildToml() always writes
+             the literal placeholder `slot = "Unknown"`.
              Throws an Error with a `.code` property identifying the failure:
                "missing-page" — page does not exist or has empty wikitext
                "no-tooltip"   — page exists but has no {{Item Tooltip}}
