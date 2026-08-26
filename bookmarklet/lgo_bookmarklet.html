@@ -625,7 +625,7 @@
               items.push(item);
             } catch (_err) {
               /* fetchItem is supposed to never throw — defensive guard. */
-              items.push({ name, slot: "Unknown", stats: zeroStats(), outcome: "fetch-error" });
+              items.push({ name, stats: zeroStats(), outcome: "fetch-error" });
             }
             if (i === 2 && items.every(it => it.outcome === "fetch-error")) {
               updateStatusError(
