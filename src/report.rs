@@ -149,15 +149,25 @@ fn print_warnings(warnings: &[String]) {
     println!();
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 fn print_gear_table(gear_set: &GearSet) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
     println!();
-    println!(
-        "  {:<COL_SLOT$}  Recommended Item",
-        "Slot",
-        COL_SLOT = COL_SLOT
-    );
+    println!("  {:>12}  Recommended Item", "Slot");
     println!("  {}", divider);
 
     // Print slots in a fixed, readable order.
@@ -172,7 +182,7 @@ fn print_gear_table(gear_set: &GearSet) {
         // Truncate long item names with ellipsis.
         let item_display = truncate(item_name, COL_ITEM);
         println!(
-            "  {:<COL_SLOT$}  {}",
+            "  {:>COL_SLOT$}  {}",
             slot_label,
             item_display,
             COL_SLOT = COL_SLOT
@@ -181,6 +191,24 @@ fn print_gear_table(gear_set: &GearSet) {
 
     println!("  {}", divider);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(Stat, i64, i64)]) {
     if goals.is_empty() {
