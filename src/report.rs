@@ -157,7 +157,7 @@ fn print_gear_table(gear_set: &GearSet) {
     println!("  {}", divider);
 
     // Print slots in a fixed, readable order.
-    for &slot in Slot::ALL {
+    for slot in Slot::all() {
         let slot_label = slot.display_name();
         let item_name = gear_set
             .items

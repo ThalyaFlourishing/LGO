@@ -369,4 +369,22 @@ mod tests {
         assert!(!json.contains("Finger1"), "{json}");
         assert!(!json.contains("Ear1"), "{json}");
     }
+
+    #[test]
+    fn db_slots_serialize_as_display_strings() {
+        let xml = r#"<items>
+            <item name="Example Sword" level="160" slot="MAIN_HAND"></item>
+            <item name="Example Shield" level="160" slot="OFF_HAND"></item>
+            <item name="Example Rune" level="160" slot="CLASS_SLOT"></item>
+        </items>"#;
+        let out = load_items_from_str("display_slots", xml);
+        let json = serde_json::to_string(&out).expect("serialize db");
+
+        assert!(json.contains(r#""slot":"Main-hand""#), "{json}");
+        assert!(json.contains(r#""slot":"Off-hand""#), "{json}");
+        assert!(json.contains(r#""slot":"Class Item""#), "{json}");
+        assert!(!json.contains("MainHand"), "{json}");
+        assert!(!json.contains("OffHand"), "{json}");
+        assert!(!json.contains("ClassItem"), "{json}");
+    }
 }

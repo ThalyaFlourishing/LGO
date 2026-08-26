@@ -369,7 +369,7 @@ fn build_search_pools(
 
     validate_candidate_pool_sizes(&pools)?;
 
-    for &slot in Slot::ALL {
+    for slot in Slot::all() {
         let canonical = canonical_slot(slot);
         // Hand slots get their empty candidates inside build_hand_choices
         // (pre-filling a zero here would duplicate them in the combined
@@ -399,13 +399,13 @@ fn build_search_pools(
     let mut seen = HashSet::new();
     let mut search_pools = Vec::new();
 
-    for &slot in Slot::ALL {
+    for slot in Slot::all() {
         let canonical = canonical_slot(slot);
         if !seen.insert(canonical) {
             continue;
         }
         // The two hand slots form one combined pool, built when MainHand is
-        // reached (it precedes OffHand in Slot::ALL). The per-slot candidate
+        // reached (it precedes OffHand in Slot::all()). The per-slot candidate
         // cap was already enforced on the source pools above; the combined
         // pool is deliberately allowed to exceed it pre-dominance.
         if canonical == Slot::OffHand {
@@ -736,24 +736,7 @@ fn candidate_to_gear_item(c: &Candidate, slot: Slot) -> GearItem {
 }
 
 fn slot_display(slot: Slot) -> &'static str {
-    match slot {
-        Slot::Head => "Head",
-        Slot::Chest => "Chest",
-        Slot::Legs => "Legs",
-        Slot::Hands => "Hands",
-        Slot::Feet => "Feet",
-        Slot::Shoulders => "Shoulders",
-        Slot::Back => "Back",
-        Slot::Wrist1 | Slot::Wrist2 => "Wrist",
-        Slot::Neck => "Neck",
-        Slot::Finger1 | Slot::Finger2 => "Finger",
-        Slot::Ear1 | Slot::Ear2 => "Ear",
-        Slot::Pocket => "Pocket",
-        Slot::MainHand => "Main-hand",
-        Slot::OffHand => "Off-hand",
-        Slot::Ranged => "Ranged",
-        Slot::ClassItem => "Class Item",
-    }
+    slot.display_name()
 }
 
 fn validate_candidate_pool_sizes(
@@ -761,7 +744,7 @@ fn validate_candidate_pool_sizes(
 ) -> Result<(), Box<OptimizeError>> {
     let mut seen = HashSet::new();
 
-    for &slot in Slot::ALL {
+    for slot in Slot::all() {
         let canonical = canonical_slot(slot);
         if !seen.insert(canonical) {
             continue;

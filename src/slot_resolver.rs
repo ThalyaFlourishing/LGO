@@ -25,7 +25,7 @@ use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
 
 use crate::base_stats::DerivationError;
-use crate::gear::Slot;
+use crate::gear::{parse_slot_display, Slot};
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 /// Default path to the offline items DB, relative to the working directory.
@@ -73,9 +73,9 @@ pub enum ItemsDbError {
         path: PathBuf,
         source: serde_json::Error,
     },
-    /// A DB entry's `slot` field is not a recognised JSON-form Slot variant
-    /// (see `Slot::from_json_variant`). Indicates the JSON file's schema has
-    /// drifted from what `gear.rs` knows about.
+    /// A DB entry's `slot` field is not a recognised canonical display-form
+    /// Slot string. Indicates the JSON file's schema has drifted from what
+    /// `gear.rs` knows about.
     UnknownSlot {
         item_name: String,
         slot_string: String,
@@ -150,7 +150,7 @@ impl ItemsDb {
             // real file but the inner field is what `db_build` was guaranteed
             // to write and is thus the authoritative copy.
             let slot =
-                Slot::from_json_variant(&entry.slot).ok_or_else(|| ItemsDbError::UnknownSlot {
+                parse_slot_display(&entry.slot).ok_or_else(|| ItemsDbError::UnknownSlot {
                     item_name: entry.name.clone(),
                     slot_string: entry.slot.clone(),
                 })?;
@@ -350,34 +350,15 @@ fn slot_family(s: Slot) -> Slot {
 
 /// Human-readable label for a slot family used in output divider comments.
 fn slot_family_label(family: Slot) -> &'static str {
-    match family {
-        Slot::Wrist1 => "Wrist",
-        Slot::Finger1 => "Finger",
-        Slot::Ear1 => "Ear",
-        Slot::Head => "Head",
-        Slot::Chest => "Chest",
-        Slot::Legs => "Legs",
-        Slot::Hands => "Hands",
-        Slot::Feet => "Feet",
-        Slot::Shoulders => "Shoulders",
-        Slot::Back => "Back",
-        Slot::Neck => "Neck",
-        Slot::Pocket => "Pocket",
-        Slot::MainHand => "Main-hand",
-        Slot::OffHand => "Off-hand",
-        Slot::Ranged => "Ranged",
-        Slot::ClassItem => "Class Item",
-        // Slot2 variants never reach here because slot_family collapses them.
-        Slot::Wrist2 | Slot::Finger2 | Slot::Ear2 => "Unknown",
-    }
+    slot_family(family).display_name()
 }
 
 /// Order in which slot families should appear in the output, matching the
-/// canonical Slot::ALL traversal (paired slots collapsed to their first
+/// canonical Slot::all() traversal (paired slots collapsed to their first
 /// representative).
 fn slot_family_order() -> Vec<Slot> {
     let mut seen: Vec<Slot> = Vec::new();
-    for &slot in Slot::ALL {
+    for slot in Slot::all() {
         let family = slot_family(slot);
         if !seen.contains(&family) {
             seen.push(family);
@@ -1343,7 +1324,7 @@ fn bucket_by_table_slot(tables: Vec<Table>) -> (HashMap<Slot, Vec<Table>>, Vec<T
     let mut unknowns: Vec<Table> = Vec::new();
     for table in tables {
         let slot_str = table.get("slot").and_then(|v| v.as_str()).unwrap_or("");
-        match crate::gearstats::parse_slot_display(slot_str) {
+        match parse_slot_display(slot_str) {
             Some(slot) => {
                 buckets.entry(slot_family(slot)).or_default().push(table);
             }
@@ -1725,8 +1706,8 @@ mod tests {
     type TestItem<'a> = (&'a str, &'a str, TestStats<'a>);
 
     /// Small synthetic fixture exercising four slot shapes:
-    /// identity (Head), paired (Wrist), weapon (MainHand), and space-split
-    /// (ClassItem).
+    /// identity (Head), paired (Wrist), weapon (Main-hand), and space-split
+    /// (Class Item).
     /// "Test Greatsword" additionally carries `two_handed: true` as emitted
     /// by `build-db` for `MAIN_HAND` items with `precludedSlots`.
     const FIXTURE: &str = r#"{
@@ -1740,16 +1721,16 @@ mod tests {
         },
         "Test Sword": {
             "name": "Test Sword",
-            "slot": "MainHand"
+            "slot": "Main-hand"
         },
         "Test Greatsword": {
             "name": "Test Greatsword",
-            "slot": "MainHand",
+            "slot": "Main-hand",
             "two_handed": true
         },
         "Test Tome": {
             "name": "Test Tome",
-            "slot": "ClassItem"
+            "slot": "Class Item"
         }
     }"#;
 
@@ -1848,6 +1829,28 @@ mod tests {
             } => {
                 assert_eq!(item_name, "Bad Item");
                 assert_eq!(slot_string, "Frobnicate");
+            }
+            other => panic!("expected UnknownSlot, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn old_db_slot_value_is_an_error() {
+        let bad = r#"{
+            "Old Sword": {
+                "name": "Old Sword",
+                "slot": "MainHand"
+            }
+        }"#;
+        let err =
+            ItemsDb::from_json_str(bad, dummy_path()).expect_err("old DB slot string must error");
+        match err {
+            ItemsDbError::UnknownSlot {
+                item_name,
+                slot_string,
+            } => {
+                assert_eq!(item_name, "Old Sword");
+                assert_eq!(slot_string, "MainHand");
             }
             other => panic!("expected UnknownSlot, got {:?}", other),
         }
@@ -2060,7 +2063,7 @@ name = \"Test Bracelet\"\n";
     }
 
     /// Pin the canonical family order itself, so that an unexpected change
-    /// in `Slot::ALL` or `slot_family` (the inputs to `slot_family_order`)
+    /// in `Slot::all()` or `slot_family` (the inputs to `slot_family_order`)
     /// is caught directly, with a clear failure, rather than via a cascade
     /// of failures in higher-level tests.
     #[test]

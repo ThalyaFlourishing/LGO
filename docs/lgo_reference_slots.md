@@ -7,27 +7,27 @@ numbered internal variants because the optimizer and final gear-set model still
 need two positions for each pooled family. External/user-facing formats use the
 unnumbered family names.
 
-| Enum variant | Items DB slot string | TOML/report display | Plugin index |
-|--------------|----------------------|---------------------|--------------|
-| `Head`       | `Head`               | Head                | 1            |
-| `Chest`      | `Chest`              | Chest               | 2            |
-| `Legs`       | `Legs`               | Legs                | 3            |
-| `Hands`      | `Hands`              | Hands               | 4            |
-| `Feet`       | `Feet`               | Feet                | 5            |
-| `Shoulders`  | `Shoulders`          | Shoulders           | 6            |
-| `Back`       | `Back`               | Back                | 7            |
-| `Wrist1`     | `Wrist`              | Wrist               | 8            |
-| `Wrist2`     | `Wrist`              | Wrist               | 9            |
-| `Neck`       | `Neck`               | Neck                | 10           |
-| `Finger1`    | `Finger`             | Finger              | 11           |
-| `Finger2`    | `Finger`             | Finger              | 12           |
-| `Ear1`       | `Ear`                | Ear                 | 13           |
-| `Ear2`       | `Ear`                | Ear                 | 14           |
-| `Pocket`     | `Pocket`             | Pocket              | 15           |
-| `MainHand`   | `MainHand`           | Main-hand           | 16           |
-| `OffHand`    | `OffHand`            | Off-hand            | 17           |
-| `Ranged`     | `Ranged`             | Ranged              | 18           |
-| `ClassItem`  | `ClassItem`          | Class Item          | 20           |
+| Enum variant | Items DB / TOML / report display | Plugin index |
+|--------------|-----------------------------------|--------------|
+| `Head`       | Head                              | 1            |
+| `Chest`      | Chest                             | 2            |
+| `Legs`       | Legs                              | 3            |
+| `Hands`      | Hands                             | 4            |
+| `Feet`       | Feet                              | 5            |
+| `Shoulders`  | Shoulders                         | 6            |
+| `Back`       | Back                              | 7            |
+| `Wrist1`     | Wrist                             | 8            |
+| `Wrist2`     | Wrist                             | 9            |
+| `Neck`       | Neck                              | 10           |
+| `Finger1`    | Finger                            | 11           |
+| `Finger2`    | Finger                            | 12           |
+| `Ear1`       | Ear                               | 13           |
+| `Ear2`       | Ear                               | 14           |
+| `Pocket`     | Pocket                            | 15           |
+| `MainHand`   | Main-hand                         | 16           |
+| `OffHand`    | Off-hand                          | 17           |
+| `Ranged`     | Ranged                            | 18           |
+| `ClassItem`  | Class Item                        | 20           |
 
 ## Excluded slots (never considered by optimizer)
 

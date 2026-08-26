@@ -7,13 +7,7 @@ fn data_json_path() -> PathBuf {
 }
 
 fn setup() -> (String, Vec<ResolutionOutcome>) {
-    let json_path = data_json_path();
-    assert!(
-        json_path.exists(),
-        "data/lgo_items.json missing — re-clone with LFS / restore from git"
-    );
-
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("data/lgo_items.json must load");
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let input_path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let src = std::fs::read_to_string(&input_path).expect("fixture must read");
