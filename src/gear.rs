@@ -267,6 +267,13 @@ mod tests {
     }
 
     #[test]
+    fn slot_table_order_matches_enum_discriminants() {
+        for slot in Slot::all() {
+            assert_eq!(SLOT_TABLE[slot as usize].slot, slot);
+        }
+    }
+
+    #[test]
     fn display_string_uses_unnumbered_pooled_families() {
         assert_eq!(Slot::Wrist1.display_name(), "Wrist");
         assert_eq!(Slot::Wrist2.display_name(), "Wrist");
