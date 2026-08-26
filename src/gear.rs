@@ -101,8 +101,8 @@ impl Slot {
             Slot::ClassItem => "ClassItem",
         }
     }
-    
-        /// Canonical display string, used in TOML `slot = "..."` values,
+
+    /// Canonical display string, used in TOML `slot = "..."` values,
     /// report labels, and anywhere the slot is shown to the user.
     pub fn display_name(self) -> &'static str {
         match self {
@@ -301,14 +301,13 @@ mod tests {
                 Slot::Ear2 => Slot::Ear1,
                 other => other,
             };
-            let parsed = Slot::from_json_variant(slot.json_variant())
-                .unwrap_or_else(|| {
-                    panic!(
-                        "from_json_variant rejected json_variant of {:?} ({:?})",
-                        slot,
-                        slot.json_variant()
-                    )
-                });
+            let parsed = Slot::from_json_variant(slot.json_variant()).unwrap_or_else(|| {
+                panic!(
+                    "from_json_variant rejected json_variant of {:?} ({:?})",
+                    slot,
+                    slot.json_variant()
+                )
+            });
             assert_eq!(
                 parsed, expected,
                 "{:?} must round-trip to its family's first variant",
