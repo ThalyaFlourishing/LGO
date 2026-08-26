@@ -149,20 +149,6 @@ fn print_warnings(warnings: &[String]) {
     println!();
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 fn print_gear_table(gear_set: &GearSet) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
@@ -191,24 +177,6 @@ fn print_gear_table(gear_set: &GearSet) {
 
     println!("  {}", divider);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(Stat, i64, i64)]) {
     if goals.is_empty() {
