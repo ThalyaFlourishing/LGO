@@ -43,14 +43,32 @@ Note: Wrist, Finger, and Ear are paired slots handled by optimizer logic.
 User-editable TOML should use only `Wrist`, `Finger`, and `Ear`; numbered
 forms such as `Wrist (1)` are no longer canonical.
 
-## Main-hand / Off-hand special handling (two-handed weapons)
+## Main-hand / Off-hand special handling (two-handed and Either-hand items)
 
 `MainHand` and `OffHand` are optimized as one combined hand pool rather than
 two independent single slots. A `Main-hand` item flagged `two_handed = true`
 in `gearReady.toml` (sourced from `precludedSlots` in `data/items.xml` via
 `build-db` and `resolve-slots`) occupies both hand slots: the optimizer never
-combines it with a real `Off-hand` candidate and reports the off-hand as
-empty. One-handed main hands combine with off-hand candidates as before, and
-either hand slot may also be left empty when that is optimal. Note that
-`build_db` maps `EITHER_HAND` items to `Slot::OffHand` (a known modeling
-simplification).
+combines it with a real `Off-hand` candidate, and the report shows the
+off-hand line as `(2-handed item)`. One-handed main hands combine with
+off-hand candidates as before.
+
+Items usable in either hand carry `either_hand = true` while keeping their
+slot as `Off-hand` (sourced from `EITHER_HAND` in `data/items.xml`). This is a
+generated-metadata flag, not a new `Slot` variant — there is no "Either-hand
+slot". Legal hand configurations are therefore:
+
+- Main-hand position: Main-hand-only items plus Either-hand items.
+- Off-hand position: Off-hand-only items plus Either-hand items.
+- A single owned item instance can never fill both hands at once; two owned
+  copies of the same Either-hand item may dual-wield.
+- A two-handed item occupies both positions and pairs with nothing.
+
+Real items are required: the empty-hand placeholder for a hand position is
+selectable only when that position has no eligible real item. On an exact
+stat tie between a real item and the placeholder, the real item wins.
+
+The combined hand pool (Main-hand-only + Off-hand-only + Either-hand real
+items) shares a single candidate cap of 12, in place of the per-slot cap of 8
+that applies to every other slot and paired family.
+

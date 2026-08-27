@@ -149,6 +149,13 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     independently because you may also add items to gearReady.toml by 
     hand.
 
+    The two hand slots are the exception: Main-hand and Off-hand share
+    one combined cap of 12 real items (Main-hand-only + Off-hand-only +
+    Either-hand items counted together), because they are optimized as a
+    single combined pool. If more than 12 hand items are present,
+    `lgo optimize` refuses with a message stating the count, the cap of
+    12, and which categories were counted.
+
     NOTE: optimize needs the class coefficient table in
     data/base_stat_derivations.json to derive your raw Base stats
     (Might, Agility, Vitality, Will, Fate) into tracked stats, so run

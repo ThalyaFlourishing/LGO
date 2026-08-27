@@ -52,14 +52,14 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working). This also contains a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract.
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
-- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` flag) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
+- `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` and `either_hand` flags) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — fresh in-game plugin export (input for the bookmarklet).
   - `lgo_Thalya_gearStats.toml` — historical bookmarklet-output fixture (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `MODEL_GUIDANCE.md`, and `Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` (authoritative optimizer spec). The optimizer audit chain and PR prompt docs under `docs/Optimizer_Overhaul/` are historical records retained for traceability; do not treat them as the live optimizer spec.
 
-**Recent structural changes (2026-08):** `data/progressions.xml` removed from the repo and from `build-db` entirely. `data/lgo_items.json` no longer carries item stats — it is a slot + `two_handed` index only; item stats come exclusively from the bookmarklet's lotro-wiki lookups. `CachedItem` (DB entry: name/slot/two_handed) and `GearItem` (TOML-derived, with stats) are now distinct types. [PRs #53, #55]
+**Recent structural changes (2026-08):** `data/progressions.xml` removed from the repo and from `build-db` entirely. `data/lgo_items.json` no longer carries item stats — it is a slot + `two_handed` + `either_hand` index only; item stats come exclusively from the bookmarklet's lotro-wiki lookups. `CachedItem` (DB entry: name/slot/two_handed/either_hand) and `GearItem` (TOML-derived, with stats) are now distinct types. [PRs #53, #55]
 
 ---
 
@@ -172,8 +172,43 @@ two_handed = true
 - **Optimizer effect:** `MainHand` + `OffHand` form one combined search pool
   of legal hand configurations; a two-handed main hand only ever pairs with
   an empty off-hand, which suppresses real off-hand candidates structurally.
-  The final report shows the usual empty-slot placeholder, with no
-  "2-Handed" tag.
+  When the chosen main hand is two-handed, the report renders the off-hand
+  line as `(2-handed item)` instead of an empty-slot placeholder.
+
+### `either_hand` generated metadata
+
+Items usable in either hand carry `either_hand = true` between `name` and the
+stat block, while keeping their slot as `Off-hand`:
+
+```toml
+[[item]]
+slot        = "Off-hand"
+name        = "Example Versatile Mace"
+either_hand = true
+# ...stats and [item.EssenceTotals] as usual...
+```
+
+- **Modeled as a flag, not a slot:** an Either-hand item still occupies the
+  Main-hand or Off-hand slot in a gear set; there is no "Either-hand slot" and
+  the 19-slot `Slot` enum is unchanged. `two_handed` and `either_hand` are
+  mutually exclusive on real items.
+- **Source of truth:** the `EITHER_HAND` slot value in `data/items.xml`.
+  `build-db` maps such items to `Slot::OffHand` and emits `either_hand: true`
+  into `data/lgo_items.json`; `resolve-slots` carries it into `gearReady.toml`.
+  It follows the same generated/refresh/preserve rules as `two_handed`: it is
+  refreshed from the DB for DB-known items and preserved verbatim for unknown
+  (legendary/renamed) items, omitted unless true, and rejected under
+  `[item.EssenceTotals]`.
+- **Optimizer effect:** Either-hand items are eligible in both hand positions
+  (main and off). A single owned instance fills only one hand; two owned
+  copies may dual-wield. Real items are required for a hand position: the
+  empty placeholder is offered only when that position has no eligible real
+  item, and a real item wins any exact tie against the placeholder. The two
+  hand slots share a single combined candidate cap of 12 (Main-hand-only +
+  Off-hand-only + Either-hand real items), instead of the per-slot cap of 8.
+
+If any slot's candidate pool is empty, the optimizer does not halt; the report
+shows a `NO ITEMS` placeholder for that slot (a safety net for bad input).
 
 ### Outcome-typed comments emitted by the bookmarklet
 
