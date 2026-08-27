@@ -73,6 +73,27 @@ impl fmt::Display for OptimizeError {
             ),
         }
     }
+
+    fn benchmark_profiles_from_env() -> Vec<BenchmarkProfile> {
+        match env::var("LGO_BENCH_PROFILE") {
+            Ok(value) => {
+                let profile = match value.as_str() {
+                    "Uniform" => BenchmarkProfile::Uniform,
+                    "Singles" => BenchmarkProfile::SinglesAtN,
+                    "Pairs" => BenchmarkProfile::PairsAtN,
+                    "Hands" => BenchmarkProfile::HandsAtN,
+                    _ => panic!(
+                        "invalid LGO_BENCH_PROFILE={value:?}; expected one of Uniform|Singles|Pairs|Hands"
+                    ),
+                };
+                vec![profile]
+            }
+            Err(env::VarError::NotPresent) => BenchmarkProfile::all().to_vec(),
+            Err(env::VarError::NotUnicode(_)) => {
+                panic!("LGO_BENCH_PROFILE must be valid Unicode")
+            }
+        }
+    }
 }
 
 impl std::error::Error for OptimizeError {}
@@ -434,6 +455,7 @@ fn build_search_pools(
             continue;
         }
 
+        // Keep benchmark_candidate_caps in sync: its test-only harness mirrors this structural pipeline below the cap validation gate.
         let mut choices: Vec<Choice> = if canonical == Slot::MainHand {
             build_hand_choices(
                 pools.get(&Slot::MainHand).map(Vec::as_slice).unwrap_or(&[]),
@@ -857,6 +879,7 @@ mod tests {
     use super::*;
     use crate::stat::TRACKED_STATS;
     use std::any::Any;
+    use std::env;
     use std::panic::AssertUnwindSafe;
     use std::sync::mpsc;
     use std::thread;
@@ -866,6 +889,7 @@ mod tests {
     // Edit this single constant to raise or lower the per-run cutoff. The limit
     // applies to each individual optimizer search, not to the whole harness.
     const TIME_LIMIT_SECS: u64 = 600;
+    const MAX_N: usize = 40;
 
     const BENCHMARK_GOALS: [(Stat, i64); 3] = [
         (Stat::CriticalRating, 280_000),
@@ -917,6 +941,15 @@ mod tests {
                 Self::SinglesAtN => "Singles-at-N",
                 Self::PairsAtN => "Pairs-at-N",
                 Self::HandsAtN => "Hands-at-N",
+            }
+        }
+
+        fn env_label(self) -> &'static str {
+            match self {
+                Self::Uniform => "Uniform",
+                Self::SinglesAtN => "Singles",
+                Self::PairsAtN => "Pairs",
+                Self::HandsAtN => "Hands",
             }
         }
 
@@ -2742,23 +2775,39 @@ mod tests {
         optimizer's candidate caps from data rather than guesses.
 
         Run only this benchmark with:
-            cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+            LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_caps -- --ignored --nocapture
 
-        Debug-build timings are meaningless. Edit TIME_LIMIT_SECS above to change
-        the per-run cutoff. Each N is timed independently; escalation stops at the
-        first run that does not finish within TIME_LIMIT_SECS, prints that
-        breaching row as >TIME_LIMIT_SECS, and reports the last completed N for
-        each profile. The pre column is the raw real-item pool size before pair/
-        hand expansion; the post column is the search-pool size after the
+        Optional isolation:
+            LGO_BENCH_PROFILE=Uniform|Singles|Pairs|Hands
+
+        Debug-build timings are meaningless. The benchmark also returns
+        immediately unless LGO_RUN_BENCH=1 is set. Edit TIME_LIMIT_SECS above to
+        change the per-run cutoff and MAX_N above to cap the escalation range.
+        Each N is timed independently; escalation stops at the first run that
+        does not finish within TIME_LIMIT_SECS, prints that breaching row as
+        >TIME_LIMIT_SECS, and reports the last completed N for each profile. If
+        any run times out, that worker thread keeps burning a core; later
+        profiles are contaminated and should be re-run individually with
+        LGO_BENCH_PROFILE. The pre column is the raw real-item pool size before
+        pair/hand expansion; the post column is the search-pool size after the
         optimizer's dominance filter.
         */
+        let mut should_return = false;
         if cfg!(debug_assertions) {
             println!(
                 "WARNING: benchmark_candidate_caps should be run with --release; debug timings are meaningless."
             );
+            should_return = true;
+        }
+        if env::var("LGO_RUN_BENCH").ok().as_deref() != Some("1") {
+            println!("benchmark_candidate_caps skipped: set LGO_RUN_BENCH=1 to run it.");
+            should_return = true;
+        }
+        if should_return {
             return;
         }
 
+        let profiles = benchmark_profiles_from_env();
         println!("benchmark_candidate_caps");
         println!(
             "goals: {:?}",
@@ -2768,14 +2817,19 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         println!("time limit: {TIME_LIMIT_SECS}s per optimization run");
+        println!("max N: {MAX_N}");
+        if profiles.len() == 1 {
+            println!("profile filter: {}", profiles[0].env_label());
+        }
         println!("| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |");
 
         let mut summaries = Vec::new();
-        for profile in BenchmarkProfile::all() {
+        let mut warned_contamination = false;
+        for profile in profiles {
             let mut last_completed = None;
             let mut breach_at = None;
 
-            for n in 8usize.. {
+            for n in 8usize..=MAX_N {
                 let run = run_benchmark_profile(profile, n);
                 println!(
                     "| {} | {} | {} | {} | {} | {} | {} |",
@@ -2792,6 +2846,12 @@ mod tests {
                     last_completed = Some(n);
                 } else {
                     breach_at = Some(n);
+                    if !warned_contamination {
+                        println!(
+                            "WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE."
+                        );
+                        warned_contamination = true;
+                    }
                     break;
                 }
             }
