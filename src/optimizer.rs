@@ -856,6 +856,8 @@ fn validate_candidate_pool_sizes(
 mod tests {
     use super::*;
     use crate::stat::TRACKED_STATS;
+    use std::any::Any;
+    use std::panic::AssertUnwindSafe;
     use std::sync::mpsc;
     use std::thread;
     use std::time::{Duration, Instant};
@@ -865,7 +867,7 @@ mod tests {
     // applies to each individual optimizer search, not to the whole harness.
     const TIME_LIMIT_SECS: u64 = 600;
 
-    const BENCHMARK_GOALS: &[(Stat, i64)] = &[
+    const BENCHMARK_GOALS: [(Stat, i64); 3] = [
         (Stat::CriticalRating, 280_000),
         (Stat::TacticalMastery, 250_000),
         (Stat::Finesse, 220_000),
@@ -953,6 +955,14 @@ mod tests {
     enum BenchmarkWallTime {
         Completed(Duration),
         TimedOut,
+    }
+
+    enum BenchmarkWorkerResult {
+        Completed {
+            elapsed: Duration,
+            found_build: bool,
+        },
+        Panicked(String),
     }
 
     impl BenchmarkWallTime {
@@ -2374,14 +2384,17 @@ mod tests {
             Slot::Shoulders => "Sh".to_string(),
             Slot::Back => "Bk".to_string(),
             Slot::Wrist1 => "Wr".to_string(),
+            Slot::Wrist2 => "Wr".to_string(),
             Slot::Neck => "Nk".to_string(),
             Slot::Finger1 => "Fi".to_string(),
+            Slot::Finger2 => "Fi".to_string(),
             Slot::Ear1 => "Er".to_string(),
+            Slot::Ear2 => "Er".to_string(),
             Slot::Pocket => "Po".to_string(),
-            Slot::MainHand => "Hd+Of".to_string(),
+            Slot::MainHand => "MH+OH".to_string(),
+            Slot::OffHand => "OH".to_string(),
             Slot::Ranged => "Ra".to_string(),
             Slot::ClassItem => "Ci".to_string(),
-            other => panic!("unexpected benchmark pool slot: {other:?}"),
         }
     }
 
@@ -2458,13 +2471,17 @@ mod tests {
 
     fn make_benchmark_hand_pools(count: usize) -> (Vec<Candidate>, Vec<Candidate>) {
         assert!(
-            count >= 4,
-            "hand benchmark needs enough items to mix categories"
+            count >= 8,
+            "hand benchmark starts at N = 8 and needs enough items to mix main-hand-only, off-hand-only, and Either-hand categories"
         );
 
         let main_only = usize::max(2, count / 4);
         let off_only = usize::max(2, count / 4);
-        let either = count - main_only - off_only;
+        let either = count.checked_sub(main_only + off_only).unwrap_or_else(|| {
+            panic!(
+                "hand benchmark category split exceeded total candidate count: count={count}, main_only={main_only}, off_only={off_only}"
+            )
+        });
         assert!(
             either >= 2,
             "hand benchmark needs Either-hand items to exercise the current hand semantics"
@@ -2557,6 +2574,16 @@ mod tests {
             .join(" ")
     }
 
+    fn benchmark_panic_message(payload: Box<dyn Any + Send>) -> String {
+        match payload.downcast::<String>() {
+            Ok(message) => *message,
+            Err(payload) => match payload.downcast::<&'static str>() {
+                Ok(message) => (*message).to_string(),
+                Err(_) => "non-string panic payload".to_string(),
+            },
+        }
+    }
+
     fn run_benchmark_profile(profile: BenchmarkProfile, n: usize) -> BenchmarkRun {
         let goals = benchmark_goal_set();
         let pools = benchmark_raw_pools(profile, n);
@@ -2585,7 +2612,7 @@ mod tests {
             .expect("missing off-hand benchmark pool");
         let mut combined_hands = main_pool.clone();
         combined_hands.extend(off_pool.iter().cloned());
-        assert_frontier_survives_dominance("Hd+Of", &combined_hands, &goals);
+        assert_frontier_survives_dominance("MH+OH", &combined_hands, &goals);
 
         let mut raw_pool_sizes = Vec::new();
         let mut post_pool_sizes = Vec::new();
@@ -2664,14 +2691,33 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
             let started = Instant::now();
-            let best = exact_search(&search_pools, &goals, &vec![0; BENCHMARK_GOALS.len()]);
-            let _ = tx.send((started.elapsed(), best.is_some()));
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                exact_search(&search_pools, &goals, &[0_i64; BENCHMARK_GOALS.len()])
+            }));
+            let _ = match result {
+                Ok(best) => tx.send(BenchmarkWorkerResult::Completed {
+                    elapsed: started.elapsed(),
+                    found_build: best.is_some(),
+                }),
+                Err(payload) => tx.send(BenchmarkWorkerResult::Panicked(benchmark_panic_message(
+                    payload,
+                ))),
+            };
         });
 
         let wall_time = match rx.recv_timeout(Duration::from_secs(TIME_LIMIT_SECS)) {
-            Ok((elapsed, found)) => {
-                assert!(found, "benchmark search unexpectedly returned no build");
+            Ok(BenchmarkWorkerResult::Completed {
+                elapsed,
+                found_build,
+            }) => {
+                assert!(
+                    found_build,
+                    "benchmark search unexpectedly returned no build"
+                );
                 BenchmarkWallTime::Completed(elapsed)
+            }
+            Ok(BenchmarkWorkerResult::Panicked(message)) => {
+                panic!("benchmark worker thread panicked: {message}");
             }
             Err(mpsc::RecvTimeoutError::Timeout) => BenchmarkWallTime::TimedOut,
             Err(mpsc::RecvTimeoutError::Disconnected) => {
