@@ -855,6 +855,112 @@ fn validate_candidate_pool_sizes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    // benchmark_candidate_caps:
+    // Edit this single constant to raise or lower the per-run cutoff. The limit
+    // applies to each individual optimizer search, not to the whole harness.
+    const TIME_LIMIT_SECS: u64 = 600;
+
+    const BENCHMARK_GOALS: &[(Stat, i64)] = &[
+        (Stat::CriticalRating, 340_000),
+        (Stat::TacticalMastery, 325_000),
+        (Stat::Finesse, 310_000),
+    ];
+
+    const BENCHMARK_SINGLETON_SLOTS: [Slot; 11] = [
+        Slot::Head,
+        Slot::Chest,
+        Slot::Legs,
+        Slot::Hands,
+        Slot::Feet,
+        Slot::Shoulders,
+        Slot::Back,
+        Slot::Neck,
+        Slot::Pocket,
+        Slot::Ranged,
+        Slot::ClassItem,
+    ];
+
+    const BENCHMARK_PAIRED_FAMILIES: [(Slot, Slot); 3] = [
+        (Slot::Wrist1, Slot::Wrist2),
+        (Slot::Finger1, Slot::Finger2),
+        (Slot::Ear1, Slot::Ear2),
+    ];
+
+    #[derive(Clone, Copy, Debug)]
+    enum BenchmarkProfile {
+        Uniform,
+        SinglesAtN,
+        PairsAtN,
+        HandsAtN,
+    }
+
+    impl BenchmarkProfile {
+        fn all() -> [Self; 4] {
+            [Self::Uniform, Self::SinglesAtN, Self::PairsAtN, Self::HandsAtN]
+        }
+
+        fn label(self) -> &'static str {
+            match self {
+                Self::Uniform => "Uniform",
+                Self::SinglesAtN => "Singles-at-N",
+                Self::PairsAtN => "Pairs-at-N",
+                Self::HandsAtN => "Hands-at-N",
+            }
+        }
+
+        fn singleton_count(self, n: usize) -> usize {
+            match self {
+                Self::Uniform | Self::SinglesAtN => n,
+                Self::PairsAtN | Self::HandsAtN => MAX_CANDIDATES_PER_SLOT,
+            }
+        }
+
+        fn paired_count(self, n: usize) -> usize {
+            match self {
+                Self::Uniform | Self::PairsAtN => n,
+                Self::SinglesAtN | Self::HandsAtN => MAX_CANDIDATES_PER_SLOT,
+            }
+        }
+
+        fn hand_count(self, n: usize) -> usize {
+            match self {
+                Self::Uniform | Self::HandsAtN => n,
+                Self::SinglesAtN | Self::PairsAtN => MAX_HAND_CANDIDATES_COMBINED,
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct BenchmarkRun {
+        raw_pool_sizes: Vec<(String, usize)>,
+        post_pool_sizes: Vec<(String, usize)>,
+        pair_super_counts: Vec<(String, usize)>,
+        hand_configuration_count: usize,
+        wall_time: BenchmarkWallTime,
+    }
+
+    #[derive(Debug)]
+    enum BenchmarkWallTime {
+        Completed(Duration),
+        TimedOut,
+    }
+
+    impl BenchmarkWallTime {
+        fn completed_within_limit(&self) -> bool {
+            matches!(self, Self::Completed(_))
+        }
+
+        fn display(&self) -> String {
+            match self {
+                Self::Completed(elapsed) => format!("{:.3}s", elapsed.as_secs_f64()),
+                Self::TimedOut => format!(">{TIME_LIMIT_SECS}s"),
+            }
+        }
+    }
 
     #[derive(Clone)]
     struct Lcg(u64);
@@ -2243,6 +2349,410 @@ mod tests {
         );
         assert_eq!(result.gear_set.items[&Slot::OffHand].name, "Shield");
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 40);
+    }
+
+    fn benchmark_goal_set() -> Vec<StatGoal> {
+        BENCHMARK_GOALS
+            .iter()
+            .map(|(stat, minimum)| goal(*stat, *minimum))
+            .collect()
+    }
+
+    fn benchmark_pool_label(slot: Slot) -> String {
+        match slot {
+            Slot::Head => "Hd".to_string(),
+            Slot::Chest => "Ch".to_string(),
+            Slot::Legs => "Lg".to_string(),
+            Slot::Hands => "Ha".to_string(),
+            Slot::Feet => "Ft".to_string(),
+            Slot::Shoulders => "Sh".to_string(),
+            Slot::Back => "Bk".to_string(),
+            Slot::Wrist1 => "Wr".to_string(),
+            Slot::Neck => "Nk".to_string(),
+            Slot::Finger1 => "Fi".to_string(),
+            Slot::Ear1 => "Er".to_string(),
+            Slot::Pocket => "Po".to_string(),
+            Slot::MainHand => "Hd+Of".to_string(),
+            Slot::Ranged => "Ra".to_string(),
+            Slot::ClassItem => "Ci".to_string(),
+            other => panic!("unexpected benchmark pool slot: {other:?}"),
+        }
+    }
+
+    fn make_benchmark_candidate(
+        family: &str,
+        frontier_idx: usize,
+        original_slot: Slot,
+        two_handed: bool,
+        either_hand: bool,
+    ) -> Candidate {
+        let mut stats: HashMap<Stat, i64> = HashMap::new();
+        let primary_stat = TRACKED_STATS[frontier_idx % TRACKED_STATS.len()].0;
+
+        for (stat_idx, (stat, _)) in TRACKED_STATS.iter().enumerate() {
+            let mut value = ((frontier_idx + stat_idx * 3) % 7) as i64;
+            if *stat == Stat::CriticalRating {
+                value += 12_000 - frontier_idx as i64;
+            }
+            if *stat == Stat::TacticalMastery {
+                value += 4_000 + frontier_idx as i64;
+            }
+            if *stat == Stat::Finesse {
+                value += 8_000 - ((frontier_idx * 7 + stat_idx) % 13) as i64;
+            }
+            if *stat == primary_stat {
+                value += 30_000;
+            }
+            if value != 0 {
+                stats.insert(*stat, value);
+            }
+        }
+
+        let name = format!("{family}-{frontier_idx:03}");
+        Candidate {
+            key: format!(
+                "bench::{family}::{frontier_idx:04}::{}::{}",
+                original_slot.display_name(),
+                name
+            ),
+            name,
+            stats,
+            original_slot,
+            two_handed,
+            either_hand,
+        }
+    }
+
+    fn make_benchmark_pool(family: &str, slot: Slot, count: usize) -> Vec<Candidate> {
+        (0..count)
+            .map(|idx| make_benchmark_candidate(family, idx, slot, false, false))
+            .collect()
+    }
+
+    fn make_benchmark_paired_pool(
+        family: &str,
+        slot1: Slot,
+        slot2: Slot,
+        count: usize,
+    ) -> Vec<Candidate> {
+        (0..count)
+            .map(|idx| {
+                let slot = if idx % 2 == 0 { slot1 } else { slot2 };
+                make_benchmark_candidate(family, idx, slot, false, false)
+            })
+            .collect()
+    }
+
+    fn make_benchmark_hand_pools(count: usize) -> (Vec<Candidate>, Vec<Candidate>) {
+        assert!(count >= 4, "hand benchmark needs enough items to mix categories");
+
+        let main_only = usize::max(2, count / 4);
+        let off_only = usize::max(2, count / 4);
+        let either = count - main_only - off_only;
+        assert!(
+            either >= 2,
+            "hand benchmark needs Either-hand items to exercise the current hand semantics"
+        );
+
+        let main_pool = (0..main_only)
+            .map(|idx| {
+                make_benchmark_candidate(
+                    "main",
+                    idx,
+                    Slot::MainHand,
+                    idx % 2 == 0,
+                    false,
+                )
+            })
+            .collect();
+
+        let off_only_pool = (0..off_only)
+            .map(|idx| {
+                make_benchmark_candidate(
+                    "off",
+                    main_only + idx,
+                    Slot::OffHand,
+                    false,
+                    false,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let either_pool = (0..either)
+            .map(|idx| {
+                make_benchmark_candidate(
+                    "either",
+                    main_only + off_only + idx,
+                    Slot::OffHand,
+                    false,
+                    true,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let mut off_pool = off_only_pool;
+        off_pool.extend(either_pool);
+        assert_eq!(main_pool.len() + off_pool.len(), count);
+
+        (main_pool, off_pool)
+    }
+
+    fn assert_frontier_survives_dominance(label: &str, pool: &[Candidate], goals: &[StatGoal]) {
+        let raw_choices = pool
+            .iter()
+            .cloned()
+            .map(|candidate| Choice::Single {
+                slot: canonical_slot(candidate.original_slot),
+                candidate,
+            })
+            .collect();
+        let kept = dominance_filter(raw_choices, goals);
+        assert_eq!(
+            kept.len(),
+            pool.len(),
+            "benchmark pool {label} collapsed under dominance; the generated frontier is invalid"
+        );
+    }
+
+    fn benchmark_raw_pools(profile: BenchmarkProfile, n: usize) -> HashMap<Slot, Vec<Candidate>> {
+        let mut pools = HashMap::new();
+
+        for slot in BENCHMARK_SINGLETON_SLOTS {
+            pools.insert(
+                slot,
+                make_benchmark_pool(benchmark_pool_label(slot).as_str(), slot, profile.singleton_count(n)),
+            );
+        }
+
+        for (slot1, slot2) in BENCHMARK_PAIRED_FAMILIES {
+            pools.insert(
+                slot1,
+                make_benchmark_paired_pool(
+                    benchmark_pool_label(slot1).as_str(),
+                    slot1,
+                    slot2,
+                    profile.paired_count(n),
+                ),
+            );
+        }
+
+        let (main_pool, off_pool) = make_benchmark_hand_pools(profile.hand_count(n));
+        pools.insert(Slot::MainHand, main_pool);
+        pools.insert(Slot::OffHand, off_pool);
+
+        pools
+    }
+
+    fn format_benchmark_counts(entries: &[(String, usize)]) -> String {
+        entries
+            .iter()
+            .map(|(label, count)| format!("{label}:{count}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    fn run_benchmark_profile(profile: BenchmarkProfile, n: usize) -> BenchmarkRun {
+        let goals = benchmark_goal_set();
+        let pools = benchmark_raw_pools(profile, n);
+
+        for slot in BENCHMARK_SINGLETON_SLOTS {
+            let label = benchmark_pool_label(slot);
+            let pool = pools
+                .get(&slot)
+                .unwrap_or_else(|| panic!("missing singleton benchmark pool {label}"));
+            assert_frontier_survives_dominance(&label, pool, &goals);
+        }
+
+        for (slot1, _) in BENCHMARK_PAIRED_FAMILIES {
+            let label = benchmark_pool_label(slot1);
+            let pool = pools
+                .get(&slot1)
+                .unwrap_or_else(|| panic!("missing paired benchmark pool {label}"));
+            assert_frontier_survives_dominance(&label, pool, &goals);
+        }
+
+        let main_pool = pools
+            .get(&Slot::MainHand)
+            .expect("missing main-hand benchmark pool");
+        let off_pool = pools
+            .get(&Slot::OffHand)
+            .expect("missing off-hand benchmark pool");
+        let mut combined_hands = main_pool.clone();
+        combined_hands.extend(off_pool.iter().cloned());
+        assert_frontier_survives_dominance("Hd+Of", &combined_hands, &goals);
+
+        let mut raw_pool_sizes = Vec::new();
+        let mut post_pool_sizes = Vec::new();
+        let mut pair_super_counts = Vec::new();
+        let mut search_pools = Vec::new();
+        let mut seen = HashSet::new();
+        let mut hand_configuration_count = 0usize;
+
+        for slot in Slot::all() {
+            let canonical = canonical_slot(slot);
+            if !seen.insert(canonical) || canonical == Slot::OffHand {
+                continue;
+            }
+
+            let raw_count = if canonical == Slot::MainHand {
+                main_pool.len() + off_pool.len()
+            } else {
+                pools.get(&canonical)
+                    .unwrap_or_else(|| panic!("missing benchmark pool {}", canonical.display_name()))
+                    .len()
+            };
+            raw_pool_sizes.push((benchmark_pool_label(canonical), raw_count));
+
+            let pre_choices: Vec<Choice> = if canonical == Slot::MainHand {
+                let hands = build_hand_choices(main_pool, off_pool);
+                hand_configuration_count = hands.len();
+                hands.into_iter().map(|hands| Choice::Hands { hands }).collect()
+            } else if matches!(canonical, Slot::Wrist1 | Slot::Finger1 | Slot::Ear1) {
+                let pairs = build_pairs(
+                    pools.get(&canonical)
+                        .unwrap_or_else(|| panic!("missing paired benchmark pool {}", canonical.display_name())),
+                    canonical,
+                    paired_slot2(canonical),
+                );
+                pair_super_counts.push((benchmark_pool_label(canonical), pairs.len()));
+                pairs
+                    .into_iter()
+                    .map(|pair| Choice::Pair {
+                        slot1: canonical,
+                        slot2: paired_slot2(canonical),
+                        pair,
+                    })
+                    .collect()
+            } else {
+                pools.get(&canonical)
+                    .unwrap_or_else(|| panic!("missing singleton benchmark pool {}", canonical.display_name()))
+                    .iter()
+                    .cloned()
+                    .map(|candidate| Choice::Single {
+                        slot: canonical,
+                        candidate,
+                    })
+                    .collect()
+            };
+
+            let post_choices = dominance_filter(pre_choices, &goals);
+            post_pool_sizes.push((benchmark_pool_label(canonical), post_choices.len()));
+            search_pools.push(SearchPool {
+                choices: post_choices,
+            });
+        }
+
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let started = Instant::now();
+            let best = exact_search(&search_pools, &goals, &vec![0; BENCHMARK_GOALS.len()]);
+            let _ = tx.send((started.elapsed(), best.is_some()));
+        });
+
+        let wall_time = match rx.recv_timeout(Duration::from_secs(TIME_LIMIT_SECS)) {
+            Ok((elapsed, found)) => {
+                assert!(found, "benchmark search unexpectedly returned no build");
+                BenchmarkWallTime::Completed(elapsed)
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => BenchmarkWallTime::TimedOut,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("benchmark worker thread disconnected before reporting")
+            }
+        };
+
+        BenchmarkRun {
+            raw_pool_sizes,
+            post_pool_sizes,
+            pair_super_counts,
+            hand_configuration_count,
+            wall_time,
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn benchmark_candidate_caps() {
+        /*
+        benchmark_candidate_caps is an ignored empirical harness for tuning the
+        optimizer's candidate caps from data rather than guesses.
+
+        Run only this benchmark with:
+            cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+
+        Debug-build timings are meaningless. Edit TIME_LIMIT_SECS above to change
+        the per-run cutoff. Each N is timed independently; escalation stops at the
+        first run that does not finish within TIME_LIMIT_SECS, prints that
+        breaching row as >TIME_LIMIT_SECS, and reports the last completed N for
+        each profile. The pre column is the raw real-item pool size before pair/
+        hand expansion; the post column is the search-pool size after the
+        optimizer's dominance filter.
+        */
+        if cfg!(debug_assertions) {
+            println!(
+                "WARNING: benchmark_candidate_caps should be run with --release; debug timings are meaningless."
+            );
+        }
+
+        println!("benchmark_candidate_caps");
+        println!(
+            "goals: {:?}",
+            BENCHMARK_GOALS
+                .iter()
+                .map(|(stat, minimum)| format!("{stat}:{minimum}"))
+                .collect::<Vec<_>>()
+        );
+        println!("time limit: {TIME_LIMIT_SECS}s per optimization run");
+        println!(
+            "| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |"
+        );
+
+        let mut summaries = Vec::new();
+        for profile in BenchmarkProfile::all() {
+            let mut last_completed = None;
+            let mut breach_at = None;
+
+            for n in 8usize.. {
+                let run = run_benchmark_profile(profile, n);
+                println!(
+                    "| {} | {} | {} | {} | {} | {} | {} |",
+                    profile.label(),
+                    n,
+                    format_benchmark_counts(&run.raw_pool_sizes),
+                    format_benchmark_counts(&run.post_pool_sizes),
+                    format_benchmark_counts(&run.pair_super_counts),
+                    run.hand_configuration_count,
+                    run.wall_time.display(),
+                );
+
+                if run.wall_time.completed_within_limit() {
+                    last_completed = Some(n);
+                } else {
+                    breach_at = Some(n);
+                    break;
+                }
+            }
+
+            summaries.push((profile.label(), last_completed, breach_at));
+        }
+
+        println!();
+        println!("benchmark_candidate_caps summary");
+        for (profile, last_completed, breach_at) in summaries {
+            match (last_completed, breach_at) {
+                (Some(last), Some(breach)) => {
+                    println!("{profile}: last N within {TIME_LIMIT_SECS}s = {last}; breached at N = {breach}");
+                }
+                (None, Some(breach)) => {
+                    println!("{profile}: no run completed within {TIME_LIMIT_SECS}s; first breach at N = {breach}");
+                }
+                (Some(last), None) => {
+                    println!("{profile}: completed through N = {last} without breaching {TIME_LIMIT_SECS}s");
+                }
+                (None, None) => {
+                    println!("{profile}: no runs executed");
+                }
+            }
+        }
     }
 
     fn run_fuzzer_cases(case_count: usize, seed: u64) {
