@@ -199,7 +199,8 @@ fn run_optimize(cli: &OptimizeCli) {
     ) {
         Ok(result) => result,
         Err(err) => match err.as_ref() {
-            optimizer::OptimizeError::TooManyCandidates { .. } => {
+            optimizer::OptimizeError::TooManyCandidates { .. }
+            | optimizer::OptimizeError::TooManyHandCandidates { .. } => {
                 eprintln!("{}", err);
                 process::exit(1);
             }

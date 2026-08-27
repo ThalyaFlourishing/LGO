@@ -89,6 +89,16 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             })?,
         };
 
+        let either_hand = match entry_table.get("either_hand") {
+            None => false,
+            Some(v) => v.as_bool().ok_or_else(|| {
+                format!(
+                    "Key `either_hand` for item `{}` must be a boolean (true/false).",
+                    name
+                )
+            })?,
+        };
+
         let slot = match parse_slot_display(slot_str) {
             Some(s) => s,
             None => {
@@ -135,6 +145,7 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
                 name,
                 slot,
                 two_handed,
+                either_hand,
                 stats,
             },
             base_stats,
@@ -205,6 +216,7 @@ fn validate_item_keys(table: &toml::value::Table, item_name: &str) -> Result<(),
         if key == "slot"
             || key == "name"
             || key == "two_handed"
+            || key == "either_hand"
             || key == ESSENCE_TOTALS_KEY
             || is_allowed_stat_key(key)
         {
@@ -851,6 +863,78 @@ two_handed = true
         std::fs::write(&path, toml).expect("write toml");
         let err = read_stats_file(&path).expect_err("two_handed under EssenceTotals must fail");
         assert!(err.contains("two_handed"));
+        assert!(err.contains("EssenceTotals"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    // ── either_hand parsing ────────────────────────────────────────────────────
+
+    #[test]
+    fn read_stats_file_parses_either_hand_true() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Off-hand"
+name = "Example Rune-stone"
+either_hand = true
+CriticalRating = 100
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.items.len(), 1);
+        assert!(result.items[0].item.either_hand);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_missing_either_hand_defaults_false() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Off-hand"
+name = "Example Shield"
+CriticalRating = 100
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(result.items.len(), 1);
+        assert!(!result.items[0].item.either_hand);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_non_bool_either_hand() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Off-hand"
+name = "Example Rune-stone"
+either_hand = "yes"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("non-bool either_hand must fail");
+        assert!(err.contains("either_hand"));
+        assert!(err.contains("Example Rune-stone"));
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_rejects_either_hand_under_essence_totals() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Off-hand"
+name = "Example Rune-stone"
+[item.EssenceTotals]
+either_hand = true
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+        let err = read_stats_file(&path).expect_err("either_hand under EssenceTotals must fail");
+        assert!(err.contains("either_hand"));
         assert!(err.contains("EssenceTotals"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }

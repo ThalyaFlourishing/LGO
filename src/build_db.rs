@@ -57,6 +57,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
     let mut cur_slot: Option<Slot> = None;
     let mut cur_level: Option<i32> = None;
     let mut cur_two_handed = false;
+    let mut cur_either_hand = false;
 
     let mut buf = Vec::new();
     loop {
@@ -78,11 +79,13 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                         cur_slot = None;
                         cur_level = None;
                         cur_two_handed = false;
+                        cur_either_hand = false;
                     } else {
                         cur_name = attrs.get("name").cloned();
                         cur_level = attrs.get("level").and_then(|v| v.parse().ok());
                         cur_slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
                         cur_two_handed = is_two_handed(cur_slot, &attrs);
+                        cur_either_hand = is_either_hand(&attrs);
                     }
                 }
             }
@@ -100,10 +103,12 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                             slot,
                             cur_level,
                             cur_two_handed,
+                            cur_either_hand,
                         );
                     }
                     cur_level = None;
                     cur_two_handed = false;
+                    cur_either_hand = false;
                 }
             }
 
@@ -119,6 +124,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                         let level = attrs.get("level").and_then(|v| v.parse().ok());
                         let slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
                         let two_handed = is_two_handed(slot, &attrs);
+                        let either_hand = is_either_hand(&attrs);
 
                         if let (Some(name), Some(slot)) = (name, slot) {
                             insert_if_highest_level(
@@ -128,6 +134,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                                 slot,
                                 level,
                                 two_handed,
+                                either_hand,
                             );
                         }
                     }
@@ -148,6 +155,7 @@ fn insert_if_highest_level(
     slot: Slot,
     level: Option<i32>,
     two_handed: bool,
+    either_hand: bool,
 ) {
     let new_level = level.unwrap_or(0);
     let best_level = out_levels.get(&name).copied().unwrap_or(-1);
@@ -159,6 +167,7 @@ fn insert_if_highest_level(
                 name,
                 slot,
                 two_handed,
+                either_hand,
             },
         );
     }
@@ -175,6 +184,13 @@ fn is_two_handed(slot: Option<Slot>, attrs: &HashMap<String, String>) -> bool {
         && attrs
             .get("precludedSlots")
             .is_some_and(|precluded| precluded.contains("OFF_HAND"))
+}
+
+/// True when this XML item is an Either-hand item: its raw `slot` attribute is
+/// `EITHER_HAND`. Such items are stored with a canonical `Off-hand` slot plus
+/// this flag, which marks them equippable in the main hand as well.
+fn is_either_hand(attrs: &HashMap<String, String>) -> bool {
+    attrs.get("slot").map(|s| s.as_str()) == Some("EITHER_HAND")
 }
 
 fn parse_slot_key(s: &str) -> Option<Slot> {
@@ -350,6 +366,49 @@ mod tests {
         // `false` is skipped during serialization, so the only occurrence of
         // the key belongs to the greatsword.
         assert_eq!(json.matches("two_handed").count(), 1);
+    }
+
+    // ── Either-hand detection via EITHER_HAND slot ─────────────────────────────
+
+    #[test]
+    fn either_hand_item_maps_to_off_hand_with_flag() {
+        let xml = r#"<items>
+            <item name="Example Rune-stone" level="160" slot="EITHER_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("either_hand", xml);
+        let item = &out["Example Rune-stone"];
+        assert_eq!(item.slot, Slot::OffHand);
+        assert!(item.either_hand);
+        assert!(!item.two_handed);
+    }
+
+    #[test]
+    fn off_hand_item_is_not_either_hand() {
+        let xml = r#"<items>
+            <item name="Example Shield" level="160" slot="OFF_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("off_hand_not_either", xml);
+        let item = &out["Example Shield"];
+        assert_eq!(item.slot, Slot::OffHand);
+        assert!(!item.either_hand);
+    }
+
+    #[test]
+    fn either_hand_flag_serializes_and_absent_flag_is_omitted() {
+        // The JSON DB is the transport for either-handedness into
+        // resolve-slots: `true` must round-trip and everything else omits it.
+        let xml = r#"<items>
+            <item name="Example Rune-stone" level="160" slot="EITHER_HAND"></item>
+            <item name="Example Shield" level="160" slot="OFF_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("either_serialize", xml);
+        let json = serde_json::to_string(&out).expect("serialize db");
+        let parsed: HashMap<String, CachedItem> = serde_json::from_str(&json).expect("reparse db");
+        assert!(parsed["Example Rune-stone"].either_hand);
+        assert!(!parsed["Example Shield"].either_hand);
+        // `false` is skipped during serialization, so the only occurrence of
+        // the key belongs to the rune-stone.
+        assert_eq!(json.matches("either_hand").count(), 1);
     }
 
     #[test]
