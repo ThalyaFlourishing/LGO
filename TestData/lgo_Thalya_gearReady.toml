@@ -1,6 +1,6 @@
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 # LGO 2026, by Thalya
-# gearReady.toml updated: 08/25/26 17:04:20
+# gearReady.toml updated: 08/26/26 04:31:50
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 character = "Thalya"
 class = "Lore-master"
@@ -2670,6 +2670,53 @@ Fate               = 0
 
 [[item]]
 slot = "Finger"
+name               = "Subtle Conscript's Ring"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 12343
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 2986
+Might              = 0
+Agility            = 0
+Vitality           = 3094
+Will               = 2767
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Finger"
 name               = "Candinglos Reforged"
 Morale             = 0
 Power              = 0
@@ -3004,6 +3051,54 @@ Fate               = 0
 [[item]]
 slot = "Ear"
 name               = "Topaz Gold Ear Cuff of the Traveller"
+Morale             = 0
+Power              = 0
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Ear"
+name               = "Lapis Silver Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats

@@ -4,7 +4,7 @@ character          = "Thalya"
 class              = "Lore-master"
 
 [[item]]
-slot               = "Head"
+slot               = "Unknown"
 name               = "Blighted Mask of the Herbalist"
 Armor                 = 6067
 CriticalRating        = 0
@@ -24,7 +24,7 @@ Vitality              = 3692
 Will                  = 2036
 
 [[item]]
-slot               = "Chest"
+slot               = "Unknown"
 name               = "Blighted Shirt of the Herbalist"
 Armor                 = 20608
 CriticalRating        = 0
@@ -44,7 +44,7 @@ Vitality              = 4026
 Will                  = 2036
 
 [[item]]
-slot               = "Legs"
+slot               = "Unknown"
 name               = "Blighted Leggings of the Tempest"
 Armor                 = 17118
 CriticalRating        = 7310
@@ -85,7 +85,7 @@ Will                  = 2714
 Fate                  = 564
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Blighted Shoes of the Herbalist"
 Armor                 = 8242
 CriticalRating        = 0
@@ -125,7 +125,7 @@ Vitality              = 3351
 Will                  = 2714
 
 [[item]]
-slot               = "Back"
+slot               = "Unknown"
 name               = "Zajâni Scholar's Cloak"
 Armor                 = 16471
 CriticalRating        = 9303
@@ -144,7 +144,7 @@ TacticalMitigation    = 0
 Vitality              = 3094
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Ensorceled Bracelet"
 Armor                 = 0
 CriticalRating        = 18645
@@ -163,7 +163,7 @@ TacticalMitigation    = 0
 Vitality              = 3434
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Brass Alchemist's Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -182,7 +182,7 @@ TacticalMitigation    = 11936
 Vitality              = 3434
 
 [[item]]
-slot               = "Neck"
+slot               = "Unknown"
 name               = "Keen Flame-licked Necklace"
 Armor                 = 0
 CriticalRating        = 8516
@@ -201,7 +201,7 @@ TacticalMitigation    = 0
 Vitality              = 1464
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Keen Pristine Madáshi Ring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor                 = 0
@@ -222,7 +222,7 @@ Agility               = 2662
 Vitality              = 2619
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Tri-colour Gemstone Ring"
 Armor                 = 0
 CriticalRating        = 11161
@@ -242,7 +242,7 @@ Vitality              = 3434
 Will                  = 2767
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Keen Pristine Madáshi Earring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor                 = 0
@@ -263,7 +263,7 @@ Vitality              = 2619
 Will                  = 2662
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Keen Pristine Madáshi Earring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor                 = 0
@@ -284,7 +284,7 @@ Vitality              = 2619
 Will                  = 2662
 
 [[item]]
-slot               = "Pocket"
+slot               = "Unknown"
 name               = "Golden Scroll Case"
 Armor                 = 0
 CriticalRating        = 14620
@@ -399,7 +399,7 @@ Vitality              = 1948
 Will                  = 3509
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Ordâkhai Merchant's Boots"
 Armor                 = 7948
 CriticalRating        = 0
@@ -420,7 +420,7 @@ Will                  = 3113
 Fate                  = 866
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Subtle Conscript's Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -499,7 +499,7 @@ TacticalMitigation    = 0
 Fate                  = 557
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Ornate Conscript's Earring"
 Armor                 = 0
 CriticalRating        = 9303
@@ -518,7 +518,7 @@ TacticalMitigation    = 0
 Vitality              = 3094
 
 [[item]]
-slot               = "Head"
+slot               = "Unknown"
 name               = "Tournament Sage's Band"
 Armor                 = 2537
 CriticalRating        = 7674
@@ -537,7 +537,7 @@ TacticalMitigation    = 3974
 Vitality              = 1019
 
 [[item]]
-slot               = "Neck"
+slot               = "Unknown"
 name               = "Ornate Ordâkhai Necklace"
 Armor                 = 0
 CriticalRating        = 0
@@ -556,7 +556,7 @@ TacticalMitigation    = 0
 Vitality              = 3094
 
 [[item]]
-slot               = "Chest"
+slot               = "Unknown"
 name               = "Tournament Sage's Robe"
 Armor                 = 8763
 CriticalRating        = 0
@@ -576,7 +576,7 @@ Vitality              = 1019
 Will                  = 1359
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Subtle Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -596,7 +596,7 @@ Vitality              = 3094
 Will                  = 2767
 
 [[item]]
-slot               = "Pocket"
+slot               = "Unknown"
 name               = "Strong Ordâkhai Bauble"
 Armor                 = 0
 CriticalRating        = 0
@@ -615,7 +615,7 @@ TacticalMitigation    = 14928
 Vitality              = 3094
 
 [[item]]
-slot               = "Main-hand"
+slot               = "Unknown"
 name               = "Kinta Sword of the Herbalist"
 # AUTO-PICKED highest-item-level variant: Item:Kinta Sword of the Herbalist (Item Level 563)
 Armor                 = 0
@@ -636,7 +636,7 @@ Vitality              = 2619
 Will                  = 3319
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Resonant Brilliant Elvish Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -656,7 +656,7 @@ Vitality              = 3558
 Fate                  = 1796
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Wilful Bracer of the Bear in Winter"
 Armor                 = 0
 CriticalRating        = 8713
@@ -677,7 +677,7 @@ Will                  = 3220
 Fate                  = 794
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Ordâkhai Explorer's Boots"
 Armor                 = 7948
 CriticalRating        = 14890
@@ -696,7 +696,7 @@ TacticalMitigation    = 0
 Vitality              = 2412
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Ornate Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 3722
@@ -736,7 +736,7 @@ Vitality              = 886
 Fate                  = 661
 
 [[item]]
-slot               = "Chest"
+slot               = "Unknown"
 name               = "Grove-tender's Robe"
 # AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
 Armor                 = 19371
@@ -757,7 +757,7 @@ Vitality              = 2982
 Will                  = 3352
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Gold Teardrop Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -795,7 +795,7 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Ornate Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 9302
@@ -814,7 +814,7 @@ TacticalMitigation    = 7457
 Vitality              = 3094
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Heavy Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -834,7 +834,7 @@ Might                 = 2767
 Vitality              = 3094
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Keen Pristine Madáshi Ring"
 # AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor                 = 0
@@ -915,7 +915,7 @@ Vitality              = 3094
 Will                  = 3452
 
 [[item]]
-slot               = "Head"
+slot               = "Unknown"
 name               = "Forgotten Elvish Healer's Hood"
 Armor                 = 6181
 CriticalRating        = 22335
@@ -1013,7 +1013,7 @@ Will                  = 3452
 Fate                  = 866
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Umbari Veteran's Shoes"
 Armor                 = 8938
 CriticalRating        = 0
@@ -1052,7 +1052,7 @@ TacticalMitigation    = 2986
 Vitality              = 3094
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Blighted Brass Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1071,7 +1071,7 @@ TacticalMitigation    = 0
 Vitality              = 3434
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Subtle Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 0
@@ -1091,7 +1091,7 @@ Vitality              = 3094
 Will                  = 2767
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Subtle Conscript's Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1111,7 +1111,7 @@ Vitality              = 3094
 Will                  = 2767
 
 [[item]]
-slot               = "Legs"
+slot               = "Unknown"
 name               = "Umbari Veteran's Cloth Leggings"
 Armor                 = 17440
 CriticalRating        = 0
@@ -1131,7 +1131,7 @@ Vitality              = 3434
 Will                  = 4143
 
 [[item]]
-slot               = "Legs"
+slot               = "Unknown"
 name               = "Forgotten Elvish Healer's Leggings"
 Armor                 = 17440
 CriticalRating        = 16767
@@ -1151,7 +1151,7 @@ Vitality              = 3434
 Fate                  = 1155
 
 [[item]]
-slot               = "Legs"
+slot               = "Unknown"
 name               = "Ordâkhai Explorer's Leggings"
 Armor                 = 16602
 CriticalRating        = 0
@@ -1171,7 +1171,7 @@ Vitality              = 3094
 Fate                  = 577
 
 [[item]]
-slot               = "Chest"
+slot               = "Unknown"
 name               = "Ordâkhai Merchant's Coat"
 Armor                 = 19922
 CriticalRating        = 0
@@ -1191,7 +1191,7 @@ Vitality              = 3434
 Will                  = 2076
 
 [[item]]
-slot               = "Back"
+slot               = "Unknown"
 name               = "Game Hunter's Cloak"
 Armor                 = 16471
 CriticalRating        = 9303
@@ -1211,7 +1211,7 @@ Vitality              = 3094
 Fate                  = 578
 
 [[item]]
-slot               = "Head"
+slot               = "Unknown"
 name               = "Umbari Veteran's Circlet"
 Armor                 = 6181
 CriticalRating        = 14890
@@ -1231,7 +1231,7 @@ Vitality              = 3434
 Fate                  = 1155
 
 [[item]]
-slot               = "Ear"
+slot               = "Unknown"
 name               = "Blighted Brass Earring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1250,7 +1250,7 @@ TacticalMitigation    = 0
 Vitality              = 3434
 
 [[item]]
-slot               = "Pocket"
+slot               = "Unknown"
 name               = "Token of the Emerald Wood"
 Armor                 = 0
 CriticalRating        = 21931
@@ -1288,7 +1288,7 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 
 [[item]]
-slot               = "Back"
+slot               = "Unknown"
 name               = "Merchant's Thick Cloak"
 Armor                 = 16471
 CriticalRating        = 7445
@@ -1347,7 +1347,7 @@ Will                  = 4143
 Fate                  = 577
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Veteran Sage's Shoes"
 Armor                 = 8398
 CriticalRating        = 0
@@ -1367,7 +1367,7 @@ Vitality              = 2752
 Will                  = 3113
 
 [[item]]
-slot               = "Neck"
+slot               = "Unknown"
 name               = "Hunter's Necklace of Lamentation"
 Armor                 = 0
 CriticalRating        = 18310
@@ -1386,7 +1386,7 @@ TacticalMitigation    = 0
 Vitality              = 4026
 
 [[item]]
-slot               = "Wrist"
+slot               = "Unknown"
 name               = "Keen Ordâkhai Bracelet"
 Armor                 = 0
 CriticalRating        = 18644
@@ -1406,7 +1406,7 @@ Agility               = 1731
 Vitality              = 3094
 
 [[item]]
-slot               = "Legs"
+slot               = "Unknown"
 name               = "Veteran Sage's Leggings"
 Armor                 = 17440
 CriticalRating        = 14890
@@ -1425,7 +1425,7 @@ TacticalMitigation    = 0
 Vitality              = 3434
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Candinglos Reforged"
 Armor                 = 0
 CriticalRating        = 0
@@ -1445,7 +1445,7 @@ Vitality              = 2586
 Will                  = 3615
 
 [[item]]
-slot               = "Finger"
+slot               = "Unknown"
 name               = "Subtle Ordâkhai Ring"
 Armor                 = 0
 CriticalRating        = 0
@@ -1504,7 +1504,7 @@ Vitality              = 2412
 Will                  = 3452
 
 [[item]]
-slot               = "Chest"
+slot               = "Unknown"
 name               = "Blighted Shirt of the Tempest"
 Armor                 = 20608
 CriticalRating        = 21931
@@ -1524,7 +1524,7 @@ Vitality              = 4026
 Will                  = 1358
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Blighted Shoes of the Tempest"
 Armor                 = 8242
 CriticalRating        = 0
@@ -1544,7 +1544,7 @@ Vitality              = 3020
 Will                  = 2036
 
 [[item]]
-slot               = "Head"
+slot               = "Unknown"
 name               = "Veteran Sage's Hooded Helm"
 Armor                 = 6181
 CriticalRating        = 26090
@@ -1604,7 +1604,7 @@ Vitality              = 3020
 Will                  = 3385
 
 [[item]]
-slot               = "Feet"
+slot               = "Unknown"
 name               = "Shoes of the Adventurer"
 Armor                 = 3280
 CriticalRating        = 0
@@ -1622,7 +1622,7 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 
 [[item]]
-slot               = "Pocket"
+slot               = "Unknown"
 name               = "Keen Ordâkhai Bauble"
 Armor                 = 0
 CriticalRating        = 0
