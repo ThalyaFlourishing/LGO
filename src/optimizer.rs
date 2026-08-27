@@ -73,27 +73,6 @@ impl fmt::Display for OptimizeError {
             ),
         }
     }
-
-    fn benchmark_profiles_from_env() -> Vec<BenchmarkProfile> {
-        match env::var("LGO_BENCH_PROFILE") {
-            Ok(value) => {
-                let profile = match value.as_str() {
-                    "Uniform" => BenchmarkProfile::Uniform,
-                    "Singles" => BenchmarkProfile::SinglesAtN,
-                    "Pairs" => BenchmarkProfile::PairsAtN,
-                    "Hands" => BenchmarkProfile::HandsAtN,
-                    _ => panic!(
-                        "invalid LGO_BENCH_PROFILE={value:?}; expected one of Uniform|Singles|Pairs|Hands"
-                    ),
-                };
-                vec![profile]
-            }
-            Err(env::VarError::NotPresent) => BenchmarkProfile::all().to_vec(),
-            Err(env::VarError::NotUnicode(_)) => {
-                panic!("LGO_BENCH_PROFILE must be valid Unicode")
-            }
-        }
-    }
 }
 
 impl std::error::Error for OptimizeError {}
@@ -2614,6 +2593,27 @@ mod tests {
                 Ok(message) => (*message).to_string(),
                 Err(_) => "non-string panic payload".to_string(),
             },
+        }
+    }
+
+    fn benchmark_profiles_from_env() -> Vec<BenchmarkProfile> {
+        match env::var("LGO_BENCH_PROFILE") {
+            Ok(value) => {
+                let profile = match value.as_str() {
+                    "Uniform" => BenchmarkProfile::Uniform,
+                    "Singles" => BenchmarkProfile::SinglesAtN,
+                    "Pairs" => BenchmarkProfile::PairsAtN,
+                    "Hands" => BenchmarkProfile::HandsAtN,
+                    _ => panic!(
+                        "invalid LGO_BENCH_PROFILE={value:?}; expected one of Uniform|Singles|Pairs|Hands"
+                    ),
+                };
+                vec![profile]
+            }
+            Err(env::VarError::NotPresent) => BenchmarkProfile::all().to_vec(),
+            Err(env::VarError::NotUnicode(_)) => {
+                panic!("LGO_BENCH_PROFILE must be valid Unicode")
+            }
         }
     }
 
