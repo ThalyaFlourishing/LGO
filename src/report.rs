@@ -156,17 +156,20 @@ fn print_gear_table(gear_set: &GearSet) {
     println!("  {:>12}  Recommended Item", "Slot");
     println!("  {}", divider);
 
+    // A two-handed main hand occupies both hand slots, so the off-hand line
+    // reports the weapon rather than the structural empty placeholder.
+    let main_is_two_handed = gear_set
+        .items
+        .get(&Slot::MainHand)
+        .is_some_and(|item| item.two_handed);
+
     // Print slots in a fixed, readable order.
     for slot in Slot::all() {
         let slot_label = slot.display_name();
-        let item_name = gear_set
-            .items
-            .get(&slot)
-            .map(|i| i.name.as_str())
-            .unwrap_or("—");
+        let item_display = hand_or_item_label(gear_set, slot, main_is_two_handed);
 
         // Truncate long item names with ellipsis.
-        let item_display = truncate(item_name, COL_ITEM);
+        let item_display = truncate(&item_display, COL_ITEM);
         println!(
             "  {:>COL_SLOT$}  {}",
             slot_label,
@@ -176,6 +179,30 @@ fn print_gear_table(gear_set: &GearSet) {
     }
 
     println!("  {}", divider);
+}
+
+/// The item label for a slot in the gear table.
+///
+/// - The off-hand of a two-handed main hand shows `(2-handed item)`.
+/// - An empty-pool placeholder (the optimizer's `[empty ...]` candidate,
+///   selected only when a slot has no real items) shows `NO ITEMS` — an
+///   obtuse-but-honest marker that traps bad input without halting.
+/// - Otherwise the item's own name is shown.
+fn hand_or_item_label(gear_set: &GearSet, slot: Slot, main_is_two_handed: bool) -> String {
+    if slot == Slot::OffHand && main_is_two_handed {
+        return "(2-handed item)".to_string();
+    }
+    match gear_set.items.get(&slot) {
+        Some(item) if is_empty_placeholder(&item.name) => "NO ITEMS".to_string(),
+        Some(item) => item.name.clone(),
+        None => "NO ITEMS".to_string(),
+    }
+}
+
+/// True for the optimizer's synthetic empty-slot placeholder candidates, whose
+/// names take the form `[empty ...]`.
+fn is_empty_placeholder(name: &str) -> bool {
+    name.starts_with("[empty")
 }
 
 fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(Stat, i64, i64)]) {
@@ -298,6 +325,7 @@ fn truncate(s: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gear::GearItem;
 
     #[test]
     fn test_format_number() {
@@ -375,5 +403,66 @@ mod tests {
                 stat
             );
         }
+    }
+
+    fn item(name: &str, slot: Slot, two_handed: bool) -> GearItem {
+        GearItem {
+            name: name.to_string(),
+            slot,
+            two_handed,
+            either_hand: false,
+            stats: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn off_hand_label_shows_two_handed_marker_when_main_is_two_handed() {
+        let mut items = HashMap::new();
+        items.insert(Slot::MainHand, item("Greatsword", Slot::MainHand, true));
+        items.insert(
+            Slot::OffHand,
+            item("[empty Off-hand]", Slot::OffHand, false),
+        );
+        let gear_set = GearSet::new(HashMap::new());
+        let gear_set = GearSet { items, ..gear_set };
+
+        assert_eq!(
+            hand_or_item_label(&gear_set, Slot::MainHand, true),
+            "Greatsword"
+        );
+        assert_eq!(
+            hand_or_item_label(&gear_set, Slot::OffHand, true),
+            "(2-handed item)"
+        );
+    }
+
+    #[test]
+    fn empty_pool_placeholder_renders_as_no_items() {
+        let mut items = HashMap::new();
+        items.insert(Slot::Head, item("[empty Head]", Slot::Head, false));
+        let gear_set = GearSet::new(HashMap::new());
+        let gear_set = GearSet { items, ..gear_set };
+
+        // A slot whose optimizer placeholder was selected renders NO ITEMS.
+        assert_eq!(hand_or_item_label(&gear_set, Slot::Head, false), "NO ITEMS");
+        // A slot with no entry at all also renders NO ITEMS rather than halting.
+        assert_eq!(
+            hand_or_item_label(&gear_set, Slot::Chest, false),
+            "NO ITEMS"
+        );
+    }
+
+    #[test]
+    fn normal_off_hand_shows_item_name_when_main_is_one_handed() {
+        let mut items = HashMap::new();
+        items.insert(Slot::MainHand, item("Sword", Slot::MainHand, false));
+        items.insert(Slot::OffHand, item("Shield", Slot::OffHand, false));
+        let gear_set = GearSet::new(HashMap::new());
+        let gear_set = GearSet { items, ..gear_set };
+
+        assert_eq!(
+            hand_or_item_label(&gear_set, Slot::OffHand, false),
+            "Shield"
+        );
     }
 }

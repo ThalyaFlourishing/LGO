@@ -101,6 +101,11 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
     If any single slot or paired family (Wrist/Finger/Ear) has more than 8 candidates,
     optimize refuses with an error instead of truncating.
+    The two hand slots are an exception: Main-hand and Off-hand share one combined cap
+    of 12 real items (Main-hand-only + Off-hand-only + Either-hand items counted
+    together), since they are optimized as a single combined pool. Exceeding 12 hand
+    items makes optimize refuse with a message stating the count, the cap of 12, and
+    which categories were counted.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
 
   lgo optimize --character <name> <stat:min> ...

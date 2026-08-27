@@ -58,6 +58,7 @@ pub struct DbItem {
     pub name: String,
     pub slot: Slot,
     pub two_handed: bool,
+    pub either_hand: bool,
 }
 
 /// Errors that can occur when loading or parsing the items DB.
@@ -118,6 +119,9 @@ struct RawEntry {
     /// Absent in DBs built before two-handed support; defaults to false.
     #[serde(default)]
     two_handed: bool,
+    /// Absent in DBs built before either-hand support; defaults to false.
+    #[serde(default)]
+    either_hand: bool,
 }
 
 impl ItemsDb {
@@ -158,6 +162,7 @@ impl ItemsDb {
                 name: entry.name,
                 slot,
                 two_handed: entry.two_handed,
+                either_hand: entry.either_hand,
             });
         }
 
@@ -201,6 +206,16 @@ impl ItemsDb {
             .get(name)
             .and_then(|v| v.first())
             .is_some_and(|item| item.two_handed)
+    }
+
+    /// True when the named item is an Either-hand item per the DB. Unknown
+    /// names return false — the resolver preserves any user-provided
+    /// `either_hand` flag for those instead of consulting the DB.
+    pub fn lookup_either_hand(&self, name: &str) -> bool {
+        self.by_name
+            .get(name)
+            .and_then(|v| v.first())
+            .is_some_and(|item| item.either_hand)
     }
 }
 
@@ -547,6 +562,7 @@ fn bucket_items(
         // flag on a hand-edited legendary/renamed item is preserved.
         if db_slot.is_some() {
             set_two_handed_flag(&mut table, db.lookup_two_handed(&name));
+            set_either_hand_flag(&mut table, db.lookup_either_hand(&name));
         }
 
         canonicalize_item_stats(&mut table);
@@ -591,6 +607,20 @@ fn set_two_handed_flag(table: &mut Table, two_handed: bool) {
     table.remove("two_handed");
     if two_handed {
         table.insert("two_handed", value(true));
+    }
+}
+
+/// Enforce the DB-derived `either_hand` flag on an item table.
+///
+/// Generated metadata handled exactly like `two_handed`: the DB is the source
+/// of truth for items it knows, so any existing value is discarded and the key
+/// is re-inserted only when true. `gearReady.toml` omits the flag otherwise
+/// and "missing means false". Call this *before* stat canonicalization so the
+/// flag lands after `name` and before the re-appended stat block.
+fn set_either_hand_flag(table: &mut Table, either_hand: bool) {
+    table.remove("either_hand");
+    if either_hand {
+        table.insert("either_hand", value(true));
     }
 }
 
@@ -1120,6 +1150,7 @@ pub fn merge_into_canonical(
         if let Some(name) = table_name(t) {
             if db.lookup(&name).is_some() {
                 set_two_handed_flag(t, db.lookup_two_handed(&name));
+                set_either_hand_flag(t, db.lookup_either_hand(&name));
             }
         }
         canonicalize_item_stats(t);
@@ -1415,7 +1446,8 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 ///
 /// `two_handed` is deliberately *not* compared: it is generated metadata
 /// that the merge refreshes from the DB unconditionally, so a flag-only
-/// difference must not trigger an overwrite prompt under `--force`.
+/// difference must not trigger an overwrite prompt under `--force`. The same
+/// reasoning applies to `either_hand`.
 fn item_data_equal(a: &Table, b: &Table) -> bool {
     if table_str(a, "name") == table_str(b, "name") && table_str(a, "slot") == table_str(b, "slot")
     {
@@ -1728,6 +1760,11 @@ mod tests {
             "slot": "Main-hand",
             "two_handed": true
         },
+        "Test Rune-stone": {
+            "name": "Test Rune-stone",
+            "slot": "Off-hand",
+            "either_hand": true
+        },
         "Test Tome": {
             "name": "Test Tome",
             "slot": "Class Item"
@@ -1795,13 +1832,14 @@ mod tests {
     #[test]
     fn loads_fixture_and_resolves_known_items() {
         let db = fixture_db();
-        assert_eq!(db.len(), 5);
+        assert_eq!(db.len(), 6);
         assert!(!db.is_empty());
 
         assert_eq!(db.lookup("Test Helm"), Some(Slot::Head));
         assert_eq!(db.lookup("Test Bracelet"), Some(Slot::Wrist1));
         assert_eq!(db.lookup("Test Sword"), Some(Slot::MainHand));
         assert_eq!(db.lookup("Test Greatsword"), Some(Slot::MainHand));
+        assert_eq!(db.lookup("Test Rune-stone"), Some(Slot::OffHand));
         assert_eq!(db.lookup("Test Tome"), Some(Slot::ClassItem));
     }
 
@@ -3613,6 +3651,183 @@ Armor = 555\n";
             .merged_text;
 
         assert!(first.contains("two_handed = true"));
+        assert_eq!(
+            strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second)
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third)
+        );
+    }
+
+    // ── either_hand metadata ──────────────────────────────────────────────────
+
+    #[test]
+    fn lookup_either_hand_reflects_db_flag() {
+        let db = fixture_db();
+        assert!(db.lookup_either_hand("Test Rune-stone"));
+        assert!(
+            !db.lookup_either_hand("Test Sword"),
+            "entry without either_hand in JSON must default false"
+        );
+        assert!(!db.lookup_either_hand("No Such Item"));
+    }
+
+    #[test]
+    fn resolved_either_hand_item_gains_flag_after_name_before_stats() {
+        let db = fixture_db();
+        let input = make_doc(&[("Test Rune-stone", "Unknown", &[("Armor", 100)])]);
+        let (out, _) = resolve_toml_str(&input, &db).expect("must resolve");
+        assert!(
+            out.contains("name = \"Test Rune-stone\"\neither_hand = true\nMorale"),
+            "either_hand must sit after name and before the stat block:\n{}",
+            out
+        );
+        // Resolves to the canonical Off-hand slot; the flag is what makes it
+        // main-hand-eligible in the optimizer.
+        assert!(out.contains("slot = \"Off-hand\""), "{}", out);
+    }
+
+    #[test]
+    fn resolved_non_either_hand_item_omits_and_strips_either_hand() {
+        let db = fixture_db();
+        // Stale user flag on a known plain off-hand item: the DB is the source
+        // of truth, so the flag must be removed, not preserved.
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+either_hand = true\n\
+Armor = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        assert!(
+            !out.contains("either_hand"),
+            "known non-either-hand item must not carry either_hand:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn unknown_item_preserves_user_either_hand_flag() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Off-hand\"\n\
+name = \"Renamed Legendary Rune-stone\"\n\
+either_hand = true\n\
+Armor = 100\n";
+        let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
+        assert!(
+            out.contains("either_hand = true"),
+            "hand-edited either_hand on an unknown item must survive:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn merge_refreshes_either_hand_into_preserved_block() {
+        let db = fixture_db();
+        // Previous canonical block predates either-hand support (no flag) and
+        // carries hand-edited stats + essence totals that must survive.
+        let prev = "\
+[[item]]\n\
+slot = \"Off-hand\"\n\
+name = \"Test Rune-stone\"\n\
+Armor = 555\n\
+[item.EssenceTotals]\n\
+Morale = 77\n";
+        let incoming = make_doc(&[("Test Rune-stone", "Unknown", &[("Armor", 100)])]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        let merged = &outcome.merged_text;
+        assert!(
+            merged.contains("either_hand = true"),
+            "preserved block must gain the generated flag:\n{}",
+            merged
+        );
+        assert!(
+            has_assignment_line(merged, "Armor", 555),
+            "hand-edited stats must be preserved:\n{}",
+            merged
+        );
+        assert!(
+            has_assignment_line(merged, "Morale", 77),
+            "hand-edited essence totals must be preserved:\n{}",
+            merged
+        );
+    }
+
+    #[test]
+    fn merge_removes_stale_either_hand_from_known_plain_item() {
+        let db = fixture_db();
+        let prev = "\
+[[item]]\n\
+slot = \"Main-hand\"\n\
+name = \"Test Sword\"\n\
+either_hand = true\n\
+Armor = 555\n";
+        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armor", 100)])]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        let merged = &outcome.merged_text;
+        assert!(
+            !merged.contains("either_hand"),
+            "stale flag on a known non-either-hand item must be removed:\n{}",
+            merged
+        );
+        assert!(
+            has_assignment_line(merged, "Armor", 555),
+            "hand-edited stats must still be preserved:\n{}",
+            merged
+        );
+    }
+
+    #[test]
+    fn merge_preserves_user_either_hand_on_unknown_item() {
+        let db = fixture_db();
+        let prev = "\
+[[item]]\n\
+slot = \"Off-hand\"\n\
+name = \"Renamed Legendary Rune-stone\"\n\
+either_hand = true\n\
+Armor = 555\n";
+        let incoming = make_doc(&[(
+            "Renamed Legendary Rune-stone",
+            "Off-hand",
+            &[("Armor", 100)],
+        )]);
+        let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
+
+        let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
+        assert!(
+            outcome.merged_text.contains("either_hand = true"),
+            "user flag on an item not in the DB must be preserved:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn merge_with_either_hand_flag_is_idempotent_modulo_timestamp() {
+        let db = fixture_db();
+        let bookmarklet = make_doc(&[
+            ("Test Rune-stone", "Unknown", &[("Armor", 100)]),
+            ("Test Helm", "Unknown", &[("Armor", 50)]),
+        ]);
+        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let first = merge_ic(None, &resolved, ForceMode::NoForce)
+            .expect("first merge")
+            .merged_text;
+        let second = merge_ic(Some(&first), &resolved, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_ic(Some(&second), &resolved, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+
+        assert!(first.contains("either_hand = true"));
         assert_eq!(
             strip_generated_timestamp_comment(&first),
             strip_generated_timestamp_comment(&second)

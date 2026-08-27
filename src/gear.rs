@@ -161,6 +161,12 @@ pub struct GearItem {
     /// `data/items.xml`; false (and omitted from JSON) for everything else.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub two_handed: bool,
+    /// True for Either-hand items, which may be equipped in either the
+    /// `MainHand` or the `OffHand` slot. The item's `slot` stays `Off-hand`;
+    /// this flag makes it main-hand-eligible too. Sourced from `EITHER_HAND`
+    /// in `data/items.xml`; false (and omitted from JSON) for everything else.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub either_hand: bool,
     /// All stats on this item. Missing stats are treated as 0.
     pub stats: HashMap<Stat, i64>,
 }
@@ -181,6 +187,12 @@ pub struct CachedItem {
     /// `data/items.xml`); false (and omitted from JSON) for everything else.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub two_handed: bool,
+    /// True for Either-hand items (from `EITHER_HAND` in `data/items.xml`):
+    /// the `slot` is stored as `Off-hand`, and this flag marks the item as
+    /// also equippable in the `MainHand` slot. False (and omitted from JSON)
+    /// for everything else.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub either_hand: bool,
 }
 
 fn serialize_json_slot<S>(slot: &Slot, serializer: S) -> Result<S::Ok, S::Error>
@@ -314,6 +326,7 @@ mod tests {
                 name: "Test Helm".to_string(),
                 slot: Slot::Head,
                 two_handed: false,
+                either_hand: false,
                 stats: [(Stat::CriticalRating, 25)].into_iter().collect(),
             },
         );

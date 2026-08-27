@@ -1,9 +1,10 @@
 //! Offline item database builder.
 //!
 //! Reads `data/items.xml` (LotroCompanion item database) and writes
-//! `data/lgo_items.json` — the name → slot (+ `two_handed` flag) index
-//! consumed by the slot resolver. Item stats are *not* extracted here;
-//! they come from the bookmarklet.
+//! `data/lgo_items.json` — the name → slot (+ `two_handed` / `either_hand`
+//! flags) index consumed by the slot resolver. Item stats are *not* extracted
+//! here; they come from the bookmarklet. Output is sorted by item name so the
+//! committed artifact is deterministic across rebuilds.
 //!
 //! Exposed as `lgo build-db [options]`.
 
@@ -32,7 +33,12 @@ pub fn build(items_path: &Path, out_path: &Path) -> Result<(), String> {
     let items = load_items(items_str)?;
     eprintln!("[build-db] Indexed {} equippable items.", items.len());
 
-    let json = serde_json::to_string_pretty(&items)
+    // Serialize from a sorted map so the output is deterministic across runs:
+    // the source `HashMap` has nondeterministic iteration order, which would
+    // otherwise reshuffle the entire file on every rebuild and make the
+    // committed artifact impossible to diff.
+    let sorted: std::collections::BTreeMap<String, CachedItem> = items.into_iter().collect();
+    let json = serde_json::to_string_pretty(&sorted)
         .map_err(|e| format!("Failed to serialise items: {}", e))?;
     fs::write(out_path, &json).map_err(|e| format!("Cannot write '{}': {}", out_str, e))?;
 
@@ -57,6 +63,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
     let mut cur_slot: Option<Slot> = None;
     let mut cur_level: Option<i32> = None;
     let mut cur_two_handed = false;
+    let mut cur_either_hand = false;
 
     let mut buf = Vec::new();
     loop {
@@ -78,11 +85,13 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                         cur_slot = None;
                         cur_level = None;
                         cur_two_handed = false;
+                        cur_either_hand = false;
                     } else {
                         cur_name = attrs.get("name").cloned();
                         cur_level = attrs.get("level").and_then(|v| v.parse().ok());
                         cur_slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
                         cur_two_handed = is_two_handed(cur_slot, &attrs);
+                        cur_either_hand = is_either_hand(&attrs);
                     }
                 }
             }
@@ -100,10 +109,12 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                             slot,
                             cur_level,
                             cur_two_handed,
+                            cur_either_hand,
                         );
                     }
                     cur_level = None;
                     cur_two_handed = false;
+                    cur_either_hand = false;
                 }
             }
 
@@ -119,6 +130,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                         let level = attrs.get("level").and_then(|v| v.parse().ok());
                         let slot = attrs.get("slot").and_then(|s| parse_slot_key(s));
                         let two_handed = is_two_handed(slot, &attrs);
+                        let either_hand = is_either_hand(&attrs);
 
                         if let (Some(name), Some(slot)) = (name, slot) {
                             insert_if_highest_level(
@@ -128,6 +140,7 @@ fn load_items(path: &str) -> Result<HashMap<String, CachedItem>, String> {
                                 slot,
                                 level,
                                 two_handed,
+                                either_hand,
                             );
                         }
                     }
@@ -148,6 +161,7 @@ fn insert_if_highest_level(
     slot: Slot,
     level: Option<i32>,
     two_handed: bool,
+    either_hand: bool,
 ) {
     let new_level = level.unwrap_or(0);
     let best_level = out_levels.get(&name).copied().unwrap_or(-1);
@@ -159,6 +173,7 @@ fn insert_if_highest_level(
                 name,
                 slot,
                 two_handed,
+                either_hand,
             },
         );
     }
@@ -175,6 +190,13 @@ fn is_two_handed(slot: Option<Slot>, attrs: &HashMap<String, String>) -> bool {
         && attrs
             .get("precludedSlots")
             .is_some_and(|precluded| precluded.contains("OFF_HAND"))
+}
+
+/// True when this XML item is an Either-hand item: its raw `slot` attribute is
+/// `EITHER_HAND`. Such items are stored with a canonical `Off-hand` slot plus
+/// this flag, which marks them equippable in the main hand as well.
+fn is_either_hand(attrs: &HashMap<String, String>) -> bool {
+    attrs.get("slot").map(|s| s.as_str()) == Some("EITHER_HAND")
 }
 
 fn parse_slot_key(s: &str) -> Option<Slot> {
@@ -352,6 +374,49 @@ mod tests {
         assert_eq!(json.matches("two_handed").count(), 1);
     }
 
+    // ── Either-hand detection via EITHER_HAND slot ─────────────────────────────
+
+    #[test]
+    fn either_hand_item_maps_to_off_hand_with_flag() {
+        let xml = r#"<items>
+            <item name="Example Rune-stone" level="160" slot="EITHER_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("either_hand", xml);
+        let item = &out["Example Rune-stone"];
+        assert_eq!(item.slot, Slot::OffHand);
+        assert!(item.either_hand);
+        assert!(!item.two_handed);
+    }
+
+    #[test]
+    fn off_hand_item_is_not_either_hand() {
+        let xml = r#"<items>
+            <item name="Example Shield" level="160" slot="OFF_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("off_hand_not_either", xml);
+        let item = &out["Example Shield"];
+        assert_eq!(item.slot, Slot::OffHand);
+        assert!(!item.either_hand);
+    }
+
+    #[test]
+    fn either_hand_flag_serializes_and_absent_flag_is_omitted() {
+        // The JSON DB is the transport for either-handedness into
+        // resolve-slots: `true` must round-trip and everything else omits it.
+        let xml = r#"<items>
+            <item name="Example Rune-stone" level="160" slot="EITHER_HAND"></item>
+            <item name="Example Shield" level="160" slot="OFF_HAND"></item>
+        </items>"#;
+        let out = load_items_from_str("either_serialize", xml);
+        let json = serde_json::to_string(&out).expect("serialize db");
+        let parsed: HashMap<String, CachedItem> = serde_json::from_str(&json).expect("reparse db");
+        assert!(parsed["Example Rune-stone"].either_hand);
+        assert!(!parsed["Example Shield"].either_hand);
+        // `false` is skipped during serialization, so the only occurrence of
+        // the key belongs to the rune-stone.
+        assert_eq!(json.matches("either_hand").count(), 1);
+    }
+
     #[test]
     fn pooled_family_slots_serialize_unnumbered() {
         let xml = r#"<items>
@@ -386,5 +451,38 @@ mod tests {
         assert!(!json.contains("MainHand"), "{json}");
         assert!(!json.contains("OffHand"), "{json}");
         assert!(!json.contains("ClassItem"), "{json}");
+    }
+
+    #[test]
+    fn build_writes_deterministic_name_sorted_output() {
+        // `build` must serialize from a sorted map so the committed artifact is
+        // stable across rebuilds despite the nondeterministic source HashMap.
+        let xml = r#"<items>
+            <item name="Zeta Cloak" level="10" slot="BACK"></item>
+            <item name="Alpha Ring" level="10" slot="FINGER"></item>
+            <item name="Mu Helm" level="10" slot="HEAD"></item>
+        </items>"#;
+        let dir = std::env::temp_dir();
+        let xml_path = dir.join(format!("lgo_build_db_sorted_{}.xml", std::process::id()));
+        let out1 = dir.join(format!("lgo_build_db_sorted_{}_1.json", std::process::id()));
+        let out2 = dir.join(format!("lgo_build_db_sorted_{}_2.json", std::process::id()));
+        fs::write(&xml_path, xml).expect("write temp xml");
+
+        build(&xml_path, &out1).expect("build 1");
+        build(&xml_path, &out2).expect("build 2");
+        let json1 = fs::read_to_string(&out1).expect("read out1");
+        let json2 = fs::read_to_string(&out2).expect("read out2");
+
+        let _ = fs::remove_file(&xml_path);
+        let _ = fs::remove_file(&out1);
+        let _ = fs::remove_file(&out2);
+
+        // Two runs are byte-identical.
+        assert_eq!(json1, json2, "build output must be deterministic");
+        // Keys appear in ascending name order.
+        let alpha = json1.find("Alpha Ring").expect("alpha present");
+        let mu = json1.find("Mu Helm").expect("mu present");
+        let zeta = json1.find("Zeta Cloak").expect("zeta present");
+        assert!(alpha < mu && mu < zeta, "keys must be name-sorted: {json1}");
     }
 }
