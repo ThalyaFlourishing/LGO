@@ -1,9 +1,10 @@
 //! Offline item database builder.
 //!
 //! Reads `data/items.xml` (LotroCompanion item database) and writes
-//! `data/lgo_items.json` — the name → slot (+ `two_handed` flag) index
-//! consumed by the slot resolver. Item stats are *not* extracted here;
-//! they come from the bookmarklet.
+//! `data/lgo_items.json` — the name → slot (+ `two_handed` / `either_hand`
+//! flags) index consumed by the slot resolver. Item stats are *not* extracted
+//! here; they come from the bookmarklet. Output is sorted by item name so the
+//! committed artifact is deterministic across rebuilds.
 //!
 //! Exposed as `lgo build-db [options]`.
 
@@ -32,7 +33,12 @@ pub fn build(items_path: &Path, out_path: &Path) -> Result<(), String> {
     let items = load_items(items_str)?;
     eprintln!("[build-db] Indexed {} equippable items.", items.len());
 
-    let json = serde_json::to_string_pretty(&items)
+    // Serialize from a sorted map so the output is deterministic across runs:
+    // the source `HashMap` has nondeterministic iteration order, which would
+    // otherwise reshuffle the entire file on every rebuild and make the
+    // committed artifact impossible to diff.
+    let sorted: std::collections::BTreeMap<String, CachedItem> = items.into_iter().collect();
+    let json = serde_json::to_string_pretty(&sorted)
         .map_err(|e| format!("Failed to serialise items: {}", e))?;
     fs::write(out_path, &json).map_err(|e| format!("Cannot write '{}': {}", out_str, e))?;
 
@@ -445,5 +451,38 @@ mod tests {
         assert!(!json.contains("MainHand"), "{json}");
         assert!(!json.contains("OffHand"), "{json}");
         assert!(!json.contains("ClassItem"), "{json}");
+    }
+
+    #[test]
+    fn build_writes_deterministic_name_sorted_output() {
+        // `build` must serialize from a sorted map so the committed artifact is
+        // stable across rebuilds despite the nondeterministic source HashMap.
+        let xml = r#"<items>
+            <item name="Zeta Cloak" level="10" slot="BACK"></item>
+            <item name="Alpha Ring" level="10" slot="FINGER"></item>
+            <item name="Mu Helm" level="10" slot="HEAD"></item>
+        </items>"#;
+        let dir = std::env::temp_dir();
+        let xml_path = dir.join(format!("lgo_build_db_sorted_{}.xml", std::process::id()));
+        let out1 = dir.join(format!("lgo_build_db_sorted_{}_1.json", std::process::id()));
+        let out2 = dir.join(format!("lgo_build_db_sorted_{}_2.json", std::process::id()));
+        fs::write(&xml_path, xml).expect("write temp xml");
+
+        build(&xml_path, &out1).expect("build 1");
+        build(&xml_path, &out2).expect("build 2");
+        let json1 = fs::read_to_string(&out1).expect("read out1");
+        let json2 = fs::read_to_string(&out2).expect("read out2");
+
+        let _ = fs::remove_file(&xml_path);
+        let _ = fs::remove_file(&out1);
+        let _ = fs::remove_file(&out2);
+
+        // Two runs are byte-identical.
+        assert_eq!(json1, json2, "build output must be deterministic");
+        // Keys appear in ascending name order.
+        let alpha = json1.find("Alpha Ring").expect("alpha present");
+        let mu = json1.find("Mu Helm").expect("mu present");
+        let zeta = json1.find("Zeta Cloak").expect("zeta present");
+        assert!(alpha < mu && mu < zeta, "keys must be name-sorted: {json1}");
     }
 }
