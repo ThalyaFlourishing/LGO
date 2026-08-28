@@ -1,0 +1,47 @@
+
+running 1 test
+benchmark_candidate_caps
+goals: ["Morale:20000", "Critical Rating:280000", "Tactical Mastery:20000", "Physical Mastery:120000", "Tactical Mitigation:200000", "Evade:190000", "Block:170000"]
+time limit: 30s per optimization run
+max N: 40
+profile filter: Pairs
+| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |
+| Pairs-at-N | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:24 Nk:8 Fi:24 Er:24 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 59 | 0.611s |
+| Pairs-at-N | 9 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:9 Nk:8 Fi:9 Er:9 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:29 Nk:8 Fi:29 Er:29 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:36 Fi:36 Er:36 | 59 | 0.970s |
+| Pairs-at-N | 10 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:10 Nk:8 Fi:10 Er:10 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:34 Nk:8 Fi:34 Er:34 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:45 Fi:45 Er:45 | 59 | 1.541s |
+| Pairs-at-N | 11 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:11 Nk:8 Fi:11 Er:11 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:40 Nk:8 Fi:40 Er:40 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:55 Fi:55 Er:55 | 59 | 1.868s |
+| Pairs-at-N | 12 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:12 Nk:8 Fi:12 Er:12 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:49 Nk:8 Fi:49 Er:49 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:66 Fi:66 Er:66 | 59 | 2.401s |
+| Pairs-at-N | 13 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:13 Nk:8 Fi:13 Er:13 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:56 Nk:8 Fi:56 Er:56 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:78 Fi:78 Er:78 | 59 | 3.084s |
+| Pairs-at-N | 14 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:14 Nk:8 Fi:14 Er:14 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:65 Nk:8 Fi:65 Er:65 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:91 Fi:91 Er:91 | 59 | 4.061s |
+| Pairs-at-N | 15 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:15 Nk:8 Fi:15 Er:15 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:74 Nk:8 Fi:74 Er:74 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:105 Fi:105 Er:105 | 59 | 5.548s |
+| Pairs-at-N | 16 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:16 Nk:8 Fi:16 Er:16 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:89 Nk:8 Fi:89 Er:89 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:120 Fi:120 Er:120 | 59 | 6.422s |
+| Pairs-at-N | 17 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:17 Nk:8 Fi:17 Er:17 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:105 Nk:8 Fi:105 Er:105 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:136 Fi:136 Er:136 | 59 | 5.086s |
+| Pairs-at-N | 18 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:18 Nk:8 Fi:18 Er:18 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:113 Nk:8 Fi:113 Er:113 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:153 Fi:153 Er:153 | 59 | 6.295s |
+| Pairs-at-N | 19 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:19 Nk:8 Fi:19 Er:19 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:121 Nk:8 Fi:121 Er:121 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:171 Fi:171 Er:171 | 59 | 7.545s |
+| Pairs-at-N | 20 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:20 Nk:8 Fi:20 Er:20 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:133 Nk:8 Fi:133 Er:133 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:190 Fi:190 Er:190 | 59 | 9.712s |
+test optimizer::tests::benchmark_candidate_caps has been running for over 60 seconds
+| Pairs-at-N | 21 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:21 Nk:8 Fi:21 Er:21 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:141 Nk:8 Fi:141 Er:141 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:210 Fi:210 Er:210 | 59 | 10.647s |
+| Pairs-at-N | 22 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:22 Nk:8 Fi:22 Er:22 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:156 Nk:8 Fi:156 Er:156 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:231 Fi:231 Er:231 | 59 | >30s |
+WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE.
+
+benchmark_candidate_caps summary
+Pairs-at-N: last N within 30s = 21; breached at N = 22
+test optimizer::tests::benchmark_candidate_caps ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 95.81s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+

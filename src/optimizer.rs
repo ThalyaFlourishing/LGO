@@ -867,13 +867,17 @@ mod tests {
     // benchmark_candidate_caps:
     // Edit this single constant to raise or lower the per-run cutoff. The limit
     // applies to each individual optimizer search, not to the whole harness.
-    const TIME_LIMIT_SECS: u64 = 600;
+    const TIME_LIMIT_SECS: u64 = 30;
     const MAX_N: usize = 40;
 
-    const BENCHMARK_GOALS: [(Stat, i64); 3] = [
+    const BENCHMARK_GOALS: [(Stat, i64); 7] = [        
+        (Stat::Morale, 20_000),
         (Stat::CriticalRating, 280_000),
-        (Stat::TacticalMastery, 250_000),
-        (Stat::Finesse, 220_000),
+        (Stat::TacticalMastery, 20_000),
+        (Stat::PhysicalMastery, 120_000),
+        (Stat::TacticalMitigation, 200_000),
+        (Stat::Evade, 190_000),
+        (Stat::Block, 170_000),
     ];
 
     const BENCHMARK_SINGLETON_SLOTS: [Slot; 11] = [

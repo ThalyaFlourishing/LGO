@@ -1,7 +1,6 @@
 //! LGO library entry point. Exists so integration tests under `tests/` can
 //! reach the resolver, gearstats reader, and gear types directly. The
-//! `lgo` binary still lives in `src/main.rs` and continues to declare
-//! these modules privately for itself.
+//! `lgo` binary still lives in `src/main.rs`.
 
 #![allow(dead_code)]
 

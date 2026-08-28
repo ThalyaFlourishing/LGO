@@ -1,0 +1,56 @@
+
+running 1 test
+benchmark_candidate_caps
+goals: ["Morale:20000", "Critical Rating:280000", "Tactical Mastery:20000", "Physical Mastery:120000", "Tactical Mitigation:200000", "Evade:190000", "Block:170000"]
+time limit: 30s per optimization run
+max N: 40
+profile filter: Singles
+| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |
+| Singles-at-N | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:12 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:24 Nk:8 Fi:24 Er:24 Po:8 MH+OH:33 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 59 | 0.620s |
+| Singles-at-N | 9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:8 Nk:9 Fi:8 Er:8 Po:9 MH+OH:12 Ra:9 Ci:9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:24 Nk:9 Fi:24 Er:24 Po:9 MH+OH:33 Ra:9 Ci:9 | Wr:28 Fi:28 Er:28 | 59 | 0.638s |
+| Singles-at-N | 10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:8 Nk:10 Fi:8 Er:8 Po:10 MH+OH:12 Ra:10 Ci:10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:24 Nk:10 Fi:24 Er:24 Po:10 MH+OH:33 Ra:10 Ci:10 | Wr:28 Fi:28 Er:28 | 59 | 0.663s |
+| Singles-at-N | 11 | Hd:11 Ch:11 Lg:11 Ha:11 Ft:11 Sh:11 Bk:11 Wr:8 Nk:11 Fi:8 Er:8 Po:11 MH+OH:12 Ra:11 Ci:11 | Hd:11 Ch:11 Lg:11 Ha:11 Ft:11 Sh:11 Bk:11 Wr:24 Nk:11 Fi:24 Er:24 Po:11 MH+OH:33 Ra:11 Ci:11 | Wr:28 Fi:28 Er:28 | 59 | 0.699s |
+| Singles-at-N | 12 | Hd:12 Ch:12 Lg:12 Ha:12 Ft:12 Sh:12 Bk:12 Wr:8 Nk:12 Fi:8 Er:8 Po:12 MH+OH:12 Ra:12 Ci:12 | Hd:12 Ch:12 Lg:12 Ha:12 Ft:12 Sh:12 Bk:12 Wr:24 Nk:12 Fi:24 Er:24 Po:12 MH+OH:33 Ra:12 Ci:12 | Wr:28 Fi:28 Er:28 | 59 | 0.720s |
+| Singles-at-N | 13 | Hd:13 Ch:13 Lg:13 Ha:13 Ft:13 Sh:13 Bk:13 Wr:8 Nk:13 Fi:8 Er:8 Po:13 MH+OH:12 Ra:13 Ci:13 | Hd:13 Ch:13 Lg:13 Ha:13 Ft:13 Sh:13 Bk:13 Wr:24 Nk:13 Fi:24 Er:24 Po:13 MH+OH:33 Ra:13 Ci:13 | Wr:28 Fi:28 Er:28 | 59 | 0.738s |
+| Singles-at-N | 14 | Hd:14 Ch:14 Lg:14 Ha:14 Ft:14 Sh:14 Bk:14 Wr:8 Nk:14 Fi:8 Er:8 Po:14 MH+OH:12 Ra:14 Ci:14 | Hd:14 Ch:14 Lg:14 Ha:14 Ft:14 Sh:14 Bk:14 Wr:24 Nk:14 Fi:24 Er:24 Po:14 MH+OH:33 Ra:14 Ci:14 | Wr:28 Fi:28 Er:28 | 59 | 0.752s |
+| Singles-at-N | 15 | Hd:15 Ch:15 Lg:15 Ha:15 Ft:15 Sh:15 Bk:15 Wr:8 Nk:15 Fi:8 Er:8 Po:15 MH+OH:12 Ra:15 Ci:15 | Hd:15 Ch:15 Lg:15 Ha:15 Ft:15 Sh:15 Bk:15 Wr:24 Nk:15 Fi:24 Er:24 Po:15 MH+OH:33 Ra:15 Ci:15 | Wr:28 Fi:28 Er:28 | 59 | 0.782s |
+| Singles-at-N | 16 | Hd:16 Ch:16 Lg:16 Ha:16 Ft:16 Sh:16 Bk:16 Wr:8 Nk:16 Fi:8 Er:8 Po:16 MH+OH:12 Ra:16 Ci:16 | Hd:16 Ch:16 Lg:16 Ha:16 Ft:16 Sh:16 Bk:16 Wr:24 Nk:16 Fi:24 Er:24 Po:16 MH+OH:33 Ra:16 Ci:16 | Wr:28 Fi:28 Er:28 | 59 | 0.826s |
+| Singles-at-N | 17 | Hd:17 Ch:17 Lg:17 Ha:17 Ft:17 Sh:17 Bk:17 Wr:8 Nk:17 Fi:8 Er:8 Po:17 MH+OH:12 Ra:17 Ci:17 | Hd:17 Ch:17 Lg:17 Ha:17 Ft:17 Sh:17 Bk:17 Wr:24 Nk:17 Fi:24 Er:24 Po:17 MH+OH:33 Ra:17 Ci:17 | Wr:28 Fi:28 Er:28 | 59 | 0.826s |
+| Singles-at-N | 18 | Hd:18 Ch:18 Lg:18 Ha:18 Ft:18 Sh:18 Bk:18 Wr:8 Nk:18 Fi:8 Er:8 Po:18 MH+OH:12 Ra:18 Ci:18 | Hd:18 Ch:18 Lg:18 Ha:18 Ft:18 Sh:18 Bk:18 Wr:24 Nk:18 Fi:24 Er:24 Po:18 MH+OH:33 Ra:18 Ci:18 | Wr:28 Fi:28 Er:28 | 59 | 0.887s |
+| Singles-at-N | 19 | Hd:19 Ch:19 Lg:19 Ha:19 Ft:19 Sh:19 Bk:19 Wr:8 Nk:19 Fi:8 Er:8 Po:19 MH+OH:12 Ra:19 Ci:19 | Hd:19 Ch:19 Lg:19 Ha:19 Ft:19 Sh:19 Bk:19 Wr:24 Nk:19 Fi:24 Er:24 Po:19 MH+OH:33 Ra:19 Ci:19 | Wr:28 Fi:28 Er:28 | 59 | 0.886s |
+| Singles-at-N | 20 | Hd:20 Ch:20 Lg:20 Ha:20 Ft:20 Sh:20 Bk:20 Wr:8 Nk:20 Fi:8 Er:8 Po:20 MH+OH:12 Ra:20 Ci:20 | Hd:20 Ch:20 Lg:20 Ha:20 Ft:20 Sh:20 Bk:20 Wr:24 Nk:20 Fi:24 Er:24 Po:20 MH+OH:33 Ra:20 Ci:20 | Wr:28 Fi:28 Er:28 | 59 | 0.924s |
+| Singles-at-N | 21 | Hd:21 Ch:21 Lg:21 Ha:21 Ft:21 Sh:21 Bk:21 Wr:8 Nk:21 Fi:8 Er:8 Po:21 MH+OH:12 Ra:21 Ci:21 | Hd:21 Ch:21 Lg:21 Ha:21 Ft:21 Sh:21 Bk:21 Wr:24 Nk:21 Fi:24 Er:24 Po:21 MH+OH:33 Ra:21 Ci:21 | Wr:28 Fi:28 Er:28 | 59 | 0.973s |
+| Singles-at-N | 22 | Hd:22 Ch:22 Lg:22 Ha:22 Ft:22 Sh:22 Bk:22 Wr:8 Nk:22 Fi:8 Er:8 Po:22 MH+OH:12 Ra:22 Ci:22 | Hd:22 Ch:22 Lg:22 Ha:22 Ft:22 Sh:22 Bk:22 Wr:24 Nk:22 Fi:24 Er:24 Po:22 MH+OH:33 Ra:22 Ci:22 | Wr:28 Fi:28 Er:28 | 59 | 24.744s |
+test optimizer::tests::benchmark_candidate_caps has been running for over 60 seconds
+| Singles-at-N | 23 | Hd:23 Ch:23 Lg:23 Ha:23 Ft:23 Sh:23 Bk:23 Wr:8 Nk:23 Fi:8 Er:8 Po:23 MH+OH:12 Ra:23 Ci:23 | Hd:23 Ch:23 Lg:23 Ha:23 Ft:23 Sh:23 Bk:23 Wr:24 Nk:23 Fi:24 Er:24 Po:23 MH+OH:33 Ra:23 Ci:23 | Wr:28 Fi:28 Er:28 | 59 | 26.406s |
+| Singles-at-N | 24 | Hd:24 Ch:24 Lg:24 Ha:24 Ft:24 Sh:24 Bk:24 Wr:8 Nk:24 Fi:8 Er:8 Po:24 MH+OH:12 Ra:24 Ci:24 | Hd:24 Ch:24 Lg:24 Ha:24 Ft:24 Sh:24 Bk:24 Wr:24 Nk:24 Fi:24 Er:24 Po:24 MH+OH:33 Ra:24 Ci:24 | Wr:28 Fi:28 Er:28 | 59 | 26.718s |
+| Singles-at-N | 25 | Hd:25 Ch:25 Lg:25 Ha:25 Ft:25 Sh:25 Bk:25 Wr:8 Nk:25 Fi:8 Er:8 Po:25 MH+OH:12 Ra:25 Ci:25 | Hd:25 Ch:25 Lg:25 Ha:25 Ft:25 Sh:25 Bk:25 Wr:24 Nk:25 Fi:24 Er:24 Po:25 MH+OH:33 Ra:25 Ci:25 | Wr:28 Fi:28 Er:28 | 59 | 27.176s |
+| Singles-at-N | 26 | Hd:26 Ch:26 Lg:26 Ha:26 Ft:26 Sh:26 Bk:26 Wr:8 Nk:26 Fi:8 Er:8 Po:26 MH+OH:12 Ra:26 Ci:26 | Hd:26 Ch:26 Lg:26 Ha:26 Ft:26 Sh:26 Bk:26 Wr:24 Nk:26 Fi:24 Er:24 Po:26 MH+OH:33 Ra:26 Ci:26 | Wr:28 Fi:28 Er:28 | 59 | 27.220s |
+| Singles-at-N | 27 | Hd:27 Ch:27 Lg:27 Ha:27 Ft:27 Sh:27 Bk:27 Wr:8 Nk:27 Fi:8 Er:8 Po:27 MH+OH:12 Ra:27 Ci:27 | Hd:27 Ch:27 Lg:27 Ha:27 Ft:27 Sh:27 Bk:27 Wr:24 Nk:27 Fi:24 Er:24 Po:27 MH+OH:33 Ra:27 Ci:27 | Wr:28 Fi:28 Er:28 | 59 | 28.085s |
+| Singles-at-N | 28 | Hd:28 Ch:28 Lg:28 Ha:28 Ft:28 Sh:28 Bk:28 Wr:8 Nk:28 Fi:8 Er:8 Po:28 MH+OH:12 Ra:28 Ci:28 | Hd:28 Ch:28 Lg:28 Ha:28 Ft:28 Sh:28 Bk:28 Wr:24 Nk:28 Fi:24 Er:24 Po:28 MH+OH:33 Ra:28 Ci:28 | Wr:28 Fi:28 Er:28 | 59 | 28.888s |
+| Singles-at-N | 29 | Hd:29 Ch:29 Lg:29 Ha:29 Ft:29 Sh:29 Bk:29 Wr:8 Nk:29 Fi:8 Er:8 Po:29 MH+OH:12 Ra:29 Ci:29 | Hd:29 Ch:29 Lg:29 Ha:29 Ft:29 Sh:29 Bk:29 Wr:24 Nk:29 Fi:24 Er:24 Po:29 MH+OH:33 Ra:29 Ci:29 | Wr:28 Fi:28 Er:28 | 59 | 29.268s |
+| Singles-at-N | 30 | Hd:30 Ch:30 Lg:30 Ha:30 Ft:30 Sh:30 Bk:30 Wr:8 Nk:30 Fi:8 Er:8 Po:30 MH+OH:12 Ra:30 Ci:30 | Hd:30 Ch:30 Lg:30 Ha:30 Ft:30 Sh:30 Bk:30 Wr:24 Nk:30 Fi:24 Er:24 Po:30 MH+OH:33 Ra:30 Ci:30 | Wr:28 Fi:28 Er:28 | 59 | 29.977s |
+| Singles-at-N | 31 | Hd:31 Ch:31 Lg:31 Ha:31 Ft:31 Sh:31 Bk:31 Wr:8 Nk:31 Fi:8 Er:8 Po:31 MH+OH:12 Ra:31 Ci:31 | Hd:31 Ch:31 Lg:31 Ha:31 Ft:31 Sh:31 Bk:31 Wr:24 Nk:31 Fi:24 Er:24 Po:31 MH+OH:33 Ra:31 Ci:31 | Wr:28 Fi:28 Er:28 | 59 | >30s |
+WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE.
+
+benchmark_candidate_caps summary
+Singles-at-N: last N within 30s = 30; breached at N = 31
+test optimizer::tests::benchmark_candidate_caps ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 289.45s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+

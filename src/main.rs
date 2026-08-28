@@ -1,16 +1,6 @@
 //! LGO - LOTRO Gear Optimizer
 
-#![allow(dead_code)]
-
-mod base_stats;
-mod build_db;
-mod gear;
-mod gearstats;
-mod optimizer;
-mod plugindata;
-mod report;
-mod slot_resolver;
-mod stat;
+use lgo::{base_stats, build_db, gear, gearstats, optimizer, report, slot_resolver, stat};
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
