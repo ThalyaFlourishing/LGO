@@ -1,33 +1,20 @@
 
 running 1 test
 benchmark_candidate_caps
-goals: ["Morale:20000", "Critical Rating:280000", "Tactical Mastery:20000", "Physical Mastery:120000", "Tactical Mitigation:200000", "Evade:190000", "Block:170000"]
-time limit: 30s per optimization run
-max N: 40
+goals: ["Morale:20000", "Critical Rating:280000", "Tactical Mastery:20000", "Physical Mastery:120000", "Tactical Mitigation:200000", "Evade:200000", "Block:200000", "Physical Mitigation:200000", "Outgoing Healing:200000"]
+time limit: 100s per optimization run
+max N: 10
 profile filter: Uniform
 | profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |
-| Uniform | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:8 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:24 Nk:8 Fi:24 Er:24 Po:8 MH+OH:19 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 27 | 0.456s |
-| Uniform | 9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:9 Nk:9 Fi:9 Er:9 Po:9 MH+OH:9 Ra:9 Ci:9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:29 Nk:9 Fi:29 Er:29 Po:9 MH+OH:23 Ra:9 Ci:9 | Wr:36 Fi:36 Er:36 | 38 | 0.886s |
-| Uniform | 10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:10 Nk:10 Fi:10 Er:10 Po:10 MH+OH:10 Ra:10 Ci:10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:34 Nk:10 Fi:34 Er:34 Po:10 MH+OH:27 Ra:10 Ci:10 | Wr:45 Fi:45 Er:45 | 51 | 1.757s |
-| Uniform | 11 | Hd:11 Ch:11 Lg:11 Ha:11 Ft:11 Sh:11 Bk:11 Wr:11 Nk:11 Fi:11 Er:11 Po:11 MH+OH:11 Ra:11 Ci:11 | Hd:11 Ch:11 Lg:11 Ha:11 Ft:11 Sh:11 Bk:11 Wr:40 Nk:11 Fi:40 Er:40 Po:11 MH+OH:32 Ra:11 Ci:11 | Wr:55 Fi:55 Er:55 | 66 | 2.401s |
-| Uniform | 12 | Hd:12 Ch:12 Lg:12 Ha:12 Ft:12 Sh:12 Bk:12 Wr:12 Nk:12 Fi:12 Er:12 Po:12 MH+OH:12 Ra:12 Ci:12 | Hd:12 Ch:12 Lg:12 Ha:12 Ft:12 Sh:12 Bk:12 Wr:49 Nk:12 Fi:49 Er:49 Po:12 MH+OH:33 Ra:12 Ci:12 | Wr:66 Fi:66 Er:66 | 59 | 2.778s |
-| Uniform | 13 | Hd:13 Ch:13 Lg:13 Ha:13 Ft:13 Sh:13 Bk:13 Wr:13 Nk:13 Fi:13 Er:13 Po:13 MH+OH:13 Ra:13 Ci:13 | Hd:13 Ch:13 Lg:13 Ha:13 Ft:13 Sh:13 Bk:13 Wr:56 Nk:13 Fi:56 Er:56 Po:13 MH+OH:39 Ra:13 Ci:13 | Wr:78 Fi:78 Er:78 | 75 | 4.225s |
-| Uniform | 14 | Hd:14 Ch:14 Lg:14 Ha:14 Ft:14 Sh:14 Bk:14 Wr:14 Nk:14 Fi:14 Er:14 Po:14 MH+OH:14 Ra:14 Ci:14 | Hd:14 Ch:14 Lg:14 Ha:14 Ft:14 Sh:14 Bk:14 Wr:65 Nk:14 Fi:65 Er:65 Po:14 MH+OH:46 Ra:14 Ci:14 | Wr:91 Fi:91 Er:91 | 93 | 6.728s |
-| Uniform | 15 | Hd:15 Ch:15 Lg:15 Ha:15 Ft:15 Sh:15 Bk:15 Wr:15 Nk:15 Fi:15 Er:15 Po:15 MH+OH:15 Ra:15 Ci:15 | Hd:15 Ch:15 Lg:15 Ha:15 Ft:15 Sh:15 Bk:15 Wr:74 Nk:15 Fi:74 Er:74 Po:15 MH+OH:54 Ra:15 Ci:15 | Wr:105 Fi:105 Er:105 | 113 | 11.125s |
-| Uniform | 16 | Hd:16 Ch:16 Lg:16 Ha:16 Ft:16 Sh:16 Bk:16 Wr:16 Nk:16 Fi:16 Er:16 Po:16 MH+OH:16 Ra:16 Ci:16 | Hd:16 Ch:16 Lg:16 Ha:16 Ft:16 Sh:16 Bk:16 Wr:89 Nk:16 Fi:89 Er:89 Po:16 MH+OH:63 Ra:16 Ci:16 | Wr:120 Fi:120 Er:120 | 114 | 13.974s |
-| Uniform | 17 | Hd:17 Ch:17 Lg:17 Ha:17 Ft:17 Sh:17 Bk:17 Wr:17 Nk:17 Fi:17 Er:17 Po:17 MH+OH:17 Ra:17 Ci:17 | Hd:17 Ch:17 Lg:17 Ha:17 Ft:17 Sh:17 Bk:17 Wr:105 Nk:17 Fi:105 Er:105 Po:17 MH+OH:76 Ra:17 Ci:17 | Wr:136 Fi:136 Er:136 | 136 | 12.355s |
-test optimizer::tests::benchmark_candidate_caps has been running for over 60 seconds
-| Uniform | 18 | Hd:18 Ch:18 Lg:18 Ha:18 Ft:18 Sh:18 Bk:18 Wr:18 Nk:18 Fi:18 Er:18 Po:18 MH+OH:18 Ra:18 Ci:18 | Hd:18 Ch:18 Lg:18 Ha:18 Ft:18 Sh:18 Bk:18 Wr:113 Nk:18 Fi:113 Er:113 Po:18 MH+OH:84 Ra:18 Ci:18 | Wr:153 Fi:153 Er:153 | 160 | 15.921s |
-| Uniform | 19 | Hd:19 Ch:19 Lg:19 Ha:19 Ft:19 Sh:19 Bk:19 Wr:19 Nk:19 Fi:19 Er:19 Po:19 MH+OH:19 Ra:19 Ci:19 | Hd:19 Ch:19 Lg:19 Ha:19 Ft:19 Sh:19 Bk:19 Wr:121 Nk:19 Fi:121 Er:121 Po:19 MH+OH:92 Ra:19 Ci:19 | Wr:171 Fi:171 Er:171 | 186 | 22.226s |
-| Uniform | 20 | Hd:20 Ch:20 Lg:20 Ha:20 Ft:20 Sh:20 Bk:20 Wr:20 Nk:20 Fi:20 Er:20 Po:20 MH+OH:20 Ra:20 Ci:20 | Hd:20 Ch:20 Lg:20 Ha:20 Ft:20 Sh:20 Bk:20 Wr:133 Nk:20 Fi:133 Er:133 Po:20 MH+OH:92 Ra:20 Ci:20 | Wr:190 Fi:190 Er:190 | 173 | 28.932s |
-| Uniform | 21 | Hd:21 Ch:21 Lg:21 Ha:21 Ft:21 Sh:21 Bk:21 Wr:21 Nk:21 Fi:21 Er:21 Po:21 MH+OH:21 Ra:21 Ci:21 | Hd:21 Ch:21 Lg:21 Ha:21 Ft:21 Sh:21 Bk:21 Wr:141 Nk:21 Fi:141 Er:141 Po:21 MH+OH:101 Ra:21 Ci:21 | Wr:210 Fi:210 Er:210 | 200 | >30s |
-WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE.
+| Uniform | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:8 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:26 Nk:8 Fi:26 Er:26 Po:8 MH+OH:21 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 27 | 0.513s |
+| Uniform | 9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:9 Nk:9 Fi:9 Er:9 Po:9 MH+OH:9 Ra:9 Ci:9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:32 Nk:9 Fi:32 Er:32 Po:9 MH+OH:26 Ra:9 Ci:9 | Wr:36 Fi:36 Er:36 | 38 | 1.005s |
+| Uniform | 10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:10 Nk:10 Fi:10 Er:10 Po:10 MH+OH:10 Ra:10 Ci:10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:38 Nk:10 Fi:38 Er:38 Po:10 MH+OH:31 Ra:10 Ci:10 | Wr:45 Fi:45 Er:45 | 51 | 1.961s |
 
 benchmark_candidate_caps summary
-Uniform: last N within 30s = 20; breached at N = 21
+Uniform: completed through N = 10 without breaching 100s
 test optimizer::tests::benchmark_candidate_caps ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 153.79s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 3.48s
 
 
 running 0 tests
