@@ -217,6 +217,9 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo test
     Run all unit and integration tests.
 
+  cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+    Run the item-pool-size benchmark test
+
   cargo test -- --ignored
     Run only #[ignore] tests, including the deep optimizer differential fuzzer.
 
@@ -253,6 +256,24 @@ Working directory matters. db_build resolves data/items.xml and data/lgo_items.j
 
 cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --out <path>\lgo_items.json
+
+
+SECTION 6 - THE BENCHMARK TEST
+-------------------------------------------------
+How many items can optimizer handle in the pool before it becomes unbearably slow? This test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing production cap enforcement or any production search path.
+
+The code lives entirely in `src/optimizer.rs`.
+
+Command line:
+  cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+
+Editable parameters:
+  . const TIME_LIMIT_SECS: u64 = 600; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
+  . const BENCHMARK_GOALS: [(Stat, i64); 3] — the fixed 3-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
+
+(Do not edit BENCHMARK_SINGLETON_SLOTS / BENCHMARK_PAIRED_FAMILIES. These are structural constants)
+
+
 
 
 
