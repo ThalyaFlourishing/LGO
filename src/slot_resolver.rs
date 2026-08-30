@@ -773,42 +773,22 @@ fn attach_outcome_comments_to_header(table: &mut Table, outcome_comments: &str) 
     if outcome_comments.is_empty() {
         return;
     }
-    let metadata_key = ["two_handed", "either_hand"]
+    let target_key = ["two_handed", "either_hand", "name", "slot"]
         .into_iter()
         .find(|key| table.contains_key(key));
-    if let Some(metadata_key) = metadata_key {
-        if let Some((mut key_mut, _)) = table.get_key_value_mut(metadata_key) {
-            let existing_prefix = key_mut
-                .leaf_decor()
-                .prefix()
-                .and_then(|prefix| prefix.as_str())
-                .unwrap_or("")
-                .to_string();
-            key_mut
-                .leaf_decor_mut()
-                .set_prefix(format!("{}{}", outcome_comments, existing_prefix));
-        }
-        return;
-    }
-
-    let Some(target_key) = ["name", "slot"]
-        .into_iter()
-        .find(|key| table.contains_key(key))
-    else {
+    let Some(target_key) = target_key else {
         return;
     };
-    if let Some(value) = table.get_mut(target_key).and_then(Item::as_value_mut) {
-        let mut suffix = value
-            .decor()
-            .suffix()
-            .and_then(|suffix| suffix.as_str())
+    if let Some((mut key_mut, _)) = table.get_key_value_mut(target_key) {
+        let existing_prefix = key_mut
+            .leaf_decor()
+            .prefix()
+            .and_then(|prefix| prefix.as_str())
             .unwrap_or("")
             .to_string();
-        if !suffix.is_empty() && !suffix.ends_with(' ') {
-            suffix.push(' ');
-        }
-        suffix.push_str(&outcome_comments.lines().collect::<Vec<_>>().join(" "));
-        value.decor_mut().set_suffix(suffix);
+        key_mut
+            .leaf_decor_mut()
+            .set_prefix(format!("{}{}", outcome_comments, existing_prefix));
     }
 }
 

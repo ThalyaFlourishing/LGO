@@ -921,11 +921,11 @@ CriticalRating = 3
         "two_handed",
         "# UNRESOLVED:",
     );
+    let name_pos = first_block.find("\"Test Greatsword\"").unwrap();
+    let comment_pos = first_block.find("# UNRESOLVED:").unwrap();
+    let two_handed_pos = first_block.find("two_handed = true").unwrap();
     assert!(
-        first_block.find("\"Test Greatsword\"").unwrap()
-            < first_block.find("# UNRESOLVED:").unwrap()
-            && first_block.find("# UNRESOLVED:").unwrap()
-                < first_block.find("two_handed = true").unwrap(),
+        name_pos < comment_pos && comment_pos < two_handed_pos,
         "unresolved comment should be attached to generated metadata header decor:\n{first_block}"
     );
     let first_helm_block = item_block_for_name(&after_first, "Test Helm");
