@@ -21,13 +21,13 @@ use crate::stat::{Stat, StatGoal};
 /// Maximum supported candidates per canonical slot or paired-slot family.
 /// Keeps paired-slot enumeration bounded (max 8×7/2 = 28 real pairs, plus
 /// singleton empty-placeholder pairs).
-pub const MAX_CANDIDATES_PER_SLOT: usize = 8;
+pub const MAX_CANDIDATES_PER_SLOT: usize = 40;
 
 /// Maximum supported combined real-item candidates across both hand slots:
 /// Main-hand-only + Off-hand-only + Either-hand items. The two hand slots are
 /// searched as one combined pool, so they share this single cap instead of the
 /// per-slot cap that applies to every other slot and paired family.
-pub const MAX_HAND_CANDIDATES_COMBINED: usize = 12;
+pub const MAX_HAND_CANDIDATES_COMBINED: usize = 60;
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -523,13 +523,13 @@ fn dominance_filter(choices: Vec<Choice>, goals: &[StatGoal]) -> Vec<Choice> {
         .collect()
 }
 
-fn exact_search(
+fn exact_search_counting(
     pools: &[SearchPool],
     goals: &[StatGoal],
     initial_totals: &[i64],
-) -> Option<SearchBuild> {
+) -> (Option<SearchBuild>, u64) {
     if pools.iter().any(|pool| pool.choices.is_empty()) {
-        return None;
+        return (None, 0);
     }
 
     let suffix_maxima = suffix_goal_maxima(pools, goals);
@@ -537,6 +537,7 @@ fn exact_search(
     let mut running_totals = initial_totals.to_vec();
     let mut current_choices: Vec<Choice> = Vec::with_capacity(pools.len());
     let mut current_keys: Vec<String> = Vec::new();
+    let mut nodes: u64 = 0;
 
     dfs_search(
         0,
@@ -547,9 +548,18 @@ fn exact_search(
         &mut current_choices,
         &mut current_keys,
         &mut best,
+        &mut nodes,
     );
 
-    best
+    (best, nodes)
+}
+
+fn exact_search(
+    pools: &[SearchPool],
+    goals: &[StatGoal],
+    initial_totals: &[i64],
+) -> Option<SearchBuild> {
+    exact_search_counting(pools, goals, initial_totals).0
 }
 
 fn innate_goal_totals(innate_stats: &HashMap<Stat, i64>, goals: &[StatGoal]) -> Vec<i64> {
@@ -586,7 +596,9 @@ fn dfs_search(
     current_choices: &mut Vec<Choice>,
     current_keys: &mut Vec<String>,
     best: &mut Option<SearchBuild>,
+    nodes: &mut u64,
 ) {
+    *nodes += 1;
     if let Some(best_build) = best.as_ref() {
         let optimistic: Vec<i64> = running_totals
             .iter()
@@ -631,6 +643,7 @@ fn dfs_search(
             current_choices,
             current_keys,
             best,
+            nodes,
         );
 
         current_choices.pop();
@@ -868,18 +881,13 @@ mod tests {
     // Edit this single constant to raise or lower the per-run cutoff. The limit
     // applies to each individual optimizer search, not to the whole harness.
     const TIME_LIMIT_SECS: u64 = 100;
-    const MAX_N: usize = 10;
+    const MAX_N: usize = 40;
 
-    const BENCHMARK_GOALS: [(Stat, i64); 9] = [        
-        (Stat::Morale, 20_000),
-        (Stat::CriticalRating, 280_000),
-        (Stat::TacticalMastery, 20_000),
-        (Stat::PhysicalMastery, 120_000),
-        (Stat::TacticalMitigation, 200_000),
-        (Stat::Evade, 200_000),
-        (Stat::Block, 200_000),
-        (Stat::PhysicalMitigation, 200_000),
-        (Stat::OutgoingHealing, 200_000),
+    const BENCHMARK_GOALS: [(Stat, i64); 4] = [        
+        (Stat::CriticalRating, 1_000),
+        (Stat::TacticalMastery, 7_000),
+        (Stat::PhysicalMastery, 3_000),
+        (Stat::TacticalMitigation, 11_000),
     ];
 
     const BENCHMARK_SINGLETON_SLOTS: [Slot; 11] = [
@@ -967,6 +975,7 @@ mod tests {
         pair_super_counts: Vec<(String, usize)>,
         hand_configuration_count: usize,
         wall_time: BenchmarkWallTime,
+        nodes: Option<u64>,
     }
 
     #[derive(Debug)]
@@ -979,6 +988,7 @@ mod tests {
         Completed {
             elapsed: Duration,
             found_build: bool,
+            nodes: u64,
         },
         Panicked(String),
     }
@@ -2731,12 +2741,13 @@ mod tests {
         thread::spawn(move || {
             let started = Instant::now();
             let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                exact_search(&search_pools, &goals, &[0_i64; BENCHMARK_GOALS.len()])
+                exact_search_counting(&search_pools, &goals, &[0_i64; BENCHMARK_GOALS.len()])
             }));
             let _ = match result {
-                Ok(best) => tx.send(BenchmarkWorkerResult::Completed {
+                Ok((best, nodes)) => tx.send(BenchmarkWorkerResult::Completed {
                     elapsed: started.elapsed(),
                     found_build: best.is_some(),
+                    nodes,
                 }),
                 Err(payload) => tx.send(BenchmarkWorkerResult::Panicked(benchmark_panic_message(
                     payload,
@@ -2744,21 +2755,22 @@ mod tests {
             };
         });
 
-        let wall_time = match rx.recv_timeout(Duration::from_secs(TIME_LIMIT_SECS)) {
+        let (wall_time, nodes) = match rx.recv_timeout(Duration::from_secs(TIME_LIMIT_SECS)) {
             Ok(BenchmarkWorkerResult::Completed {
                 elapsed,
                 found_build,
+                nodes,
             }) => {
                 assert!(
                     found_build,
                     "benchmark search unexpectedly returned no build"
                 );
-                BenchmarkWallTime::Completed(elapsed)
+                (BenchmarkWallTime::Completed(elapsed), Some(nodes))
             }
             Ok(BenchmarkWorkerResult::Panicked(message)) => {
                 panic!("benchmark worker thread panicked: {message}");
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => BenchmarkWallTime::TimedOut,
+            Err(mpsc::RecvTimeoutError::Timeout) => (BenchmarkWallTime::TimedOut, None),
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 panic!("benchmark worker thread disconnected before reporting")
             }
@@ -2770,6 +2782,7 @@ mod tests {
             pair_super_counts,
             hand_configuration_count,
             wall_time,
+            nodes,
         }
     }
 
@@ -2827,7 +2840,7 @@ mod tests {
         if profiles.len() == 1 {
             println!("profile filter: {}", profiles[0].env_label());
         }
-        println!("| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |");
+        println!("| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time | nodes | nodes/s |");
 
         let mut summaries = Vec::new();
         let mut warned_contamination = false;
@@ -2838,7 +2851,7 @@ mod tests {
             for n in 8usize..=MAX_N {
                 let run = run_benchmark_profile(profile, n);
                 println!(
-                    "| {} | {} | {} | {} | {} | {} | {} |",
+                    "| {} | {} | {} | {} | {} | {} | {} | {} | {} |",
                     profile.label(),
                     n,
                     format_benchmark_counts(&run.raw_pool_sizes),
@@ -2846,7 +2859,13 @@ mod tests {
                     format_benchmark_counts(&run.pair_super_counts),
                     run.hand_configuration_count,
                     run.wall_time.display(),
-                );
+                    run.nodes.map_or("-".to_string(), |n| n.to_string()),
+                    match (&run.wall_time, run.nodes) {
+                        (BenchmarkWallTime::Completed(e), Some(n)) if e.as_secs_f64() > 0.0 =>
+                            format!("{:.0}", n as f64 / e.as_secs_f64()),
+                        _ => "-".to_string(),
+                    },
+                  );
 
                 if run.wall_time.completed_within_limit() {
                     last_completed = Some(n);

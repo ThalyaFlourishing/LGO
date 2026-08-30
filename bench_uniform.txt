@@ -1,20 +1,22 @@
 
 running 1 test
 benchmark_candidate_caps
-goals: ["Morale:20000", "Critical Rating:280000", "Tactical Mastery:20000", "Physical Mastery:120000", "Tactical Mitigation:200000", "Evade:200000", "Block:200000", "Physical Mitigation:200000", "Outgoing Healing:200000"]
+goals: ["Critical Rating:1000", "Tactical Mastery:7000", "Physical Mastery:3000", "Tactical Mitigation:11000"]
 time limit: 100s per optimization run
-max N: 10
+max N: 40
 profile filter: Uniform
-| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time |
-| Uniform | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:8 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:26 Nk:8 Fi:26 Er:26 Po:8 MH+OH:21 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 27 | 0.513s |
-| Uniform | 9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:9 Nk:9 Fi:9 Er:9 Po:9 MH+OH:9 Ra:9 Ci:9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:32 Nk:9 Fi:32 Er:32 Po:9 MH+OH:26 Ra:9 Ci:9 | Wr:36 Fi:36 Er:36 | 38 | 1.005s |
-| Uniform | 10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:10 Nk:10 Fi:10 Er:10 Po:10 MH+OH:10 Ra:10 Ci:10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:38 Nk:10 Fi:38 Er:38 Po:10 MH+OH:31 Ra:10 Ci:10 | Wr:45 Fi:45 Er:45 | 51 | 1.961s |
+| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time | nodes | nodes/s |
+| Uniform | 8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:8 Nk:8 Fi:8 Er:8 Po:8 MH+OH:8 Ra:8 Ci:8 | Hd:8 Ch:8 Lg:8 Ha:8 Ft:8 Sh:8 Bk:8 Wr:22 Nk:8 Fi:22 Er:22 Po:8 MH+OH:18 Ra:8 Ci:8 | Wr:28 Fi:28 Er:28 | 27 | 1.256s | 2791183 | 2222232 |
+| Uniform | 9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:9 Nk:9 Fi:9 Er:9 Po:9 MH+OH:9 Ra:9 Ci:9 | Hd:9 Ch:9 Lg:9 Ha:9 Ft:9 Sh:9 Bk:9 Wr:26 Nk:9 Fi:26 Er:26 Po:9 MH+OH:22 Ra:9 Ci:9 | Wr:36 Fi:36 Er:36 | 38 | 9.605s | 21316036 | 2219173 |
+test optimizer::tests::benchmark_candidate_caps has been running for over 60 seconds
+| Uniform | 10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:10 Nk:10 Fi:10 Er:10 Po:10 MH+OH:10 Ra:10 Ci:10 | Hd:10 Ch:10 Lg:10 Ha:10 Ft:10 Sh:10 Bk:10 Wr:30 Nk:10 Fi:30 Er:30 Po:10 MH+OH:26 Ra:10 Ci:10 | Wr:45 Fi:45 Er:45 | 51 | >100s | - | - |
+WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE.
 
 benchmark_candidate_caps summary
-Uniform: completed through N = 10 without breaching 100s
+Uniform: last N within 100s = 9; breached at N = 10
 test optimizer::tests::benchmark_candidate_caps ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 3.48s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 110.87s
 
 
 running 0 tests
