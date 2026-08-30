@@ -790,7 +790,7 @@ mod tests {
     const BENCHMARK_BASELINE_SLOT_CANDIDATES: usize = 40;
     const BENCHMARK_BASELINE_HAND_CANDIDATES: usize = 60;
 
-    const BENCHMARK_GOALS: [(Stat, i64); 4] = [        
+    const BENCHMARK_GOALS: [(Stat, i64); 4] = [
         (Stat::CriticalRating, 1_000),
         (Stat::TacticalMastery, 7_000),
         (Stat::PhysicalMastery, 3_000),
@@ -1679,7 +1679,8 @@ mod tests {
             &HashMap::new(),
         );
         assert_eq!(
-            result.gear_set.items[&Slot::Head].name, "Head9",
+            result.gear_set.items[&Slot::Head].name,
+            "Head9",
             "optimizer should search all 9 candidates and choose the best"
         );
     }
@@ -1730,7 +1731,7 @@ mod tests {
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
-            &HashMap::new()
+            &HashMap::new(),
         );
         assert_eq!(result.gear_set.items[&Slot::Head].name, "Head8");
     }
@@ -1756,7 +1757,7 @@ mod tests {
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
-            &HashMap::new()
+            &HashMap::new(),
         );
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 150);
     }
@@ -2733,7 +2734,7 @@ mod tests {
                             format!("{:.0}", n as f64 / e.as_secs_f64()),
                         _ => "-".to_string(),
                     },
-                  );
+                );
 
                 if run.wall_time.completed_within_limit() {
                     last_completed = Some(n);

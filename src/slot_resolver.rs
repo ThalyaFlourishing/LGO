@@ -734,7 +734,8 @@ fn attach_outcome_comments_to_stat_block_header(table: &mut Table, header_commen
             .leaf_decor()
             .prefix()
             .and_then(|prefix| prefix.as_str())
-            .unwrap_or("");
+            .unwrap_or("")
+            .to_string();
         key_mut
             .leaf_decor_mut()
             .set_prefix(format!("{}{}", header_comments, existing_prefix));
