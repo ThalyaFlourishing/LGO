@@ -11,23 +11,9 @@
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
 
 use crate::gear::{GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-/// Maximum supported candidates per canonical slot or paired-slot family.
-/// Keeps paired-slot enumeration bounded (max 8×7/2 = 28 real pairs, plus
-/// singleton empty-placeholder pairs).
-pub const MAX_CANDIDATES_PER_SLOT: usize = 40;
-
-/// Maximum supported combined real-item candidates across both hand slots:
-/// Main-hand-only + Off-hand-only + Either-hand items. The two hand slots are
-/// searched as one combined pool, so they share this single cap instead of the
-/// per-slot cap that applies to every other slot and paired family.
-pub const MAX_HAND_CANDIDATES_COMBINED: usize = 60;
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -41,41 +27,6 @@ pub struct OptimizeResult {
     /// Warning messages (e.g. empty-slot placeholders).
     pub warnings: Vec<String>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OptimizeError {
-    TooManyCandidates {
-        slot_label: String,
-        count: usize,
-        max: usize,
-    },
-    /// The two hand slots share one combined candidate cap. `count` is the
-    /// number of Main-hand-only + Off-hand-only + Either-hand real items.
-    TooManyHandCandidates { count: usize, max: usize },
-}
-
-impl fmt::Display for OptimizeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OptimizeError::TooManyCandidates {
-                slot_label,
-                count,
-                max,
-            } => write!(
-                f,
-                "Too many candidates for slot \"{}\": {} provided, maximum allowed is {}. Remove items from the 'lgo' chest and re-export before running 'lgo optimize'.",
-                slot_label, count, max
-            ),
-            OptimizeError::TooManyHandCandidates { count, max } => write!(
-                f,
-                "Too many hand candidates: {} provided, maximum allowed is {}. The two hand slots share one combined cap, counting Main-hand-only, Off-hand-only, and Either-hand items together. Remove hand items from the 'lgo' chest and re-export before running 'lgo optimize'.",
-                count, max
-            ),
-        }
-    }
-}
-
-impl std::error::Error for OptimizeError {}
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -281,8 +232,8 @@ pub fn optimize(
     candidates: &[String],
     goals: &[StatGoal],
     innate_stats: &HashMap<Stat, i64>,
-) -> Result<OptimizeResult, Box<OptimizeError>> {
-    let (pools, warnings) = build_search_pools(resolved, candidates, goals, true)?;
+) -> OptimizeResult {
+    let (pools, warnings) = build_search_pools(resolved, candidates, goals, true);
     let innate_goal_totals = innate_goal_totals(innate_stats, goals);
     let best = exact_search(&pools, goals, &innate_goal_totals).unwrap_or_else(|| SearchBuild {
         totals: innate_goal_totals.clone(),
@@ -298,12 +249,12 @@ pub fn optimize(
     let failed_minima = failed_minima(&gear_set, goals);
     let feasible = failed_minima.is_empty();
 
-    Ok(OptimizeResult {
+    OptimizeResult {
         gear_set,
         feasible,
         failed_minima,
         warnings,
-    })
+    }
 }
 
 // ── Objective comparator ─────────────────────────────────────────────────────
@@ -365,7 +316,7 @@ fn build_search_pools(
     candidates: &[String],
     goals: &[StatGoal],
     apply_dominance: bool,
-) -> Result<(Vec<SearchPool>, Vec<String>), Box<OptimizeError>> {
+) -> (Vec<SearchPool>, Vec<String>) {
     let mut warnings: Vec<String> = Vec::new();
     let mut pools: HashMap<Slot, Vec<Candidate>> = HashMap::new();
 
@@ -388,8 +339,6 @@ fn build_search_pools(
         };
         pools.entry(canonical).or_default().push(cand);
     }
-
-    validate_candidate_pool_sizes(&pools)?;
 
     for slot in Slot::all() {
         let canonical = canonical_slot(slot);
@@ -427,14 +376,13 @@ fn build_search_pools(
             continue;
         }
         // The two hand slots form one combined pool, built when MainHand is
-        // reached (it precedes OffHand in Slot::all()). The per-slot candidate
-        // cap was already enforced on the source pools above; the combined
-        // pool is deliberately allowed to exceed it pre-dominance.
+        // reached (it precedes OffHand in Slot::all()).
         if canonical == Slot::OffHand {
             continue;
         }
 
-        // Keep benchmark_candidate_caps in sync: its test-only harness mirrors this structural pipeline below the cap validation gate.
+        // Keep benchmark_candidate_scaling in sync: its test-only harness mirrors
+        // this structural pipeline.
         let mut choices: Vec<Choice> = if canonical == Slot::MainHand {
             build_hand_choices(
                 pools.get(&Slot::MainHand).map(Vec::as_slice).unwrap_or(&[]),
@@ -476,7 +424,7 @@ fn build_search_pools(
         search_pools.push(SearchPool { choices });
     }
 
-    Ok((search_pools, warnings))
+    (search_pools, warnings)
 }
 
 fn dominance_filter(choices: Vec<Choice>, goals: &[StatGoal]) -> Vec<Choice> {
@@ -821,49 +769,6 @@ fn slot_display(slot: Slot) -> &'static str {
     slot.display_name()
 }
 
-fn validate_candidate_pool_sizes(
-    pools: &HashMap<Slot, Vec<Candidate>>,
-) -> Result<(), Box<OptimizeError>> {
-    let mut seen = HashSet::new();
-
-    for slot in Slot::all() {
-        let canonical = canonical_slot(slot);
-        if !seen.insert(canonical) {
-            continue;
-        }
-
-        // The two hand slots share a single combined cap enforced below; the
-        // per-slot cap does not apply to them.
-        if canonical == Slot::MainHand || canonical == Slot::OffHand {
-            continue;
-        }
-
-        if let Some(pool) = pools.get(&canonical) {
-            if pool.len() > MAX_CANDIDATES_PER_SLOT {
-                return Err(Box::new(OptimizeError::TooManyCandidates {
-                    slot_label: slot_display(canonical).to_string(),
-                    count: pool.len(),
-                    max: MAX_CANDIDATES_PER_SLOT,
-                }));
-            }
-        }
-    }
-
-    // Combined hand cap: Main-hand-only + Off-hand-only + Either-hand real
-    // items across both hand slots. Either-hand items are counted once, in the
-    // Off-hand pool where they are resolved.
-    let hand_count = pools.get(&Slot::MainHand).map_or(0, Vec::len)
-        + pools.get(&Slot::OffHand).map_or(0, Vec::len);
-    if hand_count > MAX_HAND_CANDIDATES_COMBINED {
-        return Err(Box::new(OptimizeError::TooManyHandCandidates {
-            count: hand_count,
-            max: MAX_HAND_CANDIDATES_COMBINED,
-        }));
-    }
-
-    Ok(())
-}
-
 // ────────── TESTS ───────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -877,11 +782,13 @@ mod tests {
     use std::thread;
     use std::time::{Duration, Instant};
 
-    // benchmark_candidate_caps:
+    // benchmark_candidate_scaling:
     // Edit this single constant to raise or lower the per-run cutoff. The limit
     // applies to each individual optimizer search, not to the whole harness.
     const TIME_LIMIT_SECS: u64 = 100;
     const MAX_N: usize = 40;
+    const BENCHMARK_BASELINE_SLOT_CANDIDATES: usize = 40;
+    const BENCHMARK_BASELINE_HAND_CANDIDATES: usize = 60;
 
     const BENCHMARK_GOALS: [(Stat, i64); 4] = [        
         (Stat::CriticalRating, 1_000),
@@ -949,21 +856,21 @@ mod tests {
         fn singleton_count(self, n: usize) -> usize {
             match self {
                 Self::Uniform | Self::SinglesAtN => n,
-                Self::PairsAtN | Self::HandsAtN => MAX_CANDIDATES_PER_SLOT,
+                Self::PairsAtN | Self::HandsAtN => BENCHMARK_BASELINE_SLOT_CANDIDATES,
             }
         }
 
         fn paired_count(self, n: usize) -> usize {
             match self {
                 Self::Uniform | Self::PairsAtN => n,
-                Self::SinglesAtN | Self::HandsAtN => MAX_CANDIDATES_PER_SLOT,
+                Self::SinglesAtN | Self::HandsAtN => BENCHMARK_BASELINE_SLOT_CANDIDATES,
             }
         }
 
         fn hand_count(self, n: usize) -> usize {
             match self {
                 Self::Uniform | Self::HandsAtN => n,
-                Self::SinglesAtN | Self::PairsAtN => MAX_HAND_CANDIDATES_COMBINED,
+                Self::SinglesAtN | Self::PairsAtN => BENCHMARK_BASELINE_HAND_CANDIDATES,
             }
         }
     }
@@ -1089,7 +996,7 @@ mod tests {
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
-        optimize(resolved, candidates, goals, &HashMap::new()).expect("optimization should succeed")
+        optimize(resolved, candidates, goals, &HashMap::new())
     }
 
     fn single_slot_result(
@@ -1120,8 +1027,7 @@ mod tests {
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
-        let (pools, warnings) = build_search_pools(resolved, candidates, goals, false)
-            .expect("oracle inputs should be within candidate cap");
+        let (pools, warnings) = build_search_pools(resolved, candidates, goals, false);
         let best = oracle_best_build(&pools, goals).expect("oracle pools should not be empty");
         let mut gear_set = GearSet::new(HashMap::new());
         for choice in &best.choices {
@@ -1399,8 +1305,7 @@ mod tests {
             &["A".to_string(), "B".to_string()],
             &goals,
             &innate_stats,
-        )
-        .expect("optimization should succeed");
+        );
 
         assert_eq!(
             result
@@ -1756,7 +1661,7 @@ mod tests {
     }
 
     #[test]
-    fn test_too_many_single_slot_candidates_is_refused() {
+    fn test_formerly_over_cap_single_slot_candidates_are_allowed() {
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
@@ -1767,25 +1672,20 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(
+        let result = optimize(
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-        )
-        .unwrap_err();
+        );
         assert_eq!(
-            *err,
-            OptimizeError::TooManyCandidates {
-                slot_label: "Head".to_string(),
-                count: 9,
-                max: 8,
-            }
+            result.gear_set.items[&Slot::Head].name, "Head9",
+            "optimizer should search all 9 candidates and choose the best"
         );
     }
 
     #[test]
-    fn test_too_many_paired_family_candidates_is_refused() {
+    fn test_formerly_over_cap_paired_family_candidates_are_allowed() {
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=9usize {
@@ -1801,25 +1701,21 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(
+        let result = optimize(
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-        )
-        .unwrap_err();
+        );
         assert_eq!(
-            *err,
-            OptimizeError::TooManyCandidates {
-                slot_label: "Finger".to_string(),
-                count: 9,
-                max: 8,
-            }
+            result.gear_set.total(&Stat::CriticalRating),
+            170,
+            "optimizer should search all 9 ring candidates and choose the best pair"
         );
     }
 
     #[test]
-    fn test_exactly_eight_candidates_is_allowed() {
+    fn test_eight_candidates_is_allowed() {
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=8usize {
@@ -1830,13 +1726,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(
+        let result = optimize(
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new()
-        )
-        .is_ok());
+        );
+        assert_eq!(result.gear_set.items[&Slot::Head].name, "Head8");
     }
 
     #[test]
@@ -1856,13 +1752,13 @@ mod tests {
             );
             names.push(name);
         }
-        assert!(optimize(
+        let result = optimize(
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new()
-        )
-        .is_ok());
+        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 150);
     }
 
     #[test]
@@ -2137,10 +2033,7 @@ mod tests {
 
     #[test]
     fn test_combined_hand_pool_of_twelve_is_allowed() {
-        // The two hand slots share one combined cap of 12. Six main-hand items
-        // plus six off-hand items is exactly at the cap and must be accepted.
-        // (Updated for Task 3: the old per-slot cap of 8 no longer applies to
-        // the hand slots.)
+        // Six main-hand items plus six off-hand items should be accepted.
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=6usize {
@@ -2169,21 +2062,12 @@ mod tests {
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
         );
-        assert!(
-            result.is_ok(),
-            "12 combined hand candidates must be within the cap"
-        );
         // Best: Main6 (60, two-handed) beats Main5 (50, 1H) + Off6 (6) = 56.
-        let result = result.unwrap();
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 60);
     }
 
     #[test]
-    fn test_thirteen_combined_hand_candidates_is_refused() {
-        // Thirteen real hand items (7 main-hand + 6 off-hand) exceed the
-        // combined cap of 12 and must be refused with a message stating the
-        // count, the cap, and the counted categories. (Updated for Task 3: the
-        // old test refused 9 main-hand items under the per-slot cap.)
+    fn test_formerly_over_cap_combined_hand_candidates_are_allowed() {
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         let mut names: Vec<String> = Vec::new();
         for i in 1..=7usize {
@@ -2202,29 +2086,13 @@ mod tests {
             );
             names.push(name);
         }
-        let err = optimize(
+        let result = optimize(
             &resolved,
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-        )
-        .unwrap_err();
-        assert_eq!(
-            *err,
-            OptimizeError::TooManyHandCandidates { count: 13, max: 12 }
         );
-        let message = err.to_string();
-        assert!(
-            message.contains("13"),
-            "message states the count: {message}"
-        );
-        assert!(message.contains("12"), "message states the cap: {message}");
-        assert!(
-            message.contains("Main-hand-only")
-                && message.contains("Off-hand-only")
-                && message.contains("Either-hand"),
-            "message names the counted categories: {message}"
-        );
+        assert_eq!(result.gear_set.total(&Stat::CriticalRating), 13);
     }
 
     #[test]
@@ -2788,13 +2656,13 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn benchmark_candidate_caps() {
+    fn benchmark_candidate_scaling() {
         /*
-        benchmark_candidate_caps is an ignored empirical harness for tuning the
-        optimizer's candidate caps from data rather than guesses.
+        benchmark_candidate_scaling is an ignored empirical harness for tuning the
+        optimizer's candidate-pool scaling from data rather than guesses.
 
         Run only this benchmark with:
-            LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+            LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_scaling -- --ignored --nocapture
 
         Optional isolation:
             LGO_BENCH_PROFILE=Uniform|Singles|Pairs|Hands
@@ -2814,12 +2682,12 @@ mod tests {
         let mut should_return = false;
         if cfg!(debug_assertions) {
             println!(
-                "WARNING: benchmark_candidate_caps should be run with --release; debug timings are meaningless."
+                "WARNING: benchmark_candidate_scaling should be run with --release; debug timings are meaningless."
             );
             should_return = true;
         }
         if env::var("LGO_RUN_BENCH").ok().as_deref() != Some("1") {
-            println!("benchmark_candidate_caps skipped: set LGO_RUN_BENCH=1 to run it.");
+            println!("benchmark_candidate_scaling skipped: set LGO_RUN_BENCH=1 to run it.");
             should_return = true;
         }
         if should_return {
@@ -2827,7 +2695,7 @@ mod tests {
         }
 
         let profiles = benchmark_profiles_from_env();
-        println!("benchmark_candidate_caps");
+        println!("benchmark_candidate_scaling");
         println!(
             "goals: {:?}",
             BENCHMARK_GOALS
@@ -2873,7 +2741,7 @@ mod tests {
                     breach_at = Some(n);
                     if !warned_contamination {
                         println!(
-                            "WARNING: benchmark_candidate_caps timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE."
+                            "WARNING: benchmark_candidate_scaling timed out; the runaway worker thread is still consuming a CPU core, so all later profiles are timing-contaminated and should be re-run individually with LGO_BENCH_PROFILE."
                         );
                         warned_contamination = true;
                     }
@@ -2885,7 +2753,7 @@ mod tests {
         }
 
         println!();
-        println!("benchmark_candidate_caps summary");
+        println!("benchmark_candidate_scaling summary");
         for (profile, last_completed, breach_at) in summaries {
             match (last_completed, breach_at) {
                 (Some(last), Some(breach)) => {

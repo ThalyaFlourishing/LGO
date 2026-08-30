@@ -1,5 +1,5 @@
 
-How many items can optimizer handle in the pool before it becomes unbearably slow? The built-in benchmark test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing production cap enforcement or any production search path.
+How many items can optimizer handle in the pool before it becomes unbearably slow? The built-in benchmark test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing any production search path.
 
 Benchmark testing has produced the following answers to that question and others:
 
@@ -25,8 +25,8 @@ The test code resides in `src/optimizer` at the top of the TESTS section, around
 Editable parameters:
   . const TIME_LIMIT_SECS: u64 = 600; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
   . const BENCHMARK_GOALS: [(Stat, i64); 3] — the fixed 3-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
-  . MAX_CANDIDATES_PER_SLOT: This sets the *starting point* of the tests. If this value is 8, then the test begins at 8 items per slot and goes up from there.
-  . MAX_HAND_CANDIDATES_COMBINED: This sets the starting point of the combined-slot pairs. If this value is 12, then the test begins at 12 items per slot pair and goes up from there. (e.g. finger, ear, wrist)
+  . BENCHMARK_BASELINE_SLOT_CANDIDATES: This sets the baseline item count for slots/families that are not varied by the selected profile.
+  . BENCHMARK_BASELINE_HAND_CANDIDATES: This sets the baseline item count for the combined hand pool when it is not varied by the selected profile.
   . MAX_N: The value of 'N' past which the tests will stop. (In case the tests are still not exceeding 'TIME_LIMIT_SECS'.)
 
 (Do not edit BENCHMARK_SINGLETON_SLOTS / BENCHMARK_PAIRED_FAMILIES. These are structural constants)
@@ -49,10 +49,10 @@ Hands-at-N      Only the combined hand pool    Was 12 the right number for hands
 
 
 # To run all four profiles in one go (fine if nothing times out):
-LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_all.txt
+LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_all.txt
 
 # Per-profile isolation (after any timeout, or for clean measurements):
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Uniform cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_uniform.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Singles cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_singles.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Pairs   cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_pairs.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Hands   cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_hands.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Uniform cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_uniform.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Singles cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_singles.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Pairs   cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_pairs.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Hands   cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_hands.txt

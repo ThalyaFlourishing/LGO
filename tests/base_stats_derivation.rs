@@ -65,8 +65,7 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
         })
         .collect();
     let raw_keys: Vec<String> = raw_resolved.keys().cloned().collect();
-    let underived = optimize(&raw_resolved, &raw_keys, &goals, &raw_doc.innate_stats)
-        .expect("underived optimize must succeed");
+    let underived = optimize(&raw_resolved, &raw_keys, &goals, &raw_doc.innate_stats);
     let tm_underived = underived.gear_set.total(&Stat::TacticalMastery);
 
     // Per-item derived TM contributions and raw tracked TM, keyed by display
@@ -121,8 +120,7 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimize(&resolved, &keys, &goals, &derived_doc.innate_stats)
-        .expect("derived optimize must succeed");
+    let result = optimize(&resolved, &keys, &goals, &derived_doc.innate_stats);
     let tm_derived = result.gear_set.total(&Stat::TacticalMastery);
 
     // Recompute the expected total independently from the raw fixture: each
@@ -193,8 +191,7 @@ name = "Statless Helm"
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result =
-        optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats).expect("optimize must succeed");
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
 
     // Real Lore-master coefficients: Will → TacticalMastery 3.0, so
     // ceil(7950 × 3.0) = 23850, integral and exact.

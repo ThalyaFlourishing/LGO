@@ -107,6 +107,37 @@ fn assert_stat_assignments_align_to_column_20(src: &str) {
                 line
             );
         }
+
+        fn item_block_for_name(src: &str, name: &str) -> String {
+            let name_marker = format!("\"{}\"", name);
+            let name_pos = src
+                .find(&name_marker)
+                .unwrap_or_else(|| panic!("item {name} must be present:\n{src}"));
+            let start = src[..name_pos]
+                .rfind("[[item]]")
+                .expect("item block starts before name");
+            let rest = &src[start..];
+            let end = rest[1..]
+                .find("[[item]]")
+                .map(|idx| idx + 1)
+                .unwrap_or(rest.len());
+            rest[..end].to_string()
+        }
+
+        fn assert_outcome_comment_is_before_stat_block(block: &str, comment: &str) {
+            let comment_pos = block
+                .find(comment)
+                .unwrap_or_else(|| panic!("expected comment {comment:?} in block:\n{block}"));
+            let first_stat_pos = canonical_stat_keys()
+                .iter()
+                .filter_map(|key| block.find(&format!("{key} ")))
+                .min()
+                .expect("item block contains canonical stats");
+            assert!(
+                comment_pos < first_stat_pos,
+                "outcome comment must be in the header before the stat block:\n{block}"
+            );
+        }
     }
     assert!(
         saw_stat_line,
@@ -665,6 +696,75 @@ fn file_level_rerun_preserves_essence_totals_and_normalizes_partial_canonical_fi
                 "name": "Test Helm",
                 "slot": "Head",
                 "stats": {}
+            }
+
+            #[test]
+            fn file_level_unresolved_comment_stays_in_item_header_across_repeated_resolution() {
+                let dir = make_temp_dir("unresolved_header");
+                let character = "TestChar";
+                let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+                let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+                let db = lgo::slot_resolver::ItemsDb::from_json_str(
+                    r#"{
+                        "Test Greatsword": {
+                            "name": "Test Greatsword",
+                            "slot": "Main-hand",
+                            "two_handed": true
+                        }
+                    }"#,
+                    Path::new("<test-fixture>"),
+                )
+                .expect("synthetic DB must parse");
+
+                let bookmarklet_text = "\
+            [[item]]
+            slot = \"Unknown\"
+            name = \"Test Greatsword\"
+            Morale = 0
+            Power = 0
+            Armor = 0
+            # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+            CriticalRating = 7
+            ";
+
+                std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet first run");
+                let _ = lgo::slot_resolver::resolve_stats_file(
+                    &dir,
+                    character,
+                    &db,
+                    lgo::slot_resolver::ForceMode::NoForce,
+                )
+                .expect("first run must succeed");
+                let after_first = std::fs::read_to_string(&canonical).expect("read canonical first run");
+                let first_block = item_block_for_name(&after_first, "Test Greatsword");
+                assert_outcome_comment_is_before_stat_block(&first_block, "# UNRESOLVED:");
+                assert!(
+                    first_block.find("\"Test Greatsword\"").unwrap()
+                        < first_block.find("two_handed = true").unwrap()
+                        && first_block.find("two_handed = true").unwrap()
+                            < first_block.find("# UNRESOLVED:").unwrap(),
+                    "generated metadata should remain between name and unresolved comment:\n{first_block}"
+                );
+
+                std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet second run");
+                let _ = lgo::slot_resolver::resolve_stats_file(
+                    &dir,
+                    character,
+                    &db,
+                    lgo::slot_resolver::ForceMode::NoForce,
+                )
+                .expect("second run must succeed");
+                let after_second = std::fs::read_to_string(&canonical).expect("read canonical second run");
+                let second_block = item_block_for_name(&after_second, "Test Greatsword");
+                assert_outcome_comment_is_before_stat_block(&second_block, "# UNRESOLVED:");
+                assert_eq!(
+                    second_block.matches("# UNRESOLVED:").count(),
+                    1,
+                    "unresolved comment should not duplicate across reruns:\n{second_block}"
+                );
+
+                let _ = std::fs::remove_dir_all(&dir);
             }
         }"#,
         Path::new("<test-fixture>"),

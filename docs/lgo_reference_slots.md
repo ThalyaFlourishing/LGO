@@ -68,7 +68,4 @@ Real items are required: the empty-hand placeholder for a hand position is
 selectable only when that position has no eligible real item. On an exact
 stat tie between a real item and the placeholder, the real item wins.
 
-The combined hand pool (Main-hand-only + Off-hand-only + Either-hand real
-items) shares a single candidate cap of 12, in place of the per-slot cap of 8
-that applies to every other slot and paired family.
 

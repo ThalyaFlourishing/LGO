@@ -65,8 +65,7 @@ LGO compares complete builds using the clamped-satisfaction objective from
 
 The search is exact (dominance pre-filter + branch-and-bound). A solution is
 **feasible** only if all positive minima are met, but feasible and infeasible
-results are compared with the same objective. If any single slot or paired
-family has more than 8 candidates, `lgo optimize` refuses instead of truncating.
+results are compared with the same objective.
 
 ## Contributing / AI model guidance
 

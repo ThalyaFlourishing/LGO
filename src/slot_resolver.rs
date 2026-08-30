@@ -662,13 +662,83 @@ fn normalize_existing_canonical_stat_decor(table: &mut Table) {
 /// populated `[item.EssenceTotals]` child table with the same key layout.
 /// Existing values — tracked and Base alike — pass through unchanged.
 fn canonicalize_item_stats(table: &mut Table) {
+    let header_comment_prefix = take_outcome_comments_from_stat_prefixes(table);
     let explicit = read_item_stats(table);
     let essence = read_essence_stats(table);
     let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
     table.remove(ESSENCE_TOTALS_KEY);
     insert_canonical_stats(table, &explicit, &old_items);
+    attach_outcome_comments_to_stat_block_header(table, &header_comment_prefix);
     insert_essence_totals(table, &essence, essence_decor);
+}
+
+fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
+    let mut header_comments = String::new();
+    for (_, key) in canonical_stat_entries() {
+        let Some((mut key_mut, _)) = table.get_key_value_mut(key) else {
+            continue;
+        };
+        let prefix = key_mut
+            .leaf_decor()
+            .prefix()
+            .and_then(|prefix| prefix.as_str())
+            .unwrap_or("");
+        if prefix.is_empty() {
+            continue;
+        }
+
+        let (outcome_comments, remaining_prefix) = split_outcome_comments(prefix);
+        if !outcome_comments.is_empty() {
+            header_comments.push_str(&outcome_comments);
+            let remaining_prefix = if remaining_prefix.trim().is_empty() {
+                String::new()
+            } else {
+                remaining_prefix
+            };
+            key_mut.leaf_decor_mut().set_prefix(remaining_prefix);
+        }
+    }
+    header_comments
+}
+
+fn split_outcome_comments(prefix: &str) -> (String, String) {
+    let mut outcome_comments = String::new();
+    let mut remaining_prefix = String::new();
+
+    for line in prefix.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("# UNRESOLVED:") || trimmed.starts_with("# AUTO-PICKED ") {
+            outcome_comments.push_str(trimmed);
+            if !outcome_comments.ends_with('\n') {
+                outcome_comments.push('\n');
+            }
+        } else {
+            remaining_prefix.push_str(line);
+        }
+    }
+
+    (outcome_comments, remaining_prefix)
+}
+
+fn attach_outcome_comments_to_stat_block_header(table: &mut Table, header_comments: &str) {
+    if header_comments.is_empty() {
+        return;
+    }
+    let first_stat_key = canonical_stat_entries()
+        .next()
+        .map(|(_, key)| *key)
+        .expect("canonical stat entries are non-empty");
+    if let Some((mut key_mut, _)) = table.get_key_value_mut(first_stat_key) {
+        let existing_prefix = key_mut
+            .leaf_decor()
+            .prefix()
+            .and_then(|prefix| prefix.as_str())
+            .unwrap_or("");
+        key_mut
+            .leaf_decor_mut()
+            .set_prefix(format!("{}{}", header_comments, existing_prefix));
+    }
 }
 
 #[derive(Clone)]

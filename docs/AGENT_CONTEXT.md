@@ -45,11 +45,11 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
-- `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, paired-slot super-candidates for Wrist/Finger/Ear, and a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract. Verified against a brute-force oracle by a differential fuzzer.
+- `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, and paired-slot super-candidates for Wrist/Finger/Ear. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
-- `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working). This also contains a hard `MAX_CANDIDATES_PER_SLOT = 8` refusal contract.
+- `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
 - `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` and `either_hand` flags) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
@@ -203,9 +203,7 @@ either_hand = true
   (main and off). A single owned instance fills only one hand; two owned
   copies may dual-wield. Real items are required for a hand position: the
   empty placeholder is offered only when that position has no eligible real
-  item, and a real item wins any exact tie against the placeholder. The two
-  hand slots share a single combined candidate cap of 12 (Main-hand-only +
-  Off-hand-only + Either-hand real items), instead of the per-slot cap of 8.
+  item, and a real item wins any exact tie against the placeholder.
 
 If any slot's candidate pool is empty, the optimizer does not halt; the report
 shows a `NO ITEMS` placeholder for that slot (a safety net for bad input).

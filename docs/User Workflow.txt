@@ -37,7 +37,6 @@ Detailed User Instructions
 
        /lgo export
 
-   NOTE: The plug-in will refuse to export if you have more than 8 items for any one slot type in your 'LGO' chest.
    The plugin writes one file into your character's plugin-data
    directory:
 
@@ -142,19 +141,6 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     maximise this stat in the later polish stage'. Two-letter
     abbreviations and full stat names are both accepted; see the
     Command Line Reference for the full list.
-
-    If any single slot or paired family (Wrist/Finger/Ear) has more
-    than 8 candidates, `lgo optimize` refuses and tells you to remove
-    some items before re-running the workflow. This check exists 
-    independently because you may also add items to gearReady.toml by 
-    hand.
-
-    The two hand slots are the exception: Main-hand and Off-hand share
-    one combined cap of 12 real items (Main-hand-only + Off-hand-only +
-    Either-hand items counted together), because they are optimized as a
-    single combined pool. If more than 12 hand items are present,
-    `lgo optimize` refuses with a message stating the count, the cap of
-    12, and which categories were counted.
 
     NOTE: optimize needs the class coefficient table in
     data/base_stat_derivations.json to derive your raw Base stats
