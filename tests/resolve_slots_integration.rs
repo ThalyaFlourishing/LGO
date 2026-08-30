@@ -134,14 +134,22 @@ fn assert_outcome_comment_is_before_stat_block(block: &str, comment: &str) {
     let comment_pos = block
         .find(comment)
         .unwrap_or_else(|| panic!("expected comment {comment:?} in block:\n{block}"));
-    let first_stat_pos = canonical_stat_keys()
+    let stat_positions: Vec<usize> = canonical_stat_keys()
         .iter()
         .filter_map(|key| block.find(&format!("{key} ")))
+        .collect();
+    let first_stat_pos = stat_positions
+        .iter()
+        .copied()
         .min()
         .expect("item block contains canonical stats");
     assert!(
         comment_pos < first_stat_pos,
         "outcome comment must be in the header before the stat block:\n{block}"
+    );
+    assert!(
+        stat_positions.iter().all(|pos| comment_pos < *pos),
+        "outcome comment must not remain attached to a later stat line:\n{block}"
     );
 }
 
