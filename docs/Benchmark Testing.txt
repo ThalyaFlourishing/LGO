@@ -6,7 +6,7 @@ Benchmark testing has produced the following answers to that question and others
   Recommendations:
     . If your optimization runs are far too slow, try reducing the number of goals you are trying to meet simultaneously. This will have a much larger effect than removing items from your pool.
 
-    . Although the item limit probably needs to exist as a safety wall for experimentation, no reasonable number of items will ever cause any significant degree of performance degradation. For a player to have, for example, 10 items for every slot, they would need to use all or nearly all of their shared storage space, and with four stated goals, the intense slow-down only occurs when there are more than 20 items for every slot. It is expected that no reasonable use of the optimizer will ever average more than 6 or 8 items per slot at most.
+    . No reasonable number of items has produced significant performance degradation in benchmarking. For a player to have, for example, 10 items for every slot, they would need to use all or nearly all of their shared storage space, and with four stated goals, the intense slow-down only occurs when there are more than 20 items for every slot. It is expected that no reasonable use of the optimizer will ever average more than 6 or 8 items per slot at most.
   
     . The number of goals is far more of a constraint. At 9 goals, even 8 items per slot *can be* unmanageably slow.
   
