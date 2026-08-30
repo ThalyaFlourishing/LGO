@@ -33,6 +33,8 @@ pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 const STAT_EQUALS_COLUMN: usize = 20;
 const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
+pub const UNRESOLVED_COMMENT_PREFIX: &str = "# UNRESOLVED:";
+pub const AUTO_PICKED_COMMENT_PREFIX: &str = "# AUTO-PICKED ";
 
 // =============================================================================
 // ItemsDb — name → Slot index
@@ -560,12 +562,13 @@ fn bucket_items(
         // (canonicalization removes all stat keys and re-appends them).
         // Unknown items are left untouched: a user-provided `two_handed`
         // flag on a hand-edited legendary/renamed item is preserved.
+        let outcome_comments = take_outcome_comments_from_item(&mut table);
         if db_slot.is_some() {
             set_two_handed_flag(&mut table, db.lookup_two_handed(&name));
             set_either_hand_flag(&mut table, db.lookup_either_hand(&name));
         }
 
-        canonicalize_item_stats(&mut table);
+        canonicalize_item_stats(&mut table, &outcome_comments);
         match db_slot {
             Some(slot) => {
                 // Rewrite slot field to canonical Display form. Existing key
@@ -661,14 +664,140 @@ fn normalize_existing_canonical_stat_decor(table: &mut Table) {
 /// followed by the five raw Base stats (zeros for omissions), then a fully
 /// populated `[item.EssenceTotals]` child table with the same key layout.
 /// Existing values — tracked and Base alike — pass through unchanged.
-fn canonicalize_item_stats(table: &mut Table) {
+fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
     let explicit = read_item_stats(table);
     let essence = read_essence_stats(table);
     let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
     table.remove(ESSENCE_TOTALS_KEY);
     insert_canonical_stats(table, &explicit, &old_items);
+    attach_outcome_comments_to_header(table, outcome_comments);
     insert_essence_totals(table, &essence, essence_decor);
+}
+
+/// Drain bookmarklet outcome comments from every place older outputs may have
+/// stored them, then reattach them only to item-header decor. This prevents
+/// comments parsed as stat-key prefixes from drifting with the stat block on
+/// repeated canonicalization.
+fn take_outcome_comments_from_item(table: &mut Table) -> String {
+    let mut header_comments = take_outcome_comments_from_header_decor(table);
+    header_comments.push_str(&take_outcome_comments_from_stat_prefixes(table));
+    header_comments
+}
+
+fn take_outcome_comments_from_header_decor(table: &mut Table) -> String {
+    let mut header_comments = String::new();
+    for key in ["slot", "name", "two_handed", "either_hand"] {
+        if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
+            let prefix = key_mut
+                .leaf_decor()
+                .prefix()
+                .and_then(|prefix| prefix.as_str())
+                .unwrap_or("");
+            let (outcome_comments, remaining_prefix) = split_outcome_comments(prefix);
+            if !outcome_comments.is_empty() {
+                header_comments.push_str(&outcome_comments);
+                let remaining_prefix = if remaining_prefix.trim().is_empty() {
+                    String::new()
+                } else {
+                    remaining_prefix
+                };
+                key_mut.leaf_decor_mut().set_prefix(remaining_prefix);
+            }
+        }
+
+        let Some(value) = table.get_mut(key).and_then(Item::as_value_mut) else {
+            continue;
+        };
+        let suffix = value
+            .decor()
+            .suffix()
+            .and_then(|suffix| suffix.as_str())
+            .unwrap_or("");
+        if suffix.is_empty() {
+            continue;
+        }
+
+        let (outcome_comments, remaining_suffix) = split_outcome_comments(suffix);
+        if !outcome_comments.is_empty() {
+            header_comments.push_str(&outcome_comments);
+            value.decor_mut().set_suffix(remaining_suffix);
+        }
+    }
+    header_comments
+}
+
+fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
+    let mut outcome_comments_from_stats = String::new();
+    for (_, key) in canonical_stat_entries() {
+        let Some((mut key_mut, _)) = table.get_key_value_mut(key) else {
+            continue;
+        };
+        let prefix = key_mut
+            .leaf_decor()
+            .prefix()
+            .and_then(|prefix| prefix.as_str())
+            .unwrap_or("");
+        if prefix.is_empty() {
+            continue;
+        }
+
+        let (outcome_comments, remaining_prefix) = split_outcome_comments(prefix);
+        if !outcome_comments.is_empty() {
+            outcome_comments_from_stats.push_str(&outcome_comments);
+            let remaining_prefix = if remaining_prefix.trim().is_empty() {
+                String::new()
+            } else {
+                remaining_prefix
+            };
+            key_mut.leaf_decor_mut().set_prefix(remaining_prefix);
+        }
+    }
+    outcome_comments_from_stats
+}
+
+fn split_outcome_comments(prefix: &str) -> (String, String) {
+    let mut outcome_comments = String::new();
+    let mut remaining_prefix = String::new();
+
+    for line in prefix.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with(UNRESOLVED_COMMENT_PREFIX)
+            || trimmed.starts_with(AUTO_PICKED_COMMENT_PREFIX)
+        {
+            outcome_comments.push_str(trimmed);
+            if !outcome_comments.ends_with('\n') {
+                outcome_comments.push('\n');
+            }
+        } else {
+            remaining_prefix.push_str(line);
+        }
+    }
+
+    (outcome_comments, remaining_prefix)
+}
+
+fn attach_outcome_comments_to_header(table: &mut Table, outcome_comments: &str) {
+    if outcome_comments.is_empty() {
+        return;
+    }
+    let target_key = ["two_handed", "either_hand", "name", "slot"]
+        .into_iter()
+        .find(|key| table.contains_key(key));
+    let Some(target_key) = target_key else {
+        return;
+    };
+    if let Some((mut key_mut, _)) = table.get_key_value_mut(target_key) {
+        let existing_prefix = key_mut
+            .leaf_decor()
+            .prefix()
+            .and_then(|prefix| prefix.as_str())
+            .unwrap_or("")
+            .to_string();
+        key_mut
+            .leaf_decor_mut()
+            .set_prefix(format!("{}{}", outcome_comments, existing_prefix));
+    }
 }
 
 #[derive(Clone)]
@@ -1148,12 +1277,15 @@ pub fn merge_into_canonical(
     // unknown items keep whatever the user wrote by hand.
     for t in &mut merged_tables {
         if let Some(name) = table_name(t) {
+            let outcome_comments = take_outcome_comments_from_item(t);
             if db.lookup(&name).is_some() {
                 set_two_handed_flag(t, db.lookup_two_handed(&name));
                 set_either_hand_flag(t, db.lookup_either_hand(&name));
             }
+            canonicalize_item_stats(t, &outcome_comments);
+        } else {
+            canonicalize_item_stats(t, "");
         }
-        canonicalize_item_stats(t);
         strip_family_dividers_from_prefix(t);
     }
 

@@ -39,7 +39,6 @@ import "Turbine.UI.Lotro";
 -- Keep objects alive (prevents GC from breaking slash commands)
 Thalya = Thalya or {};
 Thalya.lgo = Thalya.lgo or {};
-local MAX_CANDIDATES_PER_SLOT = 8;  -- keep in sync with Rust optimizer
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -432,12 +431,6 @@ local function ExportCombined(sharedChestName)
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
   SaveAccount("gearNames", out);
   Print("export: saved " .. tostring(#out.names) .. " owned item instances");
-  Print("NOTE: exported " .. tostring(#out.names) .. " item names. Candidate limits "
-    .. "are checked downstream by 'lgo optimize' (roughly "
-    .. tostring(MAX_CANDIDATES_PER_SLOT)
-    .. " per slot/family, with the two hand slots sharing one combined cap); if a "
-    .. "limit is exceeded, 'lgo optimize' will refuse to produce results until you "
-    .. "remove some.)");
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────
@@ -454,7 +447,7 @@ function Thalya.lgo.Command:Execute(command, arguments)
     Print("");
     Print("Workflow:");
     Print("  1) Open Shared Storage panel at least once");
-    Print("  2) Put candidate items in chest named 'lgo'. Candidate limits are checked later by 'lgo optimize' (about 8 per slot/family; the two hand slots share one combined cap).");
+    Print("  2) Put candidate items in chest named 'lgo'.");
     Print("  3) Run: /lgo export");
     return;
   end

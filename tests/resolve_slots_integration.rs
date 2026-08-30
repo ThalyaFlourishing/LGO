@@ -1,4 +1,6 @@
-use lgo::slot_resolver::ResolutionOutcome;
+use lgo::slot_resolver::{
+    ResolutionOutcome, AUTO_PICKED_COMMENT_PREFIX, UNRESOLVED_COMMENT_PREFIX,
+};
 use lgo::stat::{BASE_STATS, TRACKED_STATS};
 use std::path::{Path, PathBuf};
 
@@ -114,6 +116,106 @@ fn assert_stat_assignments_align_to_column_20(src: &str) {
     );
 }
 
+fn item_block_for_name(src: &str, name: &str) -> String {
+    let name_marker = format!("\"{}\"", name);
+    let name_pos = src
+        .find(&name_marker)
+        .unwrap_or_else(|| panic!("item {name} must be present:\n{src}"));
+    let start = src[..name_pos]
+        .rfind("[[item]]")
+        .expect("item block starts before name");
+    let rest = &src[start..];
+    let end = rest[1..]
+        .find("[[item]]")
+        .map(|idx| idx + 1)
+        .unwrap_or(rest.len());
+    rest[..end].to_string()
+}
+
+fn assert_outcome_comment_is_before_stat_block(block: &str, comment: &str) {
+    let comment_pos = block
+        .find(comment)
+        .unwrap_or_else(|| panic!("expected comment {comment:?} in block:\n{block}"));
+    let stat_positions: Vec<usize> = canonical_stat_keys()
+        .iter()
+        .filter_map(|key| block.find(&format!("{key} ")))
+        .collect();
+    let first_stat_pos = stat_positions
+        .iter()
+        .copied()
+        .min()
+        .expect("item block contains canonical stats");
+    assert!(
+        comment_pos < first_stat_pos,
+        "outcome comment must be in the header before the stat block:\n{block}"
+    );
+    assert!(
+        stat_positions.iter().all(|pos| comment_pos < *pos),
+        "outcome comment must not remain attached to a later stat line:\n{block}"
+    );
+}
+
+fn with_item_table_named<R>(src: &str, name: &str, f: impl FnOnce(&toml_edit::Table) -> R) -> R {
+    let doc: toml_edit::DocumentMut = src.parse().expect("output parses as TOML");
+    let tables = doc
+        .get("item")
+        .and_then(|v| v.as_array_of_tables())
+        .expect("output has [[item]]");
+    let table = tables
+        .iter()
+        .find(|table| table.get("name").and_then(|value| value.as_str()) == Some(name))
+        .unwrap_or_else(|| panic!("item {name} must be present"));
+    f(table)
+}
+
+fn decor_repr(decor: Option<&toml_edit::RawString>) -> &str {
+    decor.and_then(|raw| raw.as_str()).unwrap_or("")
+}
+
+fn assert_outcome_comment_is_attached_to_header_not_stats(
+    src: &str,
+    name: &str,
+    header_key: &str,
+    comment: &str,
+) {
+    with_item_table_named(src, name, |table| {
+        let (header_key_decor, header_value) = table
+            .get_key_value(header_key)
+            .unwrap_or_else(|| panic!("{header_key} must be present in item {name}"));
+        let header_prefix = decor_repr(header_key_decor.leaf_decor().prefix());
+        let header_suffix = header_value
+            .as_value()
+            .map(|value| decor_repr(value.decor().suffix()))
+            .unwrap_or("");
+        assert!(
+            header_prefix.contains(comment) || header_suffix.contains(comment),
+            "outcome comment must be attached to {header_key} header decor:\nprefix={header_prefix:?}\nsuffix={header_suffix:?}"
+        );
+
+        for key in canonical_stat_keys() {
+            let Some((stat_key, stat_item)) = table.get_key_value(key) else {
+                continue;
+            };
+            let key_prefix = decor_repr(stat_key.leaf_decor().prefix());
+            assert!(
+                !key_prefix.contains(UNRESOLVED_COMMENT_PREFIX)
+                    && !key_prefix.contains(AUTO_PICKED_COMMENT_PREFIX),
+                "outcome comment must not be attached to {key} key prefix:\n{key_prefix:?}"
+            );
+
+            let value_suffix = stat_item
+                .as_value()
+                .map(|value| decor_repr(value.decor().suffix()))
+                .unwrap_or("");
+            assert!(
+                !value_suffix.contains(UNRESOLVED_COMMENT_PREFIX)
+                    && !value_suffix.contains(AUTO_PICKED_COMMENT_PREFIX),
+                "outcome comment must not be attached to {key} value suffix:\n{value_suffix:?}"
+            );
+        }
+    });
+}
+
 fn current_plugindata_fixture_path() -> PathBuf {
     let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
     let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
@@ -211,7 +313,7 @@ fn resolved_output_round_trips_through_gearstats_reader_and_skips_unknown_slots(
 fn bookmarklet_warning_comments_survive_resolution() {
     let (out, _) = setup();
     assert!(
-        out.contains("# UNRESOLVED:"),
+        out.contains(UNRESOLVED_COMMENT_PREFIX),
         "UNRESOLVED comments must survive resolution"
     );
 }
@@ -666,6 +768,7 @@ fn file_level_rerun_preserves_essence_totals_and_normalizes_partial_canonical_fi
                 "slot": "Head",
                 "stats": {}
             }
+
         }"#,
         Path::new("<test-fixture>"),
     )
@@ -757,6 +860,116 @@ CriticalRating = 200
     assert_eq!(
         after_first, after_second,
         "canonical file with existing EssenceTotals must be idempotent after rerun"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_unresolved_comment_stays_in_item_header_across_repeated_resolution() {
+    let dir = make_temp_dir("unresolved_header");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head"
+            },
+            "Test Greatsword": {
+                "name": "Test Greatsword",
+                "slot": "Main-hand",
+                "two_handed": true
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let bookmarklet_text = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Greatsword\"
+Morale = 0
+Power = 0
+Armor = 0
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+CriticalRating = 7
+
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+Morale = 0
+Power = 0
+Armor = 0
+# AUTO-PICKED highest-item-level variant: Item:Test_Helm_(Item_Level_999)
+CriticalRating = 3
+";
+
+    std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet first run");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first run must succeed");
+    let after_first = std::fs::read_to_string(&canonical).expect("read canonical first run");
+    let first_block = item_block_for_name(&after_first, "Test Greatsword");
+    assert_outcome_comment_is_before_stat_block(&first_block, UNRESOLVED_COMMENT_PREFIX);
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_first,
+        "Test Greatsword",
+        "two_handed",
+        UNRESOLVED_COMMENT_PREFIX,
+    );
+    let first_helm_block = item_block_for_name(&after_first, "Test Helm");
+    assert_outcome_comment_is_before_stat_block(&first_helm_block, AUTO_PICKED_COMMENT_PREFIX);
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_first,
+        "Test Helm",
+        "name",
+        AUTO_PICKED_COMMENT_PREFIX,
+    );
+
+    std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet second run");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("second run must succeed");
+    let after_second = std::fs::read_to_string(&canonical).expect("read canonical second run");
+    let second_block = item_block_for_name(&after_second, "Test Greatsword");
+    assert_outcome_comment_is_before_stat_block(&second_block, UNRESOLVED_COMMENT_PREFIX);
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_second,
+        "Test Greatsword",
+        "two_handed",
+        UNRESOLVED_COMMENT_PREFIX,
+    );
+    assert_eq!(
+        second_block.matches(UNRESOLVED_COMMENT_PREFIX).count(),
+        1,
+        "unresolved comment should not duplicate across reruns:\n{second_block}"
+    );
+    let second_helm_block = item_block_for_name(&after_second, "Test Helm");
+    assert_outcome_comment_is_before_stat_block(&second_helm_block, AUTO_PICKED_COMMENT_PREFIX);
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_second,
+        "Test Helm",
+        "name",
+        AUTO_PICKED_COMMENT_PREFIX,
+    );
+    assert_eq!(
+        second_helm_block
+            .matches(AUTO_PICKED_COMMENT_PREFIX)
+            .count(),
+        1,
+        "auto-picked comment should not duplicate across reruns:\n{second_helm_block}"
     );
 
     let _ = std::fs::remove_dir_all(&dir);

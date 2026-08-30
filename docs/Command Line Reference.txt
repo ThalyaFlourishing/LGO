@@ -14,8 +14,7 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
     Export a unified gearlist from equipped items plus Shared Storage chest "LGO".
     Writes lgo_<character-name>_gearNames_<timestamp>.plugindata.
     Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
-    there is no need to unequip them before exporting. The export fails if the user
-    has more than 8 items for a given slot type in the 'LGO' chest.
+    there is no need to unequip them before exporting.
 
   /lgo export chest <name>
     Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
@@ -99,13 +98,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     builds that meet higher-priority goals, then gets still-unmet goals as close to
     their minima as possible, and only then uses extra raw totals as a polish/tiebreak.
     A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
-    If any single slot or paired family (Wrist/Finger/Ear) has more than 8 candidates,
-    optimize refuses with an error instead of truncating.
-    The two hand slots are an exception: Main-hand and Off-hand share one combined cap
-    of 12 real items (Main-hand-only + Off-hand-only + Either-hand items counted
-    together), since they are optimized as a single combined pool. Exceeding 12 hand
-    items makes optimize refuse with a message stating the count, the cap of 12, and
-    which categories were counted.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
 
   lgo optimize --character <name> <stat:min> ...
@@ -217,7 +209,7 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
   cargo test
     Run all unit and integration tests.
 
-  cargo test --release benchmark_candidate_caps -- --ignored --nocapture
+  cargo test --release benchmark_candidate_scaling -- --ignored --nocapture
     Run the item-pool-size benchmark test
 
   cargo test -- --ignored

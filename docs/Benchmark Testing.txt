@@ -1,12 +1,12 @@
 
-How many items can optimizer handle in the pool before it becomes unbearably slow? The built-in benchmark test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing production cap enforcement or any production search path.
+How many items can optimizer handle in the pool before it becomes unbearably slow? The built-in benchmark test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing any production search path.
 
 Benchmark testing has produced the following answers to that question and others:
 
   Recommendations:
     . If your optimization runs are far too slow, try reducing the number of goals you are trying to meet simultaneously. This will have a much larger effect than removing items from your pool.
 
-    . Although the item limit probably needs to exist as a safety wall for experimentation, no reasonable number of items will ever cause any significant degree of performance degradation. For a player to have, for example, 10 items for every slot, they would need to use all or nearly all of their shared storage space, and with four stated goals, the intense slow-down only occurs when there are more than 20 items for every slot. It is expected that no reasonable use of the optimizer will ever average more than 6 or 8 items per slot at most.
+    . No reasonable number of items has produced significant performance degradation in benchmarking. For a player to have, for example, 10 items for every slot, they would need to use all or nearly all of their shared storage space, and with four stated goals, the intense slow-down only occurs when there are more than 20 items for every slot. It is expected that no reasonable use of the optimizer will ever average more than 6 or 8 items per slot at most.
   
     . The number of goals is far more of a constraint. At 9 goals, even 8 items per slot *can be* unmanageably slow.
   
@@ -23,10 +23,10 @@ Benchmark testing has produced the following answers to that question and others
 The test code resides in `src/optimizer` at the top of the TESTS section, around line 850 or so (at the time of this writing). 
 
 Editable parameters:
-  . const TIME_LIMIT_SECS: u64 = 600; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
-  . const BENCHMARK_GOALS: [(Stat, i64); 3] — the fixed 3-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
-  . MAX_CANDIDATES_PER_SLOT: This sets the *starting point* of the tests. If this value is 8, then the test begins at 8 items per slot and goes up from there.
-  . MAX_HAND_CANDIDATES_COMBINED: This sets the starting point of the combined-slot pairs. If this value is 12, then the test begins at 12 items per slot pair and goes up from there. (e.g. finger, ear, wrist)
+  . const TIME_LIMIT_SECS: u64 = 100; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
+  . const BENCHMARK_GOALS: [(Stat, i64); 4] — the fixed 4-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
+  . BENCHMARK_BASELINE_SLOT_CANDIDATES: This sets the baseline item count for slots/families that are not varied by the selected profile.
+  . BENCHMARK_BASELINE_HAND_CANDIDATES: This sets the baseline item count for the combined hand pool when it is not varied by the selected profile.
   . MAX_N: The value of 'N' past which the tests will stop. (In case the tests are still not exceeding 'TIME_LIMIT_SECS'.)
 
 (Do not edit BENCHMARK_SINGLETON_SLOTS / BENCHMARK_PAIRED_FAMILIES. These are structural constants)
@@ -39,20 +39,20 @@ The test can run any of four separate 'Profiles', named in enum 'BenchmarkProfil
 
 Profile         What grows with N              What it answers
 -------         -----------------              ---------------
-Uniform	        Everything at once             Worst case: if we raised one universal cap to N, what's affordable?
+Uniform	        Everything at once             Worst case: if every pool has N items, what's affordable?
 
-Singles-at-N    Only the 11 singleton slots    Can singleton slots afford a higher cap than paired families?
+Singles-at-N    Only the 11 singleton slots    How costly is growth in singleton slots?
 
 Pairs-at-N	    Only Wrist/Finger/Ear          How fast does the quadratic pair expansion hurt?
 
-Hands-at-N      Only the combined hand pool    Was 12 the right number for hands?
+Hands-at-N      Only the combined hand pool    How costly is growth in the hand pool?
 
 
 # To run all four profiles in one go (fine if nothing times out):
-LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_all.txt
+LGO_RUN_BENCH=1 cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_all.txt
 
 # Per-profile isolation (after any timeout, or for clean measurements):
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Uniform cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_uniform.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Singles cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_singles.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Pairs   cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_pairs.txt
-LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Hands   cargo test --release benchmark_candidate_caps -- --ignored --nocapture | tee bench_hands.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Uniform cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_uniform.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Singles cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_singles.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Pairs   cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_pairs.txt
+LGO_RUN_BENCH=1 LGO_BENCH_PROFILE=Hands   cargo test --release benchmark_candidate_scaling -- --ignored --nocapture | tee bench_hands.txt
