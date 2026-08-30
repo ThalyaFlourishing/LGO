@@ -673,6 +673,10 @@ fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
     insert_essence_totals(table, &essence, essence_decor);
 }
 
+/// Drain bookmarklet outcome comments from every place older outputs may have
+/// stored them, then reattach them only to item-header decor. This prevents
+/// comments parsed as stat-key prefixes from drifting with the stat block on
+/// repeated canonicalization.
 fn take_outcome_comments_from_item(table: &mut Table) -> String {
     let mut header_comments = take_outcome_comments_from_header_decor(table);
     header_comments.push_str(&take_outcome_comments_from_stat_prefixes(table));

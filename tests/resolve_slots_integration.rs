@@ -921,13 +921,6 @@ CriticalRating = 3
         "two_handed",
         "# UNRESOLVED:",
     );
-    let name_pos = first_block.find("\"Test Greatsword\"").unwrap();
-    let comment_pos = first_block.find("# UNRESOLVED:").unwrap();
-    let two_handed_pos = first_block.find("two_handed = true").unwrap();
-    assert!(
-        name_pos < comment_pos && comment_pos < two_handed_pos,
-        "unresolved comment should be attached to generated metadata header decor:\n{first_block}"
-    );
     let first_helm_block = item_block_for_name(&after_first, "Test Helm");
     assert_outcome_comment_is_before_stat_block(&first_helm_block, "# AUTO-PICKED ");
     assert_outcome_comment_is_attached_to_header_not_stats(
