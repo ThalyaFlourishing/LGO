@@ -1,6 +1,6 @@
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 # LGO 2026, by Thalya
-# gearReady.toml updated: 08/27/26 12:28:23
+# gearReady.toml updated: 08/30/26 04:24:52
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 character = "Thalya"
 class = "Lore-master"
@@ -347,10 +347,10 @@ Fate               = 0
 
 [[item]]
 slot = "Chest"
+# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
 name               = "Grove-tender's Robe"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
 Armor              = 19371
 CriticalRating     = 0
 Finesse            = 0
@@ -963,6 +963,53 @@ Fate               = 0
 
 [[item]]
 slot = "Hands"
+name               = "Blighted Gloves of the Keeper"
+Morale             = 0
+Power              = 0
+Armor              = 10197
+CriticalRating     = 18310
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 3020
+Will               = 3053
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Hands"
 name               = "Blighted Gloves of the Herbalist"
 Morale             = 0
 Power              = 0
@@ -1127,6 +1174,53 @@ Might              = 0
 Agility            = 0
 Vitality           = 2412
 Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Feet"
+name               = "Forgotten Elvish Healer's Shoes"
+Morale             = 0
+Power              = 0
+Armor              = 8398
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 6700
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 14929
+Might              = 0
+Agility            = 0
+Vitality           = 2752
+Will               = 4143
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -1670,6 +1764,53 @@ Vitality           = 0
 Will               = 0
 Fate               = 0
 
+[[item]]
+slot = "Shoulders"
+name               = "Forgotten Elvish Healer's Shoulder-pads"
+Morale             = 0
+Power              = 0
+Armor              = 6181
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 7458
+TacticalMitigation = 11936
+Might              = 0
+Agility            = 0
+Vitality           = 3094
+Will               = 3452
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
 # --- Back ---
 
 [[item]]
@@ -1817,23 +1958,23 @@ Fate               = 0
 
 [[item]]
 slot = "Wrist"
-name               = "Ensorceled Bracelet"
+name               = "Brass Alchemist's Bracelet"
 Morale             = 0
 Power              = 0
 Armor              = 0
-CriticalRating     = 18645
+CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
-OutgoingHealing    = 0
-Resistance         = 13447
+OutgoingHealing    = 42661
+Resistance         = 0
 CriticalDefense    = 0
 IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
-TacticalMitigation = 0
+TacticalMitigation = 11936
 Might              = 0
 Agility            = 0
 Vitality           = 3434
@@ -1864,23 +2005,23 @@ Fate               = 0
 
 [[item]]
 slot = "Wrist"
-name               = "Brass Alchemist's Bracelet"
+name               = "Ensorceled Bracelet"
 Morale             = 0
 Power              = 0
 Armor              = 0
-CriticalRating     = 0
+CriticalRating     = 18645
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
-OutgoingHealing    = 42661
-Resistance         = 0
+OutgoingHealing    = 0
+Resistance         = 13447
 CriticalDefense    = 0
 IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
-TacticalMitigation = 11936
+TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 3434
@@ -2005,10 +2146,57 @@ Fate               = 0
 
 [[item]]
 slot = "Wrist"
+name               = "Ornate Ordâkhai Bracelet"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 9302
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 21330
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 7457
+Might              = 0
+Agility            = 0
+Vitality           = 3094
+Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Wrist"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 name               = "Delicate Gold Armlet of the Traveller"
 Morale             = 0
 Power              = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -2120,6 +2308,53 @@ TacticalMitigation = 0
 Might              = 0
 Agility            = 1731
 Vitality           = 3094
+Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Wrist"
+name               = "Delicate Gold Armlet of the Adventurer"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
 Will               = 0
 Fate               = 0
 [item.EssenceTotals]
@@ -2292,16 +2527,15 @@ Fate               = 0
 
 [[item]]
 slot = "Finger"
-name               = "Keen Pristine Madáshi Ring"
+name               = "Tri-colour Gemstone Ring"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor              = 0
-CriticalRating     = 14351
+CriticalRating     = 11161
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
-OutgoingHealing    = 0
+OutgoingHealing    = 17071
 Resistance         = 0
 CriticalDefense    = 0
 IncomingHealing    = 0
@@ -2311,9 +2545,9 @@ Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
 Might              = 0
-Agility            = 2662
-Vitality           = 2619
-Will               = 0
+Agility            = 0
+Vitality           = 3434
+Will               = 2767
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -2340,15 +2574,16 @@ Fate               = 0
 
 [[item]]
 slot = "Finger"
-name               = "Tri-colour Gemstone Ring"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
+name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
 Armor              = 0
-CriticalRating     = 11161
+CriticalRating     = 14351
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
-OutgoingHealing    = 17071
+OutgoingHealing    = 0
 Resistance         = 0
 CriticalDefense    = 0
 IncomingHealing    = 0
@@ -2358,9 +2593,9 @@ Evade              = 0
 PhysicalMitigation = 0
 TacticalMitigation = 0
 Might              = 0
-Agility            = 0
-Vitality           = 3434
-Will               = 2767
+Agility            = 2662
+Vitality           = 2619
+Will               = 0
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -2528,10 +2763,10 @@ Fate               = 0
 
 [[item]]
 slot = "Finger"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
 Armor              = 0
 CriticalRating     = 14351
 Finesse            = 0
@@ -2550,6 +2785,53 @@ Might              = 0
 Agility            = 2662
 Vitality           = 2619
 Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Finger"
+name               = "Subtle Conscript's Ring"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 12343
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 2986
+Might              = 0
+Agility            = 0
+Vitality           = 3094
+Will               = 2767
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -2672,10 +2954,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ear"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor              = 0
 CriticalRating     = 14351
 Finesse            = 0
@@ -2720,10 +3002,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ear"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
 Armor              = 0
 CriticalRating     = 14351
 Finesse            = 0
@@ -2862,10 +3144,57 @@ Fate               = 0
 
 [[item]]
 slot = "Ear"
+name               = "Gold Teardrop Earring"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 7748
+Might              = 0
+Agility            = 0
+Vitality           = 2854
+Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Ear"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 name               = "Topaz Gold Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -2910,10 +3239,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ear"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 name               = "Lapis Silver Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3291,10 +3620,10 @@ Fate               = 0
 
 [[item]]
 slot = "Main-hand"
+# UNRESOLVED: legendary item — you should hand-edit stats
 name               = "Legendary Lore-keeper's Staff"
 Morale             = 0
 Power              = 0
-# UNRESOLVED: legendary item — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3342,10 +3671,10 @@ Fate               = 0
 [[item]]
 slot = "Off-hand"
 name               = "Elegant Blade of the Adventurer"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 either_hand = true
 Morale             = 0
 Power              = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3391,10 +3720,10 @@ Fate               = 0
 [[item]]
 slot = "Off-hand"
 name               = "Kinta Sword of the Herbalist"
+# AUTO-PICKED highest-item-level variant: Item:Kinta Sword of the Herbalist (Item Level 563)
 either_hand = true
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Kinta Sword of the Herbalist (Item Level 563)
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3488,10 +3817,10 @@ Fate               = 0
 [[item]]
 slot = "Off-hand"
 name               = "Elegant Blade of the Traveller"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 either_hand = true
 Morale             = 0
 Power              = 0
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3538,10 +3867,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ranged"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Bestial Strength (Item Level 564)
 name               = "Pristine Mûrai Stickpin of Bestial Strength"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Bestial Strength (Item Level 564)
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 4800
@@ -3586,10 +3915,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ranged"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Ancient Wisdom (Item Level 564)
 name               = "Pristine Mûrai Stickpin of Ancient Wisdom"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Ancient Wisdom (Item Level 564)
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3634,10 +3963,10 @@ Fate               = 0
 
 [[item]]
 slot = "Ranged"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Nature's Glory (Item Level 564)
 name               = "Pristine Mûrai Stickpin of Nature's Glory"
 Morale             = 0
 Power              = 0
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Nature's Glory (Item Level 564)
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
@@ -3684,60 +4013,10 @@ Fate               = 0
 
 [[item]]
 slot = "Class Item"
+# UNRESOLVED: legendary item — you should hand-edit stats
 name               = "Lore-master's Book"
 Morale             = 0
 Power              = 0
-# UNRESOLVED: legendary item — you should hand-edit stats
-Armor              = 0
-CriticalRating     = 0
-Finesse            = 0
-PhysicalMastery    = 0
-TacticalMastery    = 0
-OutgoingHealing    = 0
-Resistance         = 0
-CriticalDefense    = 0
-IncomingHealing    = 0
-Block              = 0
-Parry              = 0
-Evade              = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
-Might              = 0
-Agility            = 0
-Vitality           = 0
-Will               = 0
-Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
-Power              = 0
-Armor              = 0
-CriticalRating     = 0
-Finesse            = 0
-PhysicalMastery    = 0
-TacticalMastery    = 0
-OutgoingHealing    = 0
-Resistance         = 0
-CriticalDefense    = 0
-IncomingHealing    = 0
-Block              = 0
-Parry              = 0
-Evade              = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
-Might              = 0
-Agility            = 0
-Vitality           = 0
-Will               = 0
-Fate               = 0
-
-# --- Unknown (not in items DB) ---
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Boots"
-Morale             = 0
-Power              = 0
-# UNRESOLVED: no wiki page found — you should hand-edit stats
 Armor              = 0
 CriticalRating     = 0
 Finesse            = 0
