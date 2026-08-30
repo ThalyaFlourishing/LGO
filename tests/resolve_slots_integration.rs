@@ -1,4 +1,6 @@
-use lgo::slot_resolver::ResolutionOutcome;
+use lgo::slot_resolver::{
+    ResolutionOutcome, AUTO_PICKED_COMMENT_PREFIX, UNRESOLVED_COMMENT_PREFIX,
+};
 use lgo::stat::{BASE_STATS, TRACKED_STATS};
 use std::path::{Path, PathBuf};
 
@@ -196,7 +198,8 @@ fn assert_outcome_comment_is_attached_to_header_not_stats(
             };
             let key_prefix = decor_repr(stat_key.leaf_decor().prefix());
             assert!(
-                !key_prefix.contains("# UNRESOLVED:") && !key_prefix.contains("# AUTO-PICKED "),
+                !key_prefix.contains(UNRESOLVED_COMMENT_PREFIX)
+                    && !key_prefix.contains(AUTO_PICKED_COMMENT_PREFIX),
                 "outcome comment must not be attached to {key} key prefix:\n{key_prefix:?}"
             );
 
@@ -205,7 +208,8 @@ fn assert_outcome_comment_is_attached_to_header_not_stats(
                 .map(|value| decor_repr(value.decor().suffix()))
                 .unwrap_or("");
             assert!(
-                !value_suffix.contains("# UNRESOLVED:") && !value_suffix.contains("# AUTO-PICKED "),
+                !value_suffix.contains(UNRESOLVED_COMMENT_PREFIX)
+                    && !value_suffix.contains(AUTO_PICKED_COMMENT_PREFIX),
                 "outcome comment must not be attached to {key} value suffix:\n{value_suffix:?}"
             );
         }
@@ -309,7 +313,7 @@ fn resolved_output_round_trips_through_gearstats_reader_and_skips_unknown_slots(
 fn bookmarklet_warning_comments_survive_resolution() {
     let (out, _) = setup();
     assert!(
-        out.contains("# UNRESOLVED:"),
+        out.contains(UNRESOLVED_COMMENT_PREFIX),
         "UNRESOLVED comments must survive resolution"
     );
 }
@@ -914,20 +918,20 @@ CriticalRating = 3
     .expect("first run must succeed");
     let after_first = std::fs::read_to_string(&canonical).expect("read canonical first run");
     let first_block = item_block_for_name(&after_first, "Test Greatsword");
-    assert_outcome_comment_is_before_stat_block(&first_block, "# UNRESOLVED:");
+    assert_outcome_comment_is_before_stat_block(&first_block, UNRESOLVED_COMMENT_PREFIX);
     assert_outcome_comment_is_attached_to_header_not_stats(
         &after_first,
         "Test Greatsword",
         "two_handed",
-        "# UNRESOLVED:",
+        UNRESOLVED_COMMENT_PREFIX,
     );
     let first_helm_block = item_block_for_name(&after_first, "Test Helm");
-    assert_outcome_comment_is_before_stat_block(&first_helm_block, "# AUTO-PICKED ");
+    assert_outcome_comment_is_before_stat_block(&first_helm_block, AUTO_PICKED_COMMENT_PREFIX);
     assert_outcome_comment_is_attached_to_header_not_stats(
         &after_first,
         "Test Helm",
         "name",
-        "# AUTO-PICKED ",
+        AUTO_PICKED_COMMENT_PREFIX,
     );
 
     std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet second run");
@@ -940,28 +944,30 @@ CriticalRating = 3
     .expect("second run must succeed");
     let after_second = std::fs::read_to_string(&canonical).expect("read canonical second run");
     let second_block = item_block_for_name(&after_second, "Test Greatsword");
-    assert_outcome_comment_is_before_stat_block(&second_block, "# UNRESOLVED:");
+    assert_outcome_comment_is_before_stat_block(&second_block, UNRESOLVED_COMMENT_PREFIX);
     assert_outcome_comment_is_attached_to_header_not_stats(
         &after_second,
         "Test Greatsword",
         "two_handed",
-        "# UNRESOLVED:",
+        UNRESOLVED_COMMENT_PREFIX,
     );
     assert_eq!(
-        second_block.matches("# UNRESOLVED:").count(),
+        second_block.matches(UNRESOLVED_COMMENT_PREFIX).count(),
         1,
         "unresolved comment should not duplicate across reruns:\n{second_block}"
     );
     let second_helm_block = item_block_for_name(&after_second, "Test Helm");
-    assert_outcome_comment_is_before_stat_block(&second_helm_block, "# AUTO-PICKED ");
+    assert_outcome_comment_is_before_stat_block(&second_helm_block, AUTO_PICKED_COMMENT_PREFIX);
     assert_outcome_comment_is_attached_to_header_not_stats(
         &after_second,
         "Test Helm",
         "name",
-        "# AUTO-PICKED ",
+        AUTO_PICKED_COMMENT_PREFIX,
     );
     assert_eq!(
-        second_helm_block.matches("# AUTO-PICKED ").count(),
+        second_helm_block
+            .matches(AUTO_PICKED_COMMENT_PREFIX)
+            .count(),
         1,
         "auto-picked comment should not duplicate across reruns:\n{second_helm_block}"
     );

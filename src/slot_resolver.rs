@@ -33,6 +33,8 @@ pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 const STAT_EQUALS_COLUMN: usize = 20;
 const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
+pub const UNRESOLVED_COMMENT_PREFIX: &str = "# UNRESOLVED:";
+pub const AUTO_PICKED_COMMENT_PREFIX: &str = "# AUTO-PICKED ";
 
 // =============================================================================
 // ItemsDb — name → Slot index
@@ -726,7 +728,7 @@ fn take_outcome_comments_from_header_decor(table: &mut Table) -> String {
 }
 
 fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
-    let mut header_comments = String::new();
+    let mut outcome_comments_from_stats = String::new();
     for (_, key) in canonical_stat_entries() {
         let Some((mut key_mut, _)) = table.get_key_value_mut(key) else {
             continue;
@@ -742,7 +744,7 @@ fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
 
         let (outcome_comments, remaining_prefix) = split_outcome_comments(prefix);
         if !outcome_comments.is_empty() {
-            header_comments.push_str(&outcome_comments);
+            outcome_comments_from_stats.push_str(&outcome_comments);
             let remaining_prefix = if remaining_prefix.trim().is_empty() {
                 String::new()
             } else {
@@ -751,7 +753,7 @@ fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
             key_mut.leaf_decor_mut().set_prefix(remaining_prefix);
         }
     }
-    header_comments
+    outcome_comments_from_stats
 }
 
 fn split_outcome_comments(prefix: &str) -> (String, String) {
@@ -760,7 +762,9 @@ fn split_outcome_comments(prefix: &str) -> (String, String) {
 
     for line in prefix.split_inclusive('\n') {
         let trimmed = line.trim_start();
-        if trimmed.starts_with("# UNRESOLVED:") || trimmed.starts_with("# AUTO-PICKED ") {
+        if trimmed.starts_with(UNRESOLVED_COMMENT_PREFIX)
+            || trimmed.starts_with(AUTO_PICKED_COMMENT_PREFIX)
+        {
             outcome_comments.push_str(trimmed);
             if !outcome_comments.ends_with('\n') {
                 outcome_comments.push('\n');
