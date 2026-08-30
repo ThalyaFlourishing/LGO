@@ -153,6 +153,65 @@ fn assert_outcome_comment_is_before_stat_block(block: &str, comment: &str) {
     );
 }
 
+fn with_item_table_named<R>(src: &str, name: &str, f: impl FnOnce(&toml_edit::Table) -> R) -> R {
+    let doc: toml_edit::DocumentMut = src.parse().expect("output parses as TOML");
+    let tables = doc
+        .get("item")
+        .and_then(|v| v.as_array_of_tables())
+        .expect("output has [[item]]");
+    let table = tables
+        .iter()
+        .find(|table| table.get("name").and_then(|value| value.as_str()) == Some(name))
+        .unwrap_or_else(|| panic!("item {name} must be present"));
+    f(table)
+}
+
+fn decor_repr(decor: Option<&toml_edit::RawString>) -> &str {
+    decor.and_then(|raw| raw.as_str()).unwrap_or("")
+}
+
+fn assert_outcome_comment_is_attached_to_header_not_stats(
+    src: &str,
+    name: &str,
+    header_key: &str,
+    comment: &str,
+) {
+    with_item_table_named(src, name, |table| {
+        let (header_key_decor, header_value) = table
+            .get_key_value(header_key)
+            .unwrap_or_else(|| panic!("{header_key} must be present in item {name}"));
+        let header_prefix = decor_repr(header_key_decor.leaf_decor().prefix());
+        let header_suffix = header_value
+            .as_value()
+            .map(|value| decor_repr(value.decor().suffix()))
+            .unwrap_or("");
+        assert!(
+            header_prefix.contains(comment) || header_suffix.contains(comment),
+            "outcome comment must be attached to {header_key} header decor:\nprefix={header_prefix:?}\nsuffix={header_suffix:?}"
+        );
+
+        for key in canonical_stat_keys() {
+            let Some((stat_key, stat_item)) = table.get_key_value(key) else {
+                continue;
+            };
+            let key_prefix = decor_repr(stat_key.leaf_decor().prefix());
+            assert!(
+                !key_prefix.contains("# UNRESOLVED:") && !key_prefix.contains("# AUTO-PICKED "),
+                "outcome comment must not be attached to {key} key prefix:\n{key_prefix:?}"
+            );
+
+            let value_suffix = stat_item
+                .as_value()
+                .map(|value| decor_repr(value.decor().suffix()))
+                .unwrap_or("");
+            assert!(
+                !value_suffix.contains("# UNRESOLVED:") && !value_suffix.contains("# AUTO-PICKED "),
+                "outcome comment must not be attached to {key} value suffix:\n{value_suffix:?}"
+            );
+        }
+    });
+}
+
 fn current_plugindata_fixture_path() -> PathBuf {
     let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
     let mut matches: Vec<PathBuf> = std::fs::read_dir(&test_data)
@@ -811,6 +870,10 @@ fn file_level_unresolved_comment_stays_in_item_header_across_repeated_resolution
 
     let db = lgo::slot_resolver::ItemsDb::from_json_str(
         r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head"
+            },
             "Test Greatsword": {
                 "name": "Test Greatsword",
                 "slot": "Main-hand",
@@ -830,6 +893,15 @@ Power = 0
 Armor = 0
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 CriticalRating = 7
+
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+Morale = 0
+Power = 0
+Armor = 0
+# AUTO-PICKED highest-item-level variant: Item:Test_Helm_(Item_Level_999)
+CriticalRating = 3
 ";
 
     std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet first run");
@@ -843,12 +915,26 @@ CriticalRating = 7
     let after_first = std::fs::read_to_string(&canonical).expect("read canonical first run");
     let first_block = item_block_for_name(&after_first, "Test Greatsword");
     assert_outcome_comment_is_before_stat_block(&first_block, "# UNRESOLVED:");
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_first,
+        "Test Greatsword",
+        "two_handed",
+        "# UNRESOLVED:",
+    );
     assert!(
         first_block.find("\"Test Greatsword\"").unwrap()
-            < first_block.find("two_handed = true").unwrap()
-            && first_block.find("two_handed = true").unwrap()
-                < first_block.find("# UNRESOLVED:").unwrap(),
-        "generated metadata should remain between name and unresolved comment:\n{first_block}"
+            < first_block.find("# UNRESOLVED:").unwrap()
+            && first_block.find("# UNRESOLVED:").unwrap()
+                < first_block.find("two_handed = true").unwrap(),
+        "unresolved comment should be attached to generated metadata header decor:\n{first_block}"
+    );
+    let first_helm_block = item_block_for_name(&after_first, "Test Helm");
+    assert_outcome_comment_is_before_stat_block(&first_helm_block, "# AUTO-PICKED ");
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_first,
+        "Test Helm",
+        "name",
+        "# AUTO-PICKED ",
     );
 
     std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet second run");
@@ -862,10 +948,29 @@ CriticalRating = 7
     let after_second = std::fs::read_to_string(&canonical).expect("read canonical second run");
     let second_block = item_block_for_name(&after_second, "Test Greatsword");
     assert_outcome_comment_is_before_stat_block(&second_block, "# UNRESOLVED:");
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_second,
+        "Test Greatsword",
+        "two_handed",
+        "# UNRESOLVED:",
+    );
     assert_eq!(
         second_block.matches("# UNRESOLVED:").count(),
         1,
         "unresolved comment should not duplicate across reruns:\n{second_block}"
+    );
+    let second_helm_block = item_block_for_name(&after_second, "Test Helm");
+    assert_outcome_comment_is_before_stat_block(&second_helm_block, "# AUTO-PICKED ");
+    assert_outcome_comment_is_attached_to_header_not_stats(
+        &after_second,
+        "Test Helm",
+        "name",
+        "# AUTO-PICKED ",
+    );
+    assert_eq!(
+        second_helm_block.matches("# AUTO-PICKED ").count(),
+        1,
+        "auto-picked comment should not duplicate across reruns:\n{second_helm_block}"
     );
 
     let _ = std::fs::remove_dir_all(&dir);

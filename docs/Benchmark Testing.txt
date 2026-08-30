@@ -23,8 +23,8 @@ Benchmark testing has produced the following answers to that question and others
 The test code resides in `src/optimizer` at the top of the TESTS section, around line 850 or so (at the time of this writing). 
 
 Editable parameters:
-  . const TIME_LIMIT_SECS: u64 = 600; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
-  . const BENCHMARK_GOALS: [(Stat, i64); 3] — the fixed 3-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
+  . const TIME_LIMIT_SECS: u64 = 100; — the knob: per-run cutoff, with a comment marking it as the thing to edit.
+  . const BENCHMARK_GOALS: [(Stat, i64); 4] — the fixed 4-goal set. Editable, but changing it invalidates comparability with prior runs, so leave it unless you have a reason.
   . BENCHMARK_BASELINE_SLOT_CANDIDATES: This sets the baseline item count for slots/families that are not varied by the selected profile.
   . BENCHMARK_BASELINE_HAND_CANDIDATES: This sets the baseline item count for the combined hand pool when it is not varied by the selected profile.
   . MAX_N: The value of 'N' past which the tests will stop. (In case the tests are still not exceeding 'TIME_LIMIT_SECS'.)
@@ -39,13 +39,13 @@ The test can run any of four separate 'Profiles', named in enum 'BenchmarkProfil
 
 Profile         What grows with N              What it answers
 -------         -----------------              ---------------
-Uniform	        Everything at once             Worst case: if we raised one universal cap to N, what's affordable?
+Uniform	        Everything at once             Worst case: if every pool has N items, what's affordable?
 
-Singles-at-N    Only the 11 singleton slots    Can singleton slots afford a higher cap than paired families?
+Singles-at-N    Only the 11 singleton slots    How costly is growth in singleton slots?
 
 Pairs-at-N	    Only Wrist/Finger/Ear          How fast does the quadratic pair expansion hurt?
 
-Hands-at-N      Only the combined hand pool    Was 12 the right number for hands?
+Hands-at-N      Only the combined hand pool    How costly is growth in the hand pool?
 
 
 # To run all four profiles in one go (fine if nothing times out):

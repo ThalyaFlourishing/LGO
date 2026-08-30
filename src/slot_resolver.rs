@@ -560,12 +560,13 @@ fn bucket_items(
         // (canonicalization removes all stat keys and re-appends them).
         // Unknown items are left untouched: a user-provided `two_handed`
         // flag on a hand-edited legendary/renamed item is preserved.
+        let outcome_comments = take_outcome_comments_from_item(&mut table);
         if db_slot.is_some() {
             set_two_handed_flag(&mut table, db.lookup_two_handed(&name));
             set_either_hand_flag(&mut table, db.lookup_either_hand(&name));
         }
 
-        canonicalize_item_stats(&mut table);
+        canonicalize_item_stats(&mut table, &outcome_comments);
         match db_slot {
             Some(slot) => {
                 // Rewrite slot field to canonical Display form. Existing key
@@ -661,16 +662,63 @@ fn normalize_existing_canonical_stat_decor(table: &mut Table) {
 /// followed by the five raw Base stats (zeros for omissions), then a fully
 /// populated `[item.EssenceTotals]` child table with the same key layout.
 /// Existing values — tracked and Base alike — pass through unchanged.
-fn canonicalize_item_stats(table: &mut Table) {
-    let header_comment_prefix = take_outcome_comments_from_stat_prefixes(table);
+fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
     let explicit = read_item_stats(table);
     let essence = read_essence_stats(table);
     let essence_decor = read_essence_decor(table);
     let old_items = remove_canonical_stat_items(table);
     table.remove(ESSENCE_TOTALS_KEY);
     insert_canonical_stats(table, &explicit, &old_items);
-    attach_outcome_comments_to_stat_block_header(table, &header_comment_prefix);
+    attach_outcome_comments_to_header(table, outcome_comments);
     insert_essence_totals(table, &essence, essence_decor);
+}
+
+fn take_outcome_comments_from_item(table: &mut Table) -> String {
+    let mut header_comments = take_outcome_comments_from_header_decor(table);
+    header_comments.push_str(&take_outcome_comments_from_stat_prefixes(table));
+    header_comments
+}
+
+fn take_outcome_comments_from_header_decor(table: &mut Table) -> String {
+    let mut header_comments = String::new();
+    for key in ["slot", "name", "two_handed", "either_hand"] {
+        if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
+            let prefix = key_mut
+                .leaf_decor()
+                .prefix()
+                .and_then(|prefix| prefix.as_str())
+                .unwrap_or("");
+            let (outcome_comments, remaining_prefix) = split_outcome_comments(prefix);
+            if !outcome_comments.is_empty() {
+                header_comments.push_str(&outcome_comments);
+                let remaining_prefix = if remaining_prefix.trim().is_empty() {
+                    String::new()
+                } else {
+                    remaining_prefix
+                };
+                key_mut.leaf_decor_mut().set_prefix(remaining_prefix);
+            }
+        }
+
+        let Some(value) = table.get_mut(key).and_then(Item::as_value_mut) else {
+            continue;
+        };
+        let suffix = value
+            .decor()
+            .suffix()
+            .and_then(|suffix| suffix.as_str())
+            .unwrap_or("");
+        if suffix.is_empty() {
+            continue;
+        }
+
+        let (outcome_comments, remaining_suffix) = split_outcome_comments(suffix);
+        if !outcome_comments.is_empty() {
+            header_comments.push_str(&outcome_comments);
+            value.decor_mut().set_suffix(remaining_suffix);
+        }
+    }
+    header_comments
 }
 
 fn take_outcome_comments_from_stat_prefixes(table: &mut Table) -> String {
@@ -721,24 +769,46 @@ fn split_outcome_comments(prefix: &str) -> (String, String) {
     (outcome_comments, remaining_prefix)
 }
 
-fn attach_outcome_comments_to_stat_block_header(table: &mut Table, header_comments: &str) {
-    if header_comments.is_empty() {
+fn attach_outcome_comments_to_header(table: &mut Table, outcome_comments: &str) {
+    if outcome_comments.is_empty() {
         return;
     }
-    let first_stat_key = canonical_stat_entries()
-        .next()
-        .map(|(_, key)| *key)
-        .expect("canonical stat entries are non-empty");
-    if let Some((mut key_mut, _)) = table.get_key_value_mut(first_stat_key) {
-        let existing_prefix = key_mut
-            .leaf_decor()
-            .prefix()
-            .and_then(|prefix| prefix.as_str())
+    let metadata_key = ["two_handed", "either_hand"]
+        .into_iter()
+        .find(|key| table.contains_key(key));
+    if let Some(metadata_key) = metadata_key {
+        if let Some((mut key_mut, _)) = table.get_key_value_mut(metadata_key) {
+            let existing_prefix = key_mut
+                .leaf_decor()
+                .prefix()
+                .and_then(|prefix| prefix.as_str())
+                .unwrap_or("")
+                .to_string();
+            key_mut
+                .leaf_decor_mut()
+                .set_prefix(format!("{}{}", outcome_comments, existing_prefix));
+        }
+        return;
+    }
+
+    let Some(target_key) = ["name", "slot"]
+        .into_iter()
+        .find(|key| table.contains_key(key))
+    else {
+        return;
+    };
+    if let Some(value) = table.get_mut(target_key).and_then(Item::as_value_mut) {
+        let mut suffix = value
+            .decor()
+            .suffix()
+            .and_then(|suffix| suffix.as_str())
             .unwrap_or("")
             .to_string();
-        key_mut
-            .leaf_decor_mut()
-            .set_prefix(format!("{}{}", header_comments, existing_prefix));
+        if !suffix.is_empty() && !suffix.ends_with(' ') {
+            suffix.push(' ');
+        }
+        suffix.push_str(&outcome_comments.lines().collect::<Vec<_>>().join(" "));
+        value.decor_mut().set_suffix(suffix);
     }
 }
 
@@ -1219,12 +1289,15 @@ pub fn merge_into_canonical(
     // unknown items keep whatever the user wrote by hand.
     for t in &mut merged_tables {
         if let Some(name) = table_name(t) {
+            let outcome_comments = take_outcome_comments_from_item(t);
             if db.lookup(&name).is_some() {
                 set_two_handed_flag(t, db.lookup_two_handed(&name));
                 set_either_hand_flag(t, db.lookup_either_hand(&name));
             }
+            canonicalize_item_stats(t, &outcome_comments);
+        } else {
+            canonicalize_item_stats(t, "");
         }
-        canonicalize_item_stats(t);
         strip_family_dividers_from_prefix(t);
     }
 
