@@ -1,0 +1,107 @@
+{
+  "Charity": {
+    "Resistance": 815,
+    "PhysicalMitigation": 227,
+    "Vitality": 23
+  },
+  "Compassion": {
+    "PhysicalMitigation": 453,
+    "TacticalMitigation": 227,
+    "Armor": 73
+  },
+  "Confidence": {
+    "CriticalRating": 452,
+    "Finesse": 302,
+    "Evade": 191
+  },
+  "Determination": {
+    "Agility": 80,
+    "PhysicalMastery": 192,
+    "CriticalRating": 136
+  },
+  "Discipline": {
+    "Resistance": 815,
+    "IncomingHealing": 302,
+    "PhysicalMitigation": 136
+  },
+  "Empathy": {
+    "Armor": 242,
+    "CriticalDefense": 302,
+    "Resistance": 245
+  },
+  "Fidelity": {
+    "TacticalMitigation": 453,
+    "Vitality": 38,
+    "PhysicalMitigation": 136
+  },
+  "Fortitude": {
+    "Morale": 430,
+    "CriticalDefense": 302,
+    "Resistance": 245
+  },
+  "Honesty": {
+    "TacticalMastery": 385,
+    "Will": 40,
+    "CriticalRating": 136
+  },
+  "Honour": {
+    "Morale": 430,
+    "TacticalMitigation": 227,
+    "CriticalDefense": 181
+  },
+  "Idealism": {
+    "Fate": 70,
+    "IncomingHealing": 302,
+    "Morale": 129
+  },
+  "Innocence": {
+    "PhysicalMitigation": 453,
+    "Resistance": 407,
+    "TacticalMitigation": 136
+  },
+  "Justice": {
+    "Morale": 215,
+    "TacticalMitigation": 136
+  },
+  "Loyalty": {
+    "Vitality": 75,
+    "Armor": 121,
+    "IncomingHealing": 181
+  },
+  "Mercy": {
+    "Evade": 634,
+    "Fate": 35,
+    "Vitality": 23
+  },
+  "Patience": {
+    "Power": 56,
+    "Evade": 317,
+    "CriticalRating": 136
+  },
+  "Tolerance": {
+    "TacticalMitigation": 453,
+    "Resistance": 407,
+    "PhysicalMitigation": 136
+  },
+  "Valour": {
+    "PhysicalMastery": 385,
+    "Finesse": 302,
+    "CriticalRating": 136
+  },
+  "Wisdom": {
+    "Will": 80,
+    "TacticalMastery": 192,
+    "Finesse": 181
+  },
+  "Wit": {
+    "Finesse": 604,
+    "CriticalRating": 227,
+    "PhysicalMastery": 116,
+    "TacticalMastery": 116
+  },
+  "Zeal": {
+    "Might": 80,
+    "PhysicalMastery": 192,
+    "CriticalRating": 136
+  }
+}

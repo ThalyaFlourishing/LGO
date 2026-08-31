@@ -13,3 +13,4 @@ pub mod plugindata;
 pub mod report;
 pub mod slot_resolver;
 pub mod stat;
+pub mod virtues;
