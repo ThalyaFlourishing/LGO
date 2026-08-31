@@ -18,7 +18,8 @@ Short User Instructions (detailed instructions below)
 6. The bookmarklet builds a `*_gearStats.toml` file. (Scroll down to see it)
 7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
 8. Open a a command-line window on your computer and run `lgo resolve-slots`.
-9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. Add `--save-build <name>` if you want to keep that priority list for later re-use. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
+10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool against every saved build and list the items not used in any saved build.
 
 
 ======================
@@ -159,6 +160,19 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     canonical gear TOML, inside an LGO_Reports folder: one .txt and one
     self-contained .html file with matching lgo_GearReport_### names.
 
+    If you know this goal list is one of your regular builds, add
+
+       --save-build <name>
+
+    to the optimize command. That stores the goals in
+
+       lgo_<character-name>_builds.toml
+
+    beside your canonical `gearReady.toml`. Later you can re-run the same saved
+    goals with:
+
+       lgo optimize --build <name>
+
     To see just your character's raw innate Base stats and the
     tracked-stat contributions derived from them (already included in
     optimize totals), run:
@@ -172,6 +186,17 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     the projected raw Base-stat pool. The same report is also saved in
     the LGO_Reports folder as both text and HTML.
 
+12. If you keep several saved builds, run:
+
+        lgo scrap-gear
+
+    This re-runs the optimizer once per saved build in
+    `lgo_<character-name>_builds.toml` and lists the items not used in any
+    saved build. The output is a live check against your current
+    `gearReady.toml`; it does not read old report files. Treat the list as a
+    starting point only — items not used in any saved build may still be
+    near-misses.
+
 
 Iteration
 ---------
@@ -181,6 +206,14 @@ Iteration
 
 - To re-run with different stat goals on the same gear: just repeat
   step 10 with new goals. Steps 1-9 do not need to be redone.
+
+- To re-run one saved build exactly: use `lgo optimize --build <name>`.
+
+- To save the goal list from a normal optimize run for later: add
+  `--save-build <name>`.
+
+- To review items not used across all your saved builds: run
+  `lgo scrap-gear`.
 
 - To hand-correct stats or slots: edit the 'lgo_<character-name>_gearReady.toml' file, then
   re-run step 10.
