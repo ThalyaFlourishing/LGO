@@ -182,7 +182,7 @@ fn run_optimize(cli: &OptimizeCli) {
     if !gear_doc.selected_virtues.is_empty() {
         let virtues = load_virtues_or_exit();
         if let Err(e) = virtues.apply_selected_virtues(&mut gear_doc) {
-            eprintln!("Error applying selected Virtues: {}", e);
+            eprintln!("Error: {}", e);
             process::exit(1);
         }
     }

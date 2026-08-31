@@ -99,6 +99,8 @@ name = "Statless Helm"
     .expect("write toml");
 
     let total = optimize_tm_total(&path, r#"{ "Wisdom": { "Will": 100 } }"#);
+    // Lore-master Will → TacticalMastery uses the current 3.0 derivation
+    // coefficient, so 100 Will contributes 300 Tactical Mastery here.
     assert_eq!(total, 300);
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
