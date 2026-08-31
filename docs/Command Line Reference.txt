@@ -101,6 +101,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     their minima as possible, and only then uses extra raw totals as a polish/tiebreak.
     A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
+    Every optimize run also writes a plain-text report and a self-contained HTML
+    report into an LGO_Reports sub-folder beside that canonical gear TOML (or beside
+    the explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
+    lgo_GearReport_###.html, with a shared serial number per run.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -127,6 +131,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     the current directory (same convention as build-db), so run optimize from a
     directory containing the data/ folder. optimize errors clearly if the class
     entry, derivation file, or needed virtue data file is missing.
+    The report content includes the chosen gear, goal summary, the full projected
+    16 tracked stats (zero rows included), and the combined raw Base-stat pool.
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
@@ -256,4 +262,3 @@ Working directory matters. db_build resolves data/items.xml and data/lgo_items.j
 
 cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --out <path>\lgo_items.json
-

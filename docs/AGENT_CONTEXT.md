@@ -53,7 +53,8 @@ containing `data/`.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, and paired-slot super-candidates for Wrist/Finger/Ear. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
-- `src/report.rs` — terminal report formatter.
+- `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter.
+- `src/report_files.rs` — optimize report file naming and writing (`LGO_Reports` beside the canonical gear TOML).
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB), `data/lgo_virtues.json`

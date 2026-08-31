@@ -11,6 +11,7 @@ pub mod gearstats;
 pub mod optimizer;
 pub mod plugindata;
 pub mod report;
+pub mod report_files;
 pub mod slot_resolver;
 pub mod stat;
 pub mod virtues;

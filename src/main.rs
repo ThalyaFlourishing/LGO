@@ -1,6 +1,10 @@
 //! LGO - LOTRO Gear Optimizer
 
-use lgo::{base_stats, build_db, gear, gearstats, optimizer, report, slot_resolver, stat, virtues};
+use chrono::Local;
+use lgo::{
+    base_stats, build_db, gear, gearstats, optimizer, report, report_files, slot_resolver, stat,
+    virtues,
+};
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -197,8 +201,8 @@ fn run_optimize(cli: &OptimizeCli) {
 
     let resolved: HashMap<String, gear::GearItem> = gear_doc
         .items
-        .into_iter()
-        .map(|doc_item| doc_item.item)
+        .iter()
+        .map(|doc_item| doc_item.item.clone())
         .enumerate()
         // Candidate identity is per owned TOML item instance, not per display
         // name: duplicate owned copies must remain distinct optimizer inputs.
@@ -213,13 +217,103 @@ fn run_optimize(cli: &OptimizeCli) {
         &gear_doc.innate_stats,
     );
 
-    report::print_report(
+    let projected_base_stats = projected_base_stats(
+        &gear_doc.innate_base_stats,
+        &result.gear_set,
+        &gear_doc.items,
+    );
+    let stats_file_display = stats_file.display().to_string();
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    let text_report = report::format_optimize_report(
         &result,
         &cli.goals,
         &character,
         &class,
-        &stats_file.display().to_string(),
+        &stats_file_display,
+        &timestamp,
+        &projected_base_stats,
     );
+    print!("{}", text_report);
+
+    let html_report = report::format_optimize_report_html(
+        &result,
+        &cli.goals,
+        &character,
+        &class,
+        &stats_file_display,
+        &timestamp,
+        &projected_base_stats,
+    );
+
+    match report_files::write_optimize_report_files(&stats_file, &text_report, &html_report) {
+        Ok(paths) => {
+            println!(
+                "  Report written to: {} and {}",
+                paths.text_path.display(),
+                paths.html_path.display()
+            );
+        }
+        Err(err) => {
+            eprintln!("Warning: could not write optimize report files: {}", err);
+        }
+    }
+}
+
+fn projected_base_stats(
+    innate_base_stats: &HashMap<stat::Stat, i64>,
+    gear_set: &gear::GearSet,
+    doc_items: &[gearstats::DocItem],
+) -> HashMap<stat::Stat, i64> {
+    let mut totals = innate_base_stats.clone();
+    let mut used = vec![false; doc_items.len()];
+
+    for slot in gear::Slot::all() {
+        let Some(selected_item) = gear_set.items.get(&slot) else {
+            continue;
+        };
+        if selected_item.name.starts_with("[empty") {
+            continue;
+        }
+        let Some((idx, doc_item)) = doc_items.iter().enumerate().find(|(idx, doc_item)| {
+            !used[*idx] && doc_item_matches_selected(doc_item, selected_item, slot)
+        }) else {
+            continue;
+        };
+        used[idx] = true;
+        merge_stat_totals(&doc_item.base_stats, &mut totals);
+    }
+
+    totals.retain(|_, value| *value != 0);
+    totals
+}
+
+fn doc_item_matches_selected(
+    doc_item: &gearstats::DocItem,
+    selected_item: &gear::GearItem,
+    equipped_slot: gear::Slot,
+) -> bool {
+    doc_item.item.name == selected_item.name
+        && doc_item.item.two_handed == selected_item.two_handed
+        && doc_item.item.either_hand == selected_item.either_hand
+        && doc_item.item.stats == selected_item.stats
+        && slots_match_for_report(doc_item.item.slot, equipped_slot, selected_item.either_hand)
+}
+
+fn slots_match_for_report(
+    original_slot: gear::Slot,
+    equipped_slot: gear::Slot,
+    either_hand: bool,
+) -> bool {
+    original_slot.display_name() == equipped_slot.display_name()
+        || (either_hand
+            && original_slot == gear::Slot::OffHand
+            && equipped_slot == gear::Slot::MainHand)
+}
+
+fn merge_stat_totals(src: &HashMap<stat::Stat, i64>, dst: &mut HashMap<stat::Stat, i64>) {
+    for (stat, value) in src {
+        *dst.entry(*stat).or_insert(0) += value;
+    }
 }
 
 fn resolve_report_character(
