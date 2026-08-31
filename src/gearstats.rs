@@ -19,9 +19,9 @@ pub struct GearDoc {
     /// Character class, if present as `class = "..."` at top level.
     pub class: Option<String>,
     /// Fixed tracked-stat totals present before item optimization begins.
-    /// `read_stats_file` fills this from any tracked-stat keys currently
-    /// present in top-level `[InnateStats]`; the optimize path may add selected
-    /// Virtue tracked stats later, before Base-stat derivation.
+    /// `[InnateStats]` no longer contributes tracked stats directly; this map
+    /// is populated by fixed tracked-stat sources such as selected Virtues,
+    /// and by Base-stat derivation during the optimize pre-pass.
     pub innate_stats: HashMap<Stat, i64>,
     /// The five raw Base-stat values from top-level `[InnateStats]`
     /// (Might/Agility/Vitality/Will/Fate). Derivation inputs only: the
@@ -174,7 +174,7 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             .ok_or_else(|| format!("`{}` must be a TOML table", VIRTUE_TABLE_KEY))?;
         validate_virtue_keys(virtues_table)?;
     }
-    let innate_stats = read_innate_stats(&doc, TRACKED_STATS);
+    let innate_stats = HashMap::new();
     let innate_base_stats = read_innate_stats(&doc, BASE_STATS);
     let selected_virtues = read_selected_virtues(&doc)?;
 
@@ -217,9 +217,9 @@ fn is_base_stat_key(key: &str) -> bool {
     BASE_STATS.iter().any(|(_, stat_key)| *stat_key == key)
 }
 
-/// A key allowed wherever stat values live: the 16 tracked stats plus the
-/// five raw Base stats the resolver passes through. Anything else is a typo
-/// and must hard-error rather than silently dropping user data.
+/// A key allowed in `[[item]]` and `[item.EssenceTotals]`: the 16 tracked
+/// stats plus the five raw Base stats the resolver passes through. Anything
+/// else is a typo and must hard-error rather than silently dropping user data.
 fn is_allowed_stat_key(key: &str) -> bool {
     is_tracked_stat_key(key) || is_base_stat_key(key)
 }
@@ -258,10 +258,13 @@ fn validate_essence_keys(table: &toml::value::Table, item_name: &str) -> Result<
 
 fn validate_innate_keys(table: &toml::value::Table) -> Result<(), String> {
     for key in table.keys() {
-        if is_allowed_stat_key(key) {
+        if is_base_stat_key(key) {
             continue;
         }
-        return Err(format!("Unknown stat key `{}` in `InnateStats`.", key));
+        return Err(format!(
+            "Invalid key `{}` in `InnateStats`; `[InnateStats]` may contain only raw Base stats: Might, Agility, Vitality, Will, Fate. Fixed non-item stat sources should be configured through `[Virtues]`.",
+            key
+        ));
     }
     Ok(())
 }
@@ -682,31 +685,6 @@ name = "Test Helm"
     }
 
     #[test]
-    fn read_stats_file_extracts_innate_stats_with_morale_and_power() {
-        let dir = make_test_dir();
-        let path = dir.join("test.toml");
-        let toml = r#"
-[InnateStats]
-Morale = 100
-Power = 50
-CriticalRating = 25
-Might = 999
-
-[[item]]
-slot = "Head"
-name = "Test Helm"
-"#;
-        std::fs::write(&path, toml).expect("write toml");
-        let doc = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&100));
-        assert_eq!(doc.innate_stats.get(&Stat::Power), Some(&50));
-        assert_eq!(doc.innate_stats.get(&Stat::CriticalRating), Some(&25));
-        assert!(!doc.innate_stats.contains_key(&Stat::Might));
-        assert_eq!(doc.innate_base_stats.get(&Stat::Might), Some(&999));
-        std::fs::remove_dir_all(&dir).expect("cleanup");
-    }
-
-    #[test]
     fn read_stats_file_merges_full_essence_totals() {
         let dir = make_test_dir();
         let path = dir.join("test.toml");
@@ -847,22 +825,36 @@ Will = 12
     }
 
     #[test]
-    fn read_stats_file_errors_on_unknown_innate_stats_key() {
+    fn read_stats_file_rejects_tracked_stats_in_innate_stats_and_points_to_virtues() {
         let dir = make_test_dir();
         let path = dir.join("test.toml");
         let toml = r#"
 [InnateStats]
 Might = 5300
-Wisdom = 42
+Morale = 100
 
 [[item]]
 slot = "Head"
 name = "Test Helm"
 "#;
         std::fs::write(&path, toml).expect("write toml");
-        let err = read_stats_file(&path).expect_err("unknown InnateStats key must fail");
-        assert!(err.contains("Wisdom"));
-        assert!(err.contains("InnateStats"));
+        let err = read_stats_file(&path).expect_err("tracked InnateStats key must fail");
+        for needle in [
+            "Morale",
+            "InnateStats",
+            "raw Base stats",
+            "Might",
+            "Agility",
+            "Vitality",
+            "Will",
+            "Fate",
+            "Virtues",
+        ] {
+            assert!(
+                err.contains(needle),
+                "error must mention {needle:?}; got: {err}"
+            );
+        }
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
