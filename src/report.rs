@@ -134,7 +134,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  </style>").unwrap();
     writeln!(w, "</head>").unwrap();
     writeln!(w, "<body>").unwrap();
-    writeln!(w, "  <h1>LGO — Thalya's Gear Optimizer</h1>").unwrap();
+    writeln!(w, "  <h1>LGO — Gear Optimizer</h1>").unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
@@ -414,7 +414,7 @@ fn write_header_text(
 ) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w).unwrap();
-    writeln!(w, "  LGO — Thalya's Gear Optimizer").unwrap();
+    writeln!(w, "  LGO — Gear Optimizer").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
     writeln!(w, "  Stats file: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
