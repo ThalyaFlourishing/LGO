@@ -1,0 +1,11 @@
+# LGO saved build profiles. Hand-editing is fine.
+# Goals are priority-ordered: first entry = highest priority.
+
+[builds.Test1]
+goals = ["tm:240000", "cr:240000"]
+
+[builds.Test2]
+goals = ["tt:120000", "fn:170000"]
+
+[builds.Test3]
+goals = ["oh:1440000", "fn:170000"]

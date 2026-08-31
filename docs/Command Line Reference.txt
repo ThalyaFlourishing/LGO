@@ -141,7 +141,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize --builds-file <path> ...
     Override saved-build discovery and use the explicit builds TOML you provide.
     This applies to both `--build <name>` and `--save-build <name>`.
-
+  
   lgo optimize --save-build <name> <stat:min> [<stat:min> ...]
     Run the optimization normally and also save those goals into the sibling
     file `lgo_<character>_builds.toml` beside the canonical gear TOML.
@@ -160,7 +160,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     two-letter abbreviations are both accepted.
 
 3.5 scrap-gear
-  lgo scrap-gear
+  lgo scrap-gear ( )> cargo run -- scrap-gear )
     Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
     `lgo_<character>_builds.toml`, re-runs the live optimizer once per saved
     build, then lists the items not used in any saved build. The output first
