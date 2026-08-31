@@ -21,30 +21,6 @@ const COL_STAT: usize = 22;
 const COL_VALUE: usize = 10;
 const COL_MIN: usize = 10;
 
-/// Print the full optimizer report to stdout.
-pub fn print_report(
-    result: &OptimizeResult,
-    goals: &[StatGoal],
-    character: &str,
-    class: &str,
-    input_file: &str,
-    timestamp: &str,
-    projected_base_stats: &HashMap<Stat, i64>,
-) {
-    print!(
-        "{}",
-        format_optimize_report(
-            result,
-            goals,
-            character,
-            class,
-            input_file,
-            timestamp,
-            projected_base_stats,
-        )
-    );
-}
-
 /// Build the full text optimize report used for terminal and `.txt` output.
 pub fn format_optimize_report(
     result: &OptimizeResult,
@@ -98,7 +74,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "<html lang=\"en\">").unwrap();
     writeln!(w, "<head>").unwrap();
     writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
-    writeln!(w, "  <title>LGO Gear Report</title>").unwrap();
+    writeln!(w, "  <title>LGO — Thalya's Gear Optimizer</title>").unwrap();
     writeln!(w, "  <style>").unwrap();
     writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #fff; }}").unwrap();
     writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
@@ -134,7 +110,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  </style>").unwrap();
     writeln!(w, "</head>").unwrap();
     writeln!(w, "<body>").unwrap();
-    writeln!(w, "  <h1>LGO — Gear Optimizer</h1>").unwrap();
+    writeln!(w, "  <h1>LGO — Thalya's Gear Optimizer</h1>").unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
@@ -414,7 +390,7 @@ fn write_header_text(
 ) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w).unwrap();
-    writeln!(w, "  LGO — Gear Optimizer").unwrap();
+    writeln!(w, "  LGO — Thalya's Gear Optimizer").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
     writeln!(w, "  Stats file: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
@@ -786,7 +762,8 @@ mod tests {
                 stat
             );
         }
-        assert!(report.contains("Block") && report.contains("0"));
+        assert_eq!(projected_tracked_stat_value(&report, "Block"), Some(0));
+        assert_eq!(projected_tracked_stat_value(&report, "Evade"), Some(0));
     }
 
     #[test]
@@ -886,6 +863,39 @@ mod tests {
             failed_minima: Vec::new(),
             warnings: Vec::new(),
         }
+    }
+
+    fn projected_tracked_stat_value(report: &str, stat_name: &str) -> Option<i64> {
+        let mut in_section = false;
+
+        for line in report.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("Projected tracked stats ") {
+                in_section = true;
+                continue;
+            }
+            if !in_section {
+                continue;
+            }
+            if trimmed.is_empty() || trimmed.starts_with('─') {
+                continue;
+            }
+            if trimmed.starts_with("Projected raw Base stats") {
+                break;
+            }
+            let Some(rest) = trimmed.strip_prefix(stat_name) else {
+                continue;
+            };
+            let value = rest
+                .split_whitespace()
+                .last()?
+                .replace(',', "")
+                .parse::<i64>()
+                .ok()?;
+            return Some(value);
+        }
+
+        None
     }
 
     fn item(name: &str, slot: Slot, two_handed: bool) -> GearItem {

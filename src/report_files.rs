@@ -17,21 +17,10 @@ pub fn write_optimize_report_files(
     text_report: &str,
     html_report: &str,
 ) -> Result<ReportPaths, String> {
-    let input_file = input_file.canonicalize().map_err(|e| {
-        format!(
-            "cannot resolve canonical path for {}: {}",
-            input_file.display(),
-            e
-        )
-    })?;
     let reports_dir = input_file
         .parent()
-        .ok_or_else(|| {
-            format!(
-                "cannot determine parent directory for {}",
-                input_file.display()
-            )
-        })?
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
         .join(REPORTS_DIR);
 
     fs::create_dir_all(&reports_dir).map_err(|e| {
@@ -231,6 +220,27 @@ mod tests {
     }
 
     #[test]
+    fn relative_input_path_keeps_plain_relative_report_paths() {
+        let temp = TempDir::new_in_current_dir();
+        let input = temp.relative_input_file();
+
+        let paths = write_optimize_report_files(&input, "text", "html").expect("write succeeds");
+
+        let text = paths.text_path.display().to_string();
+        let html = paths.html_path.display().to_string();
+        assert!(!text.starts_with(r"\\?\"));
+        assert!(!html.starts_with(r"\\?\"));
+        assert_eq!(
+            paths
+                .text_path
+                .parent()
+                .and_then(|parent| parent.file_name())
+                .and_then(|name| name.to_str()),
+            Some(REPORTS_DIR)
+        );
+    }
+
+    #[test]
     fn zero_stat_rows_are_written_to_text_report() {
         let temp = TempDir::new();
         let input = temp.input_file();
@@ -386,6 +396,7 @@ mod tests {
 
     struct TempDir {
         path: PathBuf,
+        relative_input: Option<PathBuf>,
     }
 
     impl TempDir {
@@ -408,11 +419,39 @@ mod tests {
                 "character = \"Thalya\"\n[[item]]\nslot = \"Head\"\nname = \"Test\"\n",
             )
             .expect("input file");
-            TempDir { path }
+            TempDir {
+                path,
+                relative_input: None,
+            }
+        }
+
+        fn new_in_current_dir() -> Self {
+            static COUNTER: AtomicU64 = AtomicU64::new(0);
+            let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let dir_name = format!("tmp-report-files-{}-{}", std::process::id(), unique);
+            let path = std::env::current_dir()
+                .expect("current dir")
+                .join(&dir_name);
+            fs::create_dir_all(&path).expect("temp dir created");
+            fs::write(
+                path.join("lgo_Thalya_gearReady.toml"),
+                "character = \"Thalya\"\n[[item]]\nslot = \"Head\"\nname = \"Test\"\n",
+            )
+            .expect("input file");
+            TempDir {
+                path,
+                relative_input: Some(PathBuf::from(&dir_name).join("lgo_Thalya_gearReady.toml")),
+            }
         }
 
         fn input_file(&self) -> PathBuf {
             self.path.join("lgo_Thalya_gearReady.toml")
+        }
+
+        fn relative_input_file(&self) -> PathBuf {
+            self.relative_input
+                .clone()
+                .expect("relative input available for this temp dir")
         }
     }
 
