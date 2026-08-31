@@ -484,6 +484,8 @@ fn run_optimize(cli: &OptimizeCli) {
             build_name,
             builds_file.display()
         );
+    }
+
     if cli.to_file {
         let html_report = report::format_optimize_report_html(
             &result,
@@ -509,8 +511,6 @@ fn run_optimize(cli: &OptimizeCli) {
         }
     }
 }
-
-
 
 fn projected_base_stats(
     innate_base_stats: &HashMap<stat::Stat, i64>,
@@ -726,7 +726,7 @@ struct OptimizeCli {
     builds_file: Option<PathBuf>,
     build: Option<String>,
     save_build: Option<String>,
-    to_build: Option<String>,
+    to_file: bool,
     goals: Vec<StatGoal>,
 }
 
@@ -790,7 +790,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     let mut builds_file = None;
     let mut build = None;
     let mut save_build = None;
-    let mut to+_file = false;
+    let mut to_file = false;
     let mut goals = Vec::new();
     let mut i = 0;
 
@@ -1629,3 +1629,4 @@ mod tests {
         );
         assert_eq!(resolve_report_character(None, None, None), "Unknown");
     }
+}
