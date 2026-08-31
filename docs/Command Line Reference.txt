@@ -102,10 +102,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     their minima as possible, and only then uses extra raw totals as a polish/tiebreak.
     A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
     Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
-    Every optimize run also writes a plain-text report and a self-contained HTML
-    report into an LGO_Reports sub-folder beside that canonical gear TOML (or beside
-    the explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
-    lgo_GearReport_###.html, with a shared serial number per run.
+    By default optimize prints the report only to the terminal.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -137,6 +134,13 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
+
+
+  lgo optimize -toFile <stat:min> ...
+    Also write a plain-text report and a self-contained HTML report into an
+    LGO_Reports sub-folder beside the canonical gear TOML (or beside the
+    explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
+    lgo_GearReport_###.html, with a shared serial number per run.
 
   lgo optimize --builds-file <path> ...
     Override saved-build discovery and use the explicit builds TOML you provide.

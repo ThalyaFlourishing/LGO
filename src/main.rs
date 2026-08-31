@@ -463,16 +463,6 @@ fn run_optimize(cli: &OptimizeCli) {
     );
     print!("{}", text_report);
 
-    let html_report = report::format_optimize_report_html(
-        &result,
-        &goals,
-        &character,
-        &class,
-        &stats_file_display,
-        &timestamp,
-        &projected_base_stats,
-    );
-
     if let Some(build_name) = &cli.save_build {
         let builds_file = builds_file
             .as_ref()
@@ -494,21 +484,33 @@ fn run_optimize(cli: &OptimizeCli) {
             build_name,
             builds_file.display()
         );
-    }
+    if cli.to_file {
+        let html_report = report::format_optimize_report_html(
+            &result,
+            &goals,
+            &character,
+            &class,
+            &stats_file_display,
+            &timestamp,
+            &projected_base_stats,
+        );
 
-    match report_files::write_optimize_report_files(&stats_file, &text_report, &html_report) {
-        Ok(paths) => {
-            println!(
-                "  Report written to: {} and {}",
-                paths.text_path.display(),
-                paths.html_path.display()
-            );
-        }
-        Err(err) => {
-            eprintln!("Warning: could not write optimize report files: {}", err);
+        match report_files::write_optimize_report_files(&stats_file, &text_report, &html_report) {
+            Ok(paths) => {
+                println!(
+                    "  Report written to: {} and {}",
+                    paths.text_path.display(),
+                    paths.html_path.display()
+                );
+            }
+            Err(err) => {
+                eprintln!("Warning: could not write optimize report files: {}", err);
+            }
         }
     }
 }
+
+
 
 fn projected_base_stats(
     innate_base_stats: &HashMap<stat::Stat, i64>,
@@ -724,6 +726,7 @@ struct OptimizeCli {
     builds_file: Option<PathBuf>,
     build: Option<String>,
     save_build: Option<String>,
+    to_build: Option<String>,
     goals: Vec<StatGoal>,
 }
 
@@ -787,6 +790,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     let mut builds_file = None;
     let mut build = None;
     let mut save_build = None;
+    let mut to+_file = false;
     let mut goals = Vec::new();
     let mut i = 0;
 
@@ -814,6 +818,9 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
                 i += 1;
                 save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
             }
+            "-toFile" => {
+                to_file = true;
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -840,6 +847,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
         builds_file,
         build,
         save_build,
+        to_file,
         goals,
     })
 }
@@ -1080,6 +1088,7 @@ fn print_usage() {
     println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
     println!("  --build     <name>  Load saved goals from lgo_<character>_builds.toml");
     println!("  --save-build <name> Save these goals to lgo_<character>_builds.toml");
+    println!("  -toFile            Also write .txt and .html reports for this run");
     println!("  --help              Show this message");
     println!();
     println!("  `--build` may not be combined with positional goals.");
@@ -1088,6 +1097,8 @@ fn print_usage() {
     println!("  current directory) to derive Base-stat contributions before optimization.");
     println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
     println!("  against data/lgo_virtues.json in that same data/ folder.");
+    println!("  By default optimize prints only to the terminal; add -toFile to also");
+    println!("  write matching .txt and .html reports into LGO_Reports beside the gear TOML.");
     println!();
     println!("Options (scrap-gear):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
@@ -1145,6 +1156,7 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo optimize --save-build healer oh:200000 cr:350000 ml:0");
+    println!("    lgo optimize -toFile tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
     println!("    lgo scrap-gear");
@@ -1374,6 +1386,7 @@ mod tests {
                 assert!(cli.builds_file.is_none());
                 assert!(cli.build.is_none());
                 assert!(cli.save_build.is_none());
+                assert!(!cli.to_file);
                 assert_eq!(cli.goals.len(), 1);
             }
             _ => panic!("expected optimize command"),
@@ -1428,8 +1441,45 @@ mod tests {
             Command::Optimize(cli) => {
                 assert_eq!(cli.save_build.as_deref(), Some("healer"));
                 assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
+                assert!(!cli.to_file);
                 assert_eq!(cli.goals.len(), 2);
                 assert!(cli.build.is_none());
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_accepts_to_file_flag() {
+        let cmd = parse_command(&s(&["optimize", "-toFile", "tm:1"]))
+            .expect("optimize -toFile should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert!(cli.to_file);
+                assert_eq!(cli.goals.len(), 1);
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_to_file_can_be_combined_with_other_flags() {
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--file",
+            "gear.toml",
+            "--save-build",
+            "healer",
+            "-toFile",
+            "tm:1",
+        ]))
+        .expect("optimize combined flags should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+                assert_eq!(cli.save_build.as_deref(), Some("healer"));
+                assert!(cli.to_file);
+                assert_eq!(cli.goals.len(), 1);
             }
             _ => panic!("expected optimize command"),
         }
@@ -1579,4 +1629,3 @@ mod tests {
         );
         assert_eq!(resolve_report_character(None, None, None), "Unknown");
     }
-}
