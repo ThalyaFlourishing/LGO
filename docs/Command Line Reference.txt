@@ -78,8 +78,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     directory, resolve slot names via data/lgo_items.json, and merge the result into
     lgo_<character>_gearReady.toml.
     gearReady.toml is the canonical file for persistent manual corrections,
-    including each item's [item.EssenceTotals] block. The bookmarklet-produced
-    gearStats.toml should be treated as disposable input to resolve-slots.
+    including top-level [Virtues] plus each item's [item.EssenceTotals] block.
+    resolve-slots keeps [InnateStats] followed immediately by [Virtues] near the
+    top of the file. The bookmarklet-produced gearStats.toml should be treated
+    as disposable input to resolve-slots.
 
     Filename matching for the character name is case-insensitive on Windows.
 
@@ -109,16 +111,22 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Optimize using the explicit canonical gear TOML you provide.
     The file is read directly; no plugindata input is needed.
     Character and class are read from the TOML's top-level fields if present.
+    Top-level [Virtues] values are matched case-insensitively, after trimming
+    surrounding whitespace, against the top-level keys in data/lgo_virtues.json.
+    Empty values are ignored. Unknown or duplicate non-empty Virtue names are
+    hard errors.
     Per-item [item.EssenceTotals] values in gearReady.toml are merged into the
     effective item totals before optimization.
 
     optimize also derives the raw Base stats (Might, Agility, Vitality, Will,
     Fate) carried in gearReady.toml — innate, per-item, and essence values —
-    into tracked-stat contributions using the per-class coefficients in
-    data/base_stat_derivations.json. That file is resolved relative to the
-    current directory (same convention as build-db), so run optimize from a
-    directory containing the data/ folder. optimize errors clearly if the
-    file or the class entry is missing.
+    plus any raw Base stats granted by selected Virtues — into tracked-stat
+    contributions using the per-class coefficients in
+    data/base_stat_derivations.json. Selected Virtue tracked stats contribute
+    directly as fixed baseline totals. Both data files are resolved relative to
+    the current directory (same convention as build-db), so run optimize from a
+    directory containing the data/ folder. optimize errors clearly if the class
+    entry, derivation file, or needed virtue data file is missing.
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
@@ -248,5 +256,4 @@ Working directory matters. db_build resolves data/items.xml and data/lgo_items.j
 
 cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
                        db_build --items <path>\items.xml --out <path>\lgo_items.json
-
 

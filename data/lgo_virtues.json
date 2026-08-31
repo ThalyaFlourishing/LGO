@@ -1,108 +1,124 @@
 {
   "Charity": {
-    "PMit": 6670,
-    "Resist": 30212,
-    "Will": 893
+    "PhysicalMitigation": 6670,
+    "Resistance": 30212,
+    "Vitality": 893,
+    "Morale": 1778
   },
   "Compassion": {
-    "Agility": 2163,
-    "PMit": 13357,
-    "TMit": 6670
+    "Armor": 2163,
+    "PhysicalMitigation": 13357,
+    "TacticalMitigation": 6670,
+    "Morale": 1778
   },
   "Confidence": {
-    "CritDef": 16804,
-    "CritRtg": 6993,
-    "Finesse": 11086
+    "CriticalRating": 16804,
+    "Evade": 6993,
+    "Finesse": 11086,
+    "PhysicalMastery": 1325,
+    "TacticalMastery": 1325
   },
   "Determination": {
     "Agility": 3088,
-    "CritDef": 5024,
-    "PMit": 6940
+    "CriticalRating": 5024,
+    "PhysicalMastery": 8265,
+    "TacticalMastery": 1325
   },
   "Discipline": {
-    "ICMR": 11086,
-    "PMit": 4007,
-    "Resist": 30212
+    "IncomingHealing": 11086,
+    "PhysicalMitigation": 4007,
+    "Resistance": 30212,
+    "Morale": 1778
   },
   "Empathy": {
-    "Armour": 7206,
-    "CritDef": 11086,
-    "TMit": 9051
+    "Armor": 7206,
+    "CriticalDefense": 11086,
+    "Resistance": 9051,
+    "Morale": 1778
   },
   "Fidelity": {
-    "PMit": 4007,
-    "TMit": 13357,
-    "Vitality": 1493
+    "PhysicalMitigation": 4007,
+    "TacticalMitigation": 13357,
+    "Vitality": 1493,
+    "Morale": 1778
   },
   "Fortitude": {
-    "CritDef": 11086,
-    "Morale": 12765,
-    "TMit": 9051
+    "CriticalDefense": 11086,
+    "Morale": 14543,
+    "Resistance": 9051
   },
   "Honesty": {
-    "CritDef": 5024,
-    "Vitality": 13933,
-    "Will": 1549
+    "CriticalRating": 5024,
+    "TacticalMastery": 15258,
+    "Will": 1549,
+    "PhysicalMastery": 1325
   },
   "Honour": {
-    "Armour": 6651,
-    "Morale": 12765,
-    "TMit": 6670
+    "CriticalDefense": 6651,
+    "Morale": 14543,
+    "TacticalMitigation": 6670
   },
   "Idealism": {
-    "Evade": 2508,
-    "ICMR": 11086,
-    "IHR": 3830
+    "Fate": 2508,
+    "IncomingHealing": 11086,
+    "Morale": 5608
   },
   "Innocence": {
-    "PMit": 13357,
-    "Resist": 15106,
-    "Vitality": 4007
+    "PhysicalMitigation": 13357,
+    "Resistance": 15106,
+    "TacticalMitigation": 4007,
+    "Morale": 1778
   },
   "Justice": {
-    "Fate": 255.306,
-    "IHR": 6383,
-    "Vitality": 4007
+    "Morale": 8261,
+    "TacticalMitigation": 4007
   },
   "Loyalty": {
-    "Armour": 3603,
-    "Morale": 6651,
-    "Will": 2978
+    "Armor": 3603,
+    "IncomingHealing": 6651,
+    "Vitality": 2978,
+    "Morale": 1778
   },
   "Mercy": {
-    "CritRtg": 23333,
-    "Evade": 1254,
-    "Will": 893
+    "Evade": 23333,
+    "Fate": 1254,
+    "Vitality": 893,
+    "Morale": 1778
   },
   "Patience": {
-    "CritDef": 5024,
-    "CritRtg": 11710,
-    "Power": 2006.531
+    "CriticalRating": 5024,
+    "Evade": 11710,
+    "Power": 2006,
+    "Morale": 1778
   },
   "Tolerance": {
-    "PMit": 4007,
-    "Resist": 15106,
-    "Vitality": 13357
+    "PhysicalMitigation": 4007,
+    "Resistance": 15106,
+    "TacticalMitigation": 13357,
+    "Morale": 1778
   },
   "Valour": {
-    "CritDef": 5024,
+    "CriticalRating": 5024,
     "Finesse": 11086,
-    "Power": 13933
+    "PhysicalMastery": 15258,
+    "TacticalMastery": 1325
   },
   "Wisdom": {
-    "Fate": 6651,
-    "PMit": 6940,
-    "Will": 3088
+    "Finesse": 6651,
+    "TacticalMastery": 8265,
+    "Will": 3088,
+    "PhysicalMastery": 1325
   },
   "Wit": {
-    "CritDef": 8376,
+    "CriticalRating": 8376,
     "Finesse": 22171,
-    "Power": 4171,
-    "Vitality": 4171
+    "PhysicalMastery": 5496,
+    "TacticalMastery": 5496
   },
   "Zeal": {
-    "CritDef": 5024,
+    "CriticalRating": 5024,
     "Might": 3088,
-    "PMit": 6940
+    "PhysicalMastery": 8265,
+    "TacticalMastery": 1325
   }
 }

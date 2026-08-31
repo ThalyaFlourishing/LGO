@@ -70,3 +70,7 @@ a capable model. Spend accordingly.
 
 > Model names and pricing change over time; treat the *tiers* (cheap / frontier)
 > as the durable advice and pick whatever current model fits each tier.
+
+## Legacy issues:
+
+None. No old files have any value whatsoever. No protection of backwards compatibility is required.

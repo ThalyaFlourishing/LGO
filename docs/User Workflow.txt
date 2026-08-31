@@ -79,6 +79,11 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 9. You will probably (optional) need to open this 'gearReady.toml' file in
    a text editor and review it. You will need to hand-edit some kinds of
    data:
+       - Your five selected Virtues in the top-level [Virtues] block. Fill in
+         Virtue1 ... Virtue5 with names from data/lgo_virtues.json. Matching is
+         case-insensitive and trims surrounding whitespace. Empty strings are
+         allowed; unknown or duplicate non-empty Virtue names make optimize
+         fail with a clear error.
        - Legendary Items
        - Essence stats: enter them in each item's [item.EssenceTotals] block.
          Enter essence Base stats (e.g. Vitality or Will essences) verbatim
@@ -95,14 +100,16 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     
    Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
 
-   Near the top of the file you will see the header fields `character`, 
-   `class`, and `[InnateStats]`. The item list begins after that. Each 
-   item has normal stat lines for the base item plus an attached
-   [item.EssenceTotals] block. Put the sum of that item's socketed essence
-   stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but
-   resolve-slots writes every tracked stat explicitly to reduce copy/paste
-   mistakes. If you mistype a stat name, optimize will fail with an error
-   rather than silently ignore it.
+   Near the top of the file you will see the header fields `character`,
+   `class`, `[InnateStats]`, and `[Virtues]`. [InnateStats] contains only the
+   five raw Base stats (Might, Agility, Vitality, Will, Fate). [Virtues]
+   contains your five user-maintained Virtue name slots. The item list begins
+   after that. Each item has normal stat lines for the base item plus an
+   attached [item.EssenceTotals] block. Put the sum of that item's socketed
+   essence stats in [item.EssenceTotals]. Missing stat lines are treated as 0,
+   but resolve-slots writes every tracked stat explicitly to reduce copy/paste
+   mistakes. If you mistype a stat name, or enter an unknown Virtue name,
+   optimize will fail with an error rather than silently ignore it.
     
    There may be items not found in the database. They will keep their original slot value (usually 'Unknown'). Their names are printed to the terminal window so you know which entries in the 'lgo_<character-name>_gearReady.toml' file are likely to need hand-editing.
    
