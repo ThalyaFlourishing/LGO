@@ -1,6 +1,7 @@
 # Rust files and build artifacts
 /target/
 **/*.rs.bk
+/TestData/LGO_Reports/
 
 # OS and IDE files
 .DS_Store

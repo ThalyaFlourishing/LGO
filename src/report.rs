@@ -1,8 +1,10 @@
-//! Terminal report formatter.
+//! Terminal and HTML report formatter.
 //!
 //! Produces a human-readable summary of the optimizer result, including:
 //!   - The recommended item for each slot
 //!   - The total value of each goal stat across the full gear set
+//!   - The full projected tracked-stat table
+//!   - The projected raw Base-stat pool
 //!   - Whether each minimum was met
 //!   - Any warnings (missing items, etc.)
 //!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
@@ -10,45 +12,294 @@
 use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
 use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
-
-// ?? Column widths ?????????????????????????????????????????????????????????????
 
 const COL_SLOT: usize = 14;
 const COL_ITEM: usize = 48;
 const COL_STAT: usize = 22;
 const COL_VALUE: usize = 10;
 const COL_MIN: usize = 10;
-const COL_MET: usize = 5;
+const REPORT_TITLE: &str = "LGO — Thalya's Gear Optimizer";
 
-// ?? Public entry point ????????????????????????????????????????????????????????
-
-/// Print the full optimizer report to stdout.
-pub fn print_report(
+/// Build the full text optimize report used for terminal and `.txt` output.
+pub fn format_optimize_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
     class: &str,
     input_file: &str,
-) {
-    print_header(character, class, input_file);
+    timestamp: &str,
+    projected_base_stats: &HashMap<Stat, i64>,
+) -> String {
+    let mut out = String::new();
+    let w = &mut out;
+
+    write_header_text(w, character, class, input_file, timestamp);
 
     if !result.warnings.is_empty() {
-        print_warnings(&result.warnings);
+        write_warnings_text(w, &result.warnings);
     }
 
-    print_gear_table(&result.gear_set);
-    print_stat_summary(&result.gear_set, goals, &result.failed_minima);
+    write_gear_table_text(w, &result.gear_set);
+    write_stat_summary_text(w, &result.gear_set, goals, &result.failed_minima);
+    write_projected_tracked_stats_text(w, &result.gear_set);
+    write_projected_base_stats_text(w, projected_base_stats);
 
     if result.feasible {
-        println!();
-        println!("  ✓  All stat minima met.");
+        writeln!(w).unwrap();
+        writeln!(w, "  ✓  All stat minima met.").unwrap();
     } else {
-        print_infeasible_banner(&result.failed_minima);
+        write_infeasible_banner_text(w, &result.failed_minima);
     }
 
-    println!();
+    writeln!(w).unwrap();
+    out
+}
+
+/// Build a self-contained HTML optimize report.
+pub fn format_optimize_report_html(
+    result: &OptimizeResult,
+    goals: &[StatGoal],
+    character: &str,
+    class: &str,
+    input_file: &str,
+    timestamp: &str,
+    projected_base_stats: &HashMap<Stat, i64>,
+) -> String {
+    let failed_stats: HashSet<Stat> = result.failed_minima.iter().map(|(s, _, _)| *s).collect();
+    let mut out = String::new();
+    let w = &mut out;
+
+    writeln!(w, "<!DOCTYPE html>").unwrap();
+    writeln!(w, "<html lang=\"en\">").unwrap();
+    writeln!(w, "<head>").unwrap();
+    writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
+    writeln!(w, "  <title>{}</title>", html_escape(REPORT_TITLE)).unwrap();
+    writeln!(w, "  <style>").unwrap();
+    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #fff; }}").unwrap();
+    writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
+    writeln!(w, "    p.meta {{ margin: 0.2rem 0; }}").unwrap();
+    writeln!(
+        w,
+        "    table {{ border-collapse: collapse; margin: 1rem 0 1.5rem; min-width: 32rem; }}"
+    )
+    .unwrap();
+    writeln!(w, "    th, td {{ border: 1px solid #c9c9c9; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }}").unwrap();
+    writeln!(
+        w,
+        "    th.num, td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}"
+    )
+    .unwrap();
+    writeln!(w, "    .banner {{ font-weight: 700; padding: 0.75rem 1rem; border-radius: 0.35rem; margin: 1.25rem 0; }}").unwrap();
+    writeln!(
+        w,
+        "    .feasible {{ background: #edf9ed; border: 1px solid #9fcd9f; }}"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "    .infeasible {{ background: #fff1f1; border: 1px solid #d79b9b; }}"
+    )
+    .unwrap();
+    writeln!(w, "    ul {{ margin-top: 0.4rem; }}").unwrap();
+    writeln!(
+        w,
+        "    code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }}"
+    )
+    .unwrap();
+    writeln!(w, "  </style>").unwrap();
+    writeln!(w, "</head>").unwrap();
+    writeln!(w, "<body>").unwrap();
+    writeln!(w, "  <h1>{}</h1>", html_escape(REPORT_TITLE)).unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
+        html_escape(character),
+        html_escape(class),
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\"><strong>Stats file:</strong> <code>{}</code></p>",
+        html_escape(input_file),
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\"><strong>Run time:</strong> {}</p>",
+        html_escape(timestamp),
+    )
+    .unwrap();
+
+    if !result.warnings.is_empty() {
+        writeln!(w, "  <h2>Warnings</h2>").unwrap();
+        writeln!(w, "  <ul>").unwrap();
+        for warning in &result.warnings {
+            writeln!(w, "    <li>⚠ {}</li>", html_escape(warning)).unwrap();
+        }
+        writeln!(w, "  </ul>").unwrap();
+    }
+
+    writeln!(w, "  <h2>Recommended gear</h2>").unwrap();
+    writeln!(w, "  <table>").unwrap();
+    writeln!(
+        w,
+        "    <thead><tr><th>Slot</th><th>Recommended Item</th></tr></thead>"
+    )
+    .unwrap();
+    writeln!(w, "    <tbody>").unwrap();
+    let main_is_two_handed = result
+        .gear_set
+        .items
+        .get(&Slot::MainHand)
+        .is_some_and(|item| item.two_handed);
+    for slot in Slot::all() {
+        let item_display = hand_or_item_label(&result.gear_set, slot, main_is_two_handed);
+        writeln!(
+            w,
+            "      <tr><td>{}</td><td>{}</td></tr>",
+            html_escape(slot.display_name()),
+            html_escape(&item_display),
+        )
+        .unwrap();
+    }
+    writeln!(w, "    </tbody>").unwrap();
+    writeln!(w, "  </table>").unwrap();
+
+    if !goals.is_empty() {
+        writeln!(w, "  <h2>Goal stat summary</h2>").unwrap();
+        writeln!(w, "  <table>").unwrap();
+        writeln!(
+            w,
+            "    <thead><tr><th>Stat</th><th class=\"num\">Total</th><th class=\"num\">Minimum</th><th>Met?</th></tr></thead>"
+        )
+        .unwrap();
+        writeln!(w, "    <tbody>").unwrap();
+        for goal in goals {
+            let total = result.gear_set.total(&goal.stat);
+            let met_marker = goal_met_marker(goal.minimum, total);
+            let flag = if failed_stats.contains(&goal.stat) {
+                " ⚠"
+            } else {
+                ""
+            };
+            writeln!(
+                w,
+                "      <tr><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td>{}{}</td></tr>",
+                html_escape(&goal.stat.to_string()),
+                format_number(total),
+                if goal.minimum > 0 {
+                    format_number(goal.minimum)
+                } else {
+                    "—".to_string()
+                },
+                met_marker,
+                flag,
+            )
+            .unwrap();
+        }
+        writeln!(w, "    </tbody>").unwrap();
+        writeln!(w, "  </table>").unwrap();
+    }
+
+    writeln!(w, "  <h2>Projected tracked stats</h2>").unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\">Effective totals worn (gear + essences + derived Base-stat contributions + Virtue fixed stats).</p>"
+    )
+    .unwrap();
+    writeln!(w, "  <table>").unwrap();
+    writeln!(
+        w,
+        "    <thead><tr><th>Stat</th><th class=\"num\">Total</th></tr></thead>"
+    )
+    .unwrap();
+    writeln!(w, "    <tbody>").unwrap();
+    for (stat, _) in TRACKED_STATS {
+        writeln!(
+            w,
+            "      <tr><td>{}</td><td class=\"num\">{}</td></tr>",
+            html_escape(&stat.to_string()),
+            format_number(result.gear_set.total(stat)),
+        )
+        .unwrap();
+    }
+    writeln!(w, "    </tbody>").unwrap();
+    writeln!(w, "  </table>").unwrap();
+
+    writeln!(w, "  <h2>Projected raw Base stats</h2>").unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\">Combined Base-stat pool (innate + gear + essences + Virtues). These are derivation inputs only.</p>"
+    )
+    .unwrap();
+    writeln!(w, "  <table>").unwrap();
+    writeln!(
+        w,
+        "    <thead><tr><th>Base Stat</th><th class=\"num\">Total</th></tr></thead>"
+    )
+    .unwrap();
+    writeln!(w, "    <tbody>").unwrap();
+    for (stat, _) in BASE_STATS {
+        writeln!(
+            w,
+            "      <tr><td>{}</td><td class=\"num\">{}</td></tr>",
+            html_escape(&stat.to_string()),
+            format_number(projected_base_stats.get(stat).copied().unwrap_or(0)),
+        )
+        .unwrap();
+    }
+    writeln!(w, "    </tbody>").unwrap();
+    writeln!(w, "  </table>").unwrap();
+
+    if result.feasible {
+        writeln!(
+            w,
+            "  <p class=\"banner feasible\">✓ All stat minima met.</p>"
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            w,
+            "  <div class=\"banner infeasible\">✗ INFEASIBLE — not all stat minima can be met ✗</div>"
+        )
+        .unwrap();
+        writeln!(
+            w,
+            "  <p>The following stats could not reach their minima with any combination of the available items:</p>"
+        )
+        .unwrap();
+        writeln!(w, "  <table>").unwrap();
+        writeln!(
+            w,
+            "    <thead><tr><th>Stat</th><th class=\"num\">Needed</th><th class=\"num\">Achieved</th><th class=\"num\">Short by</th></tr></thead>"
+        )
+        .unwrap();
+        writeln!(w, "    <tbody>").unwrap();
+        for (stat, minimum, achieved) in &result.failed_minima {
+            writeln!(
+                w,
+                "      <tr><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td></tr>",
+                html_escape(&stat.to_string()),
+                format_number(*minimum),
+                format_number(*achieved),
+                format_number(minimum - achieved),
+            )
+            .unwrap();
+        }
+        writeln!(w, "    </tbody>").unwrap();
+        writeln!(w, "  </table>").unwrap();
+        writeln!(
+            w,
+            "  <p>The result shown gets your highest-priority goals as close to their targets as possible; once a goal is met, extra points in it are not pursued at the expense of lower-priority goals still short of target.</p>"
+        )
+        .unwrap();
+    }
+
+    writeln!(w, "</body>").unwrap();
+    writeln!(w, "</html>").unwrap();
+    out
 }
 
 /// Print the `lgo base-stats` report to stdout.
@@ -131,63 +382,61 @@ pub fn format_base_stats_report(
     out
 }
 
-fn print_header(character: &str, class: &str, input_file: &str) {
+fn write_header_text(
+    w: &mut String,
+    character: &str,
+    class: &str,
+    input_file: &str,
+    timestamp: &str,
+) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
-    println!();
-    println!("  LGO — Thalya's Gear Optimizer");
-    println!("  Character : {} ({})", character, class);
-    println!("  Stats file: {}", input_file);
-    println!("  {}", divider);
+    writeln!(w).unwrap();
+    writeln!(w, "  {}", REPORT_TITLE).unwrap();
+    writeln!(w, "  Character : {} ({})", character, class).unwrap();
+    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  Run time  : {}", timestamp).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
 }
 
-fn print_warnings(warnings: &[String]) {
-    println!();
-    println!("  WARNINGS:");
-    for w in warnings {
-        println!("    ⚠  {}", w);
+fn write_warnings_text(w: &mut String, warnings: &[String]) {
+    writeln!(w).unwrap();
+    writeln!(w, "  WARNINGS:").unwrap();
+    for warning in warnings {
+        writeln!(w, "    ⚠  {}", warning).unwrap();
     }
-    println!();
+    writeln!(w).unwrap();
 }
 
-fn print_gear_table(gear_set: &GearSet) {
+fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
-    println!();
-    println!("  {:>12}  Recommended Item", "Slot");
-    println!("  {}", divider);
+    writeln!(w).unwrap();
+    writeln!(w, "  {:>12}  Recommended Item", "Slot").unwrap();
+    writeln!(w, "  {}", divider).unwrap();
 
-    // A two-handed main hand occupies both hand slots, so the off-hand line
-    // reports the weapon rather than the structural empty placeholder.
     let main_is_two_handed = gear_set
         .items
         .get(&Slot::MainHand)
         .is_some_and(|item| item.two_handed);
 
-    // Print slots in a fixed, readable order.
     for slot in Slot::all() {
-        let slot_label = slot.display_name();
-        let item_display = hand_or_item_label(gear_set, slot, main_is_two_handed);
-
-        // Truncate long item names with ellipsis.
-        let item_display = truncate(&item_display, COL_ITEM);
-        println!(
+        let item_display = truncate(
+            &hand_or_item_label(gear_set, slot, main_is_two_handed),
+            COL_ITEM,
+        );
+        writeln!(
+            w,
             "  {:>COL_SLOT$}  {}",
-            slot_label,
+            slot.display_name(),
             item_display,
             COL_SLOT = COL_SLOT
-        );
+        )
+        .unwrap();
     }
 
-    println!("  {}", divider);
+    writeln!(w, "  {}", divider).unwrap();
 }
 
-/// The item label for a slot in the gear table.
-///
-/// - The off-hand of a two-handed main hand shows `(2-handed item)`.
-/// - An empty-pool placeholder (the optimizer's `[empty ...]` candidate,
-///   selected only when a slot has no real items) shows `NO ITEMS` — an
-///   obtuse-but-honest marker that traps bad input without halting.
-/// - Otherwise the item's own name is shown.
 fn hand_or_item_label(gear_set: &GearSet, slot: Slot, main_is_two_handed: bool) -> String {
     if slot == Slot::OffHand && main_is_two_handed {
         return "(2-handed item)".to_string();
@@ -199,24 +448,26 @@ fn hand_or_item_label(gear_set: &GearSet, slot: Slot, main_is_two_handed: bool) 
     }
 }
 
-/// True for the optimizer's synthetic empty-slot placeholder candidates, whose
-/// names take the form `[empty ...]`.
 fn is_empty_placeholder(name: &str) -> bool {
     name.starts_with("[empty")
 }
 
-fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(Stat, i64, i64)]) {
+fn write_stat_summary_text(
+    w: &mut String,
+    gear_set: &GearSet,
+    goals: &[StatGoal],
+    failed_minima: &[(Stat, i64, i64)],
+) {
     if goals.is_empty() {
         return;
     }
 
-    let failed_stats: std::collections::HashSet<Stat> =
-        failed_minima.iter().map(|(s, _, _)| *s).collect();
+    let failed_stats: HashSet<Stat> = failed_minima.iter().map(|(s, _, _)| *s).collect();
+    let divider = "─".repeat(COL_STAT + COL_VALUE + COL_MIN + 11);
 
-    let divider = "─".repeat(COL_STAT + COL_VALUE + COL_MIN + COL_MET + 6);
-
-    println!();
-    println!(
+    writeln!(w).unwrap();
+    writeln!(
+        w,
         "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  Met?",
         "Stat",
         "Total",
@@ -224,74 +475,153 @@ fn print_stat_summary(gear_set: &GearSet, goals: &[StatGoal], failed_minima: &[(
         COL_STAT = COL_STAT,
         COL_VALUE = COL_VALUE,
         COL_MIN = COL_MIN,
-    );
-    println!("  {}", divider);
+    )
+    .unwrap();
+    writeln!(w, "  {}", divider).unwrap();
 
     for goal in goals {
         let total = gear_set.total(&goal.stat);
-        let minimum = goal.minimum;
-        let met = total >= minimum;
-        let met_str = if minimum == 0 {
-            "  —  ".to_string()
-        } else if met {
-            "  ✓  ".to_string()
-        } else {
-            "  ✗  ".to_string()
-        };
-
+        let met_marker = goal_met_marker(goal.minimum, total);
         let flag = if failed_stats.contains(&goal.stat) {
             " ⚠"
         } else {
             ""
         };
 
-        println!(
+        writeln!(
+            w,
             "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  {}{}",
             format!("{}", goal.stat),
             format_number(total),
-            if minimum > 0 {
-                format_number(minimum)
+            if goal.minimum > 0 {
+                format_number(goal.minimum)
             } else {
                 "—".to_string()
             },
-            met_str,
+            met_marker,
             flag,
             COL_STAT = COL_STAT,
             COL_VALUE = COL_VALUE,
             COL_MIN = COL_MIN,
-        );
+        )
+        .unwrap();
     }
 
-    println!("  {}", divider);
+    writeln!(w, "  {}", divider).unwrap();
 }
 
-fn print_infeasible_banner(failed_minima: &[(Stat, i64, i64)]) {
-    println!();
-    println!("  ════════════════════════════════════════════════");
-    println!("  ✗  INFEASIBLE — not all stat minima can be met ✗");
-    println!("  ════════════════════════════════════════════════");
-    println!();
-    println!("  The following stats could not reach their minima");
-    println!("  with any combination of the available items:");
-    println!();
+fn write_projected_tracked_stats_text(w: &mut String, gear_set: &GearSet) {
+    let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Projected tracked stats (gear + essences + derived Base-stat contributions + Virtue fixed stats):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, _) in TRACKED_STATS {
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(gear_set.total(stat)),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
+}
+
+fn write_projected_base_stats_text(w: &mut String, projected_base_stats: &HashMap<Stat, i64>) {
+    let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Projected raw Base stats (innate + gear + essences + Virtues; derivation inputs only):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, _) in BASE_STATS {
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(projected_base_stats.get(stat).copied().unwrap_or(0)),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
+}
+
+fn write_infeasible_banner_text(w: &mut String, failed_minima: &[(Stat, i64, i64)]) {
+    writeln!(w).unwrap();
+    writeln!(w, "  ════════════════════════════════════════════════").unwrap();
+    writeln!(w, "  ✗  INFEASIBLE — not all stat minima can be met ✗").unwrap();
+    writeln!(w, "  ════════════════════════════════════════════════").unwrap();
+    writeln!(w).unwrap();
+    writeln!(w, "  The following stats could not reach their minima").unwrap();
+    writeln!(w, "  with any combination of the available items:").unwrap();
+    writeln!(w).unwrap();
     for (stat, minimum, achieved) in failed_minima {
-        println!(
+        writeln!(
+            w,
             "    {:<COL_STAT$}  needed {:>8}  achieved {:>8}  short by {:>8}",
             format!("{}", stat),
             format_number(*minimum),
             format_number(*achieved),
             format_number(minimum - achieved),
             COL_STAT = COL_STAT,
-        );
+        )
+        .unwrap();
     }
-    println!();
-    println!("  The result shown gets your highest-priority goals as close");
-    println!("  to their targets as possible; once a goal is met, extra");
-    println!("  points in it are not pursued at the expense of lower-priority");
-    println!("  goals still short of target.");
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  The result shown gets your highest-priority goals as close"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  to their targets as possible; once a goal is met, extra"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  points in it are not pursued at the expense of lower-priority"
+    )
+    .unwrap();
+    writeln!(w, "  goals still short of target.").unwrap();
 }
 
-/// Format an i64 with thousands separators: 1234567 ? "1,234,567".
+fn goal_met_marker(minimum: i64, total: i64) -> &'static str {
+    if minimum == 0 {
+        "—"
+    } else if total >= minimum {
+        "✓"
+    } else {
+        "✗"
+    }
+}
+
+fn html_escape(s: &str) -> String {
+    let mut escaped = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+/// Format an i64 with thousands separators: 1234567 → "1,234,567".
 fn format_number(n: i64) -> String {
     let s = n.abs().to_string();
     let with_commas = s
@@ -319,8 +649,6 @@ fn truncate(s: &str, max_chars: usize) -> String {
         format!("{}…", truncated)
     }
 }
-
-// ?? Tests ?????????????????????????????????????????????????????????????????????
 
 #[cfg(test)]
 mod tests {
@@ -374,7 +702,6 @@ mod tests {
 
         assert!(report.contains("Character : Thalya (Lore-master)"));
         assert!(report.contains("Stats file: lgo_Thalya_gearReady.toml"));
-        // Raw section: all five Base stats, labeled as derivation inputs.
         assert!(report.contains("derivation inputs only"));
         for (name, value) in [
             ("Might", "5,300"),
@@ -390,8 +717,6 @@ mod tests {
                 value
             );
         }
-        // Derived section: labeled as already included in optimize totals,
-        // with all 16 tracked stats present (zeros included).
         assert!(report.contains("already included in optimize totals"));
         assert!(report.contains("45,900"));
         assert!(report.contains("39,750"));
@@ -405,14 +730,62 @@ mod tests {
         }
     }
 
-    fn item(name: &str, slot: Slot, two_handed: bool) -> GearItem {
-        GearItem {
-            name: name.to_string(),
-            slot,
-            two_handed,
-            either_hand: false,
-            stats: HashMap::new(),
+    #[test]
+    fn optimize_report_lists_timestamp_and_all_projected_stats() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 1000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[
+                (Stat::Might, 5300),
+                (Stat::Agility, 2650),
+                (Stat::Vitality, 10200),
+                (Stat::Will, 7950),
+                (Stat::Fate, 4000),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert!(report.contains("Run time  : 2026-08-31 08:00:00 +00:00"));
+        assert!(report.contains("Projected tracked stats"));
+        assert!(report.contains("Projected raw Base stats"));
+        for (stat, _) in TRACKED_STATS {
+            assert!(
+                report.contains(&format!("{}", stat)),
+                "projected section must list tracked stat {}",
+                stat
+            );
         }
+        assert_eq!(projected_tracked_stat_value(&report, "Block"), Some(0));
+        assert_eq!(projected_tracked_stat_value(&report, "Evade"), Some(0));
+    }
+
+    #[test]
+    fn html_report_escapes_item_names() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result_with_name("Shield <&> \"Quote\" 'Single'"),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 1000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+        );
+
+        assert!(report.contains("&lt;&amp;&gt;"));
+        assert!(report.contains("&quot;Quote&quot;"));
+        assert!(report.contains("&#39;Single&#39;"));
+        assert!(report.contains("<meta charset=\"utf-8\">"));
     }
 
     #[test]
@@ -443,9 +816,7 @@ mod tests {
         let gear_set = GearSet::new(HashMap::new());
         let gear_set = GearSet { items, ..gear_set };
 
-        // A slot whose optimizer placeholder was selected renders NO ITEMS.
         assert_eq!(hand_or_item_label(&gear_set, Slot::Head, false), "NO ITEMS");
-        // A slot with no entry at all also renders NO ITEMS rather than halting.
         assert_eq!(
             hand_or_item_label(&gear_set, Slot::Chest, false),
             "NO ITEMS"
@@ -464,5 +835,77 @@ mod tests {
             hand_or_item_label(&gear_set, Slot::OffHand, false),
             "Shield"
         );
+    }
+
+    fn sample_optimize_result() -> OptimizeResult {
+        sample_optimize_result_with_name("Simple Helm")
+    }
+
+    fn sample_optimize_result_with_name(name: &str) -> OptimizeResult {
+        let mut innate_stats = HashMap::new();
+        innate_stats.insert(Stat::Morale, 1000);
+        let mut gear_set = GearSet::new(innate_stats);
+        gear_set.items.insert(
+            Slot::Head,
+            GearItem {
+                name: name.to_string(),
+                slot: Slot::Head,
+                two_handed: false,
+                either_hand: false,
+                stats: [(Stat::Morale, 250), (Stat::Armor, 300)]
+                    .into_iter()
+                    .collect(),
+            },
+        );
+
+        OptimizeResult {
+            gear_set,
+            feasible: true,
+            failed_minima: Vec::new(),
+            warnings: Vec::new(),
+        }
+    }
+
+    fn projected_tracked_stat_value(report: &str, stat_name: &str) -> Option<i64> {
+        let mut in_section = false;
+
+        for line in report.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("Projected tracked stats ") {
+                in_section = true;
+                continue;
+            }
+            if !in_section {
+                continue;
+            }
+            if trimmed.is_empty() || trimmed.starts_with('─') {
+                continue;
+            }
+            if trimmed.starts_with("Projected raw Base stats") {
+                break;
+            }
+            let Some(rest) = trimmed.strip_prefix(stat_name) else {
+                continue;
+            };
+            let value = rest
+                .split_whitespace()
+                .last()?
+                .replace(',', "")
+                .parse::<i64>()
+                .ok()?;
+            return Some(value);
+        }
+
+        None
+    }
+
+    fn item(name: &str, slot: Slot, two_handed: bool) -> GearItem {
+        GearItem {
+            name: name.to_string(),
+            slot,
+            two_handed,
+            either_hand: false,
+            stats: HashMap::new(),
+        }
     }
 }

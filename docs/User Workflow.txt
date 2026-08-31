@@ -155,6 +155,10 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     it from a directory containing the 'data' folder (the same
     convention as build-db).
 
+    Each optimize run also writes two copies of the report beside the
+    canonical gear TOML, inside an LGO_Reports folder: one .txt and one
+    self-contained .html file with matching lgo_GearReport_### names.
+
     To see just your character's raw innate Base stats and the
     tracked-stat contributions derived from them (already included in
     optimize totals), run:
@@ -164,7 +168,9 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     This does not run an optimization.
 
 11. Read the report printed to the terminal. It lists the chosen item
-    for each gear slot and the resulting total for each tracked stat.
+    for each gear slot, the resulting total for each tracked stat, and
+    the projected raw Base-stat pool. The same report is also saved in
+    the LGO_Reports folder as both text and HTML.
 
 
 Iteration
