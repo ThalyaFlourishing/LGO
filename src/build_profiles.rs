@@ -30,9 +30,12 @@ impl SavedBuilds {
         let doc: toml::Value = src
             .parse()
             .map_err(|e| format!("Malformed TOML in {}: {}", path.display(), e))?;
-        let root = doc
-            .as_table()
-            .ok_or_else(|| format!("Saved builds file {} must contain a TOML table", path.display()))?;
+        let root = doc.as_table().ok_or_else(|| {
+            format!(
+                "Saved builds file {} must contain a TOML table",
+                path.display()
+            )
+        })?;
 
         for key in root.keys() {
             if key != BUILDS_TABLE_KEY {
@@ -60,7 +63,10 @@ impl SavedBuilds {
 
         for (build_name, build_value) in builds_table {
             if build_name.trim().is_empty() {
-                return Err(format!("Saved build names in {} must not be empty", path.display()));
+                return Err(format!(
+                    "Saved build names in {} must not be empty",
+                    path.display()
+                ));
             }
 
             let lowercase_name = build_name.to_ascii_lowercase();
@@ -89,14 +95,20 @@ impl SavedBuilds {
                 }
             }
 
-            let goals_value = build_table.get(GOALS_KEY).ok_or_else(|| {
-                format!("Build `{}` is missing `{}`.", build_name, GOALS_KEY)
+            let goals_value = build_table
+                .get(GOALS_KEY)
+                .ok_or_else(|| format!("Build `{}` is missing `{}`.", build_name, GOALS_KEY))?;
+            let goals_array = goals_value.as_array().ok_or_else(|| {
+                format!(
+                    "Build `{}` field `{}` must be an array.",
+                    build_name, GOALS_KEY
+                )
             })?;
-            let goals_array = goals_value
-                .as_array()
-                .ok_or_else(|| format!("Build `{}` field `{}` must be an array.", build_name, GOALS_KEY))?;
             if goals_array.is_empty() {
-                return Err(format!("Build `{}` has an empty `{}` array.", build_name, GOALS_KEY));
+                return Err(format!(
+                    "Build `{}` has an empty `{}` array.",
+                    build_name, GOALS_KEY
+                ));
             }
 
             let mut goals = Vec::with_capacity(goals_array.len());
@@ -108,7 +120,10 @@ impl SavedBuilds {
                     ));
                 };
                 let goal = goal_str.parse::<StatGoal>().map_err(|e| {
-                    format!("Invalid goal `{}` in build `{}`: {}", goal_str, build_name, e)
+                    format!(
+                        "Invalid goal `{}` in build `{}`: {}",
+                        goal_str, build_name, e
+                    )
                 })?;
                 goals.push(goal);
             }

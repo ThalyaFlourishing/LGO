@@ -340,7 +340,11 @@ pub fn format_scrap_gear_report(
 
     if unused_items.is_empty() {
         writeln!(w).unwrap();
-        writeln!(w, "  All current items are used by at least one saved build.").unwrap();
+        writeln!(
+            w,
+            "  All current items are used by at least one saved build."
+        )
+        .unwrap();
         writeln!(w).unwrap();
         return out;
     }
@@ -682,14 +686,14 @@ fn goal_met_marker(minimum: i64, total: i64) -> &'static str {
     } else {
         "✗"
     }
+}
 
-    fn format_goal_list(goals: &[StatGoal]) -> String {
-        goals
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
+fn format_goal_list(goals: &[StatGoal]) -> String {
+    goals
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn html_escape(s: &str) -> String {
@@ -723,9 +727,13 @@ fn format_number(n: i64) -> String {
     } else {
         with_commas
     }
+}
 
-    fn copy_word(n: usize) -> &'static str {
-        if n == 1 { "copy" } else { "copies" }
+fn copy_word(n: usize) -> &'static str {
+    if n == 1 {
+        "copy"
+    } else {
+        "copies"
     }
 }
 

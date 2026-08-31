@@ -150,7 +150,7 @@ fn count_selected_real_items_by_name(gear_set: &gear::GearSet) -> HashMap<String
 }
 
 fn is_empty_placeholder(name: &str) -> bool {
-    name.starts_with("[empty")
+    name.starts_with("[empty") || name == "NO ITEMS" || name == "(2-handed item)"
 }
 
 const UNKNOWN: &str = "Unknown";
@@ -240,94 +240,6 @@ fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
             process::exit(1);
         }
     }
-
-    fn run_scrap_gear(cli: &ScrapGearCli) {
-        let (stats_file, auto_discovered_character) =
-            locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
-        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
-            Ok(path) => path,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        let saved_builds = match read_saved_builds_if_present(&builds_file) {
-            Ok(builds) => builds,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        if saved_builds.is_empty() {
-            eprintln!("Error: {}", no_saved_builds_message(&builds_file));
-            process::exit(1);
-        }
-
-        let mut gear_doc = read_gear_doc_or_exit(&stats_file);
-        let character = resolve_report_character(
-            gear_doc.character.clone(),
-            cli.character.as_deref(),
-            auto_discovered_character,
-        );
-        let class = gear_doc
-            .class
-            .clone()
-            .unwrap_or_else(|| UNKNOWN.to_string());
-
-        prepare_gear_doc_for_optimization(&mut gear_doc, &class);
-        let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
-
-        let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
-        let mut evaluated_builds = Vec::new();
-        for build in saved_builds.builds() {
-            evaluated_builds.push((build.name.clone(), build.goals.clone()));
-            let result = optimizer::optimize(&resolved, &candidate_names, &build.goals, &gear_doc.innate_stats);
-            for (name, used_count) in count_selected_real_items_by_name(&result.gear_set) {
-                max_used_by_name
-                    .entry(name)
-                    .and_modify(|current| *current = (*current).max(used_count))
-                    .or_insert(used_count);
-            }
-        }
-
-        let mut owned_by_name: HashMap<String, (gear::Slot, usize)> = HashMap::new();
-        for doc_item in &gear_doc.items {
-            let entry = owned_by_name
-                .entry(doc_item.item.name.clone())
-                .or_insert((doc_item.item.slot, 0));
-            if slot_order_index(doc_item.item.slot) < slot_order_index(entry.0) {
-                entry.0 = doc_item.item.slot;
-            }
-            entry.1 += 1;
-        }
-
-        let mut unused_items = Vec::new();
-        for (name, (slot, owned_count)) in owned_by_name {
-            let max_used = max_used_by_name.get(&name).copied().unwrap_or(0);
-            if owned_count > max_used {
-                unused_items.push(report::ScrapUnusedItem {
-                    slot,
-                    name,
-                    owned_count,
-                    max_used_count: max_used,
-                });
-            }
-        }
-
-        let stats_file_display = stats_file.display().to_string();
-        let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
-        print!(
-            "{}",
-            report::format_scrap_gear_report(
-                &character,
-                &class,
-                &stats_file_display,
-                &timestamp,
-                &evaluated_builds,
-                &unused_items,
-            )
-        );
-    }
 }
 
 /// Load `data/lgo_virtues.json` (resolved relative to the current directory),
@@ -345,6 +257,99 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
             process::exit(1);
         }
     }
+}
+
+fn run_scrap_gear(cli: &ScrapGearCli) {
+    let (stats_file, auto_discovered_character) =
+        locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
+    let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
+        Ok(path) => path,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+    let saved_builds = match read_saved_builds_if_present(&builds_file) {
+        Ok(builds) => builds,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+    if saved_builds.is_empty() {
+        eprintln!("Error: {}", no_saved_builds_message(&builds_file));
+        process::exit(1);
+    }
+
+    let mut gear_doc = read_gear_doc_or_exit(&stats_file);
+    let character = resolve_report_character(
+        gear_doc.character.clone(),
+        cli.character.as_deref(),
+        auto_discovered_character,
+    );
+    let class = gear_doc
+        .class
+        .clone()
+        .unwrap_or_else(|| UNKNOWN.to_string());
+
+    prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
+
+    let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
+    let mut evaluated_builds = Vec::new();
+    for build in saved_builds.builds() {
+        evaluated_builds.push((build.name.clone(), build.goals.clone()));
+        let result = optimizer::optimize(
+            &resolved,
+            &candidate_names,
+            &build.goals,
+            &gear_doc.innate_stats,
+        );
+        for (name, used_count) in count_selected_real_items_by_name(&result.gear_set) {
+            max_used_by_name
+                .entry(name)
+                .and_modify(|current| *current = (*current).max(used_count))
+                .or_insert(used_count);
+        }
+    }
+
+    let mut owned_by_name: HashMap<String, (gear::Slot, usize)> = HashMap::new();
+    for doc_item in &gear_doc.items {
+        let entry = owned_by_name
+            .entry(doc_item.item.name.clone())
+            .or_insert((doc_item.item.slot, 0));
+        if slot_order_index(doc_item.item.slot) < slot_order_index(entry.0) {
+            entry.0 = doc_item.item.slot;
+        }
+        entry.1 += 1;
+    }
+
+    let mut unused_items = Vec::new();
+    for (name, (slot, owned_count)) in owned_by_name {
+        let max_used = max_used_by_name.get(&name).copied().unwrap_or(0);
+        if owned_count > max_used {
+            unused_items.push(report::ScrapUnusedItem {
+                slot,
+                name,
+                owned_count,
+                max_used_count: max_used,
+            });
+        }
+    }
+
+    let stats_file_display = stats_file.display().to_string();
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    print!(
+        "{}",
+        report::format_scrap_gear_report(
+            &character,
+            &class,
+            &stats_file_display,
+            &timestamp,
+            &evaluated_builds,
+            &unused_items,
+        )
+    );
 }
 
 fn run_optimize(cli: &OptimizeCli) {
@@ -410,12 +415,7 @@ fn run_optimize(cli: &OptimizeCli) {
     prepare_gear_doc_for_optimization(&mut gear_doc, &class);
 
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
-    let result = optimizer::optimize(
-        &resolved,
-        &candidate_names,
-        &goals,
-        &gear_doc.innate_stats,
-    );
+    let result = optimizer::optimize(&resolved, &candidate_names, &goals, &gear_doc.innate_stats);
 
     let projected_base_stats = projected_base_stats(
         &gear_doc.innate_base_stats,
