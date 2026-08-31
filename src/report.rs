@@ -20,6 +20,7 @@ const COL_ITEM: usize = 48;
 const COL_STAT: usize = 22;
 const COL_VALUE: usize = 10;
 const COL_MIN: usize = 10;
+const REPORT_TITLE: &str = "LGO — Thalya's Gear Optimizer";
 
 /// Build the full text optimize report used for terminal and `.txt` output.
 pub fn format_optimize_report(
@@ -74,7 +75,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "<html lang=\"en\">").unwrap();
     writeln!(w, "<head>").unwrap();
     writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
-    writeln!(w, "  <title>LGO — Thalya's Gear Optimizer</title>").unwrap();
+    writeln!(w, "  <title>{}</title>", html_escape(REPORT_TITLE)).unwrap();
     writeln!(w, "  <style>").unwrap();
     writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #fff; }}").unwrap();
     writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
@@ -110,7 +111,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  </style>").unwrap();
     writeln!(w, "</head>").unwrap();
     writeln!(w, "<body>").unwrap();
-    writeln!(w, "  <h1>LGO — Thalya's Gear Optimizer</h1>").unwrap();
+    writeln!(w, "  <h1>{}</h1>", html_escape(REPORT_TITLE)).unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
@@ -390,7 +391,7 @@ fn write_header_text(
 ) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w).unwrap();
-    writeln!(w, "  LGO — Thalya's Gear Optimizer").unwrap();
+    writeln!(w, "  {}", REPORT_TITLE).unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
     writeln!(w, "  Stats file: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
