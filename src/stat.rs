@@ -202,11 +202,10 @@ pub struct StatGoal {
 impl fmt::Display for StatGoal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let token = abbreviation_for(self.stat).unwrap_or_else(|| {
-            TRACKED_STATS
-                .iter()
-                .find(|(stat, _)| *stat == self.stat)
-                .map(|(_, key)| *key)
-                .unwrap_or("unknown")
+            unreachable!(
+                "StatGoal display requires a tracked stat with a CLI abbreviation; found {:?}",
+                self.stat
+            )
         });
         write!(f, "{}:{}", token, self.minimum)
     }

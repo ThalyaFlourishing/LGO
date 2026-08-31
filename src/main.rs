@@ -105,15 +105,24 @@ fn extract_character_segment_from_canonical_gear_filename(path: &Path) -> Option
     Some(file_name[prefix.len()..file_name.len() - suffix.len()].to_string())
 }
 
-fn locate_builds_file_for_canonical_gear(canonical_gear_file: &Path) -> Result<PathBuf, String> {
-    let character = extract_character_segment_from_canonical_gear_filename(canonical_gear_file)
+fn resolve_builds_file(
+    explicit_builds_file: Option<&PathBuf>,
+    gear_file: &Path,
+    gear_doc_character: Option<&str>,
+) -> Result<PathBuf, String> {
+    if let Some(path) = explicit_builds_file {
+        return Ok(path.clone());
+    }
+
+    let character = extract_character_segment_from_canonical_gear_filename(gear_file)
+        .or_else(|| gear_doc_character.map(String::from))
         .ok_or_else(|| {
             format!(
-                "Cannot determine saved-builds filename beside {}. Expected a canonical `lgo_<character>_gearReady.toml` path.",
-                canonical_gear_file.display()
+                "Cannot determine saved-builds filename beside {}. Use a canonical `lgo_<character>_gearReady.toml` filename, add a top-level `character = \"...\"` field, or pass --builds-file <path>.",
+                gear_file.display()
             )
         })?;
-    let dir = canonical_gear_file
+    let dir = gear_file
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
@@ -262,7 +271,12 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
 fn run_scrap_gear(cli: &ScrapGearCli) {
     let (stats_file, auto_discovered_character) =
         locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
-    let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
+    let gear_doc = read_gear_doc_or_exit(&stats_file);
+    let builds_file = match resolve_builds_file(
+        cli.builds_file.as_ref(),
+        &stats_file,
+        gear_doc.character.as_deref(),
+    ) {
         Ok(path) => path,
         Err(e) => {
             eprintln!("Error: {}", e);
@@ -281,12 +295,12 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         process::exit(1);
     }
 
-    let mut gear_doc = read_gear_doc_or_exit(&stats_file);
     let character = resolve_report_character(
         gear_doc.character.clone(),
         cli.character.as_deref(),
         auto_discovered_character,
     );
+    let mut gear_doc = gear_doc;
     let class = gear_doc
         .class
         .clone()
@@ -374,15 +388,29 @@ fn run_optimize(cli: &OptimizeCli) {
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
+    let builds_file = if cli.build.is_some() || cli.save_build.is_some() {
+        Some(
+            match resolve_builds_file(
+                cli.builds_file.as_ref(),
+                &stats_file,
+                gear_doc.character.as_deref(),
+            ) {
+                Ok(path) => path,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    process::exit(1);
+                }
+            },
+        )
+    } else {
+        None
+    };
+
     let goals = if let Some(build_name) = &cli.build {
-        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
-            Ok(path) => path,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        let saved_builds = match read_saved_builds_if_present(&builds_file) {
+        let builds_file = builds_file
+            .as_ref()
+            .expect("builds file path must exist when --build is used");
+        let saved_builds = match read_saved_builds_if_present(builds_file) {
             Ok(builds) => builds,
             Err(e) => {
                 eprintln!("Error: {}", e);
@@ -390,7 +418,7 @@ fn run_optimize(cli: &OptimizeCli) {
             }
         };
         if saved_builds.is_empty() {
-            eprintln!("Error: {}", no_saved_builds_message(&builds_file));
+            eprintln!("Error: {}", no_saved_builds_message(builds_file.as_path()));
             process::exit(1);
         }
         match saved_builds.find(build_name) {
@@ -446,14 +474,10 @@ fn run_optimize(cli: &OptimizeCli) {
     );
 
     if let Some(build_name) = &cli.save_build {
-        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
-            Ok(path) => path,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        };
-        let mut saved_builds = match read_saved_builds_if_present(&builds_file) {
+        let builds_file = builds_file
+            .as_ref()
+            .expect("builds file path must exist when --save-build is used");
+        let mut saved_builds = match read_saved_builds_if_present(builds_file) {
             Ok(builds) => builds,
             Err(e) => {
                 eprintln!("Error: {}", e);
@@ -461,7 +485,7 @@ fn run_optimize(cli: &OptimizeCli) {
             }
         };
         saved_builds.upsert(build_name.clone(), goals.clone());
-        if let Err(e) = saved_builds.write_file(&builds_file) {
+        if let Err(e) = saved_builds.write_file(builds_file) {
             eprintln!("Error: {}", e);
             process::exit(1);
         }
@@ -697,6 +721,7 @@ enum CliParseError {
 struct OptimizeCli {
     character: Option<String>,
     file: Option<PathBuf>,
+    builds_file: Option<PathBuf>,
     build: Option<String>,
     save_build: Option<String>,
     goals: Vec<StatGoal>,
@@ -706,6 +731,7 @@ struct OptimizeCli {
 struct ScrapGearCli {
     character: Option<String>,
     file: Option<PathBuf>,
+    builds_file: Option<PathBuf>,
 }
 
 /// `lgo base-stats`: show the raw innate Base stats and the tracked-stat
@@ -758,6 +784,7 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
 fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     let mut character = None;
     let mut file = None;
+    let mut builds_file = None;
     let mut build = None;
     let mut save_build = None;
     let mut goals = Vec::new();
@@ -772,6 +799,12 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
             "--file" | "-f" => {
                 i += 1;
                 file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+            }
+            "--builds-file" => {
+                i += 1;
+                builds_file = Some(PathBuf::from(
+                    args.get(i).ok_or("--builds-file requires a path")?,
+                ));
             }
             "--build" => {
                 i += 1;
@@ -797,16 +830,14 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     if build.is_some() && !goals.is_empty() {
         return Err("Cannot supply stat goals when using --build <name>.".to_string());
     }
-    if build.is_some() && save_build.is_some() {
-        return Err("Cannot combine --build <name> with --save-build <name>.".to_string());
-    }
-    if save_build.is_some() && goals.is_empty() {
+    if save_build.is_some() && goals.is_empty() && build.is_none() {
         return Err("--save-build requires at least one stat goal.".to_string());
     }
 
     Ok(OptimizeCli {
         character,
         file,
+        builds_file,
         build,
         save_build,
         goals,
@@ -816,6 +847,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
 fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
     let mut character = None;
     let mut file = None;
+    let mut builds_file = None;
     let mut i = 0;
 
     while i < args.len() {
@@ -828,6 +860,12 @@ fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
                 i += 1;
                 file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
             }
+            "--builds-file" => {
+                i += 1;
+                builds_file = Some(PathBuf::from(
+                    args.get(i).ok_or("--builds-file requires a path")?,
+                ));
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -836,7 +874,11 @@ fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
         i += 1;
     }
 
-    Ok(ScrapGearCli { character, file })
+    Ok(ScrapGearCli {
+        character,
+        file,
+        builds_file,
+    })
 }
 
 fn parse_base_stats_args(args: &[String]) -> Result<BaseStatsCli, String> {
@@ -1035,11 +1077,12 @@ fn print_usage() {
     println!(
         "  --file      <path>  Explicit canonical gear TOML to optimize instead of auto-detect"
     );
+    println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
     println!("  --build     <name>  Load saved goals from lgo_<character>_builds.toml");
     println!("  --save-build <name> Save these goals to lgo_<character>_builds.toml");
     println!("  --help              Show this message");
     println!();
-    println!("  `--build` may not be combined with positional goals or `--save-build`.");
+    println!("  `--build` may not be combined with positional goals.");
     println!();
     println!("  optimize requires data/base_stat_derivations.json (resolved relative to the");
     println!("  current directory) to derive Base-stat contributions before optimization.");
@@ -1051,6 +1094,7 @@ fn print_usage() {
     println!(
         "  --file      <path>  Explicit canonical gear TOML whose sibling builds file will be used"
     );
+    println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
     println!();
     println!("  scrap-gear reruns optimize once per saved build and lists items not used");
     println!("  in any saved build. Save builds with:");
@@ -1327,6 +1371,7 @@ mod tests {
         match cmd {
             Command::Optimize(cli) => {
                 assert_eq!(cli.file, Some(PathBuf::from("some.toml")));
+                assert!(cli.builds_file.is_none());
                 assert!(cli.build.is_none());
                 assert!(cli.save_build.is_none());
                 assert_eq!(cli.goals.len(), 1);
@@ -1373,6 +1418,8 @@ mod tests {
             "optimize",
             "--save-build",
             "healer",
+            "--builds-file",
+            "builds.toml",
             "oh:200000",
             "cr:350000",
         ]))
@@ -1380,6 +1427,7 @@ mod tests {
         match cmd {
             Command::Optimize(cli) => {
                 assert_eq!(cli.save_build.as_deref(), Some("healer"));
+                assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
                 assert_eq!(cli.goals.len(), 2);
                 assert!(cli.build.is_none());
             }
@@ -1389,13 +1437,19 @@ mod tests {
 
     #[test]
     fn optimize_accepts_build_flag_without_goals() {
-        let cmd = parse_command(&s(&["optimize", "--build", "Healer"]))
-            .expect("optimize --build should parse");
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--build",
+            "Healer",
+            "--save-build",
+            "Copy",
+        ]))
+        .expect("optimize --build should parse");
         match cmd {
             Command::Optimize(cli) => {
                 assert_eq!(cli.build.as_deref(), Some("Healer"));
+                assert_eq!(cli.save_build.as_deref(), Some("Copy"));
                 assert!(cli.goals.is_empty());
-                assert!(cli.save_build.is_none());
             }
             _ => panic!("expected optimize command"),
         }
@@ -1409,25 +1463,6 @@ mod tests {
             CliParseError::Message(msg) => {
                 assert_eq!(msg, "Cannot supply stat goals when using --build <name>.")
             }
-            _ => panic!("expected message parse error"),
-        }
-    }
-
-    #[test]
-    fn optimize_rejects_build_and_save_build_together() {
-        let err = parse_command(&s(&[
-            "optimize",
-            "--build",
-            "healer",
-            "--save-build",
-            "tank",
-        ]))
-        .expect_err("must reject incompatible build flags");
-        match err {
-            CliParseError::Message(msg) => assert_eq!(
-                msg,
-                "Cannot combine --build <name> with --save-build <name>."
-            ),
             _ => panic!("expected message parse error"),
         }
     }
@@ -1479,12 +1514,15 @@ mod tests {
             "Thalya",
             "--file",
             "gear.toml",
+            "--builds-file",
+            "builds.toml",
         ]))
         .expect("scrap-gear flags should parse");
         match cmd {
             Command::ScrapGear(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+                assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
             }
             _ => panic!("expected scrap-gear command"),
         }

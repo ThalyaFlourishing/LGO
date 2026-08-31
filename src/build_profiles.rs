@@ -181,7 +181,7 @@ impl SavedBuilds {
 
         out.push('\n');
         for (idx, build) in self.builds.iter().enumerate() {
-            let quoted_name = toml::Value::String(build.name.clone()).to_string();
+            let header_key = format_build_header_key(&build.name);
             let goal_list = build
                 .goals
                 .iter()
@@ -189,7 +189,7 @@ impl SavedBuilds {
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            writeln!(&mut out, "[builds.{}]", quoted_name).expect("writing to String cannot fail");
+            writeln!(&mut out, "[builds.{}]", header_key).expect("writing to String cannot fail");
             writeln!(&mut out, "goals = [{}]", goal_list).expect("writing to String cannot fail");
             if idx + 1 != self.builds.len() {
                 writeln!(&mut out).expect("writing to String cannot fail");
@@ -197,6 +197,17 @@ impl SavedBuilds {
         }
 
         out
+    }
+}
+
+fn format_build_header_key(name: &str) -> String {
+    if name
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        name.to_string()
+    } else {
+        toml::Value::String(name.to_string()).to_string()
     }
 }
 
@@ -321,5 +332,21 @@ goals = ["oh:1"]
         let written = builds.to_toml_string();
         assert!(written.contains(r#"[builds."Healer Build"]"#));
         assert!(written.contains(r#"goals = ["oh:200000", "ml:0"]"#));
+    }
+
+    #[test]
+    fn writes_bare_build_name_when_toml_allows_it() {
+        let builds = SavedBuilds {
+            builds: vec![SavedBuild {
+                name: "healer".to_string(),
+                goals: vec![StatGoal {
+                    stat: Stat::OutgoingHealing,
+                    minimum: 200000,
+                }],
+            }],
+        };
+
+        let written = builds.to_toml_string();
+        assert!(written.contains("[builds.healer]"));
     }
 }

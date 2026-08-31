@@ -75,7 +75,7 @@ TacticalMitigation = 100
 
     let builds = dir.join("lgo_Thalya_builds.toml");
     let builds_text = fs::read_to_string(&builds).expect("builds file must exist");
-    assert!(builds_text.contains(r#"[builds."Burst"]"#));
+    assert!(builds_text.contains(r#"[builds.Burst]"#));
     assert!(builds_text.contains(r#"goals = ["cr:50"]"#));
 
     let loaded = run_lgo(
@@ -90,6 +90,187 @@ TacticalMitigation = 100
     );
     let loaded_stdout = String::from_utf8_lossy(&loaded.stdout);
     assert!(loaded_stdout.contains("Crit Hat"));
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn plain_optimize_ignores_builds_discovery_when_not_using_saved_build_flags() {
+    let dir = make_test_dir("plain_optimize");
+    let gear = dir.join("my_test_gear.toml");
+    fs::write(
+        &gear,
+        r#"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Crit Hat"
+CriticalRating = 100
+"#,
+    )
+    .expect("write gear file");
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let output = run_lgo(
+        &[
+            "optimize",
+            "--file",
+            gear.to_str().expect("utf-8 gear path"),
+            "cr:50",
+        ],
+        repo_root,
+    );
+    assert!(
+        output.status.success(),
+        "plain optimize failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn custom_named_gear_file_uses_toml_character_for_builds_file_discovery() {
+    let dir = make_test_dir("custom_named_gear");
+    let gear = dir.join("my_test_gear.toml");
+    fs::write(
+        &gear,
+        r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Healing Hat"
+OutgoingHealing = 20
+"#,
+    )
+    .expect("write gear file");
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let output = run_lgo(
+        &[
+            "optimize",
+            "--file",
+            gear.to_str().expect("utf-8 gear path"),
+            "--save-build",
+            "healer",
+            "oh:10",
+        ],
+        repo_root,
+    );
+    assert!(
+        output.status.success(),
+        "save-build optimize failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let builds = dir.join("lgo_Thalya_builds.toml");
+    let builds_text = fs::read_to_string(&builds).expect("builds file must exist");
+    assert!(builds_text.contains(r#"[builds.healer]"#));
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn explicit_builds_file_override_is_used_for_save_build_build_and_scrap_gear() {
+    let dir = make_test_dir("explicit_builds_file");
+    let gear = dir.join("my_test_gear.toml");
+    let builds = dir.join("my_saved_builds.toml");
+    fs::write(
+        &gear,
+        r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Healing Hat"
+OutgoingHealing = 20
+
+[[item]]
+slot = "Head"
+name = "Tank Hat"
+TacticalMitigation = 20
+"#,
+    )
+    .expect("write gear file");
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let gear_arg = gear.to_str().expect("utf-8 gear path");
+    let builds_arg = builds.to_str().expect("utf-8 builds path");
+
+    let save_output = run_lgo(
+        &[
+            "optimize",
+            "--file",
+            gear_arg,
+            "--builds-file",
+            builds_arg,
+            "--save-build",
+            "healer",
+            "oh:10",
+        ],
+        repo_root,
+    );
+    assert!(
+        save_output.status.success(),
+        "save-build optimize failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&save_output.stdout),
+        String::from_utf8_lossy(&save_output.stderr)
+    );
+
+    let builds_text = fs::read_to_string(&builds).expect("explicit builds file must exist");
+    assert!(builds_text.contains(r#"[builds.healer]"#));
+
+    let build_output = run_lgo(
+        &[
+            "optimize",
+            "--file",
+            gear_arg,
+            "--builds-file",
+            builds_arg,
+            "--build",
+            "healer",
+            "--save-build",
+            "copy",
+        ],
+        repo_root,
+    );
+    assert!(
+        build_output.status.success(),
+        "build optimize failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&build_output.stdout),
+        String::from_utf8_lossy(&build_output.stderr)
+    );
+    let rebuilt_text =
+        fs::read_to_string(&builds).expect("explicit builds file must remain readable");
+    assert!(rebuilt_text.contains(r#"[builds.healer]"#));
+    assert!(rebuilt_text.contains(r#"[builds.copy]"#));
+
+    let scrap_output = run_lgo(
+        &[
+            "scrap-gear",
+            "--file",
+            gear_arg,
+            "--builds-file",
+            builds_arg,
+        ],
+        repo_root,
+    );
+    assert!(
+        scrap_output.status.success(),
+        "scrap-gear failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&scrap_output.stdout),
+        String::from_utf8_lossy(&scrap_output.stderr)
+    );
+    let scrap_stdout = String::from_utf8_lossy(&scrap_output.stdout);
+    assert!(scrap_stdout.contains("Saved builds evaluated:"));
+    assert!(scrap_stdout.contains("- healer: oh:10"));
+    assert!(scrap_stdout.contains("- copy: oh:10"));
 
     fs::remove_dir_all(&dir).expect("cleanup");
 }

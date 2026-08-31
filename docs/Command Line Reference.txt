@@ -138,19 +138,26 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
+  lgo optimize --builds-file <path> ...
+    Override saved-build discovery and use the explicit builds TOML you provide.
+    This applies to both `--build <name>` and `--save-build <name>`.
+
   lgo optimize --save-build <name> <stat:min> [<stat:min> ...]
     Run the optimization normally and also save those goals into the sibling
     file `lgo_<character>_builds.toml` beside the canonical gear TOML.
-    If the file does not exist it is created. If the build name already exists,
-    matching case-insensitively, it is overwritten. Build names are preserved as
-    written for display.
+    If the gear file path itself is custom-named, LGO falls back to the
+    top-level `character = "..."` field in that TOML to determine the sibling
+    `lgo_<character>_builds.toml` path. If the file does not exist it is
+    created. If the build name already exists, matching case-insensitively, it
+    is overwritten. Build names are preserved as written for display.
 
   lgo optimize --build <name>
     Load the named build's saved goals from `lgo_<character>_builds.toml` and
     run optimization with them. No positional goals may be supplied when
-    `--build` is used. Goal strings in the builds file use the same existing
-    `<stat:min>` parser as the CLI: full names and two-letter abbreviations are
-    both accepted.
+    `--build` is used, but it may be combined with `--save-build <newname>` to
+    save the loaded goals under a different name. Goal strings in the builds
+    file use the same existing `<stat:min>` parser as the CLI: full names and
+    two-letter abbreviations are both accepted.
 
 3.5 scrap-gear
   lgo scrap-gear
@@ -180,8 +187,14 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
   lgo scrap-gear --file <path>
   lgo scrap-gear -f <path>
-    Read the explicit canonical gear TOML you provide and discover the sibling
-    `lgo_<character>_builds.toml` beside it.
+    Read the explicit gear TOML you provide and discover the sibling
+    `lgo_<character>_builds.toml` beside it. If the filename is custom-named,
+    LGO falls back to the top-level `character = "..."` field in that TOML to
+    determine the builds filename.
+
+  lgo scrap-gear --builds-file <path>
+    Override saved-build discovery and use the explicit builds TOML you
+    provide.
 
 3.6 base-stats
   lgo base-stats
