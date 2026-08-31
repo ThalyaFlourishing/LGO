@@ -193,10 +193,23 @@ impl FromStr for Stat {
 /// A stat with an associated minimum value, parsed from CLI input.
 /// Format: `StatName:minimum`  e.g. `CriticalRating:450000`
 /// A minimum of 0 means "maximise but no floor required".
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatGoal {
     pub stat: Stat,
     pub minimum: i64,
+}
+
+impl fmt::Display for StatGoal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let token = abbreviation_for(self.stat).unwrap_or_else(|| {
+            TRACKED_STATS
+                .iter()
+                .find(|(stat, _)| *stat == self.stat)
+                .map(|(_, key)| *key)
+                .unwrap_or("unknown")
+        });
+        write!(f, "{}:{}", token, self.minimum)
+    }
 }
 
 impl FromStr for StatGoal {

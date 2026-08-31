@@ -32,6 +32,9 @@ file containing each item's name, slot, and stats.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
 - User hand-edits persistent corrections, including top-level `[Virtues]` and
   per-item essence totals, in `gearReady.toml` only.
+- User may optionally save named build-goal profiles in the sibling file
+  `lgo_<character>_builds.toml` via `lgo optimize --save-build <name> ...`,
+  then re-run them later with `lgo optimize --build <name>`.
 - User invokes 'lgo optimize' which reads the canonical file, derives the raw
 Base stats (Might/Agility/Vitality/Will/Fate) into tracked-stat contributions
 via the per-class coefficients in `data/base_stat_derivations.json`, folds in
@@ -40,12 +43,17 @@ the fixed stats from any selected Virtues in `[Virtues]` via
 user's specified stats of interest. Derivation happens at optimize time, before
 candidates enter the optimizer; `optimize` must be run from a directory
 containing `data/`.
+- User may invoke `lgo scrap-gear`, which re-runs the live optimizer once per
+  saved build and lists items not used in any saved build; it never parses old
+  report files.
 
 ---
 
 ## 3. Repo layout (relevant)
 
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
+- `src/build_profiles.rs` — saved-build profile reader/writer for
+  `lgo_<character>_builds.toml`; pure user-data TOML, strict validation on read.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
 - `src/virtues.rs` — top-level `[Virtues]` parsing plus `data/lgo_virtues.json`
@@ -54,6 +62,7 @@ containing `data/`.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter.
+- `src/report.rs` also formats the terminal-only `scrap-gear` output.
 - `src/report_files.rs` — optimize report file naming and writing (`LGO_Reports` beside the canonical gear TOML).
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
@@ -65,6 +74,9 @@ containing `data/`.
   - `lgo_Thalya_gearStats.toml` — historical bookmarklet-output fixture (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `MODEL_GUIDANCE.md`, and `Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` (authoritative optimizer spec). The optimizer audit chain and PR prompt docs under `docs/Optimizer_Overhaul/` are historical records retained for traceability; do not treat them as the live optimizer spec.
+- Saved build profiles live beside the canonical gear file as
+  `lgo_<character>_builds.toml`, discovered with the same case-insensitive
+  character-name filename convention as `gearReady.toml`.
 
 **Recent structural changes (2026-08):** `data/progressions.xml` removed from the repo and from `build-db` entirely. `data/lgo_items.json` no longer carries item stats — it is a slot + `two_handed` + `either_hand` index only; item stats come exclusively from the bookmarklet's lotro-wiki lookups. `CachedItem` (DB entry: name/slot/two_handed/either_hand) and `GearItem` (TOML-derived, with stats) are now distinct types. [PRs #53, #55]
 

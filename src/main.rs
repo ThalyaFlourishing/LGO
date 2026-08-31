@@ -2,8 +2,8 @@
 
 use chrono::Local;
 use lgo::{
-    base_stats, build_db, gear, gearstats, optimizer, report, report_files, slot_resolver, stat,
-    virtues,
+    base_stats, build_db, build_profiles, gear, gearstats, optimizer, report, report_files,
+    slot_resolver, stat, virtues,
 };
 
 use std::collections::HashMap;
@@ -43,10 +43,114 @@ fn main() {
         }
         Command::StatList => print_stat_list(),
         Command::Optimize(cli) => run_optimize(&cli),
+        Command::ScrapGear(cli) => run_scrap_gear(&cli),
         Command::BaseStats(cli) => run_base_stats(&cli),
         Command::ResolveSlots(cli) => run_resolve_slots(&cli),
         Command::BuildDb(cli) => run_build_db(&cli),
     }
+}
+
+fn read_gear_doc_or_exit(stats_file: &Path) -> gearstats::GearDoc {
+    match gearstats::read_stats_file(stats_file) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Error reading gear stats file: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn prepare_gear_doc_for_optimization(gear_doc: &mut gearstats::GearDoc, class: &str) {
+    if !gear_doc.selected_virtues.is_empty() {
+        let virtues = load_virtues_or_exit();
+        if let Err(e) = virtues.apply_selected_virtues(gear_doc) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    }
+
+    let derivations = load_derivations_or_exit();
+    if let Err(e) = derivations.derive_doc(class, gear_doc) {
+        eprintln!("Error deriving Base stats for class '{}': {}", class, e);
+        process::exit(1);
+    }
+}
+
+fn build_resolved_candidates(
+    gear_doc: &gearstats::GearDoc,
+) -> (HashMap<String, gear::GearItem>, Vec<String>) {
+    let resolved: HashMap<String, gear::GearItem> = gear_doc
+        .items
+        .iter()
+        .enumerate()
+        .map(|(idx, doc_item)| {
+            (
+                gear::optimizer_candidate_key(idx, &doc_item.item),
+                doc_item.item.clone(),
+            )
+        })
+        .collect();
+    let candidate_names: Vec<String> = resolved.keys().cloned().collect();
+    (resolved, candidate_names)
+}
+
+fn extract_character_segment_from_canonical_gear_filename(path: &Path) -> Option<String> {
+    let file_name = path.file_name()?.to_str()?;
+    let file_name_lower = file_name.to_ascii_lowercase();
+    let prefix = "lgo_";
+    let suffix = "_gearready.toml";
+    if !file_name_lower.starts_with(prefix) || !file_name_lower.ends_with(suffix) {
+        return None;
+    }
+    Some(file_name[prefix.len()..file_name.len() - suffix.len()].to_string())
+}
+
+fn locate_builds_file_for_canonical_gear(canonical_gear_file: &Path) -> Result<PathBuf, String> {
+    let character = extract_character_segment_from_canonical_gear_filename(canonical_gear_file)
+        .ok_or_else(|| {
+            format!(
+                "Cannot determine saved-builds filename beside {}. Expected a canonical `lgo_<character>_gearReady.toml` path.",
+                canonical_gear_file.display()
+            )
+        })?;
+    let dir = canonical_gear_file
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+
+    match gearstats::find_builds_file(dir, &character)? {
+        Some(path) => Ok(path),
+        None => Ok(dir.join(format!("lgo_{}_builds.toml", character))),
+    }
+}
+
+fn read_saved_builds_if_present(path: &Path) -> Result<build_profiles::SavedBuilds, String> {
+    if !path.exists() {
+        return Ok(build_profiles::SavedBuilds::default());
+    }
+    build_profiles::SavedBuilds::read_file(path)
+}
+
+fn no_saved_builds_message(builds_file: &Path) -> String {
+    format!(
+        "No saved builds found in {}. Save one with: lgo optimize --save-build <name> <goals...>",
+        builds_file.display()
+    )
+}
+
+fn count_selected_real_items_by_name(gear_set: &gear::GearSet) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for item in gear_set.items.values() {
+        if is_empty_placeholder(&item.name) {
+            continue;
+        }
+        *counts.entry(item.name.clone()).or_insert(0) += 1;
+    }
+    counts
+}
+
+fn is_empty_placeholder(name: &str) -> bool {
+    name.starts_with("[empty")
 }
 
 const UNKNOWN: &str = "Unknown";
@@ -136,6 +240,94 @@ fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
             process::exit(1);
         }
     }
+
+    fn run_scrap_gear(cli: &ScrapGearCli) {
+        let (stats_file, auto_discovered_character) =
+            locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
+        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        let saved_builds = match read_saved_builds_if_present(&builds_file) {
+            Ok(builds) => builds,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        if saved_builds.is_empty() {
+            eprintln!("Error: {}", no_saved_builds_message(&builds_file));
+            process::exit(1);
+        }
+
+        let mut gear_doc = read_gear_doc_or_exit(&stats_file);
+        let character = resolve_report_character(
+            gear_doc.character.clone(),
+            cli.character.as_deref(),
+            auto_discovered_character,
+        );
+        let class = gear_doc
+            .class
+            .clone()
+            .unwrap_or_else(|| UNKNOWN.to_string());
+
+        prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+        let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
+
+        let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
+        let mut evaluated_builds = Vec::new();
+        for build in saved_builds.builds() {
+            evaluated_builds.push((build.name.clone(), build.goals.clone()));
+            let result = optimizer::optimize(&resolved, &candidate_names, &build.goals, &gear_doc.innate_stats);
+            for (name, used_count) in count_selected_real_items_by_name(&result.gear_set) {
+                max_used_by_name
+                    .entry(name)
+                    .and_modify(|current| *current = (*current).max(used_count))
+                    .or_insert(used_count);
+            }
+        }
+
+        let mut owned_by_name: HashMap<String, (gear::Slot, usize)> = HashMap::new();
+        for doc_item in &gear_doc.items {
+            let entry = owned_by_name
+                .entry(doc_item.item.name.clone())
+                .or_insert((doc_item.item.slot, 0));
+            if slot_order_index(doc_item.item.slot) < slot_order_index(entry.0) {
+                entry.0 = doc_item.item.slot;
+            }
+            entry.1 += 1;
+        }
+
+        let mut unused_items = Vec::new();
+        for (name, (slot, owned_count)) in owned_by_name {
+            let max_used = max_used_by_name.get(&name).copied().unwrap_or(0);
+            if owned_count > max_used {
+                unused_items.push(report::ScrapUnusedItem {
+                    slot,
+                    name,
+                    owned_count,
+                    max_used_count: max_used,
+                });
+            }
+        }
+
+        let stats_file_display = stats_file.display().to_string();
+        let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+        print!(
+            "{}",
+            report::format_scrap_gear_report(
+                &character,
+                &class,
+                &stats_file_display,
+                &timestamp,
+                &evaluated_builds,
+                &unused_items,
+            )
+        );
+    }
 }
 
 /// Load `data/lgo_virtues.json` (resolved relative to the current directory),
@@ -156,7 +348,7 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
 }
 
 fn run_optimize(cli: &OptimizeCli) {
-    if cli.goals.is_empty() {
+    if cli.build.is_none() && cli.goals.is_empty() {
         eprintln!("Error: at least one stat goal is required.");
         eprintln!("Run with --help for usage.");
         process::exit(1);
@@ -165,13 +357,7 @@ fn run_optimize(cli: &OptimizeCli) {
     let (stats_file, auto_discovered_character) =
         locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
 
-    let mut gear_doc = match gearstats::read_stats_file(&stats_file) {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("Error reading gear stats file: {}", e);
-            process::exit(1);
-        }
-    };
+    let mut gear_doc = read_gear_doc_or_exit(&stats_file);
 
     let character = resolve_report_character(
         gear_doc.character.clone(),
@@ -183,37 +369,51 @@ fn run_optimize(cli: &OptimizeCli) {
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
-    if !gear_doc.selected_virtues.is_empty() {
-        let virtues = load_virtues_or_exit();
-        if let Err(e) = virtues.apply_selected_virtues(&mut gear_doc) {
-            eprintln!("Error: {}", e);
+    let goals = if let Some(build_name) = &cli.build {
+        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        let saved_builds = match read_saved_builds_if_present(&builds_file) {
+            Ok(builds) => builds,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        if saved_builds.is_empty() {
+            eprintln!("Error: {}", no_saved_builds_message(&builds_file));
             process::exit(1);
         }
-    }
+        match saved_builds.find(build_name) {
+            Some(build) => build.goals.clone(),
+            None => {
+                eprintln!(
+                    "Error: no saved build named '{}' found in {}.",
+                    build_name,
+                    builds_file.display()
+                );
+                eprintln!(
+                    "Save one with: lgo optimize --save-build {} <goals...>",
+                    build_name
+                );
+                process::exit(1);
+            }
+        }
+    } else {
+        cli.goals.clone()
+    };
 
-    // Derivation pre-pass: fold raw Base stats (innate and per item) into
-    // tracked-stat contributions before candidates enter the optimizer.
-    let derivations = load_derivations_or_exit();
-    if let Err(e) = derivations.derive_doc(&class, &mut gear_doc) {
-        eprintln!("Error deriving Base stats for class '{}': {}", class, e);
-        process::exit(1);
-    }
+    prepare_gear_doc_for_optimization(&mut gear_doc, &class);
 
-    let resolved: HashMap<String, gear::GearItem> = gear_doc
-        .items
-        .iter()
-        .map(|doc_item| doc_item.item.clone())
-        .enumerate()
-        // Candidate identity is per owned TOML item instance, not per display
-        // name: duplicate owned copies must remain distinct optimizer inputs.
-        .map(|(idx, item)| (gear::optimizer_candidate_key(idx, &item), item))
-        .collect();
-
-    let candidate_names: Vec<String> = resolved.keys().cloned().collect();
+    let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
     let result = optimizer::optimize(
         &resolved,
         &candidate_names,
-        &cli.goals,
+        &goals,
         &gear_doc.innate_stats,
     );
 
@@ -226,7 +426,7 @@ fn run_optimize(cli: &OptimizeCli) {
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
     let text_report = report::format_optimize_report(
         &result,
-        &cli.goals,
+        &goals,
         &character,
         &class,
         &stats_file_display,
@@ -237,13 +437,40 @@ fn run_optimize(cli: &OptimizeCli) {
 
     let html_report = report::format_optimize_report_html(
         &result,
-        &cli.goals,
+        &goals,
         &character,
         &class,
         &stats_file_display,
         &timestamp,
         &projected_base_stats,
     );
+
+    if let Some(build_name) = &cli.save_build {
+        let builds_file = match locate_builds_file_for_canonical_gear(&stats_file) {
+            Ok(path) => path,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        let mut saved_builds = match read_saved_builds_if_present(&builds_file) {
+            Ok(builds) => builds,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        };
+        saved_builds.upsert(build_name.clone(), goals.clone());
+        if let Err(e) = saved_builds.write_file(&builds_file) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        println!(
+            "  Saved build '{}' to {}",
+            build_name,
+            builds_file.display()
+        );
+    }
 
     match report_files::write_optimize_report_files(&stats_file, &text_report, &html_report) {
         Ok(paths) => {
@@ -454,6 +681,7 @@ enum Command {
     Help,
     StatList,
     Optimize(OptimizeCli),
+    ScrapGear(ScrapGearCli),
     BaseStats(BaseStatsCli),
     ResolveSlots(ResolveSlotsCli),
     BuildDb(BuildDbCli),
@@ -469,7 +697,15 @@ enum CliParseError {
 struct OptimizeCli {
     character: Option<String>,
     file: Option<PathBuf>,
+    build: Option<String>,
+    save_build: Option<String>,
     goals: Vec<StatGoal>,
+}
+
+#[derive(Debug)]
+struct ScrapGearCli {
+    character: Option<String>,
+    file: Option<PathBuf>,
 }
 
 /// `lgo base-stats`: show the raw innate Base stats and the tracked-stat
@@ -503,6 +739,9 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
         "optimize" | "--optimize" | "-o" => parse_optimize_args(&args[1..])
             .map(Command::Optimize)
             .map_err(CliParseError::Message),
+        "scrap-gear" | "scrapgear" | "--scrap-gear" | "-s" => parse_scrap_gear_args(&args[1..])
+            .map(Command::ScrapGear)
+            .map_err(CliParseError::Message),
         "base-stats" | "--base-stats" => parse_base_stats_args(&args[1..])
             .map(Command::BaseStats)
             .map_err(CliParseError::Message),
@@ -519,7 +758,64 @@ fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
 fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     let mut character = None;
     let mut file = None;
+    let mut build = None;
+    let mut save_build = None;
     let mut goals = Vec::new();
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--character" | "-c" => {
+                i += 1;
+                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+            }
+            "--file" | "-f" => {
+                i += 1;
+                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+            }
+            "--build" => {
+                i += 1;
+                build = Some(args.get(i).ok_or("--build requires a value")?.clone());
+            }
+            "--save-build" => {
+                i += 1;
+                save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
+            }
+            arg if arg.starts_with('-') => {
+                return Err(format!("Unknown option: '{}'", arg));
+            }
+            arg => {
+                let goal: StatGoal = arg
+                    .parse()
+                    .map_err(|e| format!("Invalid stat goal '{}': {}", arg, e))?;
+                goals.push(goal);
+            }
+        }
+        i += 1;
+    }
+
+    if build.is_some() && !goals.is_empty() {
+        return Err("Cannot supply stat goals when using --build <name>.".to_string());
+    }
+    if build.is_some() && save_build.is_some() {
+        return Err("Cannot combine --build <name> with --save-build <name>.".to_string());
+    }
+    if save_build.is_some() && goals.is_empty() {
+        return Err("--save-build requires at least one stat goal.".to_string());
+    }
+
+    Ok(OptimizeCli {
+        character,
+        file,
+        build,
+        save_build,
+        goals,
+    })
+}
+
+fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
+    let mut character = None;
+    let mut file = None;
     let mut i = 0;
 
     while i < args.len() {
@@ -535,21 +831,12 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
-            arg => {
-                let goal: StatGoal = arg
-                    .parse()
-                    .map_err(|e| format!("Invalid stat goal '{}': {}", arg, e))?;
-                goals.push(goal);
-            }
+            _ => return Err("'scrap-gear' takes no positional arguments".to_string()),
         }
         i += 1;
     }
 
-    Ok(OptimizeCli {
-        character,
-        file,
-        goals,
-    })
+    Ok(ScrapGearCli { character, file })
 }
 
 fn parse_base_stats_args(args: &[String]) -> Result<BaseStatsCli, String> {
@@ -732,6 +1019,8 @@ fn print_usage() {
     println!();
     println!("Usage:");
     println!("  lgo optimize      [options] <stat:min> [<stat:min> ...]");
+    println!("  lgo optimize      [options] --build <name>");
+    println!("  lgo scrap-gear    [options]");
     println!("  lgo base-stats    [options]");
     println!("  lgo resolve-slots [options]");
     println!("  lgo build-db      [options]");
@@ -746,12 +1035,26 @@ fn print_usage() {
     println!(
         "  --file      <path>  Explicit canonical gear TOML to optimize instead of auto-detect"
     );
+    println!("  --build     <name>  Load saved goals from lgo_<character>_builds.toml");
+    println!("  --save-build <name> Save these goals to lgo_<character>_builds.toml");
     println!("  --help              Show this message");
+    println!();
+    println!("  `--build` may not be combined with positional goals or `--save-build`.");
     println!();
     println!("  optimize requires data/base_stat_derivations.json (resolved relative to the");
     println!("  current directory) to derive Base-stat contributions before optimization.");
     println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
     println!("  against data/lgo_virtues.json in that same data/ folder.");
+    println!();
+    println!("Options (scrap-gear):");
+    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!(
+        "  --file      <path>  Explicit canonical gear TOML whose sibling builds file will be used"
+    );
+    println!();
+    println!("  scrap-gear reruns optimize once per saved build and lists items not used");
+    println!("  in any saved build. Save builds with:");
+    println!("    lgo optimize --save-build <name> <stat:min> [<stat:min> ...]");
     println!();
     println!("Options (base-stats):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
@@ -782,6 +1085,9 @@ fn print_usage() {
     );
     println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gearReady.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
+    println!("     Optional: add --save-build <name> to save those goals for later");
+    println!("  9) Run: lgo scrap-gear   (reruns all saved builds and lists items not used");
+    println!("     in any saved build)");
     println!();
     println!("Stat goals:");
     println!("  Each goal is a stat name and a minimum value, separated by ':'.");
@@ -794,13 +1100,23 @@ fn print_usage() {
     println!("    lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0");
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
+    println!("    lgo optimize --save-build healer oh:200000 cr:350000 ml:0");
+    println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
+    println!("    lgo scrap-gear");
+    println!("    lgo scrap-gear --file path/to/lgo_Thalya_gearReady.toml");
     println!("    lgo base-stats");
     println!("    lgo base-stats --character Thalya");
     println!("    lgo resolve-slots");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
     println!("    lgo build-db --items data/items.xml --out data/lgo_items.json");
+}
+
+fn slot_order_index(slot: gear::Slot) -> usize {
+    gear::Slot::all()
+        .position(|candidate| candidate == slot)
+        .unwrap_or(usize::MAX)
 }
 
 #[cfg(test)]
@@ -1011,6 +1327,8 @@ mod tests {
         match cmd {
             Command::Optimize(cli) => {
                 assert_eq!(cli.file, Some(PathBuf::from("some.toml")));
+                assert!(cli.build.is_none());
+                assert!(cli.save_build.is_none());
                 assert_eq!(cli.goals.len(), 1);
             }
             _ => panic!("expected optimize command"),
@@ -1050,6 +1368,83 @@ mod tests {
     }
 
     #[test]
+    fn optimize_accepts_save_build_flag() {
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--save-build",
+            "healer",
+            "oh:200000",
+            "cr:350000",
+        ]))
+        .expect("optimize --save-build should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.save_build.as_deref(), Some("healer"));
+                assert_eq!(cli.goals.len(), 2);
+                assert!(cli.build.is_none());
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_accepts_build_flag_without_goals() {
+        let cmd = parse_command(&s(&["optimize", "--build", "Healer"]))
+            .expect("optimize --build should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.build.as_deref(), Some("Healer"));
+                assert!(cli.goals.is_empty());
+                assert!(cli.save_build.is_none());
+            }
+            _ => panic!("expected optimize command"),
+        }
+    }
+
+    #[test]
+    fn optimize_rejects_build_with_goals() {
+        let err = parse_command(&s(&["optimize", "--build", "healer", "oh:1"]))
+            .expect_err("must reject goals with --build");
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "Cannot supply stat goals when using --build <name>.")
+            }
+            _ => panic!("expected message parse error"),
+        }
+    }
+
+    #[test]
+    fn optimize_rejects_build_and_save_build_together() {
+        let err = parse_command(&s(&[
+            "optimize",
+            "--build",
+            "healer",
+            "--save-build",
+            "tank",
+        ]))
+        .expect_err("must reject incompatible build flags");
+        match err {
+            CliParseError::Message(msg) => assert_eq!(
+                msg,
+                "Cannot combine --build <name> with --save-build <name>."
+            ),
+            _ => panic!("expected message parse error"),
+        }
+    }
+
+    #[test]
+    fn optimize_rejects_save_build_without_goals() {
+        let err = parse_command(&s(&["optimize", "--save-build", "healer"]))
+            .expect_err("must reject save-build without goals");
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "--save-build requires at least one stat goal.")
+            }
+            _ => panic!("expected message parse error"),
+        }
+    }
+
+    #[test]
     fn optimize_without_file_has_none_file() {
         let cmd =
             parse_command(&s(&["optimize", "tm:1"])).expect("optimize without --file must parse");
@@ -1059,6 +1454,71 @@ mod tests {
             }
             _ => panic!("expected optimize command"),
         }
+    }
+
+    #[test]
+    fn scrap_gear_verb_is_case_insensitive_across_aliases() {
+        for verb in [
+            "scrap-gear",
+            "Scrap-Gear",
+            "SCRAP-GEAR",
+            "scrapgear",
+            "--Scrap-Gear",
+            "-S",
+        ] {
+            let cmd = parse_command(&s(&[verb])).expect("scrap-gear alias should parse");
+            assert!(matches!(cmd, Command::ScrapGear(_)));
+        }
+    }
+
+    #[test]
+    fn scrap_gear_accepts_character_and_file_flags() {
+        let cmd = parse_command(&s(&[
+            "scrap-gear",
+            "--character",
+            "Thalya",
+            "--file",
+            "gear.toml",
+        ]))
+        .expect("scrap-gear flags should parse");
+        match cmd {
+            Command::ScrapGear(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+            }
+            _ => panic!("expected scrap-gear command"),
+        }
+    }
+
+    #[test]
+    fn scrap_gear_rejects_positional_arguments() {
+        let err = parse_command(&s(&["scrap-gear", "extra"])).expect_err("must reject positional");
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "'scrap-gear' takes no positional arguments")
+            }
+            _ => panic!("expected message parse error"),
+        }
+    }
+
+    #[test]
+    fn extracts_character_segment_from_canonical_gear_filename() {
+        assert_eq!(
+            extract_character_segment_from_canonical_gear_filename(Path::new(
+                "/tmp/lgo_Thalya_gearReady.toml"
+            )),
+            Some("Thalya".to_string())
+        );
+        assert_eq!(
+            extract_character_segment_from_canonical_gear_filename(Path::new(
+                "/tmp/lgo_THALYA_GEARREADY.toml"
+            )),
+            Some("THALYA".to_string())
+        );
+        assert_eq!(
+            extract_character_segment_from_canonical_gear_filename(Path::new("/tmp/gear.toml")),
+            None
+        );
     }
 
     #[test]

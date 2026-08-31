@@ -380,6 +380,12 @@ pub fn find_bookmarklet_output(dir: &Path, character: &str) -> Result<Option<Pat
     find_case_insensitive_char_file(dir, "lgo_", character, "_gearStats.toml")
 }
 
+/// Find a `lgo_<X>_builds.toml` file in `dir` where `X` matches `character`
+/// case-insensitively.
+pub fn find_builds_file(dir: &Path, character: &str) -> Result<Option<PathBuf>, String> {
+    find_case_insensitive_char_file(dir, "lgo_", character, "_builds.toml")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -470,6 +476,20 @@ mod tests {
         std::fs::write(&f, "").expect("write file");
 
         let found = find_bookmarklet_output(&dir, "thalya")
+            .expect("no error")
+            .expect("must find file");
+        assert_eq!(found, f);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn find_builds_file_is_case_insensitive() {
+        let dir = make_test_dir();
+        let f = dir.join("lgo_THALYA_builds.toml");
+        std::fs::write(&f, "").expect("write file");
+
+        let found = find_builds_file(&dir, "thalya")
             .expect("no error")
             .expect("must find file");
         assert_eq!(found, f);

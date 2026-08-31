@@ -22,6 +22,14 @@ const COL_VALUE: usize = 10;
 const COL_MIN: usize = 10;
 const REPORT_TITLE: &str = "LGO — Thalya's Gear Optimizer";
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScrapUnusedItem {
+    pub slot: Slot,
+    pub name: String,
+    pub owned_count: usize,
+    pub max_used_count: usize,
+}
+
 /// Build the full text optimize report used for terminal and `.txt` output.
 pub fn format_optimize_report(
     result: &OptimizeResult,
@@ -299,6 +307,76 @@ pub fn format_optimize_report_html(
 
     writeln!(w, "</body>").unwrap();
     writeln!(w, "</html>").unwrap();
+    out
+}
+
+/// Build the terminal report for `lgo scrap-gear`.
+pub fn format_scrap_gear_report(
+    character: &str,
+    class: &str,
+    input_file: &str,
+    timestamp: &str,
+    evaluated_builds: &[(String, Vec<StatGoal>)],
+    unused_items: &[ScrapUnusedItem],
+) -> String {
+    let mut out = String::new();
+    let w = &mut out;
+    let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
+
+    writeln!(w).unwrap();
+    writeln!(w, "  LGO — Saved-build item usage").unwrap();
+    writeln!(w, "  Character : {} ({})", character, class).unwrap();
+    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  Run time  : {}", timestamp).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+    writeln!(w).unwrap();
+    writeln!(w, "  Saved builds evaluated:").unwrap();
+    for (name, goals) in evaluated_builds {
+        writeln!(w, "    - {}: {}", name, format_goal_list(goals)).unwrap();
+    }
+    writeln!(w).unwrap();
+    writeln!(w, "  Items not used in any saved build").unwrap();
+    writeln!(w, "  These items may still be near-misses.").unwrap();
+
+    if unused_items.is_empty() {
+        writeln!(w).unwrap();
+        writeln!(w, "  All current items are used by at least one saved build.").unwrap();
+        writeln!(w).unwrap();
+        return out;
+    }
+
+    let mut seen_slot_families = HashSet::new();
+    for slot in Slot::all() {
+        if !seen_slot_families.insert(slot.display_name()) {
+            continue;
+        }
+        let mut slot_items: Vec<&ScrapUnusedItem> = unused_items
+            .iter()
+            .filter(|item| item.slot.display_name() == slot.display_name())
+            .collect();
+        if slot_items.is_empty() {
+            continue;
+        }
+        slot_items.sort_by(|left, right| left.name.cmp(&right.name));
+
+        writeln!(w).unwrap();
+        writeln!(w, "  {}:", slot.display_name()).unwrap();
+        for item in slot_items {
+            let unused_count = item.owned_count.saturating_sub(item.max_used_count);
+            writeln!(
+                w,
+                "    - {} — {} owned, at most {} used in any build ({} {} not used in any saved build)",
+                item.name,
+                item.owned_count,
+                item.max_used_count,
+                unused_count,
+                copy_word(unused_count),
+            )
+            .unwrap();
+        }
+    }
+
+    writeln!(w).unwrap();
     out
 }
 
@@ -604,6 +682,14 @@ fn goal_met_marker(minimum: i64, total: i64) -> &'static str {
     } else {
         "✗"
     }
+
+    fn format_goal_list(goals: &[StatGoal]) -> String {
+        goals
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 fn html_escape(s: &str) -> String {
@@ -636,6 +722,10 @@ fn format_number(n: i64) -> String {
         format!("-{}", with_commas)
     } else {
         with_commas
+    }
+
+    fn copy_word(n: usize) -> &'static str {
+        if n == 1 { "copy" } else { "copies" }
     }
 }
 
@@ -835,6 +925,72 @@ mod tests {
             hand_or_item_label(&gear_set, Slot::OffHand, false),
             "Shield"
         );
+    }
+
+    #[test]
+    fn scrap_gear_report_lists_builds_and_unused_copies() {
+        let report = format_scrap_gear_report(
+            "Thalya",
+            "Lore-master",
+            "TestData/lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[
+                (
+                    "healer".to_string(),
+                    vec![
+                        StatGoal {
+                            stat: Stat::OutgoingHealing,
+                            minimum: 200000,
+                        },
+                        StatGoal {
+                            stat: Stat::CriticalRating,
+                            minimum: 350000,
+                        },
+                    ],
+                ),
+                (
+                    "tank".to_string(),
+                    vec![StatGoal {
+                        stat: Stat::TacticalMitigation,
+                        minimum: 450000,
+                    }],
+                ),
+            ],
+            &[ScrapUnusedItem {
+                slot: Slot::Finger1,
+                name: "Keen Pristine Madáshi Ring".to_string(),
+                owned_count: 2,
+                max_used_count: 1,
+            }],
+        );
+
+        assert!(report.contains("Saved builds evaluated:"));
+        assert!(report.contains("- healer: oh:200000, cr:350000"));
+        assert!(report.contains("- tank: tt:450000"));
+        assert!(report.contains("Items not used in any saved build"));
+        assert!(report.contains(
+            "Keen Pristine Madáshi Ring — 2 owned, at most 1 used in any build (1 copy not used in any saved build)"
+        ));
+    }
+
+    #[test]
+    fn scrap_gear_report_handles_fully_used_pool() {
+        let report = format_scrap_gear_report(
+            "Thalya",
+            "Lore-master",
+            "gear.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[(
+                "healer".to_string(),
+                vec![StatGoal {
+                    stat: Stat::OutgoingHealing,
+                    minimum: 200000,
+                }],
+            )],
+            &[],
+        );
+
+        assert!(report.contains("All current items are used by at least one saved build."));
     }
 
     fn sample_optimize_result() -> OptimizeResult {

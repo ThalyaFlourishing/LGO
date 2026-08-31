@@ -38,6 +38,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   - Verb aliases:
       optimize       | --optimize       | -o
       resolve-slots  | --resolve-slots  | -r
+      scrap-gear     | --scrap-gear     | -s
       base-stats     | --base-stats
   - Top-level reference switch:
       --statlist
@@ -137,7 +138,52 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
-3.5 base-stats
+  lgo optimize --save-build <name> <stat:min> [<stat:min> ...]
+    Run the optimization normally and also save those goals into the sibling
+    file `lgo_<character>_builds.toml` beside the canonical gear TOML.
+    If the file does not exist it is created. If the build name already exists,
+    matching case-insensitively, it is overwritten. Build names are preserved as
+    written for display.
+
+  lgo optimize --build <name>
+    Load the named build's saved goals from `lgo_<character>_builds.toml` and
+    run optimization with them. No positional goals may be supplied when
+    `--build` is used. Goal strings in the builds file use the same existing
+    `<stat:min>` parser as the CLI: full names and two-letter abbreviations are
+    both accepted.
+
+3.5 scrap-gear
+  lgo scrap-gear
+    Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
+    `lgo_<character>_builds.toml`, re-runs the live optimizer once per saved
+    build, then lists the items not used in any saved build. The output first
+    lists every build evaluated (name plus goals in priority order), then groups
+    the unused items by slot in canonical order. It prints only to the terminal;
+    no LGO_Reports files are written.
+
+    Count-aware duplicate handling: for each item name, `scrap-gear` compares
+    how many copies you own against the maximum number of copies used by any
+    one saved build. Example:
+     Keen Pristine Madáshi Ring — 2 owned, at most 1 used in any build
+     (1 copy not used in any saved build)
+
+    Empty-slot placeholders, `(2-handed item)` off-hand lines, and `NO ITEMS`
+    placeholders are never counted as items.
+
+    If the builds file is missing, empty, or malformed, the command errors
+    clearly and tells you to save a build with:
+     lgo optimize --save-build <name> <goals...>
+
+  lgo scrap-gear --character <name>
+  lgo scrap-gear -c <name>
+    Use the specified character's AllServers folder for auto-discovery.
+
+  lgo scrap-gear --file <path>
+  lgo scrap-gear -f <path>
+    Read the explicit canonical gear TOML you provide and discover the sibling
+    `lgo_<character>_builds.toml` beside it.
+
+3.6 base-stats
   lgo base-stats
     Print the five raw innate Base stats from [InnateStats] in
     lgo_<character>_gearReady.toml, and the 16 derived tracked-stat
@@ -154,7 +200,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo base-stats -f <path>
     Read the explicit canonical gear TOML you provide.
 
-3.6 Stat goal syntax
+3.7 Stat goal syntax
   Goal format: <stat>:<minimum>
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
@@ -182,7 +228,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     lgo optimize tm:450000 cr:350000 fn:0
     lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0
 
-3.7 Help
+3.8 Help
   lgo
   lgo --help
   lgo -h
