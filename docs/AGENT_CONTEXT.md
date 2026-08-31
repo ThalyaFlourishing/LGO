@@ -30,13 +30,16 @@ then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
-- User hand-edits persistent corrections, including per-item essence totals, in `gearReady.toml` only.
+- User hand-edits persistent corrections, including top-level `[Virtues]` and
+  per-item essence totals, in `gearReady.toml` only.
 - User invokes 'lgo optimize' which reads the canonical file, derives the raw
 Base stats (Might/Agility/Vitality/Will/Fate) into tracked-stat contributions
-via the per-class coefficients in `data/base_stat_derivations.json`, and
-provides a final optimization report according to user's specified stats of
-interest. Derivation happens at optimize time, before candidates enter the
-optimizer; `optimize` must be run from a directory containing `data/`.
+via the per-class coefficients in `data/base_stat_derivations.json`, folds in
+the fixed stats from any selected Virtues in `[Virtues]` via
+`data/lgo_virtues.json`, and provides a final optimization report according to
+user's specified stats of interest. Derivation happens at optimize time, before
+candidates enter the optimizer; `optimize` must be run from a directory
+containing `data/`.
 
 ---
 
@@ -45,13 +48,16 @@ optimizer; `optimize` must be run from a directory containing `data/`.
 - `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
 - `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
+- `src/virtues.rs` — top-level `[Virtues]` parsing plus `data/lgo_virtues.json`
+  loading/validation and fixed-stat application before optimization.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, and paired-slot super-candidates for Wrist/Finger/Ear. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal report formatter.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
-- `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB) — canonical game data dumps.
+- `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB), `data/lgo_virtues.json`
+  — canonical game data / fixed-stat data files used by the CLI.
 - `src/build_db.rs` — offline database builder, exposed as `lgo build-db [options]`. Reads `data/items.xml`, writes `data/lgo_items.json` — a name → slot (+ `two_handed` and `either_hand` flags) index; no stats (those come from the bookmarklet). Handles both paired-tag `<item>...</item>` and self-closing `<item/>` XML forms. Run via `cargo run --release -- build-db` (dev) or `lgo build-db` (user). Always overwrites the output file.
 - `TestData/` — committed test fixtures, all for character Thalya:
   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — fresh in-game plugin export (input for the bookmarklet).
@@ -99,7 +105,13 @@ The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of tr
 
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
 
-The file begins with a top header containing `character`, `class`, and then `[InnateStats]` as the last pre-items block. `[InnateStats]` holds the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`; users may also hand-add tracked-stat keys there. After that, the format per item is:
+The file begins with a top header containing `character`, `class`,
+`[InnateStats]`, and `[Virtues]` as the last pre-items blocks. `[InnateStats]`
+holds only the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`,
+`Fate`), passed through verbatim from the plugindata by `resolve-slots`.
+`[Virtues]` holds five user-maintained string slots (`Virtue1` ... `Virtue5`)
+whose non-empty values are matched case-insensitively against the top-level keys
+in `data/lgo_virtues.json`. After that, the format per item is:
 
 ```toml
 [[item]]
@@ -131,18 +143,22 @@ base item block or `EssenceTotals` are hard errors; omitted stats are treated as
 zero. Raw Base stats are carried separately from tracked stats and are never
 added raw to any tracked total; at optimize time they are derived into
 tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
-`docs/lgo_reference_stats.md`).
+`docs/lgo_reference_stats.md`). Selected Virtues behave like additional fixed
+stat sources before that derivation step: tracked Virtue stats add directly to
+the fixed tracked baseline, while Virtue Base stats join the `[InnateStats]`
+Base-stat pool first and are then derived normally.
 
 ### Stat-line alignment (canonical, enforced)
 
 Every stat assignment line in `gearReady.toml` — the 16 tracked stats and the
 5 Base stats, in `[[item]]` blocks, `[item.EssenceTotals]`, and
-`[InnateStats]` — is written with its `=` at column 20 (key padded to width
-19). This is normalized, not preserved: `resolve-slots` re-aligns spacing on
-every resolve/merge regardless of incoming decor, so hand-edited spacing does
-not survive, while values and comments do. Any change that lets
-non-conforming spacing survive a merge will break the merge-idempotency
-invariant (output decor feeds the next run's input decor).
+`[InnateStats]` — plus the five `Virtue1` ... `Virtue5` lines in `[Virtues]`,
+is written with its `=` at column 20 (key padded to width 19). This is
+normalized, not preserved: `resolve-slots` re-aligns spacing on every
+resolve/merge regardless of incoming decor, so hand-edited spacing does not
+survive, while values and comments do. Any change that lets non-conforming
+spacing survive a merge will break the merge-idempotency invariant (output
+decor feeds the next run's input decor).
 
 ### `two_handed` generated metadata
 

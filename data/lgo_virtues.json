@@ -1,0 +1,124 @@
+{
+  "Charity": {
+    "PhysicalMitigation": 6670,
+    "Resistance": 30212,
+    "Vitality": 893,
+    "Morale": 1778
+  },
+  "Compassion": {
+    "Armor": 2163,
+    "PhysicalMitigation": 13357,
+    "TacticalMitigation": 6670,
+    "Morale": 1778
+  },
+  "Confidence": {
+    "CriticalRating": 16804,
+    "Evade": 6993,
+    "Finesse": 11086,
+    "PhysicalMastery": 1325,
+    "TacticalMastery": 1325
+  },
+  "Determination": {
+    "Agility": 3088,
+    "CriticalRating": 5024,
+    "PhysicalMastery": 8265,
+    "TacticalMastery": 1325
+  },
+  "Discipline": {
+    "IncomingHealing": 11086,
+    "PhysicalMitigation": 4007,
+    "Resistance": 30212,
+    "Morale": 1778
+  },
+  "Empathy": {
+    "Armor": 7206,
+    "CriticalDefense": 11086,
+    "Resistance": 9051,
+    "Morale": 1778
+  },
+  "Fidelity": {
+    "PhysicalMitigation": 4007,
+    "TacticalMitigation": 13357,
+    "Vitality": 1493,
+    "Morale": 1778
+  },
+  "Fortitude": {
+    "CriticalDefense": 11086,
+    "Morale": 14543,
+    "Resistance": 9051
+  },
+  "Honesty": {
+    "CriticalRating": 5024,
+    "TacticalMastery": 15258,
+    "Will": 1549,
+    "PhysicalMastery": 1325
+  },
+  "Honour": {
+    "CriticalDefense": 6651,
+    "Morale": 14543,
+    "TacticalMitigation": 6670
+  },
+  "Idealism": {
+    "Fate": 2508,
+    "IncomingHealing": 11086,
+    "Morale": 5608
+  },
+  "Innocence": {
+    "PhysicalMitigation": 13357,
+    "Resistance": 15106,
+    "TacticalMitigation": 4007,
+    "Morale": 1778
+  },
+  "Justice": {
+    "Morale": 8261,
+    "TacticalMitigation": 4007
+  },
+  "Loyalty": {
+    "Armor": 3603,
+    "IncomingHealing": 6651,
+    "Vitality": 2978,
+    "Morale": 1778
+  },
+  "Mercy": {
+    "Evade": 23333,
+    "Fate": 1254,
+    "Vitality": 893,
+    "Morale": 1778
+  },
+  "Patience": {
+    "CriticalRating": 5024,
+    "Evade": 11710,
+    "Power": 2006,
+    "Morale": 1778
+  },
+  "Tolerance": {
+    "PhysicalMitigation": 4007,
+    "Resistance": 15106,
+    "TacticalMitigation": 13357,
+    "Morale": 1778
+  },
+  "Valour": {
+    "CriticalRating": 5024,
+    "Finesse": 11086,
+    "PhysicalMastery": 15258,
+    "TacticalMastery": 1325
+  },
+  "Wisdom": {
+    "Finesse": 6651,
+    "TacticalMastery": 8265,
+    "Will": 3088,
+    "PhysicalMastery": 1325
+  },
+  "Wit": {
+    "CriticalRating": 8376,
+    "Finesse": 22171,
+    "PhysicalMastery": 5496,
+    "TacticalMastery": 5496
+  },
+  "Zeal": {
+    "CriticalRating": 5024,
+    "Might": 3088,
+    "PhysicalMastery": 8265,
+    "TacticalMastery": 1325
+  }
+}

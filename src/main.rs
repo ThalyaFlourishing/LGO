@@ -1,6 +1,6 @@
 //! LGO - LOTRO Gear Optimizer
 
-use lgo::{base_stats, build_db, gear, gearstats, optimizer, report, slot_resolver, stat};
+use lgo::{base_stats, build_db, gear, gearstats, optimizer, report, slot_resolver, stat, virtues};
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -134,6 +134,23 @@ fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
     }
 }
 
+/// Load `data/lgo_virtues.json` (resolved relative to the current directory),
+/// exiting with a clear message if the file is missing or malformed.
+fn load_virtues_or_exit() -> virtues::VirtuesDb {
+    match virtues::VirtuesDb::load_default() {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!(
+                "Failed to load virtue data ({}): {}",
+                virtues::DEFAULT_VIRTUES_PATH,
+                e
+            );
+            eprintln!("Run lgo from a directory containing a data/ folder with that file.");
+            process::exit(1);
+        }
+    }
+}
+
 fn run_optimize(cli: &OptimizeCli) {
     if cli.goals.is_empty() {
         eprintln!("Error: at least one stat goal is required.");
@@ -161,6 +178,14 @@ fn run_optimize(cli: &OptimizeCli) {
         .class
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
+
+    if !gear_doc.selected_virtues.is_empty() {
+        let virtues = load_virtues_or_exit();
+        if let Err(e) = virtues.apply_selected_virtues(&mut gear_doc) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    }
 
     // Derivation pre-pass: fold raw Base stats (innate and per item) into
     // tracked-stat contributions before candidates enter the optimizer.
@@ -631,6 +656,8 @@ fn print_usage() {
     println!();
     println!("  optimize requires data/base_stat_derivations.json (resolved relative to the");
     println!("  current directory) to derive Base-stat contributions before optimization.");
+    println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
+    println!("  against data/lgo_virtues.json in that same data/ folder.");
     println!();
     println!("Options (base-stats):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
