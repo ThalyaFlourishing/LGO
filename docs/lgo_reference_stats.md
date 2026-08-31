@@ -76,6 +76,8 @@ Virtue5            = ""
 - Non-empty values are matched case-insensitively against the top-level keys in
   `data/lgo_virtues.json`.
 - Unknown names and duplicate non-empty names are hard errors at optimize time.
+- `data/lgo_virtues.json` uses LGO's current tracked stat vocabulary, so
+  unsupported Virtue-only stats such as In-Combat Morale Regen are omitted.
 
 Selected Virtues are fixed stat sources. Their tracked stats contribute
 directly to the fixed baseline totals, and any raw Base stats they contain are

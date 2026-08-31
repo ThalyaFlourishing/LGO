@@ -671,12 +671,10 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
     )
     .expect("copy fixture");
 
-    // resolve_stats_file fills [InnateStats] from the latest plugindata
-    // export in the same directory. Without one, base stats are empty and
-    // apply_top_level_metadata returns early — no [InnateStats] block is
-    // ever emitted. Copy the fixture in, renamed so its `lgo_TestChar_` prefix
-    // matches the character under test (matching is case-insensitive on the
-    // character segment, but the prefix itself must be present).
+    // Copy the latest plugindata fixture in under the test character's name so
+    // the canonical output reflects exported metadata rather than zero-default
+    // Base stats. Matching is case-insensitive on the character segment, but
+    // the `lgo_TestChar_` prefix itself must be present.
     std::fs::copy(
         current_plugindata_fixture_path(),
         dir.join(format!(
@@ -1349,8 +1347,8 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
 
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
 
-    // [InnateStats] is only written when a plugindata export supplies base
-    // stats; copy the fixture in under the test character's name.
+    // Copy the plugindata fixture in under the test character's name so the
+    // canonical output reflects the exported raw Base stats.
     std::fs::copy(
         current_plugindata_fixture_path(),
         dir.join(format!(
@@ -1497,6 +1495,82 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
             out
         );
     }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
+    let dir = make_temp_dir("zero_base_export");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+    let plugindata = dir.join(format!(
+        "lgo_{}_gearNames_20260820_000000.plugindata",
+        character
+    ));
+
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
+        &bookmarklet,
+    )
+    .expect("copy gearStats fixture");
+    std::fs::write(
+        &plugindata,
+        format!(
+            "return {{\n    [\"character\"] = \"{character}\",\n    [\"class\"] = \"Lore-master\",\n    [\"baseStats\"] = {{\n        [\"GetBaseMight\"] = 0.000000,\n        [\"GetBaseAgility\"] = 0.000000,\n        [\"GetBaseVitality\"] = 0.000000,\n        [\"GetBaseWill\"] = 0.000000,\n        [\"GetBaseFate\"] = 0.000000,\n    }},\n}}\n"
+        ),
+    )
+    .expect("write zero-base plugindata fixture");
+
+    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("resolve with zero-base export");
+
+    let out = std::fs::read_to_string(&canonical).expect("read canonical");
+    let doc: toml_edit::DocumentMut = out.parse().expect("canonical output parses");
+    let innate = doc
+        .get("InnateStats")
+        .and_then(|item| item.as_table())
+        .expect("InnateStats table exists");
+    let virtues = doc
+        .get("Virtues")
+        .and_then(|item| item.as_table())
+        .expect("Virtues table exists");
+
+    let innate_keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
+    assert_eq!(
+        innate_keys,
+        vec!["Might", "Agility", "Vitality", "Will", "Fate"]
+    );
+    for key in ["Might", "Agility", "Vitality", "Will", "Fate"] {
+        assert_eq!(
+            innate.get(key).and_then(|item| item.as_integer()),
+            Some(0),
+            "zero export must still write {key} = 0:\n{out}"
+        );
+    }
+    for key in VIRTUE_FIELD_KEYS {
+        assert_eq!(
+            virtues.get(key).and_then(|item| item.as_str()),
+            Some(""),
+            "zero export must still write default {key}:\n{out}"
+        );
+    }
+
+    let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
+    let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+    let divider_pos = out.find("# --- Head ---").expect("Head divider exists");
+    assert!(
+        innate_pos < virtues_pos && virtues_pos < divider_pos,
+        "zero export must still place Virtues after InnateStats and before items:\n{}",
+        out
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }

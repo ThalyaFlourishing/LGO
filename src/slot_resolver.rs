@@ -504,19 +504,10 @@ fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_
     }
     doc.insert("class", value(metadata.class_name));
 
-    if metadata.base_stats.is_empty() {
-        return;
-    }
-
-    let mut table = Table::new();
-    for (stat, key) in BASE_STATS {
-        table.insert(
-            key,
-            value(metadata.base_stats.get(stat).copied().unwrap_or(0)),
-        );
-        normalize_assignment_decor(&mut table, key);
-    }
-    doc.insert("InnateStats", toml_edit::Item::Table(table));
+    doc.insert(
+        "InnateStats",
+        toml_edit::Item::Table(build_innate_stats_table(metadata.base_stats)),
+    );
     doc.insert(VIRTUE_TABLE_KEY, Item::Table(build_virtues_table()));
 }
 
@@ -544,6 +535,27 @@ fn build_virtues_table() -> Table {
     let mut table = Table::new();
     ensure_virtue_fields(&mut table);
     table
+}
+
+fn build_innate_stats_table(base_stats: &HashMap<Stat, i64>) -> Table {
+    let mut table = Table::new();
+    for (stat, key) in BASE_STATS {
+        table.insert(key, value(base_stats.get(stat).copied().unwrap_or(0)));
+        normalize_assignment_decor(&mut table, key);
+    }
+    table
+}
+
+fn read_innate_base_stats(table: &Table) -> HashMap<Stat, i64> {
+    let mut stats = HashMap::new();
+    for (stat, key) in BASE_STATS {
+        if let Some(value) = table.get(key).and_then(|item| item.as_integer()) {
+            if value != 0 {
+                stats.insert(*stat, value);
+            }
+        }
+    }
+    stats
 }
 
 fn ensure_virtue_fields(table: &mut Table) {
@@ -1150,11 +1162,11 @@ pub fn merge_into_canonical(
     let prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
     let incoming_tables = take_item_tables(&mut incoming_doc, "<incoming>")?;
 
-    // Carry forward `character`, `class`, and `[InnateStats]` from the incoming
-    // resolved TOML into the canonical document so the metadata is always current
-    // after a merge. When the value is already current, leave the previous item
-    // untouched: toml_edit stores leading comments/alignment as decor on these
-    // top-level values, and replacing them would make repeat merges serialize
+    // Carry forward `character` and `class` from the incoming resolved TOML into
+    // the canonical document so that metadata stays current after a merge. When
+    // the value is already current, leave the previous item untouched:
+    // toml_edit stores leading comments/alignment as decor on these top-level
+    // values, and replacing them would make repeat merges serialize
     // differently.
     for key in &["character", "class"] {
         if let Some(val) = incoming_doc.get(key).cloned() {
@@ -1165,32 +1177,27 @@ pub fn merge_into_canonical(
     }
 
     // Carry forward `[InnateStats]` from the incoming resolved TOML. The block
-    // holds the five raw Base stats from the plugindata export; refresh those
-    // keys per current export truth, but leave any other keys the user
-    // hand-added (legacy tracked-stat edits) untouched so hand-edits survive
-    // merges. When nothing changes, the previous table is left completely alone
-    // so repeat merges serialize byte-identically.
+    // is generated metadata and must stay Base-stats-only: refresh the five raw
+    // Base stats from current export truth and drop any stale or hand-added
+    // extra keys. When values are already current, keep the existing table in
+    // place so repeat merges serialize byte-identically apart from spacing
+    // normalization.
     if let Some(incoming_innate) = incoming_doc.get("InnateStats").and_then(|i| i.as_table()) {
+        let canonical_incoming_innate =
+            build_innate_stats_table(&read_innate_base_stats(incoming_innate));
         match prev_doc
             .get_mut("InnateStats")
             .and_then(|i| i.as_table_mut())
         {
             Some(prev_innate) => {
-                for (_, key) in BASE_STATS {
-                    let Some(incoming_val) = incoming_innate.get(key).and_then(|v| v.as_integer())
-                    else {
-                        continue;
-                    };
-                    if prev_innate.get(key).and_then(|v| v.as_integer()) != Some(incoming_val) {
-                        prev_innate.insert(key, value(incoming_val));
-                    }
+                if innate_table_matches_canonical(prev_innate, &canonical_incoming_innate) {
+                    normalize_existing_canonical_stat_decor(prev_innate);
+                } else {
+                    *prev_innate = canonical_incoming_innate;
                 }
-                normalize_existing_canonical_stat_decor(prev_innate);
             }
             None => {
-                let mut incoming_innate = incoming_innate.clone();
-                normalize_existing_canonical_stat_decor(&mut incoming_innate);
-                prev_doc.insert("InnateStats", Item::Table(incoming_innate));
+                prev_doc.insert("InnateStats", Item::Table(canonical_incoming_innate));
             }
         }
     }
@@ -1684,6 +1691,17 @@ fn plugin_base_stats_to_stats(
         }
     }
     Ok(stats)
+}
+
+fn innate_table_matches_canonical(table: &Table, expected: &Table) -> bool {
+    table
+        .iter()
+        .map(|(key, _)| key)
+        .eq(BASE_STATS.iter().map(|(_, key)| *key))
+        && BASE_STATS.iter().all(|(_, key)| {
+            table.get(key).and_then(|item| item.as_integer())
+                == expected.get(key).and_then(|item| item.as_integer())
+        })
 }
 
 fn find_latest_plugindata_file(
@@ -2419,7 +2437,7 @@ name = \"Test Helm\"\n";
     }
 
     #[test]
-    fn resolver_places_innate_stats_as_last_pre_items_header_block() {
+    fn resolver_places_innate_stats_before_virtues_and_items() {
         let db = fixture_db();
         let base_stats: HashMap<Stat, i64> =
             [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
@@ -2437,6 +2455,7 @@ name = \"Test Helm\"\n";
         let character_pos = out.find("character").expect("character field exists");
         let class_pos = out.find("class").expect("class field exists");
         let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
+        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
         let item_pos = out.find("[[item]]").expect("item array exists");
 
         assert!(
@@ -2450,8 +2469,13 @@ name = \"Test Helm\"\n";
             out
         );
         assert!(
-            innate_pos < item_pos,
-            "InnateStats should appear before the first [[item]] block:\n{}",
+            innate_pos < virtues_pos,
+            "InnateStats should appear before Virtues:\n{}",
+            out
+        );
+        assert!(
+            virtues_pos < item_pos,
+            "Virtues should appear before the first [[item]] block:\n{}",
             out
         );
     }
@@ -2476,6 +2500,59 @@ name = \"Test Helm\"\n";
             .expect("Virtues table exists");
         let keys: Vec<&str> = virtues.iter().map(|(key, _)| key).collect();
         assert_eq!(keys, VIRTUE_FIELD_KEYS);
+        for key in VIRTUE_FIELD_KEYS {
+            assert_eq!(virtues.get(key).and_then(|item| item.as_str()), Some(""));
+        }
+
+        let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
+        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+        let item_pos = out.find("[[item]]").expect("item array exists");
+        assert!(
+            innate_pos < virtues_pos && virtues_pos < item_pos,
+            "Virtues must sit between InnateStats and the first item:\n{}",
+            out
+        );
+    }
+
+    #[test]
+    fn resolver_writes_innate_stats_and_virtues_even_when_base_stats_are_empty() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+        let empty_base_stats = HashMap::new();
+
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &empty_base_stats,
+        )
+        .expect("must resolve with metadata");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let innate = doc
+            .get("InnateStats")
+            .and_then(|item| item.as_table())
+            .expect("InnateStats table exists");
+        let virtues = doc
+            .get(VIRTUE_TABLE_KEY)
+            .and_then(|item| item.as_table())
+            .expect("Virtues table exists");
+
+        let innate_keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
+        assert_eq!(
+            innate_keys,
+            vec!["Might", "Agility", "Vitality", "Will", "Fate"]
+        );
+        for key in ["Might", "Agility", "Vitality", "Will", "Fate"] {
+            assert_eq!(innate.get(key).and_then(|item| item.as_integer()), Some(0));
+        }
+
+        let virtue_keys: Vec<&str> = virtues.iter().map(|(key, _)| key).collect();
+        assert_eq!(virtue_keys, VIRTUE_FIELD_KEYS);
         for key in VIRTUE_FIELD_KEYS {
             assert_eq!(virtues.get(key).and_then(|item| item.as_str()), Some(""));
         }
@@ -2557,6 +2634,14 @@ Might = 9\n";
             &empty_base_stats,
         )
         .expect("must resolve with metadata");
+        let item_pos = out.find("[[item]]").expect("item array exists");
+        let item_src = &out[item_pos..];
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
 
         // The five Base stats come after all 16 tracked stats, in canonical
         // Might/Agility/Vitality/Will/Fate order, and pass through verbatim.
@@ -2570,8 +2655,9 @@ Might = 9\n";
         ]
         .into_iter()
         .map(|key| {
-            out.find(&format!("{key} "))
-                .unwrap_or_else(|| panic!("missing {} in output:\n{}", key, out))
+            item_src
+                .find(&format!("{key} "))
+                .unwrap_or_else(|| panic!("missing {} in item block:\n{}", key, item_src))
         })
         .collect();
         assert!(
@@ -2579,11 +2665,20 @@ Might = 9\n";
             "base stats not in canonical position/order:\n{}",
             out
         );
-        assert!(has_assignment_line(&out, "Might", 9));
-        assert!(has_assignment_line(&out, "Agility", 0));
-        assert!(has_assignment_line(&out, "Vitality", 0));
-        assert!(has_assignment_line(&out, "Will", 0));
-        assert!(has_assignment_line(&out, "Fate", 7));
+        assert_eq!(
+            item.get("Might").and_then(|item| item.as_integer()),
+            Some(9)
+        );
+        assert_eq!(
+            item.get("Agility").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(
+            item.get("Vitality").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(item.get("Will").and_then(|item| item.as_integer()), Some(0));
+        assert_eq!(item.get("Fate").and_then(|item| item.as_integer()), Some(7));
     }
 
     #[test]
@@ -3008,7 +3103,7 @@ name = \"Test Helm\"\n";
     }
 
     #[test]
-    fn merge_normalizes_sloppy_stat_spacing_and_stays_idempotent() {
+    fn merge_normalizes_sloppy_stat_spacing_drops_invalid_innate_extras_and_stays_idempotent() {
         let previous = "\
 character = \"Thalya\"\n\
 class = \"Lore-master\"\n\
@@ -3046,10 +3141,70 @@ Might = 9\n";
             .expect("first merge")
             .merged_text;
         assert_stat_assignments_align_to_column_20(&first);
-        assert!(has_assignment_line(&first, "CriticalRating", 7));
-        assert!(has_assignment_line(&first, "Might", 5300));
-        assert!(has_assignment_line(&first, "Armor", 5));
-        assert!(has_assignment_line(&first, "Vitality", 12));
+        let doc: DocumentMut = first.parse().expect("merged output parses");
+        let innate = doc
+            .get("InnateStats")
+            .and_then(|item| item.as_table())
+            .expect("InnateStats table exists");
+        let innate_keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
+        assert_eq!(
+            innate_keys,
+            vec!["Might", "Agility", "Vitality", "Will", "Fate"]
+        );
+        assert!(innate.get("CriticalRating").is_none());
+        assert_eq!(
+            innate.get("Might").and_then(|item| item.as_integer()),
+            Some(5300)
+        );
+        assert_eq!(
+            innate.get("Agility").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(
+            innate.get("Vitality").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(
+            innate.get("Will").and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert_eq!(
+            innate.get("Fate").and_then(|item| item.as_integer()),
+            Some(4000)
+        );
+
+        let item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.iter().next())
+            .expect("one item");
+        assert_eq!(
+            item.get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(100)
+        );
+        assert_eq!(
+            item.get("Armor").and_then(|item| item.as_integer()),
+            Some(5)
+        );
+        assert_eq!(
+            item.get("Might").and_then(|item| item.as_integer()),
+            Some(9)
+        );
+        let essence = item
+            .get(ESSENCE_TOTALS_KEY)
+            .and_then(|item| item.as_table())
+            .expect("EssenceTotals exists");
+        assert_eq!(
+            essence
+                .get("CriticalRating")
+                .and_then(|item| item.as_integer()),
+            Some(3)
+        );
+        assert_eq!(
+            essence.get("Vitality").and_then(|item| item.as_integer()),
+            Some(12)
+        );
 
         let second = merge_ic(Some(&first), incoming, ForceMode::NoForce)
             .expect("second merge")
@@ -3610,7 +3765,7 @@ Armor = 100\n";
     }
 
     #[test]
-    fn merge_refreshes_innate_base_stats_but_preserves_hand_added_tracked_keys() {
+    fn merge_refreshes_innate_base_stats_and_drops_extra_keys() {
         let db = fixture_db();
         let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
 
@@ -3627,7 +3782,8 @@ Armor = 100\n";
             .expect("first merge")
             .merged_text;
 
-        // Simulate a user hand-adding a tracked stat inside [InnateStats].
+        // Simulate a stale canonical file carrying an invalid extra key inside
+        // [InnateStats].
         let hand_edited = first.replace("[InnateStats]\n", "[InnateStats]\nCriticalRating = 25\n");
         assert_ne!(hand_edited, first, "hand-edit must apply");
 
@@ -3651,18 +3807,40 @@ Armor = 100\n";
             .get("InnateStats")
             .and_then(|item| item.as_table())
             .expect("InnateStats table exists");
+        let keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
         assert_eq!(
-            innate
-                .get("CriticalRating")
-                .and_then(|item| item.as_integer()),
-            Some(25),
-            "hand-added tracked key must survive the merge untouched:\n{}",
+            keys,
+            vec!["Might", "Agility", "Vitality", "Will", "Fate"],
+            "InnateStats must be normalized back to the five Base stats:\n{}",
+            merged
+        );
+        assert!(
+            innate.get("CriticalRating").is_none(),
+            "invalid extra InnateStats key must be removed:\n{}",
             merged
         );
         assert_eq!(
             innate.get("Might").and_then(|item| item.as_integer()),
             Some(5300),
             "base keys must refresh to current export truth:\n{}",
+            merged
+        );
+        assert_eq!(
+            innate.get("Agility").and_then(|item| item.as_integer()),
+            Some(0),
+            "missing base keys must be written as zero:\n{}",
+            merged
+        );
+        assert_eq!(
+            innate.get("Vitality").and_then(|item| item.as_integer()),
+            Some(0),
+            "missing base keys must be written as zero:\n{}",
+            merged
+        );
+        assert_eq!(
+            innate.get("Will").and_then(|item| item.as_integer()),
+            Some(0),
+            "missing base keys must be written as zero:\n{}",
             merged
         );
         assert_eq!(

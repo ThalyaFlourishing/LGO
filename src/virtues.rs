@@ -314,12 +314,33 @@ mod tests {
             .by_name
             .get("Zeal")
             .expect("default virtue data should contain Zeal");
-        assert_eq!(zeal.base_stats.get(&Stat::Might), Some(&80));
+        assert_eq!(zeal.base_stats.get(&Stat::Might), Some(&3088));
+        assert_eq!(zeal.tracked_stats.get(&Stat::CriticalRating), Some(&5024));
+        assert_eq!(zeal.tracked_stats.get(&Stat::PhysicalMastery), Some(&6940));
         let wisdom = db
             .by_name
             .get("Wisdom")
             .expect("default virtue data should contain Wisdom");
-        assert_eq!(wisdom.base_stats.get(&Stat::Will), Some(&80));
+        assert_eq!(wisdom.base_stats.get(&Stat::Will), Some(&3088));
+        assert_eq!(wisdom.tracked_stats.get(&Stat::Finesse), Some(&6651));
+        assert_eq!(
+            wisdom.tracked_stats.get(&Stat::TacticalMastery),
+            Some(&6940)
+        );
+        let justice = db
+            .by_name
+            .get("Justice")
+            .expect("default virtue data should contain Justice");
+        assert_eq!(justice.tracked_stats.get(&Stat::Morale), Some(&6383));
+        assert_eq!(
+            justice.tracked_stats.get(&Stat::TacticalMitigation),
+            Some(&4007)
+        );
+        assert_eq!(
+            justice.tracked_stats.len(),
+            2,
+            "unsupported virtue-only stats such as ICMR must be omitted"
+        );
     }
 
     #[test]
