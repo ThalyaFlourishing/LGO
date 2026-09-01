@@ -497,6 +497,10 @@ fn resolve_toml_str_inner(
         );
     }
 
+    // Re-acquire the (drained, still present) array to install the rebuilt
+    // set. The borrow was released above so `doc` could be threaded through
+    // capture_essence_trailing_comments; every step in between is infallible,
+    // and `doc` is local, so no partially-drained document can escape.
     let items_arr = doc
         .get_mut("item")
         .and_then(|i| i.as_array_of_tables_mut())
