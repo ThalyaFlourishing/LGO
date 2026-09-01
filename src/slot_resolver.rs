@@ -16,6 +16,7 @@
 //! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
 use chrono::Local;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, IsTerminal, Write};
@@ -165,7 +166,7 @@ impl ItemsDb {
                     slot_string: entry.slot.clone(),
                 })?;
             by_name
-                .entry(nfc_name(&entry.name))
+                .entry(nfc_name(&entry.name).into_owned())
                 .or_default()
                 .push(DbItem {
                     name: entry.name,
@@ -199,12 +200,11 @@ impl ItemsDb {
     ///
     /// Lookups are NFC-normalized (both sides), so Unicode-equivalent byte
     /// sequences resolve to the same entry. Resolution policy is "first match
-    /// wins" (policy: first match wins). In practice every Vec has length 1
-    /// because JSON object keys are unique; the Vec is structural
-    /// future-proofing only.
+    /// wins". In practice every Vec has length 1 because JSON object keys are
+    /// unique; the Vec is structural future-proofing only.
     pub fn lookup(&self, name: &str) -> Option<Slot> {
         self.by_name
-            .get(&nfc_name(name))
+            .get(nfc_name(name).as_ref())
             .and_then(|v| v.first())
             .map(|item| item.slot)
     }
@@ -214,7 +214,7 @@ impl ItemsDb {
     /// `two_handed` flag for those instead of consulting the DB.
     pub fn lookup_two_handed(&self, name: &str) -> bool {
         self.by_name
-            .get(&nfc_name(name))
+            .get(nfc_name(name).as_ref())
             .and_then(|v| v.first())
             .is_some_and(|item| item.two_handed)
     }
@@ -224,7 +224,7 @@ impl ItemsDb {
     /// `either_hand` flag for those instead of consulting the DB.
     pub fn lookup_either_hand(&self, name: &str) -> bool {
         self.by_name
-            .get(&nfc_name(name))
+            .get(nfc_name(name).as_ref())
             .and_then(|v| v.first())
             .is_some_and(|item| item.either_hand)
     }
@@ -1508,7 +1508,7 @@ fn group_incoming_by_name(tables: Vec<Table>) -> (HashMap<String, Vec<Table>>, V
     let mut order: Vec<String> = Vec::new();
     for table in tables {
         if let Some(name) = table_name(&table) {
-            let key = nfc_name(&name);
+            let key = nfc_name(&name).into_owned();
             by_name.entry(key.clone()).or_default().push(table);
             order.push(key);
         }
@@ -1525,11 +1525,21 @@ fn group_incoming_by_name(tables: Vec<Table>) -> (HashMap<String, Vec<Table>>, V
 /// never rewritten — the output keeps whatever bytes the preserved table
 /// carries. This is deliberately not general rename detection (deferred per
 /// `docs/AGENT_CONTEXT.md` §10).
-fn nfc_name(name: &str) -> String {
+fn nfc_name(name: &str) -> Cow<'_, str> {
     if is_nfc(name) {
-        name.to_string()
+        Cow::Borrowed(name)
     } else {
-        name.nfc().collect()
+        Cow::Owned(name.nfc().collect())
+    }
+}
+
+/// True when two names are equal after NFC normalization, without allocating
+/// when both sides are already NFC (the common case).
+fn nfc_eq(a: &str, b: &str) -> bool {
+    if is_nfc(a) && is_nfc(b) {
+        a == b
+    } else {
+        a.nfc().eq(b.nfc())
     }
 }
 
@@ -1547,7 +1557,7 @@ fn take_matching_incoming(
 ) -> Option<Table> {
     let key = nfc_name(name);
     let (matched, empty_after) = {
-        let candidates = incoming_by_name.get_mut(&key)?;
+        let candidates = incoming_by_name.get_mut(key.as_ref())?;
         let idx = candidates
             .iter()
             .position(|incoming| item_data_equal(prev, incoming))
@@ -1566,7 +1576,7 @@ fn take_matching_incoming(
         (matched, candidates.is_empty())
     };
     if empty_after {
-        incoming_by_name.remove(&key);
+        incoming_by_name.remove(key.as_ref());
     }
     Some(matched)
 }
@@ -1577,12 +1587,12 @@ fn pop_first_incoming(
 ) -> Option<Table> {
     let key = nfc_name(name);
     let (matched, empty_after) = {
-        let candidates = incoming_by_name.get_mut(&key)?;
+        let candidates = incoming_by_name.get_mut(key.as_ref())?;
         let matched = candidates.remove(0);
         (matched, candidates.is_empty())
     };
     if empty_after {
-        incoming_by_name.remove(&key);
+        incoming_by_name.remove(key.as_ref());
     }
     Some(matched)
 }
@@ -1701,9 +1711,11 @@ fn item_data_equal(a: &Table, b: &Table) -> bool {
 /// previous instance with its most-similar remaining incoming candidate.
 fn item_data_distance(a: &Table, b: &Table) -> usize {
     let mut distance = 0;
-    if table_str(a, "name").map(|name| nfc_name(&name))
-        != table_str(b, "name").map(|name| nfc_name(&name))
-    {
+    let names_equal = match (table_name(a), table_name(b)) {
+        (Some(a_name), Some(b_name)) => nfc_eq(&a_name, &b_name),
+        (a_name, b_name) => a_name == b_name,
+    };
+    if !names_equal {
         distance += 1;
     }
     if table_str(a, "slot") != table_str(b, "slot") {
