@@ -1791,6 +1791,140 @@ CriticalRating = 200
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Trailing-comment gap: a hand-written comment *after the last key* of an
+/// `[item.EssenceTotals]` block must survive re-running `resolve_stats_file`,
+/// stay attached below its essence block (not migrate across item or family
+/// boundaries), and not duplicate on further reruns (idempotency modulo
+/// timestamp).
+#[test]
+fn file_level_essence_trailing_comment_survives_reruns() {
+    let dir = make_temp_dir("essence_trailing_comment");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head"
+            },
+            "Test Chestpiece": {
+                "name": "Test Chestpiece",
+                "slot": "Chest"
+            },
+            "Test Sword": {
+                "name": "Test Sword",
+                "slot": "Main-hand"
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let two_item_export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+
+[[item]]
+slot = \"Unknown\"
+name = \"Test Sword\"
+Armor = 40
+";
+    std::fs::write(&bookmarklet, two_item_export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    // Hand-edit the canonical file: set an essence total and write a note
+    // *after the last essence key* of the Head item — the line directly
+    // above the Main-hand divider.
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let comment = "# TODO: re-check after next essence swap";
+    let edited = first.replacen(
+        "Fate               = 0\n\n# --- Main-hand ---",
+        &format!("Fate               = 77\n{comment}\n\n# --- Main-hand ---"),
+        1,
+    );
+    assert_ne!(edited, first, "hand-edit must apply");
+    std::fs::write(&canonical, edited).expect("write edited canonical");
+
+    // Re-export with an additional Chest item so the merge regroups: the
+    // new block lands between the Head and Main-hand families. The trailing
+    // comment must stay below the helm's essence block instead of riding
+    // the Main-hand divider's table past the new Chest block.
+    let three_item_export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+
+[[item]]
+slot = \"Unknown\"
+name = \"Test Chestpiece\"
+Armor = 30
+
+[[item]]
+slot = \"Unknown\"
+name = \"Test Sword\"
+Armor = 40
+";
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, three_item_export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        assert_eq!(
+            out.matches(comment).count(),
+            1,
+            "run {}: trailing essence comment must survive exactly once:\n{}",
+            run,
+            out
+        );
+        assert!(
+            out.contains(&format!("Fate               = 77\n{comment}")),
+            "run {}: comment must stay attached below the helm's essence block:\n{}",
+            run,
+            out
+        );
+        for divider in ["# --- Head ---", "# --- Chest ---", "# --- Main-hand ---"] {
+            assert_eq!(
+                out.matches(divider).count(),
+                1,
+                "run {}: divider {} must appear exactly once:\n{}",
+                run,
+                divider,
+                out
+            );
+        }
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {}: output must be idempotent modulo timestamp",
+                run
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Issue 6 tripwire: a hand-corrected slot on an item the DB does not know
 /// (bookmarklet leaves it in the Unknown section) must survive re-export,
 /// move the item under the corrected slot's divider, and keep a hand-added
