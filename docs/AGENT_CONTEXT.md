@@ -314,7 +314,7 @@ These are known, decided-but-not-urgent items. Do **not** silently fold them int
 
 - **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Hand-edit preservation across re-runs:** implemented via preserve-by-default merge in `resolve-slots`. The `[__user_edits__]` design from `docs/Merge Coding Prompt.txt` and `docs/User Story & Hand-Edit-Tracking Approach.txt` was rejected in favour of the simpler preserve-by-default model. Those two design docs are now historical.
-- **Rename detection.** The merge step matches items by exact byte-for-byte name. If the wiki renames an item between exports, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem.
+- **Rename detection.** The merge step matches items by NFC-normalized name. If the wiki renames an item between exports, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem.
 
 ---
 
