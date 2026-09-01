@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use toml_edit::{value, ArrayOfTables, Decor, DocumentMut, Item, Table};
+use unicode_normalization::{is_nfc, UnicodeNormalization};
 
 use crate::base_stats::DerivationError;
 use crate::gear::{parse_slot_display, Slot};
@@ -155,18 +156,23 @@ impl ItemsDb {
         for (_key, entry) in raw {
             // Trust the inner `name` field; the outer key is identical in the
             // real file but the inner field is what `db_build` was guaranteed
-            // to write and is thus the authoritative copy.
+            // to write and is thus the authoritative copy. Index keys are
+            // NFC-normalized so lookups match regardless of which Unicode
+            // normalization form either side carries.
             let slot =
                 parse_slot_display(&entry.slot).ok_or_else(|| ItemsDbError::UnknownSlot {
                     item_name: entry.name.clone(),
                     slot_string: entry.slot.clone(),
                 })?;
-            by_name.entry(entry.name.clone()).or_default().push(DbItem {
-                name: entry.name,
-                slot,
-                two_handed: entry.two_handed,
-                either_hand: entry.either_hand,
-            });
+            by_name
+                .entry(nfc_name(&entry.name))
+                .or_default()
+                .push(DbItem {
+                    name: entry.name,
+                    slot,
+                    two_handed: entry.two_handed,
+                    either_hand: entry.either_hand,
+                });
         }
 
         Ok(ItemsDb { by_name })
@@ -191,12 +197,14 @@ impl ItemsDb {
     /// new items added to the game after `data/lgo_items.json` was last
     /// rebuilt.
     ///
-    /// Resolution policy is "first match wins" (policy: first match wins). In
-    /// practice every Vec has length 1 because JSON object keys are unique;
-    /// the Vec is structural future-proofing only.
+    /// Lookups are NFC-normalized (both sides), so Unicode-equivalent byte
+    /// sequences resolve to the same entry. Resolution policy is "first match
+    /// wins" (policy: first match wins). In practice every Vec has length 1
+    /// because JSON object keys are unique; the Vec is structural
+    /// future-proofing only.
     pub fn lookup(&self, name: &str) -> Option<Slot> {
         self.by_name
-            .get(name)
+            .get(&nfc_name(name))
             .and_then(|v| v.first())
             .map(|item| item.slot)
     }
@@ -206,7 +214,7 @@ impl ItemsDb {
     /// `two_handed` flag for those instead of consulting the DB.
     pub fn lookup_two_handed(&self, name: &str) -> bool {
         self.by_name
-            .get(name)
+            .get(&nfc_name(name))
             .and_then(|v| v.first())
             .is_some_and(|item| item.two_handed)
     }
@@ -216,7 +224,7 @@ impl ItemsDb {
     /// `either_hand` flag for those instead of consulting the DB.
     pub fn lookup_either_hand(&self, name: &str) -> bool {
         self.by_name
-            .get(name)
+            .get(&nfc_name(name))
             .and_then(|v| v.first())
             .is_some_and(|item| item.either_hand)
     }
@@ -705,11 +713,19 @@ fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
     let explicit = read_item_stats(table);
     let essence = read_essence_stats(table);
     let essence_decor = read_essence_decor(table);
+    // Capture per-key decor from the existing essence block before it is
+    // dropped, so comments the user wrote inside [item.EssenceTotals]
+    // survive re-canonicalization exactly like base-block comments do.
+    let old_essence_items = table
+        .get_mut(ESSENCE_TOTALS_KEY)
+        .and_then(|essence_item| essence_item.as_table_mut())
+        .map(remove_canonical_stat_items)
+        .unwrap_or_default();
     let old_items = remove_canonical_stat_items(table);
     table.remove(ESSENCE_TOTALS_KEY);
     insert_canonical_stats(table, &explicit, &old_items);
     attach_outcome_comments_to_header(table, outcome_comments);
-    insert_essence_totals(table, &essence, essence_decor);
+    insert_essence_totals(table, &essence, essence_decor, &old_essence_items);
 }
 
 /// Drain bookmarklet outcome comments from every place older outputs may have
@@ -896,6 +912,7 @@ fn insert_essence_totals(
     table: &mut Table,
     essence: &HashMap<Stat, i64>,
     previous_decor: Option<Decor>,
+    old_items: &HashMap<&'static str, RemovedStatItem>,
 ) {
     let mut essence_table = Table::new();
     if let Some(decor) = previous_decor {
@@ -905,10 +922,9 @@ fn insert_essence_totals(
     // table is intentionally attached to its parent item, so set table decor
     // structurally instead of post-processing the rendered TOML text.
     attach_table_to_previous_line(&mut essence_table);
-    for (stat, key) in canonical_stat_entries() {
-        essence_table.insert(key, value(essence.get(stat).copied().unwrap_or(0)));
-        normalize_assignment_decor(&mut essence_table, key);
-    }
+    // Re-insert via the shared base-block path so per-key prefix decor
+    // (comments above essence keys) and value-suffix decor round-trip.
+    insert_canonical_stats(&mut essence_table, essence, old_items);
     table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
 }
 
@@ -998,8 +1014,11 @@ fn push_group(arr: &mut ArrayOfTables, items: Vec<Table>, label: &str, next_pos:
 //
 // Behaviour on iteration:
 //   * Items present in both `previous` and `incoming` are matched per owned
-//     instance: exact canonical data equality first, then stable same-name
-//     occurrence order. Matching never uses display name alone as a unique key.
+//     instance: exact canonical data equality first, then the most-similar
+//     remaining same-name candidate (fewest differing canonical fields, ties
+//     by occurrence order). Names are compared NFC-normalized so a Unicode
+//     re-encoding of the same name never orphans hand-edits. Matching never
+//     uses display name alone as a unique key.
 //   * Items present only in `incoming` are added.
 //   * Items present only in `previous` are removed (they have disappeared
 //     from the new export).
@@ -1482,41 +1501,72 @@ fn format_generated_timestamp() -> String {
 /// Group incoming tables by display name while retaining one occurrence-order
 /// entry per owned item instance. The merge consumes these vectors one table at
 /// a time, so duplicate same-name instances cannot collapse into one HashMap
-/// value.
+/// value. Keys are NFC-normalized so Unicode-equivalent byte sequences group
+/// together; each stored table keeps its original `name` bytes.
 fn group_incoming_by_name(tables: Vec<Table>) -> (HashMap<String, Vec<Table>>, Vec<String>) {
     let mut by_name: HashMap<String, Vec<Table>> = HashMap::new();
     let mut order: Vec<String> = Vec::new();
     for table in tables {
         if let Some(name) = table_name(&table) {
-            let order_name = name.clone();
-            by_name.entry(name).or_default().push(table);
-            order.push(order_name);
+            let key = nfc_name(&name);
+            by_name.entry(key.clone()).or_default().push(table);
+            order.push(key);
         }
     }
     (by_name, order)
 }
 
+/// Normalize an item name to NFC for matching and lookup purposes only.
+///
+/// LGO item names carry non-ASCII characters (see Bug 4 in
+/// `docs/BUG_HISTORY.md`), and the browser save path can deliver NFD where a
+/// previous file holds NFC (or vice versa). Matching on normalized names
+/// keeps such items paired so hand-edits survive; stored `name` values are
+/// never rewritten — the output keeps whatever bytes the preserved table
+/// carries. This is deliberately not general rename detection (deferred per
+/// `docs/AGENT_CONTEXT.md` §10).
+fn nfc_name(name: &str) -> String {
+    if is_nfc(name) {
+        name.to_string()
+    } else {
+        name.nfc().collect()
+    }
+}
+
 /// Consume the best incoming match for one previous owned instance:
-/// exact canonical fields first (ignoring comments/decor), then stable
-/// same-name occurrence order.
+/// exact canonical fields first (ignoring comments/decor), then the
+/// most-similar remaining same-name candidate — fewest differing canonical
+/// fields per `item_data_distance` — with ties broken by occurrence order.
+/// The similarity fallback keeps pairing deterministic while ensuring a
+/// hand-edited instance pairs with its true incoming counterpart instead of
+/// whichever same-name occurrence happens to come first.
 fn take_matching_incoming(
     prev: &Table,
     name: &str,
     incoming_by_name: &mut HashMap<String, Vec<Table>>,
 ) -> Option<Table> {
+    let key = nfc_name(name);
     let (matched, empty_after) = {
-        let candidates = incoming_by_name.get_mut(name)?;
+        let candidates = incoming_by_name.get_mut(&key)?;
         let idx = candidates
             .iter()
             .position(|incoming| item_data_equal(prev, incoming))
-            // No exact canonical match remains, so fall back to the first
-            // remaining same-name occurrence to keep matching stable.
+            .or_else(|| {
+                // No exact canonical match remains (e.g. this instance was
+                // hand-edited), so pair with the candidate that differs in
+                // the fewest canonical fields; ties keep occurrence order.
+                candidates
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|(idx, incoming)| (item_data_distance(prev, incoming), *idx))
+                    .map(|(idx, _)| idx)
+            })
             .unwrap_or(0);
         let matched = candidates.remove(idx);
         (matched, candidates.is_empty())
     };
     if empty_after {
-        incoming_by_name.remove(name);
+        incoming_by_name.remove(&key);
     }
     Some(matched)
 }
@@ -1525,13 +1575,14 @@ fn pop_first_incoming(
     name: &str,
     incoming_by_name: &mut HashMap<String, Vec<Table>>,
 ) -> Option<Table> {
+    let key = nfc_name(name);
     let (matched, empty_after) = {
-        let candidates = incoming_by_name.get_mut(name)?;
+        let candidates = incoming_by_name.get_mut(&key)?;
         let matched = candidates.remove(0);
         (matched, candidates.is_empty())
     };
     if empty_after {
-        incoming_by_name.remove(name);
+        incoming_by_name.remove(&key);
     }
     Some(matched)
 }
@@ -1631,29 +1682,44 @@ fn collect_unknown_slot_names(src: &str) -> Result<Vec<String>, ResolveError> {
 
 /// Compare two `[[item]]` tables on their canonical fields only:
 /// `name`, `slot`, all canonical stats (tracked + Base), and the same key set
-/// in EssenceTotals. Comments, whitespace, and other decor are ignored.
+/// in EssenceTotals. Comments, whitespace, and other decor are ignored, and
+/// `name` is compared NFC-normalized so Unicode-equivalent byte sequences
+/// count as the same item.
 ///
 /// `two_handed` is deliberately *not* compared: it is generated metadata
 /// that the merge refreshes from the DB unconditionally, so a flag-only
 /// difference must not trigger an overwrite prompt under `--force`. The same
 /// reasoning applies to `either_hand`.
 fn item_data_equal(a: &Table, b: &Table) -> bool {
-    if table_str(a, "name") == table_str(b, "name") && table_str(a, "slot") == table_str(b, "slot")
+    item_data_distance(a, b) == 0
+}
+
+/// Count how many canonical fields differ between two `[[item]]` tables —
+/// the exact comparison basis of `item_data_equal` (`name`, `slot`, the 21
+/// canonical stats, and the same 21 keys under EssenceTotals) expressed as
+/// a distance. Used by `take_matching_incoming` to pair a hand-edited
+/// previous instance with its most-similar remaining incoming candidate.
+fn item_data_distance(a: &Table, b: &Table) -> usize {
+    let mut distance = 0;
+    if table_str(a, "name").map(|name| nfc_name(&name))
+        != table_str(b, "name").map(|name| nfc_name(&name))
     {
-        for (_, key) in canonical_stat_entries() {
-            if table_int_or_zero(a, key) != table_int_or_zero(b, key) {
-                return false;
-            }
-            if table_nested_int_or_zero(a, ESSENCE_TOTALS_KEY, key)
-                != table_nested_int_or_zero(b, ESSENCE_TOTALS_KEY, key)
-            {
-                return false;
-            }
-        }
-        true
-    } else {
-        false
+        distance += 1;
     }
+    if table_str(a, "slot") != table_str(b, "slot") {
+        distance += 1;
+    }
+    for (_, key) in canonical_stat_entries() {
+        if table_int_or_zero(a, key) != table_int_or_zero(b, key) {
+            distance += 1;
+        }
+        if table_nested_int_or_zero(a, ESSENCE_TOTALS_KEY, key)
+            != table_nested_int_or_zero(b, ESSENCE_TOTALS_KEY, key)
+        {
+            distance += 1;
+        }
+    }
+    distance
 }
 
 fn table_str(t: &Table, key: &str) -> Option<String> {
@@ -4277,6 +4343,264 @@ Armor = 555\n";
         assert!(first.contains("either_hand = true"));
         assert_eq!(
             strip_generated_timestamp_comment(&first),
+            strip_generated_timestamp_comment(&second)
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third)
+        );
+    }
+
+    // -- Issue 1: comments inside [item.EssenceTotals] survive merges --
+
+    #[test]
+    fn essence_block_comment_survives_resolution_and_merges_without_duplicating() {
+        let db = fixture_db();
+        let essence_comment = "# 3x Vivid Essence of Critical Rating";
+        let input = format!(
+            "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+{essence_comment}\n\
+CriticalRating = 4200 # hand-tallied\n"
+        );
+
+        let (resolved, _) = resolve_toml_str(&input, &db).expect("resolve");
+        let essence_start = resolved
+            .find("[item.EssenceTotals]")
+            .expect("essence block present");
+        let comment_pos = resolved
+            .find(essence_comment)
+            .expect("essence comment must survive resolve_toml_str");
+        assert!(
+            comment_pos > essence_start,
+            "essence comment must stay inside the essence block:\n{}",
+            resolved
+        );
+        assert!(
+            resolved.contains("# hand-tallied"),
+            "essence value-suffix comment must survive resolve_toml_str:\n{}",
+            resolved
+        );
+
+        // The comment must also survive a NoForce merge and must not
+        // duplicate across three successive merges (idempotency tripwire).
+        let incoming_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n";
+        let (incoming, _) = resolve_toml_str(incoming_input, &db).expect("resolve incoming");
+
+        let mut previous = resolved;
+        for run in 1..=3 {
+            let outcome = merge_ic(Some(&previous), &incoming, ForceMode::NoForce)
+                .unwrap_or_else(|e| panic!("merge {} must succeed: {}", run, e));
+            let merged = outcome.merged_text;
+            assert_eq!(
+                merged.matches(essence_comment).count(),
+                1,
+                "merge {}: essence comment must survive exactly once:\n{}",
+                run,
+                merged
+            );
+            assert_eq!(
+                merged
+                    .matches("CriticalRating     = 4200 # hand-tallied")
+                    .count(),
+                1,
+                "merge {}: hand-edited essence value and suffix comment must survive:\n{}",
+                run,
+                merged
+            );
+            if run > 1 {
+                assert_eq!(
+                    strip_generated_timestamp_comment(&previous),
+                    strip_generated_timestamp_comment(&merged),
+                    "merge {} must be idempotent modulo timestamp",
+                    run
+                );
+            }
+            previous = merged;
+        }
+    }
+
+    // -- Issue 4: duplicate same-name pairing prefers the most-similar
+    //    incoming candidate when no exact match exists --
+
+    #[test]
+    fn merge_force_duplicate_hand_edited_instance_pairs_with_most_similar_incoming() {
+        // Two owned copies of "Test Bracelet": the Armor-100 instance carries
+        // a hand-edited essence total; the Armor-200 instance is untouched
+        // but its incoming counterpart changed (wiki update to Armor 250).
+        // Incoming arrives in reversed occurrence order so the old
+        // first-remaining-occurrence fallback would pair both instances with
+        // the wrong counterpart.
+        let prev = "\
+[[item]]\n\
+slot = \"Wrist\"\n\
+name = \"Test Bracelet\"\n\
+Armor = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 999\n\
+\n\
+[[item]]\n\
+slot = \"Wrist\"\n\
+name = \"Test Bracelet\"\n\
+Armor = 200\n";
+        let incoming = make_doc(&[
+            ("Test Bracelet", "Wrist", &[("Armor", 250)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+        ]);
+
+        // Prompt order follows prev occurrence order: first the hand-edited
+        // instance (against its true Armor-100 counterpart -> keep edits),
+        // then the unedited instance (against the Armor-250 update -> take).
+        let outcome = merge_ic(
+            Some(prev),
+            &incoming,
+            force_with(vec![
+                (PromptCategory::Overwrite, PromptAnswer::No),
+                (PromptCategory::Overwrite, PromptAnswer::Yes),
+            ]),
+        )
+        .expect("must merge");
+
+        assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
+        assert_eq!(outcome.overwritten, vec!["Test Bracelet"]);
+        assert!(outcome.added.is_empty());
+        assert!(outcome.removed.is_empty());
+        assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
+        assert!(
+            has_assignment_line(&outcome.merged_text, "Armor", 100),
+            "hand-edited instance's base data must survive:\n{}",
+            outcome.merged_text
+        );
+        assert!(
+            has_assignment_line(&outcome.merged_text, "CriticalRating", 999),
+            "hand-edited essence total must survive:\n{}",
+            outcome.merged_text
+        );
+        assert!(
+            has_assignment_line(&outcome.merged_text, "Armor", 250),
+            "unedited instance must be the one overwritten by its update:\n{}",
+            outcome.merged_text
+        );
+        assert!(
+            !has_assignment_line(&outcome.merged_text, "Armor", 200),
+            "stale unedited data must be replaced:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn merge_noforce_duplicate_hand_edited_instance_preserved_and_idempotent() {
+        let prev = "\
+[[item]]\n\
+slot = \"Wrist\"\n\
+name = \"Test Bracelet\"\n\
+Armor = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 999\n\
+\n\
+[[item]]\n\
+slot = \"Wrist\"\n\
+name = \"Test Bracelet\"\n\
+Armor = 200\n";
+        let incoming = make_doc(&[
+            ("Test Bracelet", "Wrist", &[("Armor", 250)]),
+            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+        ]);
+
+        let first = merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("first merge");
+        assert_eq!(first.preserved, vec!["Test Bracelet", "Test Bracelet"]);
+        assert!(first.added.is_empty());
+        assert!(first.removed.is_empty());
+        assert_eq!(count_item_name(&first.merged_text, "Test Bracelet"), 2);
+        assert!(has_assignment_line(&first.merged_text, "Armor", 100));
+        assert!(has_assignment_line(&first.merged_text, "Armor", 200));
+        assert!(has_assignment_line(
+            &first.merged_text,
+            "CriticalRating",
+            999
+        ));
+
+        let second = merge_ic(Some(&first.merged_text), &incoming, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_ic(Some(&second), &incoming, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+        assert_eq!(
+            strip_generated_timestamp_comment(&first.merged_text),
+            strip_generated_timestamp_comment(&second)
+        );
+        assert_eq!(
+            strip_generated_timestamp_comment(&second),
+            strip_generated_timestamp_comment(&third)
+        );
+    }
+
+    // -- Issue 5: Unicode-equivalent names must not orphan hand-edits --
+
+    #[test]
+    fn merge_nfd_incoming_name_preserves_nfc_previous_hand_edits() {
+        // NFC: 'á' is the single code point U+00E1.
+        let nfc_name_str = "Keen Pristine Mad\u{e1}shi Ring";
+        // NFD: 'a' followed by the combining acute accent U+0301.
+        let nfd_name_str = "Keen Pristine Mada\u{301}shi Ring";
+        assert_ne!(nfc_name_str, nfd_name_str);
+
+        let prev = format!(
+            "\
+[[item]]\n\
+slot = \"Finger\"\n\
+name = \"{nfc_name_str}\"\n\
+Armor = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 4200\n"
+        );
+        let incoming = make_doc(&[(nfd_name_str, "Finger", &[("Armor", 100)])]);
+
+        let first = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("first merge");
+        assert_eq!(
+            first.preserved,
+            vec![nfc_name_str],
+            "NFD incoming must match the NFC previous instance as preserved"
+        );
+        assert!(first.added.is_empty(), "must not re-add under the NFD name");
+        assert!(
+            first.removed.is_empty(),
+            "must not remove the NFC previous instance"
+        );
+        assert!(
+            first.merged_text.contains(nfc_name_str),
+            "stored name must keep the preserved table's NFC bytes:\n{}",
+            first.merged_text
+        );
+        assert!(
+            !first.merged_text.contains(nfd_name_str),
+            "incoming NFD bytes must not replace the preserved name:\n{}",
+            first.merged_text
+        );
+        assert!(
+            has_assignment_line(&first.merged_text, "CriticalRating", 4200),
+            "hand-edited essence total must survive:\n{}",
+            first.merged_text
+        );
+
+        // Idempotency across two further reruns of the same NFD export.
+        let second = merge_ic(Some(&first.merged_text), &incoming, ForceMode::NoForce)
+            .expect("second merge")
+            .merged_text;
+        let third = merge_ic(Some(&second), &incoming, ForceMode::NoForce)
+            .expect("third merge")
+            .merged_text;
+        assert_eq!(
+            strip_generated_timestamp_comment(&first.merged_text),
             strip_generated_timestamp_comment(&second)
         );
         assert_eq!(
