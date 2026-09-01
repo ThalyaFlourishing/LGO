@@ -1691,3 +1691,331 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Strip the volatile `# gearReady.toml updated: ...` line so successive
+/// runs can be compared for idempotency modulo the generated timestamp.
+fn strip_generated_timestamp_line(src: &str) -> String {
+    src.lines()
+        .filter(|line| !line.starts_with("# gearReady.toml updated:"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Issue 1 tripwire: a hand-written comment inside `[item.EssenceTotals]`
+/// must survive re-running `resolve_stats_file` and must not duplicate on
+/// further reruns (idempotency modulo timestamp).
+#[test]
+fn file_level_essence_block_comment_survives_reruns() {
+    let dir = make_temp_dir("essence_comment");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+";
+    std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    // Hand-edit the canonical file: annotate + adjust an essence total, the
+    // way `docs/User Workflow.txt` step 9 tells users to.
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let comment = "# 2x Vivid Essence of Critical Rating";
+    let edited = first.replacen(
+        "CriticalRating     = 0",
+        &format!("{}\nCriticalRating     = 850", comment),
+        1,
+    );
+    assert_ne!(edited, first, "hand-edit must apply");
+    // The base block's CriticalRating is 200, so the single `= 0` line
+    // replaced above is the essence one.
+    std::fs::write(&canonical, edited).expect("write edited canonical");
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        assert_eq!(
+            out.matches(comment).count(),
+            1,
+            "run {}: essence comment must survive exactly once:\n{}",
+            run,
+            out
+        );
+        assert!(
+            out.contains(&format!("{}\nCriticalRating     = 850", comment)),
+            "run {}: comment must stay attached to the edited essence stat:\n{}",
+            run,
+            out
+        );
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {}: output must be idempotent modulo timestamp",
+                run
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Issue 6 tripwire: a hand-corrected slot on an item the DB does not know
+/// (bookmarklet leaves it in the Unknown section) must survive re-export,
+/// move the item under the corrected slot's divider, and keep a hand-added
+/// `two_handed` flag — idempotently.
+#[test]
+fn file_level_hand_corrected_slot_survives_re_export_across_reruns() {
+    let dir = make_temp_dir("hand_slot");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    // "Renamed Legendary X" is deliberately absent from the DB.
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+Armor = 50
+
+[[item]]
+slot = \"Unknown\"
+name = \"Renamed Legendary X\"
+CriticalRating = 123
+";
+    std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    assert!(
+        first.contains("# --- Unknown"),
+        "run 1: unresolved item must land in the Unknown section:\n{}",
+        first
+    );
+
+    // Hand-correct the legendary the way the user workflow prescribes: fix
+    // the slot and record that it is a two-hander. Test Helm resolved to
+    // "Head", so the only remaining Unknown slot line is the legendary's.
+    let edited = first.replacen("slot = \"Unknown\"", "slot = \"Main-hand\"", 1);
+    assert_ne!(edited, first, "slot hand-edit must apply");
+    let edited = edited.replacen(
+        "name = \"Renamed Legendary X\"\n",
+        "name = \"Renamed Legendary X\"\ntwo_handed = true\n",
+        1,
+    );
+    assert!(
+        edited.contains("two_handed = true"),
+        "two_handed hand-edit must apply"
+    );
+    std::fs::write(&canonical, edited).expect("write edited canonical");
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        let block = item_block_for_name(&out, "Renamed Legendary X");
+        assert!(
+            block.contains("slot = \"Main-hand\""),
+            "run {}: hand-corrected slot must survive re-export:\n{}",
+            run,
+            out
+        );
+        assert!(
+            !out.contains("slot = \"Unknown\""),
+            "run {}: no item may fall back to the Unknown slot:\n{}",
+            run,
+            out
+        );
+        assert!(
+            !out.contains("# --- Unknown"),
+            "run {}: Unknown section must disappear once the slot is fixed:\n{}",
+            run,
+            out
+        );
+        let divider_pos = out
+            .find("# --- Main-hand ---")
+            .unwrap_or_else(|| panic!("run {}: Main-hand divider missing:\n{}", run, out));
+        let item_pos = out
+            .find("name = \"Renamed Legendary X\"")
+            .unwrap_or_else(|| panic!("run {}: legendary item missing:\n{}", run, out));
+        assert!(
+            divider_pos < item_pos,
+            "run {}: corrected item must sit under the Main-hand divider:\n{}",
+            run,
+            out
+        );
+        with_item_table_named(&out, "Renamed Legendary X", |table| {
+            assert_eq!(
+                table.get("two_handed").and_then(|value| value.as_bool()),
+                Some(true),
+                "run {}: hand-added two_handed flag must survive:\n{}",
+                run,
+                out
+            );
+        });
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {}: output must be idempotent modulo timestamp",
+                run
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Issue 6 tripwire: hand-edited base-stat and essence-total values must
+/// survive re-running against the same bookmarklet export, idempotently.
+#[test]
+fn file_level_hand_edited_stat_values_survive_re_export_across_reruns() {
+    let dir = make_temp_dir("hand_stats");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+";
+    std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    // Hand-edit one base stat and one essence total. With a single item the
+    // base CriticalRating is the `= 200` line; the essence one is the sole
+    // CriticalRating `= 0` line.
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let edited = first.replacen("CriticalRating     = 200", "CriticalRating     = 4321", 1);
+    assert_ne!(edited, first, "base stat hand-edit must apply");
+    let with_essence = edited.replacen("CriticalRating     = 0", "CriticalRating     = 777", 1);
+    assert_ne!(with_essence, edited, "essence total hand-edit must apply");
+    std::fs::write(&canonical, with_essence).expect("write edited canonical");
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        with_item_table_named(&out, "Test Helm", |table| {
+            assert_eq!(
+                table
+                    .get("CriticalRating")
+                    .and_then(|value| value.as_integer()),
+                Some(4321),
+                "run {}: hand-edited base stat must survive:\n{}",
+                run,
+                out
+            );
+            let essence = table
+                .get("EssenceTotals")
+                .and_then(|value| value.as_table())
+                .expect("EssenceTotals table");
+            assert_eq!(
+                essence
+                    .get("CriticalRating")
+                    .and_then(|value| value.as_integer()),
+                Some(777),
+                "run {}: hand-edited essence total must survive:\n{}",
+                run,
+                out
+            );
+        });
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {}: output must be idempotent modulo timestamp",
+                run
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
