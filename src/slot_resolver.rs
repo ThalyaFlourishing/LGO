@@ -442,7 +442,7 @@ fn resolve_toml_str_inner(
         apply_top_level_metadata(&mut doc, metadata);
     }
 
-    {
+    let mut original_tables: Vec<Table> = {
         let items_arr = doc
             .get_mut("item")
             .and_then(|i| i.as_array_of_tables_mut())
@@ -453,49 +453,59 @@ fn resolve_toml_str_inner(
         // Take ownership of the existing entries by replacing the array with
         // an empty one, then rebuild from scratch in canonical order.
         let taken = std::mem::replace(items_arr, ArrayOfTables::new());
-        let original_tables: Vec<Table> = taken.iter().cloned().collect();
+        taken.iter().cloned().collect()
+    };
 
-        let outcomes_and_buckets = bucket_items(original_tables, db);
-        let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
+    // Rescue trailing comments written after the last essence key before
+    // canonicalization rebuilds the essence blocks and regrouping rewrites
+    // next-table prefix decor.
+    capture_essence_trailing_comments(&mut original_tables, &mut doc);
 
-        // Rebuild the array in canonical family order with divider comments.
-        // Dividers use plain ASCII so the resolved file renders cleanly in
-        // any terminal/editor (no Unicode box-drawing dependency).
-        //
-        // `next_pos` is threaded through push_group so each table receives a
-        // monotonically increasing `position`, overriding the original-source
-        // positions that toml_edit attached at parse time. Without this, the
-        // renderer emits tables in original-source order regardless of the
-        // order we push them into the new ArrayOfTables.
-        let mut new_arr = ArrayOfTables::new();
-        let mut next_pos: usize = 0;
-        for family in slot_family_order() {
-            if let Some(group_items) = buckets.remove(&family) {
-                if group_items.is_empty() {
-                    continue;
-                }
-                push_group(
-                    &mut new_arr,
-                    group_items,
-                    slot_family_label(family),
-                    &mut next_pos,
-                );
+    let outcomes_and_buckets = bucket_items(original_tables, db);
+    let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
+
+    // Rebuild the array in canonical family order with divider comments.
+    // Dividers use plain ASCII so the resolved file renders cleanly in
+    // any terminal/editor (no Unicode box-drawing dependency).
+    //
+    // `next_pos` is threaded through push_group so each table receives a
+    // monotonically increasing `position`, overriding the original-source
+    // positions that toml_edit attached at parse time. Without this, the
+    // renderer emits tables in original-source order regardless of the
+    // order we push them into the new ArrayOfTables.
+    let mut new_arr = ArrayOfTables::new();
+    let mut next_pos: usize = 0;
+    for family in slot_family_order() {
+        if let Some(group_items) = buckets.remove(&family) {
+            if group_items.is_empty() {
+                continue;
             }
-        }
-        if !unknowns.is_empty() {
             push_group(
                 &mut new_arr,
-                unknowns,
-                "Unknown (not in items DB)",
+                group_items,
+                slot_family_label(family),
                 &mut next_pos,
             );
         }
-
-        *items_arr = new_arr;
-        reorder_resolved_header_before_items(&mut doc);
-        // Stash outcomes in an outer-scope binding by returning early.
-        Ok((doc.to_string(), outcomes_local))
     }
+    if !unknowns.is_empty() {
+        push_group(
+            &mut new_arr,
+            unknowns,
+            "Unknown (not in items DB)",
+            &mut next_pos,
+        );
+    }
+
+    let items_arr = doc
+        .get_mut("item")
+        .and_then(|i| i.as_array_of_tables_mut())
+        .ok_or_else(|| ResolveError::NoItemsArray {
+            path: PathBuf::from("<in-memory>"),
+        })?;
+    *items_arr = new_arr;
+    reorder_resolved_header_before_items(&mut doc);
+    Ok((doc.to_string(), outcomes_local))
 }
 
 /// Write `character`, `class`, `[InnateStats]`, and `[Virtues]` into the
@@ -925,6 +935,8 @@ fn insert_essence_totals(
     // Re-insert via the shared base-block path so per-key prefix decor
     // (comments above essence keys) and value-suffix decor round-trip.
     insert_canonical_stats(&mut essence_table, essence, old_items);
+    // Re-anchor captured trailing comments to the rebuilt block's last line.
+    hoist_essence_trailing_comments_to_last_line(&mut essence_table);
     table.insert(ESSENCE_TOTALS_KEY, Item::Table(essence_table));
 }
 
@@ -965,6 +977,185 @@ fn read_essence_decor(table: &Table) -> Option<Decor> {
         .get(ESSENCE_TOTALS_KEY)
         .and_then(|essence_item| essence_item.as_table())
         .map(|essence_table| essence_table.decor().clone())
+}
+
+/// True if a decor line is a generated family divider (`# --- <label> ---`).
+fn is_family_divider_line(line: &str) -> bool {
+    let trimmed = line.trim_end_matches('\n').trim();
+    trimmed.starts_with("# ---") && trimmed.ends_with("---")
+}
+
+/// Split decor text into a leading run of plain user-comment lines and the
+/// remainder.
+///
+/// Blank-line boundary heuristic: a trailing comment belongs to the essence
+/// block above only when it follows the last essence key *directly*. The
+/// capture therefore stops at the first blank line — anything after it
+/// (comments included) sits visually apart from the essence block and stays
+/// where it is, e.g. as header decor for the next `[[item]]`. Generated
+/// family dividers and outcome comments are never captured either: dividers
+/// are regenerated by push_group and outcome comments have their own
+/// drain/reattach path.
+fn split_essence_trailing_comment_run(decor_text: &str) -> (String, String) {
+    let mut boundary = 0;
+    for line in decor_text.split_inclusive('\n') {
+        let trimmed = line.trim();
+        let is_plain_comment = trimmed.starts_with('#')
+            && !is_family_divider_line(line)
+            && !trimmed.starts_with(UNRESOLVED_COMMENT_PREFIX)
+            && !trimmed.starts_with(AUTO_PICKED_COMMENT_PREFIX);
+        if !is_plain_comment {
+            break;
+        }
+        boundary += line.len();
+    }
+    (
+        decor_text[..boundary].to_string(),
+        decor_text[boundary..].to_string(),
+    )
+}
+
+/// The essence-table key whose value suffix carries stashed trailing
+/// comments through canonicalization. Any canonical stat key present in the
+/// parsed essence block works — value-suffix decor rides `RemovedStatItem`
+/// into `insert_canonical_stats` — so use the last present one in canonical
+/// order. `None` when the item has no essence block with canonical keys, in
+/// which case nothing is captured (trailing decor after a plain base block
+/// keeps its previous behavior).
+fn essence_trailing_stash_key(table: &Table) -> Option<&'static str> {
+    let essence = table.get(ESSENCE_TOTALS_KEY)?.as_table()?;
+    let mut stash_key = None;
+    for (_, key) in canonical_stat_entries() {
+        if essence.contains_key(key) {
+            stash_key = Some(*key);
+        }
+    }
+    stash_key
+}
+
+/// Append captured comment lines below the stash key's value line. A
+/// `\n`-prefixed value suffix renders each comment on its own line directly
+/// after the assignment; on the next parse toml_edit hands the comment back
+/// as next-table prefix (or document-trailing) decor, where
+/// `capture_essence_trailing_comments` re-collects it — a stable round-trip.
+fn stash_essence_trailing_comment(table: &mut Table, captured: &str) {
+    let Some(stash_key) = essence_trailing_stash_key(table) else {
+        return;
+    };
+    let Some(stash_value) = table
+        .get_mut(ESSENCE_TOTALS_KEY)
+        .and_then(|essence_item| essence_item.as_table_mut())
+        .and_then(|essence_table| essence_table.get_mut(stash_key))
+        .and_then(Item::as_value_mut)
+    else {
+        return;
+    };
+    let mut suffix = stash_value
+        .decor()
+        .suffix()
+        .and_then(|s| s.as_str())
+        .unwrap_or("")
+        .to_string();
+    for line in captured.lines() {
+        suffix.push('\n');
+        suffix.push_str(line);
+    }
+    stash_value.decor_mut().set_suffix(suffix);
+}
+
+/// Capture user comments written after the last key of an
+/// `[item.EssenceTotals]` block and stash them inside that block so they
+/// survive canonicalization.
+///
+/// toml_edit never stores such comments on the essence table itself: they
+/// parse as prefix decor of the *next* `[[item]]` table, or as
+/// document-trailing decor when the essence block ends the file. Both spots
+/// are rewritten wholesale during regrouping (push_group rebuilds next-table
+/// prefixes around family dividers, and tables move), so without capture the
+/// comment is dropped or migrates across item boundaries. Only items that
+/// actually end in an essence block participate; see
+/// `split_essence_trailing_comment_run` for the blank-line boundary
+/// heuristic that keeps next-item header comments untouched.
+fn capture_essence_trailing_comments(tables: &mut [Table], doc: &mut DocumentMut) {
+    for i in 1..tables.len() {
+        let (head, tail) = tables.split_at_mut(i);
+        let prev = head.last_mut().expect("head is non-empty when i >= 1");
+        if essence_trailing_stash_key(prev).is_none() {
+            continue;
+        }
+        let next = &mut tail[0];
+        let prefix = next
+            .decor()
+            .prefix()
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string();
+        let (captured, remainder) = split_essence_trailing_comment_run(&prefix);
+        if captured.is_empty() {
+            continue;
+        }
+        next.decor_mut().set_prefix(remainder);
+        stash_essence_trailing_comment(prev, &captured);
+    }
+
+    let Some(last) = tables.last_mut() else {
+        return;
+    };
+    if essence_trailing_stash_key(last).is_none() {
+        return;
+    }
+    let trailing = doc.trailing().as_str().unwrap_or("").to_string();
+    let (captured, remainder) = split_essence_trailing_comment_run(&trailing);
+    if captured.is_empty() {
+        return;
+    }
+    doc.set_trailing(remainder);
+    stash_essence_trailing_comment(last, &captured);
+}
+
+/// Move any stashed below-line comments (value suffixes containing `\n`)
+/// onto the *last* canonical essence key so they render after the final key
+/// line of the rebuilt block. The stash key at capture time is whatever
+/// canonical key the hand-written block happened to end with; after
+/// canonicalization the block always contains every canonical key, so the
+/// comment's "after the last essence key" position is re-anchored here.
+/// Same-line suffixes (no `\n`) are per-key comments and stay put.
+fn hoist_essence_trailing_comments_to_last_line(essence_table: &mut Table) {
+    let mut below_lines = String::new();
+    for (_, key) in canonical_stat_entries() {
+        let Some(stat_value) = essence_table.get_mut(key).and_then(Item::as_value_mut) else {
+            continue;
+        };
+        let suffix = stat_value
+            .decor()
+            .suffix()
+            .and_then(|s| s.as_str())
+            .unwrap_or("");
+        let Some(newline) = suffix.find('\n') else {
+            continue;
+        };
+        let (same_line, below) = suffix.split_at(newline);
+        below_lines.push_str(below);
+        let same_line = same_line.to_string();
+        stat_value.decor_mut().set_suffix(same_line);
+    }
+    if below_lines.is_empty() {
+        return;
+    }
+    let Some((_, last_key)) = canonical_stat_entries().last() else {
+        return;
+    };
+    let Some(last_value) = essence_table.get_mut(last_key).and_then(Item::as_value_mut) else {
+        return;
+    };
+    let mut suffix = last_value
+        .decor()
+        .suffix()
+        .and_then(|s| s.as_str())
+        .unwrap_or("")
+        .to_string();
+    suffix.push_str(&below_lines);
+    last_value.decor_mut().set_suffix(suffix);
 }
 
 /// Read all canonical stat keys (tracked + Base) from a table. Zero values
@@ -1178,8 +1369,13 @@ pub fn merge_into_canonical(
                 source: Box::new(e),
             })?;
 
-    let prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
-    let incoming_tables = take_item_tables(&mut incoming_doc, "<incoming>")?;
+    let mut prev_tables = take_item_tables(&mut prev_doc, "<previous>")?;
+    let mut incoming_tables = take_item_tables(&mut incoming_doc, "<incoming>")?;
+    // Rescue trailing comments written after the last essence key in both
+    // documents before canonicalization/regrouping rewrites the decor spots
+    // toml_edit parked them in (next-table prefix or document trailing).
+    capture_essence_trailing_comments(&mut prev_tables, &mut prev_doc);
+    capture_essence_trailing_comments(&mut incoming_tables, &mut incoming_doc);
 
     // Carry forward `character` and `class` from the incoming resolved TOML into
     // the canonical document so that metadata stays current after a merge. When
@@ -1627,10 +1823,7 @@ fn strip_family_dividers_from_prefix(table: &mut Table) {
     };
     let kept: Vec<&str> = prefix
         .split_inclusive('\n')
-        .filter(|line| {
-            let trimmed = line.trim_end_matches('\n').trim();
-            !(trimmed.starts_with("# ---") && trimmed.ends_with("---"))
-        })
+        .filter(|line| !is_family_divider_line(line))
         .collect();
     let new_prefix: String = kept.concat();
     table.decor_mut().set_prefix(new_prefix);
@@ -4428,6 +4621,269 @@ CriticalRating = 100\n";
                 run,
                 merged
             );
+            if run > 1 {
+                assert_eq!(
+                    strip_generated_timestamp_comment(&previous),
+                    strip_generated_timestamp_comment(&merged),
+                    "merge {} must be idempotent modulo timestamp",
+                    run
+                );
+            }
+            previous = merged;
+        }
+    }
+
+    // -- Trailing comments after the last key of [item.EssenceTotals] --
+
+    #[test]
+    fn essence_trailing_comment_survives_resolution_and_merges_in_position() {
+        let db = fixture_db();
+        let trailing_comment = "# TODO: re-check after next essence swap";
+        // Document order puts the Main-hand item first so resolution must
+        // regroup (Head renders before Main-hand). The commented item ends
+        // last in the input file, so toml_edit parses the trailing comment
+        // as document-trailing decor; without capture it would stay glued
+        // to the end of the file instead of the helm's essence block.
+        let input = format!(
+            "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 4200\n\
+Fate = 3\n\
+{trailing_comment}\n"
+        );
+
+        let assert_comment_position = |src: &str, run: &str| {
+            assert_eq!(
+                src.matches(trailing_comment).count(),
+                1,
+                "{run}: trailing essence comment must survive exactly once:\n{src}"
+            );
+            let comment_pos = src.find(trailing_comment).unwrap();
+            let last_essence_key_pos = src.find("Fate               = 3").unwrap_or_else(|| {
+                panic!("{run}: hand-edited essence Fate line must survive:\n{src}")
+            });
+            assert!(
+                comment_pos > last_essence_key_pos,
+                "{run}: comment must render after the last essence key line:\n{src}"
+            );
+            let next_item_pos = src
+                .find("name = \"Test Sword\"")
+                .unwrap_or_else(|| panic!("{run}: Main-hand item must survive:\n{src}"));
+            assert!(
+                comment_pos < next_item_pos,
+                "{run}: comment must render before the next [[item]] block:\n{src}"
+            );
+        };
+
+        let (resolved, _) = resolve_toml_str(&input, &db).expect("resolve");
+        assert_comment_position(&resolved, "resolve");
+        assert!(
+            has_assignment_line(&resolved, "CriticalRating", 4200),
+            "hand-edited essence total must survive resolve:\n{resolved}"
+        );
+
+        let plain_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n";
+        let (incoming, _) = resolve_toml_str(plain_input, &db).expect("resolve incoming");
+
+        let mut previous = resolved;
+        for run in 1..=3 {
+            let outcome = merge_ic(Some(&previous), &incoming, ForceMode::NoForce)
+                .unwrap_or_else(|e| panic!("merge {} must succeed: {}", run, e));
+            let merged = outcome.merged_text;
+            assert_comment_position(&merged, &format!("merge {run}"));
+            if run > 1 {
+                assert_eq!(
+                    strip_generated_timestamp_comment(&previous),
+                    strip_generated_timestamp_comment(&merged),
+                    "merge {} must be idempotent modulo timestamp",
+                    run
+                );
+            }
+            previous = merged;
+        }
+    }
+
+    #[test]
+    fn blank_line_separated_comment_stays_with_next_item_header_across_merges() {
+        let db = fixture_db();
+        let header_comment = "# gearing note: swap the sword after raid night";
+        // The blank line after the essence block separates the comment from
+        // it: per the blank-line boundary heuristic the comment belongs to
+        // the next item's header and must not be pulled into the essence
+        // block above.
+        let input = format!(
+            "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = 4200\n\
+Fate = 7\n\
+\n\
+{header_comment}\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n"
+        );
+
+        let assert_comment_with_next_header = |src: &str, run: &str| {
+            assert_eq!(
+                src.matches(header_comment).count(),
+                1,
+                "{run}: header comment must survive exactly once:\n{src}"
+            );
+            assert!(
+                !src.contains(&format!("Fate               = 7\n{header_comment}")),
+                "{run}: comment must not be pulled into the essence block above:\n{src}"
+            );
+            let comment_pos = src.find(header_comment).unwrap();
+            let essence_end_pos = src.find("Fate               = 7").unwrap_or_else(|| {
+                panic!("{run}: hand-edited essence Fate line must survive:\n{src}")
+            });
+            let next_item_pos = src
+                .find("name = \"Test Sword\"")
+                .unwrap_or_else(|| panic!("{run}: Main-hand item must survive:\n{src}"));
+            assert!(
+                comment_pos > essence_end_pos && comment_pos < next_item_pos,
+                "{run}: comment must stay attached to the next item's header:\n{src}"
+            );
+        };
+
+        let (resolved, _) = resolve_toml_str(&input, &db).expect("resolve");
+        assert_comment_with_next_header(&resolved, "resolve");
+
+        let plain_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 100\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n";
+        let (incoming, _) = resolve_toml_str(plain_input, &db).expect("resolve incoming");
+
+        let mut previous = resolved;
+        for run in 1..=3 {
+            let outcome = merge_ic(Some(&previous), &incoming, ForceMode::NoForce)
+                .unwrap_or_else(|e| panic!("merge {} must succeed: {}", run, e));
+            let merged = outcome.merged_text;
+            assert_comment_with_next_header(&merged, &format!("merge {run}"));
+            if run > 1 {
+                assert_eq!(
+                    strip_generated_timestamp_comment(&previous),
+                    strip_generated_timestamp_comment(&merged),
+                    "merge {} must be idempotent modulo timestamp",
+                    run
+                );
+            }
+            previous = merged;
+        }
+    }
+
+    #[test]
+    fn essence_trailing_comment_does_not_interfere_with_family_dividers() {
+        let db = fixture_db();
+        let trailing_comment = "# remember: two sockets still empty";
+        // Document order: Off-hand item first, then the two Main-hand items.
+        // After regrouping, the commented item (Test Greatsword) is last in
+        // the Main-hand family and the Off-hand item opens a new family
+        // directly below it — the exact spot where push_group writes the
+        // next family's divider.
+        let input = format!(
+            "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Rune-stone\"\n\
+Armor = 9\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Greatsword\"\n\
+Armor = 7\n\
+[item.EssenceTotals]\n\
+CriticalRating = 4200\n\
+Fate = 3\n\
+{trailing_comment}\n"
+        );
+
+        let assert_dividers_and_comment = |src: &str, run: &str| {
+            assert_eq!(
+                src.matches(trailing_comment).count(),
+                1,
+                "{run}: trailing essence comment must survive exactly once:\n{src}"
+            );
+            for divider in ["# --- Main-hand ---", "# --- Off-hand ---"] {
+                assert_eq!(
+                    src.matches(divider).count(),
+                    1,
+                    "{run}: divider {divider} must appear exactly once:\n{src}"
+                );
+            }
+            let comment_pos = src.find(trailing_comment).unwrap();
+            let last_essence_key_pos = src.find("Fate               = 3").unwrap_or_else(|| {
+                panic!("{run}: hand-edited essence Fate line must survive:\n{src}")
+            });
+            let next_divider_pos = src.find("# --- Off-hand ---").unwrap();
+            assert!(
+                comment_pos > last_essence_key_pos && comment_pos < next_divider_pos,
+                "{run}: comment must stay between its essence block and the \
+                 next family's divider:\n{src}"
+            );
+        };
+
+        let (resolved, _) = resolve_toml_str(&input, &db).expect("resolve");
+        assert_dividers_and_comment(&resolved, "resolve");
+
+        let plain_input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Rune-stone\"\n\
+Armor = 9\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armor = 5\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Greatsword\"\n\
+Armor = 7\n";
+        let (incoming, _) = resolve_toml_str(plain_input, &db).expect("resolve incoming");
+
+        let mut previous = resolved;
+        for run in 1..=3 {
+            let outcome = merge_ic(Some(&previous), &incoming, ForceMode::NoForce)
+                .unwrap_or_else(|e| panic!("merge {} must succeed: {}", run, e));
+            let merged = outcome.merged_text;
+            assert_dividers_and_comment(&merged, &format!("merge {run}"));
             if run > 1 {
                 assert_eq!(
                     strip_generated_timestamp_comment(&previous),
