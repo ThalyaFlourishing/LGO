@@ -9,11 +9,9 @@
 //! 2. `resolve_stats_file` / `resolve_toml_str` — read a bookmarklet-produced
 //!    `.toml`, look up each item by name, rewrite the `slot` field to the
 //!    canonical Display form, regroup items by slot family in canonical
-//!    order with divider comments, and write the result to a new
-//!    `*_resolved.toml`. Comments and per-item warnings from the input are
+//!    order with divider comments, and merge the result into the canonical
+//!    `gearReady.toml`. Comments and per-item warnings from the input are
 //!    preserved via `toml_edit`.
-//!
-//! See `docs/RESOLVER_DESIGN.md` for the overall design.
 
 use chrono::Local;
 use std::borrow::Cow;
@@ -299,6 +297,13 @@ pub enum ResolveError {
         dir: PathBuf,
         character: String,
     },
+    /// No auto-discovered bookmarklet input exists, and the chosen canonical
+    /// output path does not exist either, so there is nothing to preserve.
+    NoAutoInputFile {
+        dir: PathBuf,
+        character: String,
+        output_path: PathBuf,
+    },
     /// Two or more files match a single character query case-insensitively.
     /// Cannot occur on Windows; on Linux this surfaces as a clean error.
     AmbiguousFiles {
@@ -314,6 +319,9 @@ pub enum ResolveError {
     PluginData {
         path: PathBuf,
         message: String,
+    },
+    CannotDeriveOutputPath {
+        input_path: PathBuf,
     },
 }
 
@@ -339,6 +347,17 @@ impl std::fmt::Display for ResolveError {
                 character,
                 dir.display()
             ),
+            ResolveError::NoAutoInputFile {
+                dir,
+                character,
+                output_path,
+            } => write!(
+                f,
+                "No lgo_{}_gearStats.toml found in {}, and '{}' does not exist. Export a new stats TOML there or pass --in <path>.",
+                character,
+                dir.display(),
+                output_path.display()
+            ),
             ResolveError::AmbiguousFiles { message } => write!(f, "Error: {}", message),
             ResolveError::ForceRequiresTty => {
                 write!(f, "--force requires interactive stdin for prompts.")
@@ -352,6 +371,11 @@ impl std::fmt::Display for ResolveError {
                     message
                 )
             }
+            ResolveError::CannotDeriveOutputPath { input_path } => write!(
+                f,
+                "Cannot derive a canonical output path beside '{}'. Add top-level character = \"...\", pass --character <name>, use an lgo_<character>_gearStats.toml filename, or pass --out <path>.",
+                input_path.display()
+            ),
         }
     }
 }
@@ -2013,91 +2037,37 @@ fn find_latest_plugindata_file(
     Ok(matches.pop())
 }
 
-/// End-to-end iteration step:
-///
-///   1. Read `lgo_<character>_gearStats.toml` (the bookmarklet's output).
-///   2. Slot-resolve it via `db`.
-///   3. Read `lgo_<character>_gearReady.toml` (the canonical merged file) if
-///      it exists.
-///   4. Merge per `merge_into_canonical` semantics.
-///   5. Write the result back to `lgo_<character>_gearReady.toml`.
-///
-/// Returns a `Report` describing what happened, for `main.rs` to display.
-///
-/// If no bookmarklet output file is present, the canonical file is left
-/// untouched and the returned `Report` carries `bookmarklet_path = None`.
-pub fn resolve_stats_file(
-    char_dir: &Path,
-    character: &str,
-    db: &ItemsDb,
-    force: ForceMode,
-) -> Result<Report, ResolveError> {
-    // --- Case-insensitive lookups (read path) --------------------------------
-    // Use directory scans so that e.g. `lgo_thalya_gearStats.toml` is found when
-    // querying with `"Thalya"`. Collisions (two files differing only in case)
-    // return an error; this cannot happen on Windows but is caught cleanly on
-    // Linux.
-    let bookmarklet_found = crate::gearstats::find_bookmarklet_output(char_dir, character)
-        .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?;
-    let canonical_found = crate::gearstats::find_canonical_gear_file(char_dir, character)
-        .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?;
-
-    // Write-follows-read: if an existing canonical file was found (possibly
-    // with different casing), write back to that exact path.  If none exists
-    // yet, create at the path derived from the supplied character name.
-    let canonical_path = canonical_found
-        .clone()
-        .unwrap_or_else(|| canonical_gear_path(char_dir, character));
-
-    let bookmarklet_exists = bookmarklet_found.is_some();
-    let canonical_existed = canonical_found.is_some();
-
-    if !bookmarklet_exists {
-        // No new export. If the canonical file exists, leave it alone and
-        // report. If neither file exists, that's a hard error.
-        if !canonical_existed {
-            return Err(ResolveError::NoInputFiles {
-                dir: char_dir.to_path_buf(),
-                character: character.to_string(),
-            });
+fn character_name_from_lgo_filename(path: &Path) -> Option<String> {
+    let file_name = path.file_name()?.to_str()?;
+    let lower = file_name.to_ascii_lowercase();
+    for suffix in ["_gearstats.toml", "_gearready.toml"] {
+        if lower.starts_with("lgo_") && lower.ends_with(suffix) {
+            let start = "lgo_".len();
+            let end = file_name.len().checked_sub(suffix.len())?;
+            if start < end {
+                return Some(file_name[start..end].to_string());
+            }
         }
-        return Ok(Report {
-            outcome: MergeOutcome::default(),
-            bookmarklet_path: None,
-            canonical_path,
-            previous_existed: true,
-            no_new_export: true,
-        });
     }
+    None
+}
 
-    let bookmarklet_path = bookmarklet_found.unwrap();
+fn non_empty_str(value: Option<&str>) -> Option<&str> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then_some(trimmed)
+    })
+}
 
-    // `--force` requires interactive stdin. Reject piped input loudly
-    // rather than silently auto-accepting destructive changes.
-    if matches!(force, ForceMode::Force { .. }) && !std::io::stdin().is_terminal() {
-        return Err(ResolveError::ForceRequiresTty);
-    }
-
-    let bookmarklet_src =
-        fs::read_to_string(&bookmarklet_path).map_err(|e| ResolveError::IoRead {
-            path: bookmarklet_path.clone(),
-            source: e,
-        })?;
-
-    let plugin_export = find_latest_plugindata_file(char_dir, character)?
-        .map(|path| {
-            // `plugindata` parses the in-game `gearNames` export, including
-            // character class and raw base stats for the `[InnateStats]` block.
-            crate::plugindata::load(&path)
-                .map_err(|message| ResolveError::PluginData { path, message })
-        })
-        .transpose()?;
-
+fn parse_bookmarklet_header_metadata(
+    bookmarklet_path: &Path,
+    bookmarklet_src: &str,
+) -> Result<(Option<String>, Option<String>), ResolveError> {
     let bookmarklet_doc: DocumentMut =
         bookmarklet_src
             .parse()
             .map_err(|e| ResolveError::ParseToml {
-                path: bookmarklet_path.clone(),
+                path: bookmarklet_path.to_path_buf(),
                 source: Box::new(e),
             })?;
     let fallback_class = bookmarklet_doc
@@ -2108,7 +2078,146 @@ pub fn resolve_stats_file(
         .get("character")
         .and_then(|v| v.as_str())
         .map(str::to_string);
-    drop(bookmarklet_doc);
+    Ok((fallback_class, fallback_character))
+}
+
+fn load_plugin_export_with_hint(
+    search_dir: Option<&Path>,
+    character_hint: Option<&str>,
+) -> Result<Option<crate::plugindata::PluginExport>, ResolveError> {
+    let Some(search_dir) = search_dir else {
+        return Ok(None);
+    };
+    let Some(character_hint) = non_empty_str(character_hint) else {
+        return Ok(None);
+    };
+    find_latest_plugindata_file(search_dir, character_hint)?
+        .map(|path| {
+            crate::plugindata::load(&path).map_err(|message| ResolveError::PluginData {
+                path,
+                message,
+            })
+        })
+        .transpose()
+}
+
+fn derive_canonical_path_beside_input(
+    input_path: &Path,
+    derived_character: Option<&str>,
+) -> Result<PathBuf, ResolveError> {
+    let derived_character = non_empty_str(derived_character).ok_or_else(|| {
+        ResolveError::CannotDeriveOutputPath {
+            input_path: input_path.to_path_buf(),
+        }
+    })?;
+    let dir = input_path.parent().unwrap_or_else(|| Path::new("."));
+    let existing = crate::gearstats::find_canonical_gear_file(dir, derived_character)
+        .map_err(|message| ResolveError::AmbiguousFiles { message })?;
+    Ok(existing.unwrap_or_else(|| canonical_gear_path(dir, derived_character)))
+}
+
+/// Resolve `resolve-slots` using any mix of explicit input/output paths and
+/// optional auto-discovery context for the input side.
+pub fn resolve_stats_file_with_paths(
+    input_path: Option<&Path>,
+    output_path: Option<&Path>,
+    auto_discovery: Option<(&Path, &str)>,
+    cli_character: Option<&str>,
+    db: &ItemsDb,
+    force: ForceMode,
+) -> Result<Report, ResolveError> {
+    let (bookmarklet_found, canonical_found) = if let Some((char_dir, character)) = auto_discovery {
+        (
+            crate::gearstats::find_bookmarklet_output(char_dir, character)
+                .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?,
+            crate::gearstats::find_canonical_gear_file(char_dir, character)
+                .map_err(|msg| ResolveError::AmbiguousFiles { message: msg })?,
+        )
+    } else {
+        (None, None)
+    };
+
+    let bookmarklet_path = input_path
+        .map(Path::to_path_buf)
+        .or_else(|| bookmarklet_found.clone());
+
+    let discovered_canonical_path = if let Some(path) = output_path {
+        path.to_path_buf()
+    } else if let Some((char_dir, character)) = auto_discovery {
+        canonical_found
+            .clone()
+            .unwrap_or_else(|| canonical_gear_path(char_dir, character))
+    } else {
+        PathBuf::new()
+    };
+
+    if bookmarklet_path.is_none() {
+        let Some((char_dir, character)) = auto_discovery else {
+            unreachable!("explicit input is required when no auto-discovery context exists");
+        };
+        if output_path.is_none() && canonical_found.is_none() {
+            return Err(ResolveError::NoInputFiles {
+                dir: char_dir.to_path_buf(),
+                character: character.to_string(),
+            });
+        }
+        if !discovered_canonical_path.exists() {
+            return Err(ResolveError::NoAutoInputFile {
+                dir: char_dir.to_path_buf(),
+                character: character.to_string(),
+                output_path: discovered_canonical_path,
+            });
+        }
+        return Ok(Report {
+            outcome: MergeOutcome::default(),
+            bookmarklet_path: None,
+            canonical_path: discovered_canonical_path,
+            previous_existed: true,
+            no_new_export: true,
+        });
+    }
+
+    let bookmarklet_path = bookmarklet_path.unwrap();
+
+    if matches!(force, ForceMode::Force { .. }) && !std::io::stdin().is_terminal() {
+        return Err(ResolveError::ForceRequiresTty);
+    }
+
+    let bookmarklet_src =
+        fs::read_to_string(&bookmarklet_path).map_err(|e| ResolveError::IoRead {
+            path: bookmarklet_path.clone(),
+            source: e,
+        })?;
+
+    let (fallback_class, fallback_character) =
+        parse_bookmarklet_header_metadata(&bookmarklet_path, &bookmarklet_src)?;
+    let filename_character = character_name_from_lgo_filename(&bookmarklet_path);
+    let plugin_export = load_plugin_export_with_hint(
+        bookmarklet_path.parent(),
+        fallback_character
+            .as_deref()
+            .or(cli_character)
+            .or(filename_character.as_deref()),
+    )?;
+
+    let canonical_path = if let Some(path) = output_path {
+        path.to_path_buf()
+    } else if let Some((char_dir, character)) = auto_discovery {
+        canonical_found
+            .clone()
+            .unwrap_or_else(|| canonical_gear_path(char_dir, character))
+    } else {
+        derive_canonical_path_beside_input(
+            &bookmarklet_path,
+            plugin_export
+                .as_ref()
+                .map(|export| export.character.as_str())
+                .or(fallback_character.as_deref())
+                .or(cli_character)
+                .or(filename_character.as_deref()),
+        )?
+    };
+    let canonical_existed = canonical_path.exists();
 
     let class_name = plugin_export
         .as_ref()
@@ -2188,6 +2297,35 @@ pub fn resolve_stats_file(
         previous_existed: canonical_existed,
         no_new_export: false,
     })
+}
+
+/// End-to-end iteration step:
+///
+///   1. Read `lgo_<character>_gearStats.toml` (the bookmarklet's output).
+///   2. Slot-resolve it via `db`.
+///   3. Read `lgo_<character>_gearReady.toml` (the canonical merged file) if
+///      it exists.
+///   4. Merge per `merge_into_canonical` semantics.
+///   5. Write the result back to `lgo_<character>_gearReady.toml`.
+///
+/// Returns a `Report` describing what happened, for `main.rs` to display.
+///
+/// If no bookmarklet output file is present, the canonical file is left
+/// untouched and the returned `Report` carries `bookmarklet_path = None`.
+pub fn resolve_stats_file(
+    char_dir: &Path,
+    character: &str,
+    db: &ItemsDb,
+    force: ForceMode,
+) -> Result<Report, ResolveError> {
+    resolve_stats_file_with_paths(
+        None,
+        None,
+        Some((char_dir, character)),
+        Some(character),
+        db,
+        force,
+    )
 }
 
 /// Path the bookmarklet writes its TOML to, per the new file-naming
@@ -2302,7 +2440,128 @@ mod tests {
         merge_into_canonical(previous, incoming_resolved, &fixture_db(), force)
     }
 
+    fn make_test_dir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "lgo_slot_resolver_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    fn write_file(path: &Path, contents: &str) {
+        std::fs::write(path, contents).expect("write test file");
+    }
+
+    const SIMPLE_BOOKMARKLET: &str = r#"character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+name = "Test Helm"
+slot = "Unknown"
+"#;
+
+    const SIMPLE_BOOKMARKLET_NO_CHARACTER: &str = r#"class = "Lore-master"
+
+[[item]]
+name = "Test Helm"
+slot = "Unknown"
+"#;
+
     // -- ItemsDb tests (from step 3) --
+
+    #[test]
+    fn resolve_with_explicit_input_and_explicit_output_paths() {
+        let dir = make_test_dir();
+        let input_path = dir.join("bookmarklet.toml");
+        let output_path = dir.join("merged.toml");
+        write_file(&input_path, SIMPLE_BOOKMARKLET);
+        write_file(&output_path, "[[item]]\nname = \"Old Helm\"\nslot = \"Head\"\n");
+
+        let report = resolve_stats_file_with_paths(
+            Some(&input_path),
+            Some(&output_path),
+            None,
+            None,
+            &fixture_db(),
+            ForceMode::NoForce,
+        )
+        .expect("resolve should succeed");
+
+        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(report.canonical_path, output_path);
+        assert!(report.previous_existed);
+        assert!(!report.no_new_export);
+    }
+
+    #[test]
+    fn resolve_with_explicit_input_derives_output_beside_input() {
+        let dir = make_test_dir();
+        let input_path = dir.join("bookmarklet.toml");
+        write_file(&input_path, SIMPLE_BOOKMARKLET);
+
+        let report = resolve_stats_file_with_paths(
+            Some(&input_path),
+            None,
+            None,
+            None,
+            &fixture_db(),
+            ForceMode::NoForce,
+        )
+        .expect("resolve should succeed");
+
+        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(report.canonical_path, dir.join("lgo_Thalya_gearReady.toml"));
+        assert!(!report.previous_existed);
+        assert!(!report.no_new_export);
+        assert!(report.canonical_path.exists());
+    }
+
+    #[test]
+    fn resolve_with_auto_discovered_input_and_explicit_output_path() {
+        let dir = make_test_dir();
+        let input_path = dir.join("lgo_Thalya_gearStats.toml");
+        let output_path = dir.join("custom-output.toml");
+        write_file(&input_path, SIMPLE_BOOKMARKLET);
+
+        let report = resolve_stats_file_with_paths(
+            None,
+            Some(&output_path),
+            Some((dir.as_path(), "Thalya")),
+            Some("Thalya"),
+            &fixture_db(),
+            ForceMode::NoForce,
+        )
+        .expect("resolve should succeed");
+
+        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(report.canonical_path, output_path);
+        assert!(!report.previous_existed);
+        assert!(!report.no_new_export);
+        assert!(report.canonical_path.exists());
+    }
+
+    #[test]
+    fn resolve_with_explicit_input_can_derive_output_from_cli_character() {
+        let dir = make_test_dir();
+        let input_path = dir.join("bookmarklet.toml");
+        write_file(&input_path, SIMPLE_BOOKMARKLET_NO_CHARACTER);
+
+        let report = resolve_stats_file_with_paths(
+            Some(&input_path),
+            None,
+            None,
+            Some("Thalya"),
+            &fixture_db(),
+            ForceMode::NoForce,
+        )
+        .expect("resolve should succeed");
+
+        assert_eq!(report.canonical_path, dir.join("lgo_Thalya_gearReady.toml"));
+    }
 
     #[test]
     fn loads_fixture_and_resolves_known_items() {

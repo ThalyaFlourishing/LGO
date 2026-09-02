@@ -91,6 +91,21 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo resolve-slots -c <name>
     Resolve slots using that character's AllServers directory.
 
+  lgo resolve-slots --in <path>
+    Read the bookmarklet/stats TOML from that path instead of auto-discovering it.
+    If --out is omitted, resolve-slots derives lgo_<character>_gearReady.toml beside
+    that input file. Character derivation prefers nearby plugindata, then top-level
+    character = "...", then --character, then an lgo_<character>_gearStats.toml
+    filename.
+
+  lgo resolve-slots --out <path>
+    Write the canonical merged gear TOML to that path instead of the auto-discovered
+    lgo_<character>_gearReady.toml. Input auto-discovery still uses the selected
+    character's AllServers directory unless --in is also provided.
+
+  lgo resolve-slots --in <path> --out <path>
+    Use both paths exactly as provided.
+
   lgo resolve-slots --force
    In --force mode, the program will ask you, item by item, before changing or removing anything. Each prompt looks like:
       Overwrite stats for "Test Helm"? (y/n/a)

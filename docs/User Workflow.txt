@@ -77,6 +77,15 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
       lgo_<character-name>_gearReady.toml
 
+    You can also override either path directly:
+
+      lgo resolve-slots --in path\to\some_stats.toml
+      lgo resolve-slots --out path\to\some_gearReady.toml
+      lgo resolve-slots --in path\to\some_stats.toml --out path\to\some_gearReady.toml
+
+    If you pass only --in, resolve-slots derives the default
+    lgo_<character-name>_gearReady.toml beside that input file.
+
 9. You will probably (optional) need to open this 'gearReady.toml' file in
    a text editor and review it. You will need to hand-edit some kinds of
    data:
@@ -99,7 +108,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
    In practice, hand-editing is most often needed for legendary
    items, recently renamed items, and very new items.
     
-   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<CharacterName>_gearReady.toml.
+   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). By default the file lives in your character's AllServers directory, the same place you saved the file in step 7, and the filename is lgo_<CharacterName>_gearReady.toml. If you used --out, open the path you supplied there instead.
 
    Near the top of the file you will see the header fields `character`,
    `class`, `[InnateStats]`, and `[Virtues]`. [InnateStats] contains only the

@@ -621,12 +621,18 @@ fn run_base_stats(cli: &BaseStatsCli) {
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
-    let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
+    let auto_discovery = if cli.input_file.is_none() {
+        Some(
+            match resolve_character_allservers(cli.character.as_deref()) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    process::exit(1);
+                }
+            },
+        )
+    } else {
+        None
     };
 
     let db = match slot_resolver::ItemsDb::load_default() {
@@ -645,7 +651,16 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
         slot_resolver::ForceMode::NoForce
     };
 
-    let report = match slot_resolver::resolve_stats_file(&char_dir, &character, &db, force) {
+    let report = match slot_resolver::resolve_stats_file_with_paths(
+        cli.input_file.as_deref(),
+        cli.output_file.as_deref(),
+        auto_discovery
+            .as_ref()
+            .map(|(dir, character)| (dir.as_path(), character.as_str())),
+        cli.character.as_deref(),
+        &db,
+        force,
+    ) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error: {}", e);
@@ -748,6 +763,8 @@ struct BaseStatsCli {
 #[derive(Debug)]
 struct ResolveSlotsCli {
     character: Option<String>,
+    input_file: Option<PathBuf>,
+    output_file: Option<PathBuf>,
     /// `--force` / `-f`: prompt the user per item before overwriting or
     /// removing entries in the canonical gear file. Without this flag the
     /// resolver preserves existing entries on every iteration.
@@ -924,6 +941,8 @@ fn parse_base_stats_args(args: &[String]) -> Result<BaseStatsCli, String> {
 
 fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> {
     let mut character = None;
+    let mut input_file = None;
+    let mut output_file = None;
     let mut force = false;
     let mut i = 0;
 
@@ -936,6 +955,14 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
             "--force" | "-f" => {
                 force = true;
             }
+            "--in" => {
+                i += 1;
+                input_file = Some(PathBuf::from(args.get(i).ok_or("--in requires a path")?));
+            }
+            "--out" => {
+                i += 1;
+                output_file = Some(PathBuf::from(args.get(i).ok_or("--out requires a path")?));
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: '{}'", arg));
             }
@@ -944,7 +971,12 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
         i += 1;
     }
 
-    Ok(ResolveSlotsCli { character, force })
+    Ok(ResolveSlotsCli {
+        character,
+        input_file,
+        output_file,
+        force,
+    })
 }
 
 fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
@@ -1127,6 +1159,8 @@ fn print_usage() {
     println!();
     println!("Options (resolve-slots):");
     println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --in        <path>  Explicit bookmarklet/stats TOML to read");
+    println!("  --out       <path>  Explicit canonical gear TOML to write");
     println!("  --force, -f         Prompt per item before overwriting or removing entries");
     println!("                      in the canonical gear file. Without --force, existing");
     println!("                      entries are preserved on every iteration.");
@@ -1145,6 +1179,7 @@ fn print_usage() {
         "  6) Save the generated TOML as lgo_<character>_gearStats.toml in your AllServers directory"
     );
     println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gearReady.toml)");
+    println!("     Optional: add --in and/or --out to override either path directly");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!("     Optional: add --save-build <name> to save those goals for later");
     println!("  9) Run: lgo scrap-gear   (reruns all saved builds and lists items not used");
@@ -1170,6 +1205,9 @@ fn print_usage() {
     println!("    lgo base-stats");
     println!("    lgo base-stats --character Thalya");
     println!("    lgo resolve-slots");
+    println!("    lgo resolve-slots --in path/to/lgo_Thalya_gearStats.toml");
+    println!("    lgo resolve-slots --out path/to/lgo_Thalya_gearReady.toml");
+    println!("    lgo resolve-slots --in stats.toml --out gearReady.toml");
     println!("    lgo resolve-slots --force");
     println!("    lgo build-db");
     println!("    lgo build-db --items data/items.xml --out data/lgo_items.json");
@@ -1328,9 +1366,97 @@ mod tests {
         match cmd {
             Command::ResolveSlots(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.input_file, None);
+                assert_eq!(cli.output_file, None);
                 assert!(!cli.force);
             }
             _ => panic!("expected resolve-slots command"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_explicit_input_path() {
+        let cmd = parse_command(&s(&["resolve-slots", "--in", "foo.toml"])).expect("must parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.input_file, Some(PathBuf::from("foo.toml")));
+                assert_eq!(cli.output_file, None);
+                assert_eq!(cli.character, None);
+                assert!(!cli.force);
+            }
+            _ => panic!("expected resolve-slots"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_explicit_output_path() {
+        let cmd =
+            parse_command(&s(&["resolve-slots", "--out", "bar.toml"])).expect("must parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.input_file, None);
+                assert_eq!(cli.output_file, Some(PathBuf::from("bar.toml")));
+                assert_eq!(cli.character, None);
+                assert!(!cli.force);
+            }
+            _ => panic!("expected resolve-slots"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_explicit_input_and_output_paths() {
+        let cmd = parse_command(&s(&["resolve-slots", "--in", "foo.toml", "--out", "bar.toml"]))
+            .expect("must parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.input_file, Some(PathBuf::from("foo.toml")));
+                assert_eq!(cli.output_file, Some(PathBuf::from("bar.toml")));
+                assert_eq!(cli.character, None);
+                assert!(!cli.force);
+            }
+            _ => panic!("expected resolve-slots"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_character_with_explicit_input_path() {
+        let cmd = parse_command(&s(&[
+            "resolve-slots",
+            "--character",
+            "Thalya",
+            "--in",
+            "foo.toml",
+        ]))
+        .expect("must parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.input_file, Some(PathBuf::from("foo.toml")));
+                assert_eq!(cli.output_file, None);
+                assert!(!cli.force);
+            }
+            _ => panic!("expected resolve-slots"),
+        }
+    }
+
+    #[test]
+    fn resolve_slots_accepts_character_with_explicit_output_path() {
+        let cmd = parse_command(&s(&[
+            "resolve-slots",
+            "--character",
+            "Thalya",
+            "--out",
+            "bar.toml",
+        ]))
+        .expect("must parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Thalya"));
+                assert_eq!(cli.input_file, None);
+                assert_eq!(cli.output_file, Some(PathBuf::from("bar.toml")));
+                assert!(!cli.force);
+            }
+            _ => panic!("expected resolve-slots"),
         }
     }
 
@@ -1344,6 +1470,15 @@ mod tests {
                 }
                 _ => panic!("expected resolve-slots"),
             }
+        }
+    }
+
+    #[test]
+    fn resolve_slots_rejects_unknown_option() {
+        let err = parse_command(&s(&["resolve-slots", "--wat"])).unwrap_err();
+        match err {
+            CliParseError::Message(msg) => assert_eq!(msg, "Unknown option: '--wat'"),
+            _ => panic!("expected message parse error"),
         }
     }
 

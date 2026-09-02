@@ -29,7 +29,7 @@ The short form:
 then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
-- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
+- User invokes 'lgo resolve-slots' to merge that list into a canonical gear TOML, usually lgo_`<character>`_gearReady.toml. The CLI can also override either side directly with `--in <path>` and/or `--out <path>`.
 - User hand-edits persistent corrections, including top-level `[Virtues]` and
   per-item essence totals, in `gearReady.toml` only.
 - User may optionally save named build-goal profiles in the sibling file
