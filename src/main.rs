@@ -820,7 +820,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
         } else if option_matches(arg, &["--save-build"]) {
             i += 1;
             save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
-        } else if option_matches(arg, &["--toFile"]) {
+        } else if option_matches(arg, &["--to-file"]) {
             to_file = true;
         } else if arg.starts_with('-') {
             return Err(format!("Unknown option: '{}'", arg));
@@ -1084,7 +1084,7 @@ fn print_usage() {
     println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
     println!("  --build     <name>  Load saved goals from lgo_<character>_builds.toml");
     println!("  --save-build <name> Save these goals to lgo_<character>_builds.toml");
-    println!("  --toFile            Also write .txt and .html reports for this run");
+    println!("  --to-file            Also write .txt and .html reports for this run");
     println!();
     println!("  `--build` may not be combined with positional goals.");
     println!();
@@ -1092,7 +1092,7 @@ fn print_usage() {
     println!("  current directory) to derive Base-stat contributions before optimization.");
     println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
     println!("  against data/lgo_virtues.json in that same data/ folder.");
-    println!("  By default optimize prints only to the terminal; add --toFile to also");
+    println!("  By default optimize prints only to the terminal; add --to-file to also");
     println!("  write matching .txt and .html reports into LGO_Reports beside the gear TOML.");
     println!();
     println!("Options (scrap-gear):");
@@ -1151,7 +1151,7 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo optimize --save-build healer oh:200000 cr:350000 ml:0");
-    println!("    lgo optimize --toFile tm:450000 cr:350000 fn:0");
+    println!("    lgo optimize --to-file tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
     println!("    lgo scrap-gear");
@@ -1544,8 +1544,8 @@ mod tests {
 
     #[test]
     fn optimize_accepts_to_file_flag() {
-        let cmd = parse_command(&s(&["optimize", "--toFile", "tm:1"]))
-            .expect("optimize --toFile should parse");
+        let cmd = parse_command(&s(&["optimize", "--to-file", "tm:1"]))
+            .expect("optimize --to-file should parse");
         match cmd {
             Command::Optimize(cli) => {
                 assert!(cli.to_file);
@@ -1563,7 +1563,7 @@ mod tests {
             "gear.toml",
             "--save-build",
             "healer",
-            "--toFile",
+            "--to-file",
             "tm:1",
         ]))
         .expect("optimize combined flags should parse");
@@ -1590,7 +1590,7 @@ mod tests {
             "BuIlDs/MiXeD.toml",
             "--SaVe-BuIlD",
             "HeAlEr Build",
-            "--ToFiLe",
+            "--to-File",
             "tm:1",
         ]))
         .expect("optimize mixed-case flags should parse");
