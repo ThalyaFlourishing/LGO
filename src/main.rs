@@ -1390,8 +1390,7 @@ mod tests {
 
     #[test]
     fn resolve_slots_accepts_explicit_output_path() {
-        let cmd =
-            parse_command(&s(&["resolve-slots", "--out", "bar.toml"])).expect("must parse");
+        let cmd = parse_command(&s(&["resolve-slots", "--out", "bar.toml"])).expect("must parse");
         match cmd {
             Command::ResolveSlots(cli) => {
                 assert_eq!(cli.input_file, None);
@@ -1405,8 +1404,14 @@ mod tests {
 
     #[test]
     fn resolve_slots_accepts_explicit_input_and_output_paths() {
-        let cmd = parse_command(&s(&["resolve-slots", "--in", "foo.toml", "--out", "bar.toml"]))
-            .expect("must parse");
+        let cmd = parse_command(&s(&[
+            "resolve-slots",
+            "--in",
+            "foo.toml",
+            "--out",
+            "bar.toml",
+        ]))
+        .expect("must parse");
         match cmd {
             Command::ResolveSlots(cli) => {
                 assert_eq!(cli.input_file, Some(PathBuf::from("foo.toml")));

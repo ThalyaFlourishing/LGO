@@ -2081,35 +2081,43 @@ fn parse_bookmarklet_header_metadata(
     Ok((fallback_class, fallback_character))
 }
 
-fn load_plugin_export_with_hint(
+fn load_plugin_export_with_hints(
     search_dir: Option<&Path>,
-    character_hint: Option<&str>,
+    character_hints: &[Option<&str>],
 ) -> Result<Option<crate::plugindata::PluginExport>, ResolveError> {
     let Some(search_dir) = search_dir else {
         return Ok(None);
     };
-    let Some(character_hint) = non_empty_str(character_hint) else {
-        return Ok(None);
-    };
-    find_latest_plugindata_file(search_dir, character_hint)?
-        .map(|path| {
-            crate::plugindata::load(&path).map_err(|message| ResolveError::PluginData {
-                path,
-                message,
-            })
+    let mut tried: Vec<String> = Vec::new();
+    for hint in character_hints
+        .iter()
+        .filter_map(|hint| non_empty_str(*hint))
+        .filter(|hint| {
+            if tried.iter().any(|seen| seen.eq_ignore_ascii_case(hint)) {
+                false
+            } else {
+                tried.push((*hint).to_string());
+                true
+            }
         })
-        .transpose()
+    {
+        if let Some(path) = find_latest_plugindata_file(search_dir, hint)? {
+            return crate::plugindata::load(&path)
+                .map(Some)
+                .map_err(|message| ResolveError::PluginData { path, message });
+        }
+    }
+    Ok(None)
 }
 
 fn derive_canonical_path_beside_input(
     input_path: &Path,
     derived_character: Option<&str>,
 ) -> Result<PathBuf, ResolveError> {
-    let derived_character = non_empty_str(derived_character).ok_or_else(|| {
-        ResolveError::CannotDeriveOutputPath {
+    let derived_character =
+        non_empty_str(derived_character).ok_or_else(|| ResolveError::CannotDeriveOutputPath {
             input_path: input_path.to_path_buf(),
-        }
-    })?;
+        })?;
     let dir = input_path.parent().unwrap_or_else(|| Path::new("."));
     let existing = crate::gearstats::find_canonical_gear_file(dir, derived_character)
         .map_err(|message| ResolveError::AmbiguousFiles { message })?;
@@ -2192,12 +2200,14 @@ pub fn resolve_stats_file_with_paths(
     let (fallback_class, fallback_character) =
         parse_bookmarklet_header_metadata(&bookmarklet_path, &bookmarklet_src)?;
     let filename_character = character_name_from_lgo_filename(&bookmarklet_path);
-    let plugin_export = load_plugin_export_with_hint(
+    let plugin_export = load_plugin_export_with_hints(
         bookmarklet_path.parent(),
-        fallback_character
-            .as_deref()
-            .or(cli_character)
-            .or(filename_character.as_deref()),
+        &[
+            auto_discovery.map(|(_, character)| character),
+            cli_character,
+            fallback_character.as_deref(),
+            filename_character.as_deref(),
+        ],
     )?;
 
     let canonical_path = if let Some(path) = output_path {
@@ -2479,7 +2489,10 @@ slot = "Unknown"
         let input_path = dir.join("bookmarklet.toml");
         let output_path = dir.join("merged.toml");
         write_file(&input_path, SIMPLE_BOOKMARKLET);
-        write_file(&output_path, "[[item]]\nname = \"Old Helm\"\nslot = \"Head\"\n");
+        write_file(
+            &output_path,
+            "[[item]]\nname = \"Old Helm\"\nslot = \"Head\"\n",
+        );
 
         let report = resolve_stats_file_with_paths(
             Some(&input_path),
@@ -2491,7 +2504,10 @@ slot = "Unknown"
         )
         .expect("resolve should succeed");
 
-        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(
+            report.bookmarklet_path.as_deref(),
+            Some(input_path.as_path())
+        );
         assert_eq!(report.canonical_path, output_path);
         assert!(report.previous_existed);
         assert!(!report.no_new_export);
@@ -2513,7 +2529,10 @@ slot = "Unknown"
         )
         .expect("resolve should succeed");
 
-        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(
+            report.bookmarklet_path.as_deref(),
+            Some(input_path.as_path())
+        );
         assert_eq!(report.canonical_path, dir.join("lgo_Thalya_gearReady.toml"));
         assert!(!report.previous_existed);
         assert!(!report.no_new_export);
@@ -2537,7 +2556,10 @@ slot = "Unknown"
         )
         .expect("resolve should succeed");
 
-        assert_eq!(report.bookmarklet_path.as_deref(), Some(input_path.as_path()));
+        assert_eq!(
+            report.bookmarklet_path.as_deref(),
+            Some(input_path.as_path())
+        );
         assert_eq!(report.canonical_path, output_path);
         assert!(!report.previous_existed);
         assert!(!report.no_new_export);
