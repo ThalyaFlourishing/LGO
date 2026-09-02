@@ -10,7 +10,7 @@
 
 ## 1. What LGO is
 
-LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*. The target user base is a small group of personal acquaintances of the author of this project. There will be no general public release, and there are no commercial needs or long-term engineering best-practices needs. It has not yet been released at all, in fact, so there are currently no concerns about backwards compatibility.
+LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*. The target user base is a small group of personal acquaintances of the author of this project. There will be no general public release, and there are no commercial needs or long-term engineering best-practices needs. It has not yet been released at all, in fact, so there are currently no concerns about backwards compatibility. Also, it is meant to function exclusively in the Windows OS. No concerns regarding other OS's is warranted.
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
    - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
@@ -260,7 +260,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ---
 
-## 6. Confirmed bug list has been moved to `docs/BUG_HISTORY.md`
+## 6. There exists no need for any kind of backward compatibility. Ever. Just don't even bring it up. No.
 
 ---
 
@@ -302,7 +302,6 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- Minor bug fixes
 - Identify items which can be removed from pool
 - Construct HTML reports
 

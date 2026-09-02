@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LGO Command Reference</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; max-width: 60em; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1, h2, h3 { color: #333; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.2em; margin-top: 2em; }
+  code { background: #f4f4f4; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.95em; white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; table-layout: fixed; }
+  th, td { border: 1px solid #bbb; padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .note { background: #fffbea; border-left: 4px solid #e0c060; padding: 0.6em 1em; margin: 1em 0; }
+  .rules { background: #f0f6ff; border-left: 4px solid #6090d0; padding: 0.6em 1em; margin: 1em 0; }
+
+  /* Table 1: commands at a glance */
+  table.commands col.col-what      { width: 40%; }
+  table.commands col.col-primary   { width: 22%; }
+  table.commands col.col-shortcuts { width: 38%; }
+
+  /* Tables 2.x: per-command options */
+  table.options col.col-option { width: 18%; }
+  table.options col.col-short  { width: 12%; }
+  table.options col.col-takes  { width: 25%; }
+  table.options col.col-does   { width: 45%; }
+</style>
+</head>
+<body>
+
+<h1>LGO Command Reference</h1>
+
+<p>LGO is run from a command-line window (Command Prompt, PowerShell, or Windows Terminal). Every LGO command has the same shape:</p>
+
+<p><code>lgo &lt;command&gt; [options] [values]</code></p>
+
+<div class="rules">
+<strong>Things that are true for every LGO command:</strong>
+<ul>
+  <li><strong>Capitalisation of command and option names does not matter.</strong> <code>optimize</code>, <code>Optimize</code>, <code>OPTIMIZE</code>, <code>--character</code>, and <code>--ChArAcTeR</code> all work the same way.</li>
+  <li><strong>Capitalisation of the values you type <em>is</em> preserved.</strong> Character names, file paths, saved-build names, and stat goals are used exactly as you type them.</li>
+  <li><strong>Ask for help any time</strong> by adding <code>--help</code>, <code>-h</code>, or <code>help</code> anywhere on the line, or by running <code>lgo</code> with no arguments at all.</li>
+  <li>If you type an option name LGO doesn't recognise, it will stop and tell you: <em>Unknown option: '…'</em>.</li>
+</ul>
+</div>
+
+<h2>Table 1 — The commands at a glance</h2>
+
+<p>These are the seven things LGO can do. Each command has a short primary name and, in most cases, one or two shorter forms you can use as a shortcut.</p>
+
+<table class="commands">
+  <colgroup>
+    <col class="col-what">
+    <col class="col-primary">
+    <col class="col-shortcuts">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>What you want to do</th>
+      <th>Primary command</th>
+      <th>Shortcuts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>See the help screen</td>
+      <td><code>lgo help</code></td>
+      <td><code>lgo --help</code>, <code>lgo -h</code>, or just <code>lgo</code></td>
+    </tr>
+    <tr>
+      <td>Look up the two-letter stat abbreviations</td>
+      <td><code>lgo --statlist</code></td>
+      <td><code>lgo statlist</code></td>
+    </tr>
+    <tr>
+      <td>Find the best gear combination for your stat goals</td>
+      <td><code>lgo optimize</code></td>
+      <td><code>lgo --optimize</code>, <code>lgo -o</code></td>
+    </tr>
+    <tr>
+      <td>See which items are unused across all your saved builds</td>
+      <td><code>lgo scrap-gear</code></td>
+      <td><code>lgo scrapgear</code>, <code>lgo --scrap-gear</code>, <code>lgo -s</code></td>
+    </tr>
+    <tr>
+      <td>Show your innate Base stats and what they contribute</td>
+      <td><code>lgo base-stats</code></td>
+      <td><code>lgo --base-stats</code></td>
+    </tr>
+    <tr>
+      <td>Turn a fresh bookmarklet output into your working gear file</td>
+      <td><code>lgo resolve-slots</code></td>
+      <td><code>lgo --resolve-slots</code>, <code>lgo -r</code></td>
+    </tr>
+    <tr>
+      <td>Rebuild the local item database from a new <code>items.xml</code></td>
+      <td><code>lgo build-db</code></td>
+      <td><code>lgo --build-db</code>, <code>lgo -b</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Table 2 — Every option, command by command</h2>
+
+<p>Options are the extra switches you can add after a command to change how it behaves. Options that take a value (a name or a file path) expect that value as the very next word on the command line. Flags are on/off switches — just include them or leave them out.</p>
+
+<h3><code>lgo optimize</code></h3>
+
+<p>Runs the optimizer and prints a report. You must give it at least one stat goal <em>or</em> use <code>--build</code> to load a saved one.</p>
+
+<table class="options">
+  <colgroup>
+    <col class="col-option">
+    <col class="col-short">
+    <col class="col-takes">
+    <col class="col-does">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Short form</th>
+      <th>What it takes</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--character</code></td>
+      <td><code>-c</code></td>
+      <td>A character name</td>
+      <td>Chooses which character to optimize for. If you only have one LotRO character with LGO data, this is auto-detected and you don't need this option.</td>
+    </tr>
+    <tr>
+      <td><code>--file</code></td>
+      <td><code>-f</code></td>
+      <td>A path to a <code>.toml</code> file</td>
+      <td>Points LGO at a specific gear file instead of auto-finding your <code>lgo_&lt;character&gt;_gearReady.toml</code>.</td>
+    </tr>
+    <tr>
+      <td><code>--builds-file</code></td>
+      <td>—</td>
+      <td>A path to a <code>.toml</code> file</td>
+      <td>Points LGO at a specific saved-builds file instead of the one sitting next to your gear file. Only relevant when you also use <code>--build</code> or <code>--save-build</code>.</td>
+    </tr>
+    <tr>
+      <td><code>--build</code></td>
+      <td>—</td>
+      <td>A saved-build name</td>
+      <td>Runs one of your saved builds by name. Cannot be combined with stat goals on the same line — the saved goals are used instead.</td>
+    </tr>
+    <tr>
+      <td><code>--save-build</code></td>
+      <td>—</td>
+      <td>A saved-build name</td>
+      <td>After the run finishes, saves the stat goals under this name so you can re-run them later. If the name already exists, it is overwritten. Requires at least one stat goal (or <code>--build</code>).</td>
+    </tr>
+    <tr>
+      <td><code>--to-file</code></td>
+      <td>—</td>
+      <td>(flag)</td>
+      <td>In addition to printing the report to the screen, writes a text copy and a self-contained HTML copy into an <code>LGO_Reports</code> folder beside your gear file.</td>
+    </tr>
+    <tr>
+      <td><em>(stat goals)</em></td>
+      <td>—</td>
+      <td>One or more <code>&lt;stat&gt;:&lt;minimum&gt;</code> entries</td>
+      <td>Your priority-ordered list of what you want. See <em>Writing stat goals</em> below.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3><code>lgo scrap-gear</code></h3>
+
+<p>Reruns every saved build against your current gear file and lists items that aren't used by any of them — a starting point for deciding what to sell or destroy.</p>
+
+<table class="options">
+  <colgroup>
+    <col class="col-option">
+    <col class="col-short">
+    <col class="col-takes">
+    <col class="col-does">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Short form</th>
+      <th>What it takes</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--character</code></td>
+      <td><code>-c</code></td>
+      <td>A character name</td>
+      <td>Chooses which character to check. Auto-detected if you have only one.</td>
+    </tr>
+    <tr>
+      <td><code>--file</code></td>
+      <td><code>-f</code></td>
+      <td>A path to a <code>.toml</code> file</td>
+      <td>Points LGO at a specific gear file instead of auto-finding it.</td>
+    </tr>
+    <tr>
+      <td><code>--builds-file</code></td>
+      <td>—</td>
+      <td>A path to a <code>.toml</code> file</td>
+      <td>Points LGO at a specific saved-builds file instead of the one sitting next to your gear file.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3><code>lgo base-stats</code></h3>
+
+<p>Prints your five raw Base stats (Might, Agility, Vitality, Will, Fate) and shows how they translate into the tracked stats the optimizer uses. Does not run an optimization.</p>
+
+<table class="options">
+  <colgroup>
+    <col class="col-option">
+    <col class="col-short">
+    <col class="col-takes">
+    <col class="col-does">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Short form</th>
+      <th>What it takes</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--character</code></td>
+      <td><code>-c</code></td>
+      <td>A character name</td>
+      <td>Chooses which character to read. Auto-detected if you have only one.</td>
+    </tr>
+    <tr>
+      <td><code>--file</code></td>
+      <td><code>-f</code></td>
+      <td>A path to a <code>.toml</code> file</td>
+      <td>Points LGO at a specific gear file instead of auto-finding it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3><code>lgo resolve-slots</code></h3>
+
+<p>Reads the fresh <code>*_gearStats.toml</code> produced by the bookmarklet and folds it into your working <code>*_gearReady.toml</code> file. Run this every time you have a new bookmarklet output to import.</p>
+
+<table class="options">
+  <colgroup>
+    <col class="col-option">
+    <col class="col-short">
+    <col class="col-takes">
+    <col class="col-does">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Short form</th>
+      <th>What it takes</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--character</code></td>
+      <td><code>-c</code></td>
+      <td>A character name</td>
+      <td>Chooses which character to update. Auto-detected if you have only one.</td>
+    </tr>
+    <tr>
+      <td><code>--force</code></td>
+      <td><code>-f</code></td>
+      <td>(flag)</td>
+      <td>Turns on interactive mode: for each item that would be changed or removed, LGO stops and asks you <code>y</code> (yes), <code>n</code> (no), or <code>a</code> (yes to all remaining of the same kind). Without this flag, your existing hand-edited entries are preserved untouched.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3><code>lgo build-db</code></h3>
+
+<p>Rebuilds the local item database. You only need this when a new LotRO update adds items that LGO doesn't recognise yet. See the workflow document for how to obtain a fresh <code>items.xml</code>.</p>
+
+<table class="options">
+  <colgroup>
+    <col class="col-option">
+    <col class="col-short">
+    <col class="col-takes">
+    <col class="col-does">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Short form</th>
+      <th>What it takes</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--items</code></td>
+      <td>—</td>
+      <td>A path to an <code>.xml</code> file</td>
+      <td>The items file to read from. Defaults to <code>data\items.xml</code>.</td>
+    </tr>
+    <tr>
+      <td><code>--out</code></td>
+      <td>—</td>
+      <td>A path to a <code>.json</code> file</td>
+      <td>Where to write the rebuilt database. Defaults to <code>data\lgo_items.json</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3><code>lgo --statlist</code></h3>
+
+<p>Has no options. Prints a two-column table of the 16 stat abbreviations and their full names.</p>
+
+<h2>Writing stat goals</h2>
+
+<p>Stat goals only apply to <code>lgo optimize</code>. Each goal is written as:</p>
+
+<p><code>&lt;stat&gt;:&lt;minimum&gt;</code></p>
+
+<p>where <code>&lt;stat&gt;</code> is either the full stat name (for example <code>TacticalMastery</code>) or its two-letter abbreviation (<code>tm</code>), and <code>&lt;minimum&gt;</code> is the number you want that stat to reach.</p>
+
+<ul>
+  <li>List your goals <strong>in priority order</strong>. LGO satisfies higher-priority goals first, then reaches for lower-priority ones.</li>
+  <li>A minimum of <code>0</code> means "no floor, but maximise this stat once the important goals are met."</li>
+  <li>Run <code>lgo --statlist</code> to see the full list of stat abbreviations.</li>
+</ul>
+
+<p>Example:</p>
+<pre><code>lgo optimize tm:450000 cr:350000 fn:0</code></pre>
+
+</body>
+</html>
