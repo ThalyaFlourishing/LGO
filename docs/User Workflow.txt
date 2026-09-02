@@ -99,7 +99,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
    In practice, hand-editing is most often needed for legendary
    items, recently renamed items, and very new items.
     
-   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<character>_gearReady.toml.
+   Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<CharacterName>_gearReady.toml.
 
    Near the top of the file you will see the header fields `character`,
    `class`, `[InnateStats]`, and `[Virtues]`. [InnateStats] contains only the
@@ -157,9 +157,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     convention as build-db).
 
     By default, optimize prints the report only to the terminal.
-    If you add `-toFile`, it also writes two copies of the report beside the
-    canonical gear TOML, inside an LGO_Reports folder: one .txt and one
-    self-contained .html file with matching lgo_GearReport_### names.
+    If you add `-toFile` (case-sensitive), it also writes two copies of the report beside the canonical gear TOML, inside an LGO_Reports folder: one .txt and one self-contained .html file with matching lgo_GearReport_### names.
 
     If you know this goal list is one of your regular builds, add
 
@@ -216,5 +214,4 @@ Iteration
 - To review items not used across all your saved builds: run
   `lgo scrap-gear`.
 
-- To hand-correct stats or slots: edit the 'lgo_<character-name>_gearReady.toml' file, then
-  re-run step 10.
+- To hand-correct stats or slots: edit the 'lgo_<character-name>_gearReady.toml' file, then re-run step 10.

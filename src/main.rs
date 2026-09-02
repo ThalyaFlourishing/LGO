@@ -761,10 +761,17 @@ struct BuildDbCli {
 }
 
 fn parse_command(args: &[String]) -> Result<Command, CliParseError> {
+    // `--help` / `-h` / `help` anywhere on the command line wins: print usage.
+    if args.iter().any(|a| {
+        let t = a.to_ascii_lowercase();
+        t == "--help" || t == "-h" || t == "help"
+    }) {
+        return Ok(Command::Help);
+    }
+
     let verb = args[0].to_ascii_lowercase();
     match verb.as_str() {
-        "--help" | "-h" | "help" => Ok(Command::Help),
-        "--statlist" => Ok(Command::StatList),
+        "statlist" | "--statlist" => Ok(Command::StatList),
         "optimize" | "--optimize" | "-o" => parse_optimize_args(&args[1..])
             .map(Command::Optimize)
             .map_err(CliParseError::Message),
@@ -818,7 +825,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
                 i += 1;
                 save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
             }
-            "-toFile" => {
+            "--toFile" => {
                 to_file = true;
             }
             arg if arg.starts_with('-') => {
@@ -1088,8 +1095,7 @@ fn print_usage() {
     println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
     println!("  --build     <name>  Load saved goals from lgo_<character>_builds.toml");
     println!("  --save-build <name> Save these goals to lgo_<character>_builds.toml");
-    println!("  -toFile            Also write .txt and .html reports for this run");
-    println!("  --help              Show this message");
+    println!("  --toFile            Also write .txt and .html reports for this run");
     println!();
     println!("  `--build` may not be combined with positional goals.");
     println!();
@@ -1156,7 +1162,7 @@ fn print_usage() {
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
     println!("    lgo optimize --save-build healer oh:200000 cr:350000 ml:0");
-    println!("    lgo optimize -toFile tm:450000 cr:350000 fn:0");
+    println!("    lgo optimize --toFile tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
     println!("    lgo scrap-gear");
@@ -1195,6 +1201,21 @@ mod tests {
     fn statlist_switch_parses_as_statlist_command() {
         let cmd = parse_command(&s(&["--statlist"])).expect("--statlist should parse");
         assert!(matches!(cmd, Command::StatList));
+    }
+
+    #[test]
+    fn help_flag_after_any_verb_parses_as_help() {
+        for cmdline in [
+            vec!["optimize", "--help"],
+            vec!["resolve-slots", "-h"],
+            vec!["scrap-gear", "--help"],
+            vec!["base-stats", "-h"],
+            vec!["build-db", "--help"],
+            vec!["optimize", "tm:1", "--help"],
+        ] {
+            let cmd = parse_command(&s(&cmdline)).expect("help should parse");
+            assert!(matches!(cmd, Command::Help), "failed for {:?}", cmdline);
+        }
     }
 
     #[test]
@@ -1451,7 +1472,7 @@ mod tests {
 
     #[test]
     fn optimize_accepts_to_file_flag() {
-        let cmd = parse_command(&s(&["optimize", "-toFile", "tm:1"]))
+        let cmd = parse_command(&s(&["optimize", "--toFile", "tm:1"]))
             .expect("optimize -toFile should parse");
         match cmd {
             Command::Optimize(cli) => {
@@ -1470,7 +1491,7 @@ mod tests {
             "gear.toml",
             "--save-build",
             "healer",
-            "-toFile",
+            "--toFile",
             "tm:1",
         ]))
         .expect("optimize combined flags should parse");

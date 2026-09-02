@@ -36,6 +36,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 3.1 General notes
   - Verbs are case-insensitive (for example: optimize, Optimize, OPTIMIZE).
   - Verb aliases:
+      build-db       | --build-db
       optimize       | --optimize       | -o
       resolve-slots  | --resolve-slots  | -r
       scrap-gear     | --scrap-gear     | -s
@@ -90,10 +91,12 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo resolve-slots -c <name>
     Resolve slots using that character's AllServers directory.
 
-  lgo resolve-slots --file <path>
-  lgo resolve-slots -f <path>
-    Resolve slots for the explicit input stats TOML path you provide.
-    With --file/-f, that file path is used directly.
+  lgo resolve-slots --force
+   In --force mode, the program will ask you, item by item, before changing or removing anything. Each prompt looks like:
+      Overwrite stats for "Test Helm"? (y/n/a)
+   or:
+      Remove "Old Sword" (no longer in export)? (y/n/a)
+   Type y to allow the change, n to keep your existing data, or a to allow that kind of change for all remaining items without further prompting (overwrites and removals are tracked separately, so an a to one kind does not automatically apply to the other).
 
 3.4 optimize
   lgo optimize <stat:min> [<stat:min> ...]
@@ -136,7 +139,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
 
-  lgo optimize -toFile <stat:min> ...
+  lgo optimize --toFile <stat:min> ...
     Also write a plain-text report and a self-contained HTML report into an
     LGO_Reports sub-folder beside the canonical gear TOML (or beside the
     explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
@@ -164,7 +167,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     two-letter abbreviations are both accepted.
 
 3.5 scrap-gear
-  lgo scrap-gear ( )> cargo run -- scrap-gear )
+  lgo scrap-gear
     Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
     `lgo_<character>_builds.toml`, re-runs the live optimizer once per saved
     build, then lists the items not used in any saved build. The output first
@@ -316,12 +319,15 @@ SECTION 5 - ITEMS DATABASE BUILDER
 Build the items database (data/lgo_items.json):
   Dev: cargo run --release -- build-db
   User: lgo build-db
+    or: lgo -build-db
+    or: lgo --build-db
+    or: lgo -b
 
 This reads data/items.xml and produces 'data/lgo_items.json' — each item's canonical slot plus the two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
 
+Working directory matters. db_build resolves data/items.xml and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps).
+
+So the build-db command will use the items.xml file from the 'data' folder, and the new database file will be written to the 'data' folder too, but both the input and output files can be specified if desired:
+  cargo run -- build-db --items <path>/items.xml --out <path>/lgo_items.json
+
 The JSON file is consumed by resolve-slots.
-
-Working directory matters. db_build resolves data/items.xml and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps). Alternatively they can pass explicit paths:
-
-cargo run --release -- build-db --items   data/items.xml --out   data/lgo_items.json
-                       db_build --items <path>\items.xml --out <path>\lgo_items.json
