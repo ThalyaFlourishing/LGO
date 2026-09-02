@@ -1260,29 +1260,6 @@ mod tests {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("my/gear.toml")));
             }
-
-            #[test]
-            fn base_stats_flags_are_case_insensitive_and_preserve_values() {
-                let cmd = parse_command(&s(&["base-stats", "--ChArAcTeR", "ThAlYa", "--FiLe", "MiXeD/Path.toml"]))
-                    .expect("base-stats mixed-case flags should parse");
-                match cmd {
-                    Command::BaseStats(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
-                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
-                    }
-                    _ => panic!("expected base-stats command"),
-                }
-
-                let cmd = parse_command(&s(&["base-stats", "-C", "CharName", "-F", "Case/Path.toml"]))
-                    .expect("base-stats mixed-case short flags should parse");
-                match cmd {
-                    Command::BaseStats(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("CharName"));
-                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
-                    }
-                    _ => panic!("expected base-stats command"),
-                }
-            }
             _ => panic!("expected base-stats command"),
         }
 
@@ -1292,6 +1269,41 @@ mod tests {
             Command::BaseStats(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
+            }
+            _ => panic!("expected base-stats command"),
+        }
+    }
+
+    #[test]
+    fn base_stats_flags_are_case_insensitive_and_preserve_values() {
+        let cmd = parse_command(&s(&[
+            "base-stats",
+            "--ChArAcTeR",
+            "ThAlYa",
+            "--FiLe",
+            "MiXeD/Path.toml",
+        ]))
+        .expect("base-stats mixed-case flags should parse");
+        match cmd {
+            Command::BaseStats(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
+            }
+            _ => panic!("expected base-stats command"),
+        }
+
+        let cmd = parse_command(&s(&[
+            "base-stats",
+            "-C",
+            "CharName",
+            "-F",
+            "Case/Path.toml",
+        ]))
+        .expect("base-stats mixed-case short flags should parse");
+        match cmd {
+            Command::BaseStats(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("CharName"));
+                assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
             }
             _ => panic!("expected base-stats command"),
         }
@@ -1348,28 +1360,28 @@ mod tests {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert!(!cli.force);
             }
+            _ => panic!("expected resolve-slots command"),
+        }
+    }
 
-            #[test]
-            fn resolve_slots_flags_are_case_insensitive_and_preserve_values() {
-                let cmd = parse_command(&s(&["resolve-slots", "--ChArAcTeR", "ThAlYa", "--FoRcE"]))
-                    .expect("resolve-slots mixed-case flags should parse");
-                match cmd {
-                    Command::ResolveSlots(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
-                        assert!(cli.force);
-                    }
-                    _ => panic!("expected resolve-slots command"),
-                }
+    #[test]
+    fn resolve_slots_flags_are_case_insensitive_and_preserve_values() {
+        let cmd = parse_command(&s(&["resolve-slots", "--ChArAcTeR", "ThAlYa", "--FoRcE"]))
+            .expect("resolve-slots mixed-case flags should parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                assert!(cli.force);
+            }
+            _ => panic!("expected resolve-slots command"),
+        }
 
-                let cmd = parse_command(&s(&["resolve-slots", "-C", "RaWName", "-F"]))
-                    .expect("resolve-slots mixed-case short flags should parse");
-                match cmd {
-                    Command::ResolveSlots(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("RaWName"));
-                        assert!(cli.force);
-                    }
-                    _ => panic!("expected resolve-slots command"),
-                }
+        let cmd = parse_command(&s(&["resolve-slots", "-C", "RaWName", "-F"]))
+            .expect("resolve-slots mixed-case short flags should parse");
+        match cmd {
+            Command::ResolveSlots(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("RaWName"));
+                assert!(cli.force);
             }
             _ => panic!("expected resolve-slots command"),
         }
@@ -1434,24 +1446,24 @@ mod tests {
                 assert_eq!(cli.items, PathBuf::from("my/items.xml"));
                 assert_eq!(cli.out, PathBuf::from("my/out.json"));
             }
+            _ => panic!("expected build-db command"),
+        }
+    }
 
-            #[test]
-            fn build_db_flags_are_case_insensitive_and_preserve_values() {
-                let cmd = parse_command(&s(&[
-                    "build-db",
-                    "--ItEmS",
-                    "MiXeD/Input.xml",
-                    "--OuT",
-                    "MiXeD/Output.json",
-                ]))
-                .expect("build-db mixed-case flags should parse");
-                match cmd {
-                    Command::BuildDb(cli) => {
-                        assert_eq!(cli.items, PathBuf::from("MiXeD/Input.xml"));
-                        assert_eq!(cli.out, PathBuf::from("MiXeD/Output.json"));
-                    }
-                    _ => panic!("expected build-db command"),
-                }
+    #[test]
+    fn build_db_flags_are_case_insensitive_and_preserve_values() {
+        let cmd = parse_command(&s(&[
+            "build-db",
+            "--ItEmS",
+            "MiXeD/Input.xml",
+            "--OuT",
+            "MiXeD/Output.json",
+        ]))
+        .expect("build-db mixed-case flags should parse");
+        match cmd {
+            Command::BuildDb(cli) => {
+                assert_eq!(cli.items, PathBuf::from("MiXeD/Input.xml"));
+                assert_eq!(cli.out, PathBuf::from("MiXeD/Output.json"));
             }
             _ => panic!("expected build-db command"),
         }
@@ -1562,45 +1574,52 @@ mod tests {
                 assert!(cli.to_file);
                 assert_eq!(cli.goals.len(), 1);
             }
+            _ => panic!("expected optimize command"),
+        }
+    }
 
-            #[test]
-            fn optimize_flags_are_case_insensitive_and_preserve_values() {
-                let cmd = parse_command(&s(&[
-                    "optimize",
-                    "--ChArAcTeR",
-                    "ThAlYa",
-                    "--FiLe",
-                    "MiXeD/Path.toml",
-                    "--BuIlDs-FiLe",
-                    "BuIlDs/MiXeD.toml",
-                    "--SaVe-BuIlD",
-                    "HeAlEr Build",
-                    "--ToFiLe",
-                    "tm:1",
-                ]))
-                .expect("optimize mixed-case flags should parse");
-                match cmd {
-                    Command::Optimize(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
-                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
-                        assert_eq!(cli.builds_file, Some(PathBuf::from("BuIlDs/MiXeD.toml")));
-                        assert_eq!(cli.save_build.as_deref(), Some("HeAlEr Build"));
-                        assert!(cli.to_file);
-                        assert_eq!(cli.goals.len(), 1);
-                    }
-                    _ => panic!("expected optimize command"),
-                }
+    #[test]
+    fn optimize_flags_are_case_insensitive_and_preserve_values() {
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--ChArAcTeR",
+            "ThAlYa",
+            "--FiLe",
+            "MiXeD/Path.toml",
+            "--BuIlDs-FiLe",
+            "BuIlDs/MiXeD.toml",
+            "--SaVe-BuIlD",
+            "HeAlEr Build",
+            "--ToFiLe",
+            "tm:1",
+        ]))
+        .expect("optimize mixed-case flags should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
+                assert_eq!(cli.builds_file, Some(PathBuf::from("BuIlDs/MiXeD.toml")));
+                assert_eq!(cli.save_build.as_deref(), Some("HeAlEr Build"));
+                assert!(cli.to_file);
+                assert_eq!(cli.goals.len(), 1);
+            }
+            _ => panic!("expected optimize command"),
+        }
 
-                let cmd = parse_command(&s(&["optimize", "-C", "MiXeDName", "-F", "Case/Path.toml", "tm:1"]))
-                    .expect("optimize mixed-case short flags should parse");
-                match cmd {
-                    Command::Optimize(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("MiXeDName"));
-                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
-                        assert_eq!(cli.goals.len(), 1);
-                    }
-                    _ => panic!("expected optimize command"),
-                }
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "-C",
+            "MiXeDName",
+            "-F",
+            "Case/Path.toml",
+            "tm:1",
+        ]))
+        .expect("optimize mixed-case short flags should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("MiXeDName"));
+                assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
+                assert_eq!(cli.goals.len(), 1);
             }
             _ => panic!("expected optimize command"),
         }
@@ -1622,28 +1641,28 @@ mod tests {
                 assert_eq!(cli.save_build.as_deref(), Some("Copy"));
                 assert!(cli.goals.is_empty());
             }
+            _ => panic!("expected optimize command"),
+        }
+    }
 
-            #[test]
-            fn optimize_build_flag_is_case_insensitive_and_preserves_build_name() {
-                let cmd = parse_command(&s(&[
-                    "optimize",
-                    "--BuIlD",
-                    "HeAlEr Build",
-                    "--BuIlDs-FiLe",
-                    "MiXeD/Builds.toml",
-                    "--SaVe-BuIlD",
-                    "CoPy Build",
-                ]))
-                .expect("optimize mixed-case build flags should parse");
-                match cmd {
-                    Command::Optimize(cli) => {
-                        assert_eq!(cli.build.as_deref(), Some("HeAlEr Build"));
-                        assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
-                        assert_eq!(cli.save_build.as_deref(), Some("CoPy Build"));
-                        assert!(cli.goals.is_empty());
-                    }
-                    _ => panic!("expected optimize command"),
-                }
+    #[test]
+    fn optimize_build_flag_is_case_insensitive_and_preserves_build_name() {
+        let cmd = parse_command(&s(&[
+            "optimize",
+            "--BuIlD",
+            "HeAlEr Build",
+            "--BuIlDs-FiLe",
+            "MiXeD/Builds.toml",
+            "--SaVe-BuIlD",
+            "CoPy Build",
+        ]))
+        .expect("optimize mixed-case build flags should parse");
+        match cmd {
+            Command::Optimize(cli) => {
+                assert_eq!(cli.build.as_deref(), Some("HeAlEr Build"));
+                assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
+                assert_eq!(cli.save_build.as_deref(), Some("CoPy Build"));
+                assert!(cli.goals.is_empty());
             }
             _ => panic!("expected optimize command"),
         }
@@ -1718,37 +1737,37 @@ mod tests {
                 assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
                 assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
             }
+            _ => panic!("expected scrap-gear command"),
+        }
+    }
 
-            #[test]
-            fn scrap_gear_flags_are_case_insensitive_and_preserve_values() {
-                let cmd = parse_command(&s(&[
-                    "scrap-gear",
-                    "--ChArAcTeR",
-                    "ThAlYa",
-                    "--FiLe",
-                    "MiXeD/Gear.toml",
-                    "--BuIlDs-FiLe",
-                    "MiXeD/Builds.toml",
-                ]))
-                .expect("scrap-gear mixed-case flags should parse");
-                match cmd {
-                    Command::ScrapGear(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
-                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Gear.toml")));
-                        assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
-                    }
-                    _ => panic!("expected scrap-gear command"),
-                }
+    #[test]
+    fn scrap_gear_flags_are_case_insensitive_and_preserve_values() {
+        let cmd = parse_command(&s(&[
+            "scrap-gear",
+            "--ChArAcTeR",
+            "ThAlYa",
+            "--FiLe",
+            "MiXeD/Gear.toml",
+            "--BuIlDs-FiLe",
+            "MiXeD/Builds.toml",
+        ]))
+        .expect("scrap-gear mixed-case flags should parse");
+        match cmd {
+            Command::ScrapGear(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Gear.toml")));
+                assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
+            }
+            _ => panic!("expected scrap-gear command"),
+        }
 
-                let cmd = parse_command(&s(&["scrap-gear", "-C", "Name", "-F", "Case/Path.toml"]))
-                    .expect("scrap-gear mixed-case short flags should parse");
-                match cmd {
-                    Command::ScrapGear(cli) => {
-                        assert_eq!(cli.character.as_deref(), Some("Name"));
-                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
-                    }
-                    _ => panic!("expected scrap-gear command"),
-                }
+        let cmd = parse_command(&s(&["scrap-gear", "-C", "Name", "-F", "Case/Path.toml"]))
+            .expect("scrap-gear mixed-case short flags should parse");
+        match cmd {
+            Command::ScrapGear(cli) => {
+                assert_eq!(cli.character.as_deref(), Some("Name"));
+                assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
             }
             _ => panic!("expected scrap-gear command"),
         }
