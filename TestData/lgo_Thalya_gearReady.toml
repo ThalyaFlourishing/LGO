@@ -1,6 +1,6 @@
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 # LGO 2026, by Thalya
-# gearReady.toml updated: 08/30/26 04:24:52
+# gearReady.toml updated: 09/01/26 20:46:29
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 character = "Thalya"
 class = "Lore-master"
@@ -12,16 +12,23 @@ Vitality           = 10200
 Will               = 7950
 Fate               = 4000
 
+[Virtues]
+Virtue1            = ""
+Virtue2            = ""
+Virtue3            = ""
+Virtue4            = ""
+Virtue5            = ""
+
 # --- Head ---
 
 [[item]]
 slot = "Head"
-name               = "Veteran Sage's Hooded Helm"
+name               = "Blighted Mask of the Herbalist"
 Morale             = 0
 Power              = 0
-Armor              = 6181
-CriticalRating     = 26090
-Finesse            = 0
+Armor              = 6067
+CriticalRating     = 0
+Finesse            = 12114
 PhysicalMastery    = 0
 TacticalMastery    = 0
 OutgoingHealing    = 0
@@ -32,11 +39,11 @@ Block              = 0
 Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
-TacticalMitigation = 0
+TacticalMitigation = 2929
 Might              = 0
 Agility            = 0
-Vitality           = 3434
-Will               = 1386
+Vitality           = 3692
+Will               = 2036
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -204,12 +211,12 @@ Fate               = 0
 
 [[item]]
 slot = "Head"
-name               = "Blighted Mask of the Herbalist"
+name               = "Veteran Sage's Hooded Helm"
 Morale             = 0
 Power              = 0
-Armor              = 6067
-CriticalRating     = 0
-Finesse            = 12114
+Armor              = 6181
+CriticalRating     = 26090
+Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
 OutgoingHealing    = 0
@@ -220,11 +227,11 @@ Block              = 0
 Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
-TacticalMitigation = 2929
+TacticalMitigation = 0
 Might              = 0
 Agility            = 0
-Vitality           = 3692
-Will               = 2036
+Vitality           = 3434
+Will               = 1386
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -253,11 +260,11 @@ Fate               = 0
 
 [[item]]
 slot = "Chest"
-name               = "Blighted Shirt of the Tempest"
+name               = "Blighted Shirt of the Herbalist"
 Morale             = 0
 Power              = 0
 Armor              = 20608
-CriticalRating     = 21931
+CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
@@ -268,12 +275,12 @@ IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 0
-TacticalMitigation = 0
+PhysicalMitigation = 2929
+TacticalMitigation = 11707
 Might              = 0
 Agility            = 0
 Vitality           = 4026
-Will               = 1358
+Will               = 2036
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -442,11 +449,11 @@ Fate               = 0
 
 [[item]]
 slot = "Chest"
-name               = "Blighted Shirt of the Herbalist"
+name               = "Blighted Shirt of the Tempest"
 Morale             = 0
 Power              = 0
 Armor              = 20608
-CriticalRating     = 0
+CriticalRating     = 21931
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
@@ -457,12 +464,12 @@ IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 2929
-TacticalMitigation = 11707
+PhysicalMitigation = 0
+TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 4026
-Will               = 2036
+Will               = 1358
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -728,14 +735,14 @@ Fate               = 0
 
 [[item]]
 slot = "Hands"
-name               = "Blighted Gloves of the Tempest"
+name               = "Blighted Gloves of the Herbalist"
 Morale             = 0
 Power              = 0
 Armor              = 10197
 CriticalRating     = 0
-Finesse            = 0
+Finesse            = 21861
 PhysicalMastery    = 0
-TacticalMastery    = 13698
+TacticalMastery    = 0
 OutgoingHealing    = 0
 Resistance         = 0
 CriticalDefense    = 0
@@ -748,8 +755,8 @@ TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 3020
-Will               = 3385
-Fate               = 0
+Will               = 2714
+Fate               = 564
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -1010,14 +1017,14 @@ Fate               = 0
 
 [[item]]
 slot = "Hands"
-name               = "Blighted Gloves of the Herbalist"
+name               = "Blighted Gloves of the Tempest"
 Morale             = 0
 Power              = 0
 Armor              = 10197
 CriticalRating     = 0
-Finesse            = 21861
+Finesse            = 0
 PhysicalMastery    = 0
-TacticalMastery    = 0
+TacticalMastery    = 13698
 OutgoingHealing    = 0
 Resistance         = 0
 CriticalDefense    = 0
@@ -1030,8 +1037,8 @@ TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 3020
-Will               = 2714
-Fate               = 564
+Will               = 3385
+Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
@@ -1059,27 +1066,27 @@ Fate               = 0
 
 [[item]]
 slot = "Feet"
-name               = "Blighted Shoes of the Tempest"
+name               = "Blighted Shoes of the Herbalist"
 Morale             = 0
 Power              = 0
 Armor              = 8242
 CriticalRating     = 0
-Finesse            = 29102
+Finesse            = 4846
 PhysicalMastery    = 0
-TacticalMastery    = 7570
-OutgoingHealing    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 29333
 Resistance         = 0
 CriticalDefense    = 0
 IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 0
+PhysicalMitigation = 10258
 TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 3020
-Will               = 2036
+Will               = 2375
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -1388,27 +1395,27 @@ Fate               = 0
 
 [[item]]
 slot = "Feet"
-name               = "Blighted Shoes of the Herbalist"
+name               = "Blighted Shoes of the Tempest"
 Morale             = 0
 Power              = 0
 Armor              = 8242
 CriticalRating     = 0
-Finesse            = 4846
+Finesse            = 29102
 PhysicalMastery    = 0
-TacticalMastery    = 0
-OutgoingHealing    = 29333
+TacticalMastery    = 7570
+OutgoingHealing    = 0
 Resistance         = 0
 CriticalDefense    = 0
 IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 10258
+PhysicalMitigation = 0
 TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 3020
-Will               = 2375
+Will               = 2036
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -1437,12 +1444,12 @@ Fate               = 0
 
 [[item]]
 slot = "Shoulders"
-name               = "Blighted Shoulder-guards of the Tempest"
+name               = "Blighted Shoulder-guards of the Herbalist"
 Morale             = 0
 Power              = 0
 Armor              = 6067
-CriticalRating     = 14620
-Finesse            = 4846
+CriticalRating     = 7310
+Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
 OutgoingHealing    = 0
@@ -1453,7 +1460,7 @@ Block              = 0
 Parry              = 0
 Evade              = 0
 PhysicalMitigation = 0
-TacticalMitigation = 0
+TacticalMitigation = 8779
 Might              = 0
 Agility            = 0
 Vitality           = 3351
@@ -1719,11 +1726,11 @@ Fate               = 0
 
 [[item]]
 slot = "Shoulders"
-name               = "Blighted Shoulder-guards of the Herbalist"
+name               = "Forgotten Elvish Healer's Shoulder-pads"
 Morale             = 0
 Power              = 0
-Armor              = 6067
-CriticalRating     = 7310
+Armor              = 6181
+CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
 TacticalMastery    = 0
@@ -1734,12 +1741,12 @@ IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 0
-TacticalMitigation = 8779
+PhysicalMitigation = 7458
+TacticalMitigation = 11936
 Might              = 0
 Agility            = 0
-Vitality           = 3351
-Will               = 2714
+Vitality           = 3094
+Will               = 3452
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -1766,12 +1773,12 @@ Fate               = 0
 
 [[item]]
 slot = "Shoulders"
-name               = "Forgotten Elvish Healer's Shoulder-pads"
+name               = "Blighted Shoulder-guards of the Tempest"
 Morale             = 0
 Power              = 0
-Armor              = 6181
-CriticalRating     = 0
-Finesse            = 0
+Armor              = 6067
+CriticalRating     = 14620
+Finesse            = 4846
 PhysicalMastery    = 0
 TacticalMastery    = 0
 OutgoingHealing    = 0
@@ -1781,12 +1788,12 @@ IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 7458
-TacticalMitigation = 11936
+PhysicalMitigation = 0
+TacticalMitigation = 0
 Might              = 0
 Agility            = 0
-Vitality           = 3094
-Will               = 3452
+Vitality           = 3351
+Will               = 2714
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -3539,11 +3546,11 @@ IncomingHealing    = 0
 Block              = 0
 Parry              = 0
 Evade              = 0
-PhysicalMitigation = 10157
-TacticalMitigation = 11593
+PhysicalMitigation = 9955
+TacticalMitigation = 11364
 Might              = 0
 Agility            = 0
-Vitality           = 3977
+Vitality           = 3877
 Will               = 0
 Fate               = 0
 [item.EssenceTotals]

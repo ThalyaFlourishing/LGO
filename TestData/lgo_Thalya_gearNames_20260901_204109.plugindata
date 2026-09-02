@@ -13,12 +13,12 @@ return
 	},
 	["names"] = 
 	{
-		[1.000000] = "Veteran Sage's Hooded Helm",
-		[2.000000] = "Blighted Shirt of the Tempest",
+		[1.000000] = "Blighted Mask of the Herbalist",
+		[2.000000] = "Blighted Shirt of the Herbalist",
 		[3.000000] = "Blighted Leggings of the Tempest",
-		[4.000000] = "Blighted Gloves of the Tempest",
-		[5.000000] = "Blighted Shoes of the Tempest",
-		[6.000000] = "Blighted Shoulder-guards of the Tempest",
+		[4.000000] = "Blighted Gloves of the Herbalist",
+		[5.000000] = "Blighted Shoes of the Herbalist",
+		[6.000000] = "Blighted Shoulder-guards of the Herbalist",
 		[7.000000] = "Zajâni Scholar's Cloak",
 		[8.000000] = "Brass Alchemist's Bracelet",
 		[9.000000] = "Ensorceled Bracelet",
@@ -92,11 +92,11 @@ return
 		[77.000000] = "Shoes of the Adventurer",
 		[78.000000] = "Delicate Gold Armlet of the Adventurer",
 		[79.000000] = "Keen Ordâkhai Bauble",
-		[80.000000] = "Blighted Gloves of the Herbalist",
-		[81.000000] = "Blighted Shoulder-guards of the Herbalist",
-		[82.000000] = "Blighted Shirt of the Herbalist",
-		[83.000000] = "Blighted Shoes of the Herbalist",
-		[84.000000] = "Blighted Mask of the Herbalist",
-		[85.000000] = "Forgotten Elvish Healer's Shoulder-pads"
+		[80.000000] = "Forgotten Elvish Healer's Shoulder-pads",
+		[81.000000] = "Blighted Shirt of the Tempest",
+		[82.000000] = "Blighted Gloves of the Tempest",
+		[83.000000] = "Blighted Shoulder-guards of the Tempest",
+		[84.000000] = "Blighted Shoes of the Tempest",
+		[85.000000] = "Veteran Sage's Hooded Helm"
 	}
 }
