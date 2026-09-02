@@ -802,41 +802,33 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
     let mut i = 0;
 
     while i < args.len() {
-        match args[i].as_str() {
-            "--character" | "-c" => {
-                i += 1;
-                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
-            }
-            "--file" | "-f" => {
-                i += 1;
-                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
-            }
-            "--builds-file" => {
-                i += 1;
-                builds_file = Some(PathBuf::from(
-                    args.get(i).ok_or("--builds-file requires a path")?,
-                ));
-            }
-            "--build" => {
-                i += 1;
-                build = Some(args.get(i).ok_or("--build requires a value")?.clone());
-            }
-            "--save-build" => {
-                i += 1;
-                save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
-            }
-            "--toFile" => {
-                to_file = true;
-            }
-            arg if arg.starts_with('-') => {
-                return Err(format!("Unknown option: '{}'", arg));
-            }
-            arg => {
-                let goal: StatGoal = arg
-                    .parse()
-                    .map_err(|e| format!("Invalid stat goal '{}': {}", arg, e))?;
-                goals.push(goal);
-            }
+        let arg = args[i].as_str();
+        if option_matches(arg, &["--character", "-c"]) {
+            i += 1;
+            character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+        } else if option_matches(arg, &["--file", "-f"]) {
+            i += 1;
+            file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+        } else if option_matches(arg, &["--builds-file"]) {
+            i += 1;
+            builds_file = Some(PathBuf::from(
+                args.get(i).ok_or("--builds-file requires a path")?,
+            ));
+        } else if option_matches(arg, &["--build"]) {
+            i += 1;
+            build = Some(args.get(i).ok_or("--build requires a value")?.clone());
+        } else if option_matches(arg, &["--save-build"]) {
+            i += 1;
+            save_build = Some(args.get(i).ok_or("--save-build requires a value")?.clone());
+        } else if option_matches(arg, &["--toFile"]) {
+            to_file = true;
+        } else if arg.starts_with('-') {
+            return Err(format!("Unknown option: '{}'", arg));
+        } else {
+            let goal: StatGoal = arg
+                .parse()
+                .map_err(|e| format!("Invalid stat goal '{}': {}", arg, e))?;
+            goals.push(goal);
         }
         i += 1;
     }
@@ -866,25 +858,22 @@ fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
     let mut i = 0;
 
     while i < args.len() {
-        match args[i].as_str() {
-            "--character" | "-c" => {
-                i += 1;
-                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
-            }
-            "--file" | "-f" => {
-                i += 1;
-                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
-            }
-            "--builds-file" => {
-                i += 1;
-                builds_file = Some(PathBuf::from(
-                    args.get(i).ok_or("--builds-file requires a path")?,
-                ));
-            }
-            arg if arg.starts_with('-') => {
-                return Err(format!("Unknown option: '{}'", arg));
-            }
-            _ => return Err("'scrap-gear' takes no positional arguments".to_string()),
+        let arg = args[i].as_str();
+        if option_matches(arg, &["--character", "-c"]) {
+            i += 1;
+            character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+        } else if option_matches(arg, &["--file", "-f"]) {
+            i += 1;
+            file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+        } else if option_matches(arg, &["--builds-file"]) {
+            i += 1;
+            builds_file = Some(PathBuf::from(
+                args.get(i).ok_or("--builds-file requires a path")?,
+            ));
+        } else if arg.starts_with('-') {
+            return Err(format!("Unknown option: '{}'", arg));
+        } else {
+            return Err("'scrap-gear' takes no positional arguments".to_string());
         }
         i += 1;
     }
@@ -902,19 +891,17 @@ fn parse_base_stats_args(args: &[String]) -> Result<BaseStatsCli, String> {
     let mut i = 0;
 
     while i < args.len() {
-        match args[i].as_str() {
-            "--character" | "-c" => {
-                i += 1;
-                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
-            }
-            "--file" | "-f" => {
-                i += 1;
-                file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
-            }
-            arg if arg.starts_with('-') => {
-                return Err(format!("Unknown option: '{}'", arg));
-            }
-            _ => return Err("'base-stats' takes no positional arguments".to_string()),
+        let arg = args[i].as_str();
+        if option_matches(arg, &["--character", "-c"]) {
+            i += 1;
+            character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+        } else if option_matches(arg, &["--file", "-f"]) {
+            i += 1;
+            file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
+        } else if arg.starts_with('-') {
+            return Err(format!("Unknown option: '{}'", arg));
+        } else {
+            return Err("'base-stats' takes no positional arguments".to_string());
         }
         i += 1;
     }
@@ -928,18 +915,16 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
     let mut i = 0;
 
     while i < args.len() {
-        match args[i].as_str() {
-            "--character" | "-c" => {
-                i += 1;
-                character = Some(args.get(i).ok_or("--character requires a value")?.clone());
-            }
-            "--force" | "-f" => {
-                force = true;
-            }
-            arg if arg.starts_with('-') => {
-                return Err(format!("Unknown option: '{}'", arg));
-            }
-            _ => return Err("'resolve-slots' takes no positional arguments".to_string()),
+        let arg = args[i].as_str();
+        if option_matches(arg, &["--character", "-c"]) {
+            i += 1;
+            character = Some(args.get(i).ok_or("--character requires a value")?.clone());
+        } else if option_matches(arg, &["--force", "-f"]) {
+            force = true;
+        } else if arg.starts_with('-') {
+            return Err(format!("Unknown option: '{}'", arg));
+        } else {
+            return Err("'resolve-slots' takes no positional arguments".to_string());
         }
         i += 1;
     }
@@ -953,24 +938,28 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
     let mut i = 0;
 
     while i < args.len() {
-        match args[i].as_str() {
-            "--items" => {
-                i += 1;
-                items = PathBuf::from(args.get(i).ok_or("--items requires a path")?);
-            }
-            "--out" => {
-                i += 1;
-                out = PathBuf::from(args.get(i).ok_or("--out requires a path")?);
-            }
-            arg if arg.starts_with('-') => {
-                return Err(format!("Unknown option: '{}'", arg));
-            }
-            _ => return Err("'build-db' takes no positional arguments".to_string()),
+        let arg = args[i].as_str();
+        if option_matches(arg, &["--items"]) {
+            i += 1;
+            items = PathBuf::from(args.get(i).ok_or("--items requires a path")?);
+        } else if option_matches(arg, &["--out"]) {
+            i += 1;
+            out = PathBuf::from(args.get(i).ok_or("--out requires a path")?);
+        } else if arg.starts_with('-') {
+            return Err(format!("Unknown option: '{}'", arg));
+        } else {
+            return Err("'build-db' takes no positional arguments".to_string());
         }
         i += 1;
     }
 
     Ok(BuildDbCli { items, out })
+}
+
+fn option_matches(arg: &str, options: &[&str]) -> bool {
+    options
+        .iter()
+        .any(|expected| arg.eq_ignore_ascii_case(expected))
 }
 
 fn resolve_character_allservers(character_opt: Option<&str>) -> Result<(PathBuf, String), String> {
@@ -1103,7 +1092,7 @@ fn print_usage() {
     println!("  current directory) to derive Base-stat contributions before optimization.");
     println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
     println!("  against data/lgo_virtues.json in that same data/ folder.");
-    println!("  By default optimize prints only to the terminal; add -toFile to also");
+    println!("  By default optimize prints only to the terminal; add --toFile to also");
     println!("  write matching .txt and .html reports into LGO_Reports beside the gear TOML.");
     println!();
     println!("Options (scrap-gear):");
@@ -1204,6 +1193,12 @@ mod tests {
     }
 
     #[test]
+    fn statlist_switch_is_case_insensitive() {
+        let cmd = parse_command(&s(&["--StAtLiSt"])).expect("--StAtLiSt should parse");
+        assert!(matches!(cmd, Command::StatList));
+    }
+
+    #[test]
     fn help_flag_after_any_verb_parses_as_help() {
         for cmdline in [
             vec!["optimize", "--help"],
@@ -1264,6 +1259,29 @@ mod tests {
             Command::BaseStats(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("my/gear.toml")));
+            }
+
+            #[test]
+            fn base_stats_flags_are_case_insensitive_and_preserve_values() {
+                let cmd = parse_command(&s(&["base-stats", "--ChArAcTeR", "ThAlYa", "--FiLe", "MiXeD/Path.toml"]))
+                    .expect("base-stats mixed-case flags should parse");
+                match cmd {
+                    Command::BaseStats(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
+                    }
+                    _ => panic!("expected base-stats command"),
+                }
+
+                let cmd = parse_command(&s(&["base-stats", "-C", "CharName", "-F", "Case/Path.toml"]))
+                    .expect("base-stats mixed-case short flags should parse");
+                match cmd {
+                    Command::BaseStats(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("CharName"));
+                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
+                    }
+                    _ => panic!("expected base-stats command"),
+                }
             }
             _ => panic!("expected base-stats command"),
         }
@@ -1330,6 +1348,29 @@ mod tests {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert!(!cli.force);
             }
+
+            #[test]
+            fn resolve_slots_flags_are_case_insensitive_and_preserve_values() {
+                let cmd = parse_command(&s(&["resolve-slots", "--ChArAcTeR", "ThAlYa", "--FoRcE"]))
+                    .expect("resolve-slots mixed-case flags should parse");
+                match cmd {
+                    Command::ResolveSlots(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                        assert!(cli.force);
+                    }
+                    _ => panic!("expected resolve-slots command"),
+                }
+
+                let cmd = parse_command(&s(&["resolve-slots", "-C", "RaWName", "-F"]))
+                    .expect("resolve-slots mixed-case short flags should parse");
+                match cmd {
+                    Command::ResolveSlots(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("RaWName"));
+                        assert!(cli.force);
+                    }
+                    _ => panic!("expected resolve-slots command"),
+                }
+            }
             _ => panic!("expected resolve-slots command"),
         }
     }
@@ -1392,6 +1433,25 @@ mod tests {
             Command::BuildDb(cli) => {
                 assert_eq!(cli.items, PathBuf::from("my/items.xml"));
                 assert_eq!(cli.out, PathBuf::from("my/out.json"));
+            }
+
+            #[test]
+            fn build_db_flags_are_case_insensitive_and_preserve_values() {
+                let cmd = parse_command(&s(&[
+                    "build-db",
+                    "--ItEmS",
+                    "MiXeD/Input.xml",
+                    "--OuT",
+                    "MiXeD/Output.json",
+                ]))
+                .expect("build-db mixed-case flags should parse");
+                match cmd {
+                    Command::BuildDb(cli) => {
+                        assert_eq!(cli.items, PathBuf::from("MiXeD/Input.xml"));
+                        assert_eq!(cli.out, PathBuf::from("MiXeD/Output.json"));
+                    }
+                    _ => panic!("expected build-db command"),
+                }
             }
             _ => panic!("expected build-db command"),
         }
@@ -1473,7 +1533,7 @@ mod tests {
     #[test]
     fn optimize_accepts_to_file_flag() {
         let cmd = parse_command(&s(&["optimize", "--toFile", "tm:1"]))
-            .expect("optimize -toFile should parse");
+            .expect("optimize --toFile should parse");
         match cmd {
             Command::Optimize(cli) => {
                 assert!(cli.to_file);
@@ -1502,6 +1562,46 @@ mod tests {
                 assert!(cli.to_file);
                 assert_eq!(cli.goals.len(), 1);
             }
+
+            #[test]
+            fn optimize_flags_are_case_insensitive_and_preserve_values() {
+                let cmd = parse_command(&s(&[
+                    "optimize",
+                    "--ChArAcTeR",
+                    "ThAlYa",
+                    "--FiLe",
+                    "MiXeD/Path.toml",
+                    "--BuIlDs-FiLe",
+                    "BuIlDs/MiXeD.toml",
+                    "--SaVe-BuIlD",
+                    "HeAlEr Build",
+                    "--ToFiLe",
+                    "tm:1",
+                ]))
+                .expect("optimize mixed-case flags should parse");
+                match cmd {
+                    Command::Optimize(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Path.toml")));
+                        assert_eq!(cli.builds_file, Some(PathBuf::from("BuIlDs/MiXeD.toml")));
+                        assert_eq!(cli.save_build.as_deref(), Some("HeAlEr Build"));
+                        assert!(cli.to_file);
+                        assert_eq!(cli.goals.len(), 1);
+                    }
+                    _ => panic!("expected optimize command"),
+                }
+
+                let cmd = parse_command(&s(&["optimize", "-C", "MiXeDName", "-F", "Case/Path.toml", "tm:1"]))
+                    .expect("optimize mixed-case short flags should parse");
+                match cmd {
+                    Command::Optimize(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("MiXeDName"));
+                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
+                        assert_eq!(cli.goals.len(), 1);
+                    }
+                    _ => panic!("expected optimize command"),
+                }
+            }
             _ => panic!("expected optimize command"),
         }
     }
@@ -1521,6 +1621,29 @@ mod tests {
                 assert_eq!(cli.build.as_deref(), Some("Healer"));
                 assert_eq!(cli.save_build.as_deref(), Some("Copy"));
                 assert!(cli.goals.is_empty());
+            }
+
+            #[test]
+            fn optimize_build_flag_is_case_insensitive_and_preserves_build_name() {
+                let cmd = parse_command(&s(&[
+                    "optimize",
+                    "--BuIlD",
+                    "HeAlEr Build",
+                    "--BuIlDs-FiLe",
+                    "MiXeD/Builds.toml",
+                    "--SaVe-BuIlD",
+                    "CoPy Build",
+                ]))
+                .expect("optimize mixed-case build flags should parse");
+                match cmd {
+                    Command::Optimize(cli) => {
+                        assert_eq!(cli.build.as_deref(), Some("HeAlEr Build"));
+                        assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
+                        assert_eq!(cli.save_build.as_deref(), Some("CoPy Build"));
+                        assert!(cli.goals.is_empty());
+                    }
+                    _ => panic!("expected optimize command"),
+                }
             }
             _ => panic!("expected optimize command"),
         }
@@ -1594,6 +1717,38 @@ mod tests {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
                 assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
+            }
+
+            #[test]
+            fn scrap_gear_flags_are_case_insensitive_and_preserve_values() {
+                let cmd = parse_command(&s(&[
+                    "scrap-gear",
+                    "--ChArAcTeR",
+                    "ThAlYa",
+                    "--FiLe",
+                    "MiXeD/Gear.toml",
+                    "--BuIlDs-FiLe",
+                    "MiXeD/Builds.toml",
+                ]))
+                .expect("scrap-gear mixed-case flags should parse");
+                match cmd {
+                    Command::ScrapGear(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
+                        assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Gear.toml")));
+                        assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
+                    }
+                    _ => panic!("expected scrap-gear command"),
+                }
+
+                let cmd = parse_command(&s(&["scrap-gear", "-C", "Name", "-F", "Case/Path.toml"]))
+                    .expect("scrap-gear mixed-case short flags should parse");
+                match cmd {
+                    Command::ScrapGear(cli) => {
+                        assert_eq!(cli.character.as_deref(), Some("Name"));
+                        assert_eq!(cli.file, Some(PathBuf::from("Case/Path.toml")));
+                    }
+                    _ => panic!("expected scrap-gear command"),
+                }
             }
             _ => panic!("expected scrap-gear command"),
         }
