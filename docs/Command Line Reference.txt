@@ -35,6 +35,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.1 General notes
   - Verbs are case-insensitive (for example: optimize, Optimize, OPTIMIZE).
+  - Switch names are also case-insensitive; switch values are not.
   - Verb aliases:
       build-db       | --build-db
       optimize       | --optimize       | -o

@@ -18,7 +18,7 @@ Short User Instructions (detailed instructions below)
 6. The bookmarklet builds a `*_gearStats.toml` file. (Scroll down to see it)
 7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
 8. Open a a command-line window on your computer and run `lgo resolve-slots`.
-9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. Add `--save-build <name>` if you want to keep that priority list for later re-use. Add `-toFile` if you also want .txt and .html report files saved for that run. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
+9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. Add `--save-build <name>` if you want to keep that priority list for later re-use. Add `--to-file` if you also want .txt and .html report files saved for that run. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
 10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool against every saved build and list the items not used in any saved build.
 
 
@@ -157,7 +157,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
     convention as build-db).
 
     By default, optimize prints the report only to the terminal.
-    If you add `-toFile` (case-sensitive), it also writes two copies of the report beside the canonical gear TOML, inside an LGO_Reports folder: one .txt and one self-contained .html file with matching lgo_GearReport_### names.
+    If you add `--to-file`, it also writes two copies of the report beside the canonical gear TOML, inside an LGO_Reports folder: one .txt and one self-contained .html file with matching lgo_GearReport_### names.
 
     If you know this goal list is one of your regular builds, add
 
@@ -182,7 +182,7 @@ If that doesn't work, click 'Select All', copy the text, paste it into a new fil
 
 11. Read the report printed to the terminal. It lists the chosen item
     for each gear slot, the resulting total for each tracked stat, and
-    the projected raw Base-stat pool. If you used `-toFile`, the same 
+    the projected raw Base-stat pool. If you used `--to-file`, the same 
     report is also saved in the LGO_Reports folder as both text and HTML.
 
 12. If you keep several saved builds, run:
