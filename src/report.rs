@@ -65,6 +65,35 @@ pub fn format_optimize_report(
     out
 }
 
+/// Add terminal-only ANSI colors to success/failure markers.
+///
+/// Keep this separate from `format_optimize_report` because that plain-text
+/// formatter is also used for `.txt` report files. If ANSI escape codes were
+/// inserted there, saved text reports would contain color-control characters.
+pub fn colorize_terminal_status_markers(report: &str) -> String {
+    const GREEN: &str = "\x1b[32m";
+    const RED: &str = "\x1b[31m";
+    const RESET: &str = "\x1b[0m";
+
+    let mut colored = String::with_capacity(report.len());
+    for ch in report.chars() {
+        match ch {
+            '✓' => {
+                colored.push_str(GREEN);
+                colored.push(ch);
+                colored.push_str(RESET);
+            }
+            '✗' => {
+                colored.push_str(RED);
+                colored.push(ch);
+                colored.push_str(RESET);
+            }
+            _ => colored.push(ch),
+        }
+    }
+    colored
+}
+
 /// Build a self-contained HTML optimize report.
 pub fn format_optimize_report_html(
     result: &OptimizeResult,
@@ -752,6 +781,16 @@ fn truncate(s: &str, max_chars: usize) -> String {
 mod tests {
     use super::*;
     use crate::gear::GearItem;
+
+
+    #[test]
+    fn terminal_status_markers_are_colored_without_changing_other_text() {
+        let colored = colorize_terminal_status_markers("✓ met\n✗ failed\n— ignored");
+
+        assert!(colored.contains("\x1b[32m✓\x1b[0m"));
+        assert!(colored.contains("\x1b[31m✗\x1b[0m"));
+        assert!(colored.contains("— ignored"));
+    }
 
     #[test]
     fn test_format_number() {
