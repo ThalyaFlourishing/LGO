@@ -461,7 +461,7 @@ fn run_optimize(cli: &OptimizeCli) {
         &timestamp,
         &projected_base_stats,
     );
-    print!("{}", text_report);
+    print!("{}", report::colorize_terminal_status_markers(&text_report));
 
     if let Some(build_name) = &cli.save_build {
         let builds_file = builds_file

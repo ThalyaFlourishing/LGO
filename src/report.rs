@@ -73,6 +73,7 @@ pub fn format_optimize_report(
 pub fn colorize_terminal_status_markers(report: &str) -> String {
     const GREEN: &str = "\x1b[32m";
     const RED: &str = "\x1b[31m";
+    const YELLOW: &str = "\x1b[33m";
     const RESET: &str = "\x1b[0m";
 
     let mut colored = String::with_capacity(report.len());
@@ -85,6 +86,11 @@ pub fn colorize_terminal_status_markers(report: &str) -> String {
             }
             '✗' => {
                 colored.push_str(RED);
+                colored.push(ch);
+                colored.push_str(RESET);
+            }
+            '⚠' => {
+                colored.push_str(YELLOW);
                 colored.push(ch);
                 colored.push_str(RESET);
             }
@@ -782,13 +788,13 @@ mod tests {
     use super::*;
     use crate::gear::GearItem;
 
-
     #[test]
     fn terminal_status_markers_are_colored_without_changing_other_text() {
-        let colored = colorize_terminal_status_markers("✓ met\n✗ failed\n— ignored");
+        let colored = colorize_terminal_status_markers("✓ met\n✗ failed\n⚠ warning\n— ignored");
 
         assert!(colored.contains("\x1b[32m✓\x1b[0m"));
         assert!(colored.contains("\x1b[31m✗\x1b[0m"));
+        assert!(colored.contains("\x1b[33m⚠\x1b[0m"));
         assert!(colored.contains("— ignored"));
     }
 
