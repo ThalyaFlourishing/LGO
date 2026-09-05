@@ -348,9 +348,7 @@ goals = ["tt:10"]
     assert!(stdout.contains("- healer: oh:10"));
     assert!(stdout.contains("- tank: tt:10"));
     assert!(stdout.contains("Items you can scrap:"));
-    assert!(stdout.contains(
-        "Items of which you have more than one, but only need one:"
-    ));
+    assert!(stdout.contains("Items of which you have more than one, but only need one:"));
     assert!(stdout.contains("    - Shared Focus"));
     assert!(stdout.contains("    - Unused Focus"));
     assert!(!stdout.contains("Items not used in any saved build"));
