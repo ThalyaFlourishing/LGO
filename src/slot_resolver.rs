@@ -563,11 +563,11 @@ fn build_virtues_table() -> Table {
 
 fn build_innate_stats_table(base_stats: &HashMap<Stat, i64>) -> Table {
     let mut table = Table::new();
-    ensure_table_header_note(&mut table, INNATE_STATS_NOTE);
     for (stat, key) in BASE_STATS {
         table.insert(key, value(base_stats.get(stat).copied().unwrap_or(0)));
         normalize_assignment_decor(&mut table, key);
     }
+    ensure_table_header_note(&mut table, INNATE_STATS_NOTE);
     table
 }
 
@@ -584,34 +584,49 @@ fn read_innate_base_stats(table: &Table) -> HashMap<Stat, i64> {
 }
 
 fn ensure_virtue_fields(table: &mut Table) {
-    ensure_table_header_note(table, VIRTUES_NOTE);
     for key in VIRTUE_FIELD_KEYS {
         if table.get(key).is_none() {
             table.insert(key, value(""));
         }
         normalize_assignment_decor(table, key);
     }
+    ensure_table_header_note(table, VIRTUES_NOTE);
 }
 
 fn ensure_table_header_note(table: &mut Table, note: &str) {
+    let Some(first_key) = table.iter().next().map(|(key, _)| key.to_string()) else {
+        return;
+    };
     let existing_suffix = table
         .decor()
         .suffix()
         .and_then(|suffix| suffix.as_str())
-        .unwrap_or("");
-    let mut kept_lines: Vec<&str> = Vec::new();
-    for line in existing_suffix.trim_start_matches('\n').lines() {
+        .unwrap_or("")
+        .trim_start_matches('\n')
+        .to_string();
+    let existing_prefix = table
+        .get_key_value(&first_key)
+        .map(|(key, _)| {
+            key.leaf_decor()
+                .prefix()
+                .and_then(|prefix| prefix.as_str())
+                .unwrap_or("")
+        })
+        .unwrap_or("")
+        .to_string();
+
+    let mut prefix = format!("{note}\n");
+    for line in format!("{existing_suffix}{existing_prefix}").lines() {
         if line != note {
-            kept_lines.push(line);
+            prefix.push_str(line);
+            prefix.push('\n');
         }
     }
 
-    let mut suffix = format!("\n{note}\n");
-    for line in kept_lines {
-        suffix.push_str(line);
-        suffix.push('\n');
+    table.decor_mut().set_suffix("");
+    if let Some((mut key, _)) = table.get_key_value_mut(&first_key) {
+        key.leaf_decor_mut().set_prefix(prefix);
     }
-    table.decor_mut().set_suffix(suffix);
 }
 
 /// Helper: bucket the input tables by canonical slot family (resolved) /
