@@ -20,7 +20,7 @@
   7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
   8. Open a command-line window on your computer and run `lgo resolve-slots`.
   9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. Add `--save-build <name>` if you want to keep that priority list for later re-use. Add `--to-file` if you also want .txt and .html report files saved for that run. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
-  10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool against every saved build and list the items not used in any saved build.
+  10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool against every saved build. It lists the saved builds first, then item names under `Items you can scrap:` and `Items of which you have more than one, but only need one:`.
 
 
 ============================
@@ -148,7 +148,7 @@
   
           lgo scrap-gear
   
-    This re-runs the optimizer once per saved build in `lgo_<character-name>_builds.toml` and lists the items not used in any saved build. The output is a live check against your current `gearReady.toml`; it does not read old report files. Treat the list as a starting point only — items not used in any saved build may still be near-misses.
+    This re-runs the optimizer once per saved build in `lgo_<character-name>_builds.toml` and lists the saved builds first. After that it prints two simple name-only sections: `Items you can scrap:` for items no saved build uses at all, and `Items of which you have more than one, but only need one:` for extra copies beyond the highest count any one saved build needs. The output is a live check against your current `gearReady.toml`; it does not read old report files.
   
 ===========
   Iteration
