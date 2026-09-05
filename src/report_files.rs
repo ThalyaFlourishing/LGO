@@ -1,10 +1,11 @@
-//! Optimize report file output.
+//! Report file output.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 const REPORTS_DIR: &str = "LGO_Reports";
 const STEM_PREFIX: &str = "lgo_GearReport_";
+const SCRAP_GEAR_STEM_PREFIX: &str = "lgo_ScrapGearReport_";
 
 #[derive(Debug, Clone)]
 pub struct ReportPaths {
@@ -46,6 +47,56 @@ pub fn write_optimize_report_files(
     })
 }
 
+pub fn write_scrap_gear_report_file(
+    input_file: &Path,
+    text_report: &str,
+) -> Result<PathBuf, String> {
+    let reports_dir = reports_dir_for(input_file);
+
+    fs::create_dir_all(&reports_dir).map_err(|e| {
+        format!(
+            "cannot create reports directory {}: {}",
+            reports_dir.display(),
+            e
+        )
+    })?;
+
+    let serial = highest_report_serial(&reports_dir)?.unwrap_or(0);
+    let text_path = choose_scrap_gear_report_path(&reports_dir, serial)?;
+
+    fs::write(&text_path, text_report)
+        .map_err(|e| format!("cannot write {}: {}", text_path.display(), e))?;
+
+    Ok(text_path)
+}
+
+fn reports_dir_for(input_file: &Path) -> PathBuf {
+    input_file
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+        .join(REPORTS_DIR)
+}
+
+fn choose_scrap_gear_report_path(reports_dir: &Path, serial: u16) -> Result<PathBuf, String> {
+    let base_stem = format!("{SCRAP_GEAR_STEM_PREFIX}{serial:03}");
+    let base_path = reports_dir.join(format!("{base_stem}.txt"));
+    if !base_path.exists() {
+        return Ok(base_path);
+    }
+
+    for suffix in 1..=9 {
+        let suffixed_path = reports_dir.join(format!("{base_stem}-{suffix}.txt"));
+        if !suffixed_path.exists() {
+            return Ok(suffixed_path);
+        }
+    }
+
+    Err(format!(
+        "all filenames from {base_stem}.txt through {base_stem}-9.txt already exist"
+    ))
+}
+
 fn choose_report_stem(reports_dir: &Path) -> Result<String, String> {
     let serial = next_serial(reports_dir)?;
     let base_stem = format!("{STEM_PREFIX}{serial:03}");
@@ -66,6 +117,15 @@ fn choose_report_stem(reports_dir: &Path) -> Result<String, String> {
 }
 
 fn next_serial(reports_dir: &Path) -> Result<u16, String> {
+    let highest = highest_report_serial(reports_dir)?;
+    Ok(match highest {
+        Some(999) => 0,
+        Some(serial) => serial + 1,
+        None => 0,
+    })
+}
+
+fn highest_report_serial(reports_dir: &Path) -> Result<Option<u16>, String> {
     let mut highest: Option<u16> = None;
     let entries = fs::read_dir(reports_dir).map_err(|e| {
         format!(
@@ -93,11 +153,7 @@ fn next_serial(reports_dir: &Path) -> Result<u16, String> {
         highest = Some(highest.map_or(serial, |current| current.max(serial)));
     }
 
-    Ok(match highest {
-        Some(999) => 0,
-        Some(serial) => serial + 1,
-        None => 0,
-    })
+    Ok(highest)
 }
 
 fn stem_is_available(reports_dir: &Path, stem: &str) -> bool {
@@ -355,6 +411,31 @@ mod tests {
         let err = write_optimize_report_files(&input, "text", "html").expect_err("must fail");
         assert!(err.contains("lgo_GearReport_000"));
         assert!(err.contains("-9"));
+    }
+
+    #[test]
+    fn scrap_gear_report_file_uses_highest_existing_gear_report_serial() {
+        let temp = TempDir::new();
+        let input = temp.input_file();
+        let reports_dir = temp.path.join(REPORTS_DIR);
+        fs::create_dir_all(&reports_dir).expect("reports dir");
+        fs::write(reports_dir.join("lgo_GearReport_008.txt"), "").expect("seed optimize txt");
+        fs::write(reports_dir.join("lgo_GearReport_008.html"), "").expect("seed optimize html");
+        fs::write(reports_dir.join("lgo_ScrapGearReport_099.txt"), "").expect("seed scrap txt");
+
+        let path =
+            write_scrap_gear_report_file(&input, "scrap report text").expect("write succeeds");
+
+        assert_eq!(
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .expect("utf-8 filename"),
+            "lgo_ScrapGearReport_008.txt"
+        );
+        assert_eq!(
+            fs::read_to_string(&path).expect("read scrap report"),
+            "scrap report text"
+        );
     }
 
     fn sample_optimize_result(name: &str) -> OptimizeResult {

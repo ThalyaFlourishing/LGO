@@ -353,17 +353,24 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
 
     let stats_file_display = stats_file.display().to_string();
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
-    print!(
-        "{}",
-        report::format_scrap_gear_report(
-            &character,
-            &class,
-            &stats_file_display,
-            &timestamp,
-            &evaluated_builds,
-            &unused_items,
-        )
+    let text_report = report::format_scrap_gear_report(
+        &character,
+        &class,
+        &stats_file_display,
+        &timestamp,
+        &evaluated_builds,
+        &unused_items,
     );
+    print!("{}", text_report);
+
+    match report_files::write_scrap_gear_report_file(&stats_file, &text_report) {
+        Ok(path) => {
+            println!("  Scrap-gear report written to: {}", path.display());
+        }
+        Err(err) => {
+            eprintln!("Warning: could not write scrap-gear report file: {}", err);
+        }
+    }
 }
 
 fn run_optimize(cli: &OptimizeCli) {

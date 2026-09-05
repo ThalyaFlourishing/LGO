@@ -164,7 +164,7 @@ pub fn format_optimize_report_html(
     .unwrap();
     writeln!(
         w,
-        "  <p class=\"meta\"><strong>Stats file:</strong> <code>{}</code></p>",
+        "  <p class=\"meta\"><strong>Gear List:</strong> <code>{}</code></p>",
         html_escape(input_file),
     )
     .unwrap();
@@ -358,10 +358,9 @@ pub fn format_scrap_gear_report(
     let w = &mut out;
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
-    writeln!(w).unwrap();
     writeln!(w, "  LGO — Saved-build item usage").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  Gear List: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
     writeln!(w).unwrap();
@@ -449,10 +448,9 @@ pub fn format_base_stats_report(
     let mut out = String::new();
     let w = &mut out;
 
-    writeln!(w).unwrap();
     writeln!(w, "  LGO — Innate Base Stats").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  Gear List: {}", input_file).unwrap();
     writeln!(w, "  {}", divider).unwrap();
 
     writeln!(w).unwrap();
@@ -507,10 +505,9 @@ fn write_header_text(
     timestamp: &str,
 ) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
-    writeln!(w).unwrap();
     writeln!(w, "  {}", REPORT_TITLE).unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Stats file: {}", input_file).unwrap();
+    writeln!(w, "  Gear List: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
 }
@@ -844,7 +841,7 @@ mod tests {
         );
 
         assert!(report.contains("Character : Thalya (Lore-master)"));
-        assert!(report.contains("Stats file: lgo_Thalya_gearReady.toml"));
+        assert!(report.contains("Gear List: lgo_Thalya_gearReady.toml"));
         assert!(report.contains("derivation inputs only"));
         for (name, value) in [
             ("Might", "5,300"),
