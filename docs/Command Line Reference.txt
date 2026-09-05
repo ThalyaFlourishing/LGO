@@ -49,6 +49,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       lgo --help
       lgo -h
       lgo help
+  - When entering the file path/names of alternate data files, if the file name or any of the folders in the path have spaces, you'll need to put quote marks around it. Also, if you are using a bash window, remember to change the back slashes to forward slashes.
 
 3.2 statlist
   lgo --statlist
@@ -60,7 +61,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       -----------------  ------------------
           ml             Morale
           pw             Power
-          am             Armor
+          am             Armour
           cr             CriticalRating
           fn             Finesse
           pm             PhysicalMastery
@@ -115,7 +116,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize --file <path> <stat:min> ...
   lgo optimize -f <path> <stat:min> ...
     Optimize using the explicit canonical gear TOML you provide.
-    The file is read directly; no plugindata input is needed.
+    The file is read directly; no plugindata input is needed. If the file name
+    or any of the folders in the path have spaces, you'll need to put quote
+    marks around it.
     Character and class are read from the TOML's top-level fields if present.
     Top-level [Virtues] values are matched case-insensitively, after trimming
     surrounding whitespace, against the top-level keys in data/lgo_virtues.json.
@@ -140,16 +143,20 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 
 
-  lgo optimize --toFile <stat:min> ...
+  lgo optimize --to-file <stat:min> ...
     Also write a plain-text report and a self-contained HTML report into an
     LGO_Reports sub-folder beside the canonical gear TOML (or beside the
     explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
     lgo_GearReport_###.html, with a shared serial number per run.
+    If the file name or any of the folders in the path have spaces, you'll 
+    need to put quote marks around it.
 
   lgo optimize --builds-file <path> ...
     Override saved-build discovery and use the explicit builds TOML you provide.
     This applies to both `--build <name>` and `--save-build <name>`.
-  
+    If the file name or any of the folders in the path have spaces, you'll 
+    need to put quote marks around it.
+
   lgo optimize --save-build <name> <stat:min> [<stat:min> ...]
     Run the optimization normally and also save those goals into the sibling
     file `lgo_<character>_builds.toml` beside the canonical gear TOML.
@@ -199,10 +206,14 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     `lgo_<character>_builds.toml` beside it. If the filename is custom-named,
     LGO falls back to the top-level `character = "..."` field in that TOML to
     determine the builds filename.
+    If the file name or any of the folders in the path have spaces, you'll 
+    need to put quote marks around it.
 
   lgo scrap-gear --builds-file <path>
     Override saved-build discovery and use the explicit builds TOML you
     provide.
+    If the file name or any of the folders in the path have spaces, you'll 
+    need to put quote marks around it.
 
 3.6 base-stats
   lgo base-stats
@@ -220,6 +231,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo base-stats --file <path>
   lgo base-stats -f <path>
     Read the explicit canonical gear TOML you provide.
+    If the file name or any of the folders in the path have spaces, you'll 
+    need to put quote marks around it.
 
 3.7 Stat goal syntax
   Goal format: <stat>:<minimum>

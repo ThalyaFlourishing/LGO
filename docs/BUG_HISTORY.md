@@ -13,7 +13,7 @@
 **Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. (Full design was in `docs/RESOLVER_DESIGN.md`, since removed; the surviving design rationale lives in `src/slot_resolver.rs`'s module and item docs.) Implementation:
 
 Observed examples:
-- `Faded Watcher's Bracers` — Armor 8631, Finesse 6583 — slot Unknown.
+- `Faded Watcher's Bracers` — Armour 8631, Finesse 6583 — slot Unknown.
 - `Resolute Sword of Old Eregion` — Finesse 4210 — slot Unknown.
 
 **Root cause** (confirmed from the Item_Tooltip template documentation):

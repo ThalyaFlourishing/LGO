@@ -2,12 +2,21 @@
 # LGO 2026, by Thalya
 # gearReady.toml updated: 08/23/26 15:43:20
 # _-=-_-=-_-=-_-=-_-=-_-=-_
+
+# If you want to hand-write all your stats, start with this template.
+# Copy an [[item]] block for each piece of gear you want to add to the pool.
+# Be sure the 'slot' value is correct and in the correct section.
+# E.G. Head items must go in the section which starts with < # --- Head --- >
+
 character = "<YOUR CHARACTER NAME HERE>"
 class = "<YOUR CLASS NAME HERE>"
 
 [InnateStats]
-# Raw Base stats (derivation inputs; resolve-slots fills these from plugindata).
-# Only the five raw Base stats belong in this block.
+# Add your raw base stats in this section. The in-game plug-in exports these values for you,
+# and the 'resolve-slots' command writes them to this file, but if you want to do it by hand,
+# you'll have to take off all your gear to find out what they are. Make sure you have no base-
+# stats buffs on when you do.
+
 Might              = 0
 Agility            = 0
 Vitality           = 0
@@ -15,6 +24,7 @@ Will               = 0
 Fate               = 0
 
 [Virtues]
+# These you must enter by hand. Write the name of each virtue between the quotes.
 Virtue1            = ""
 Virtue2            = ""
 Virtue3            = ""
@@ -26,7 +36,7 @@ Virtue5            = ""
 [[item]]
 slot = "Head"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -47,8 +57,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -69,13 +79,20 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+
+# To add another piece of head armour, copy the entire block of this first item
+# and paste it here:
+
+# [ HERE ]
+
+# That's it! Keep adding all your gear, one section at a time.
 
 # --- Chest ---
 
 [[item]]
 slot = "Chest"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -96,8 +113,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -124,7 +141,7 @@ Fate               = 0
 [[item]]
 slot = "Legs"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -145,8 +162,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -173,7 +190,7 @@ Fate               = 0
 [[item]]
 slot = "Hands"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -194,8 +211,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -222,7 +239,7 @@ Fate               = 0
 [[item]]
 slot = "Feet"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -243,8 +260,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -271,7 +288,7 @@ Fate               = 0
 [[item]]
 slot = "Shoulders"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -292,8 +309,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -320,7 +337,7 @@ Fate               = 0
 [[item]]
 slot = "Back"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -341,8 +358,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -369,7 +386,7 @@ Fate               = 0
 [[item]]
 slot = "Wrist"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -390,8 +407,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -418,7 +435,7 @@ Fate               = 0
 [[item]]
 slot = "Neck"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -439,8 +456,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -467,7 +484,7 @@ Fate               = 0
 [[item]]
 slot = "Finger"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -488,8 +505,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -516,7 +533,7 @@ Fate               = 0
 [[item]]
 slot = "Ear"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -537,8 +554,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -565,7 +582,7 @@ Fate               = 0
 [[item]]
 slot = "Pocket"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -586,8 +603,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -614,7 +631,7 @@ Fate               = 0
 [[item]]
 slot = "Main-hand"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -635,8 +652,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -660,10 +677,11 @@ Fate               = 0
 
 # --- Off-hand ---
 
+# This slot can be empty. Just remove this block if so.
 [[item]]
 slot = "Off-hand"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -684,8 +702,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -712,7 +730,7 @@ Fate               = 0
 [[item]]
 slot = "Ranged"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -733,8 +751,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -761,7 +779,7 @@ Fate               = 0
 [[item]]
 slot = "Class Item"
 name               = "<YOUR ITEM NAME HERE>"
-Morale             = 0
+Morale             = 0 # Item's stats go in this section
 Power              = 0
 Armor              = 0
 CriticalRating     = 0
@@ -782,8 +800,8 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
-[item.EssenceTotals]
-Morale             = 0
+    [item.EssenceTotals]
+Morale             = 0 # Item's essences' stats go here
 Power              = 0
 Armor              = 0
 CriticalRating     = 0

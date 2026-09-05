@@ -100,7 +100,7 @@ The TOML loader exact-matches against this list. Items with any other slot strin
 
 ### 4.2 The 16 tracked stats (canonical order)
 
-`Morale`, `Power`, `Armor`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
+`Morale`, `Power`, `Armour`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
 
 Two-letter CLI abbreviations: `ml pw am cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
@@ -132,7 +132,7 @@ slot               = "Head"
 name               = "Forgotten Elvish Healer's Hood"
 Morale             = 0
 Power              = 0
-Armor              = 0
+Armour             = 0
 CriticalRating     = 12345
 # ...all 16 tracked stats, canonical order...
 TacticalMitigation = 0
@@ -302,8 +302,8 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- Identify items which can be removed from pool
-- Construct HTML reports
+- Improve text input and output
+- Move output files to an 'LGO' program directory
 
 ---
 
