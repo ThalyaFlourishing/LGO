@@ -106,6 +106,19 @@ fn has_string_assignment_line(src: &str, key: &str, expected: &str) -> bool {
     })
 }
 
+fn assert_header_note_immediately_after(src: &str, header: &str, note: &str) {
+    let expected = format!("{header}\n{note}\n");
+    assert!(
+        src.contains(&expected),
+        "expected note immediately after {header}:\n{src}"
+    );
+    assert_eq!(
+        src.matches(note).count(),
+        1,
+        "expected note exactly once for {header}:\n{src}"
+    );
+}
+
 fn assert_stat_assignments_align_to_column_20(src: &str) {
     let keys = canonical_stat_keys();
     let mut saw_stat_line = false;
@@ -1494,6 +1507,16 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
             run,
             out
         );
+        assert_header_note_immediately_after(
+            &out,
+            "[InnateStats]",
+            "# Extracted by in-game plugin; do not edit.",
+        );
+        assert_header_note_immediately_after(
+            &out,
+            "[Virtues]",
+            "# Not extracted, you must add these yourself.",
+        );
     }
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -1571,6 +1594,16 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
         "zero export must still place Virtues after InnateStats and before items:\n{}",
         out
     );
+    assert_header_note_immediately_after(
+        &out,
+        "[InnateStats]",
+        "# Extracted by in-game plugin; do not edit.",
+    );
+    assert_header_note_immediately_after(
+        &out,
+        "[Virtues]",
+        "# Not extracted, you must add these yourself.",
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1623,6 +1656,16 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
             run,
             out
         );
+        assert_header_note_immediately_after(
+            &out,
+            "[InnateStats]",
+            "# Extracted by in-game plugin; do not edit.",
+        );
+        assert_header_note_immediately_after(
+            &out,
+            "[Virtues]",
+            "# Not extracted, you must add these yourself.",
+        );
         for key in VIRTUE_FIELD_KEYS {
             assert!(
                 has_string_assignment_line(&out, key, ""),
@@ -1667,8 +1710,8 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
 
     let first = std::fs::read_to_string(&canonical).expect("read canonical");
     let hand_edited = first.replace(
-        "[Virtues]\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
-        "[Virtues]\nVirtue1            = \"Wisdom\"\nVirtue3            = \" zeal \"\nVirtue5            = \"Honour\"\n",
+        "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
+        "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"Wisdom\"\nVirtue3            = \" zeal \"\nVirtue5            = \"Honour\"\n",
     );
     assert_ne!(hand_edited, first, "hand-edit must apply");
     std::fs::write(&canonical, hand_edited).expect("write edited canonical");
@@ -1688,6 +1731,16 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     assert!(has_string_assignment_line(&out, "Virtue3", " zeal "));
     assert!(has_string_assignment_line(&out, "Virtue4", ""));
     assert!(has_string_assignment_line(&out, "Virtue5", "Honour"));
+    assert_header_note_immediately_after(
+        &out,
+        "[InnateStats]",
+        "# Extracted by in-game plugin; do not edit.",
+    );
+    assert_header_note_immediately_after(
+        &out,
+        "[Virtues]",
+        "# Not extracted, you must add these yourself.",
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -38,6 +38,8 @@ const STAT_EQUALS_COLUMN: usize = 20;
 const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
 pub const UNRESOLVED_COMMENT_PREFIX: &str = "# UNRESOLVED:";
 pub const AUTO_PICKED_COMMENT_PREFIX: &str = "# AUTO-PICKED ";
+const INNATE_STATS_NOTE: &str = "# Extracted by in-game plugin; do not edit.";
+const VIRTUES_NOTE: &str = "# Not extracted, you must add these yourself.";
 
 // =============================================================================
 // ItemsDb — name → Slot index
@@ -565,6 +567,7 @@ fn build_innate_stats_table(base_stats: &HashMap<Stat, i64>) -> Table {
         table.insert(key, value(base_stats.get(stat).copied().unwrap_or(0)));
         normalize_assignment_decor(&mut table, key);
     }
+    ensure_table_header_note(&mut table, INNATE_STATS_NOTE);
     table
 }
 
@@ -586,6 +589,43 @@ fn ensure_virtue_fields(table: &mut Table) {
             table.insert(key, value(""));
         }
         normalize_assignment_decor(table, key);
+    }
+    ensure_table_header_note(table, VIRTUES_NOTE);
+}
+
+fn ensure_table_header_note(table: &mut Table, note: &str) {
+    let Some(first_key) = table.iter().next().map(|(key, _)| key.to_string()) else {
+        return;
+    };
+    let existing_suffix = table
+        .decor()
+        .suffix()
+        .and_then(|suffix| suffix.as_str())
+        .unwrap_or("")
+        .trim_start_matches('\n')
+        .to_string();
+    let existing_prefix = table
+        .get_key_value(&first_key)
+        .map(|(key, _)| {
+            key.leaf_decor()
+                .prefix()
+                .and_then(|prefix| prefix.as_str())
+                .unwrap_or("")
+        })
+        .unwrap_or("")
+        .to_string();
+
+    let mut prefix = format!("{note}\n");
+    for line in format!("{existing_suffix}{existing_prefix}").lines() {
+        if line != note {
+            prefix.push_str(line);
+            prefix.push('\n');
+        }
+    }
+
+    table.decor_mut().set_suffix("");
+    if let Some((mut key, _)) = table.get_key_value_mut(&first_key) {
+        key.leaf_decor_mut().set_prefix(prefix);
     }
 }
 
@@ -1410,6 +1450,7 @@ pub fn merge_into_canonical(
         {
             Some(prev_innate) => {
                 if innate_table_matches_canonical(prev_innate, &canonical_incoming_innate) {
+                    ensure_table_header_note(prev_innate, INNATE_STATS_NOTE);
                     normalize_existing_canonical_stat_decor(prev_innate);
                 } else {
                     *prev_innate = canonical_incoming_innate;
@@ -2266,6 +2307,19 @@ mod tests {
             };
             rest.trim_start_matches(' ') == expected
         })
+    }
+
+    fn assert_header_note_immediately_after(src: &str, header: &str, note: &str) {
+        let expected = format!("{header}\n{note}\n");
+        assert!(
+            src.contains(&expected),
+            "expected note immediately after {header}:\n{src}"
+        );
+        assert_eq!(
+            src.matches(note).count(),
+            1,
+            "expected note exactly once for {header}:\n{src}"
+        );
     }
 
     fn assert_stat_assignments_align_to_column_20(src: &str) {
@@ -4024,6 +4078,8 @@ Armor = 100\n";
                 label,
                 out
             );
+            assert_header_note_immediately_after(out, "[InnateStats]", INNATE_STATS_NOTE);
+            assert_header_note_immediately_after(out, "[Virtues]", VIRTUES_NOTE);
         }
         assert_eq!(
             strip_generated_timestamp_comment(&first),
@@ -4059,7 +4115,10 @@ Armor = 100\n";
 
         // Simulate a stale canonical file carrying an invalid extra key inside
         // [InnateStats].
-        let hand_edited = first.replace("[InnateStats]\n", "[InnateStats]\nCriticalRating = 25\n");
+        let hand_edited = first.replace(
+            "[InnateStats]\n# Extracted by in-game plugin; do not edit.\n",
+            "[InnateStats]\n# Extracted by in-game plugin; do not edit.\nCriticalRating = 25\n",
+        );
         assert_ne!(hand_edited, first, "hand-edit must apply");
 
         let fresh_base: HashMap<Stat, i64> = [(Stat::Might, 5300), (Stat::Fate, 4000)]
@@ -4124,6 +4183,7 @@ Armor = 100\n";
             "base keys must refresh to current export truth:\n{}",
             merged
         );
+        assert_header_note_immediately_after(&merged, "[InnateStats]", INNATE_STATS_NOTE);
     }
 
     #[test]
@@ -4144,8 +4204,8 @@ Armor = 100\n";
             .merged_text;
 
         let hand_edited = first.replace(
-            "[Virtues]\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
-            "[Virtues]\nVirtue1            = \"Wisdom\"\nVirtue3            = \" Zeal \"\nVirtue5            = \"Honour\"\n",
+            "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
+            "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"Wisdom\"\nVirtue3            = \" Zeal \"\nVirtue5            = \"Honour\"\n",
         );
         assert_ne!(hand_edited, first, "hand-edit must apply");
 
@@ -4177,6 +4237,7 @@ Armor = 100\n";
             virtues.get("Virtue4").and_then(|item| item.as_str()),
             Some("")
         );
+        assert_header_note_immediately_after(&merged, "[Virtues]", VIRTUES_NOTE);
     }
 
     #[test]
