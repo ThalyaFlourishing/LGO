@@ -44,21 +44,19 @@ pub fn format_optimize_report(
     let w = &mut out;
 
     write_header_text(w, character, class, input_file, timestamp);
+    write_feasibility_status_text(w, result.feasible);
 
     if !result.warnings.is_empty() {
         write_warnings_text(w, &result.warnings);
     }
 
-    write_gear_table_text(w, &result.gear_set);
     write_stat_summary_text(w, &result.gear_set, goals, &result.failed_minima);
+    write_gear_table_text(w, &result.gear_set);
     write_projected_tracked_stats_text(w, &result.gear_set);
     write_projected_base_stats_text(w, projected_base_stats);
 
-    if result.feasible {
-        writeln!(w).unwrap();
-        writeln!(w, "  ✓  All stat minima met.").unwrap();
-    } else {
-        write_infeasible_banner_text(w, &result.failed_minima);
+    if !result.feasible {
+        write_infeasible_details_text(w, &result.failed_minima);
     }
 
     writeln!(w).unwrap();
@@ -174,6 +172,7 @@ pub fn format_optimize_report_html(
         html_escape(timestamp),
     )
     .unwrap();
+    write_feasibility_status_html(w, result.feasible);
 
     if !result.warnings.is_empty() {
         writeln!(w, "  <h2>Warnings</h2>").unwrap();
@@ -182,6 +181,42 @@ pub fn format_optimize_report_html(
             writeln!(w, "    <li>⚠ {}</li>", html_escape(warning)).unwrap();
         }
         writeln!(w, "  </ul>").unwrap();
+    }
+
+    if !goals.is_empty() {
+        writeln!(w, "  <h2>Goal stat summary</h2>").unwrap();
+        writeln!(w, "  <table>").unwrap();
+        writeln!(
+            w,
+            "    <thead><tr><th>Stat</th><th class=\"num\">Goal</th><th class=\"num\">Total</th><th>Met?</th></tr></thead>"
+        )
+        .unwrap();
+        writeln!(w, "    <tbody>").unwrap();
+        for goal in goals {
+            let total = result.gear_set.total(&goal.stat);
+            let met_marker = goal_met_marker(goal.minimum, total);
+            let flag = if failed_stats.contains(&goal.stat) {
+                " ⚠"
+            } else {
+                ""
+            };
+            writeln!(
+                w,
+                "      <tr><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td>{}{}</td></tr>",
+                html_escape(&goal.stat.to_string()),
+                if goal.minimum > 0 {
+                    format_number(goal.minimum)
+                } else {
+                    "—".to_string()
+                },
+                format_number(total),
+                met_marker,
+                flag,
+            )
+            .unwrap();
+        }
+        writeln!(w, "    </tbody>").unwrap();
+        writeln!(w, "  </table>").unwrap();
     }
 
     writeln!(w, "  <h2>Recommended gear</h2>").unwrap();
@@ -209,42 +244,6 @@ pub fn format_optimize_report_html(
     }
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
-
-    if !goals.is_empty() {
-        writeln!(w, "  <h2>Goal stat summary</h2>").unwrap();
-        writeln!(w, "  <table>").unwrap();
-        writeln!(
-            w,
-            "    <thead><tr><th>Stat</th><th class=\"num\">Total</th><th class=\"num\">Minimum</th><th>Met?</th></tr></thead>"
-        )
-        .unwrap();
-        writeln!(w, "    <tbody>").unwrap();
-        for goal in goals {
-            let total = result.gear_set.total(&goal.stat);
-            let met_marker = goal_met_marker(goal.minimum, total);
-            let flag = if failed_stats.contains(&goal.stat) {
-                " ⚠"
-            } else {
-                ""
-            };
-            writeln!(
-                w,
-                "      <tr><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td>{}{}</td></tr>",
-                html_escape(&goal.stat.to_string()),
-                format_number(total),
-                if goal.minimum > 0 {
-                    format_number(goal.minimum)
-                } else {
-                    "—".to_string()
-                },
-                met_marker,
-                flag,
-            )
-            .unwrap();
-        }
-        writeln!(w, "    </tbody>").unwrap();
-        writeln!(w, "  </table>").unwrap();
-    }
 
     writeln!(w, "  <h2>Projected tracked stats</h2>").unwrap();
     writeln!(
@@ -296,18 +295,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
 
-    if result.feasible {
-        writeln!(
-            w,
-            "  <p class=\"banner feasible\">✓ All stat minima met.</p>"
-        )
-        .unwrap();
-    } else {
-        writeln!(
-            w,
-            "  <div class=\"banner infeasible\">✗ INFEASIBLE — not all stat minima can be met ✗</div>"
-        )
-        .unwrap();
+    if !result.feasible {
         writeln!(
             w,
             "  <p>The following stats could not reach their minima with any combination of the available items:</p>"
@@ -512,6 +500,17 @@ fn write_header_text(
     writeln!(w, "  {}", divider).unwrap();
 }
 
+fn write_feasibility_status_text(w: &mut String, feasible: bool) {
+    writeln!(w).unwrap();
+    if feasible {
+        writeln!(w, "  ✓  All stat minima met.").unwrap();
+    } else {
+        writeln!(w, "  ════════════════════════════════════════════════").unwrap();
+        writeln!(w, "  ✗  INFEASIBLE — not all stat minima can be met ✗").unwrap();
+        writeln!(w, "  ════════════════════════════════════════════════").unwrap();
+    }
+}
+
 fn write_warnings_text(w: &mut String, warnings: &[String]) {
     writeln!(w).unwrap();
     writeln!(w, "  WARNINGS:").unwrap();
@@ -525,6 +524,8 @@ fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
     writeln!(w).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+    writeln!(w, "  Recommended Gear:").unwrap();
     writeln!(w, "  {:>12}  Recommended Item", "Slot").unwrap();
     writeln!(w, "  {}", divider).unwrap();
 
@@ -580,12 +581,14 @@ fn write_stat_summary_text(
     let divider = "─".repeat(COL_STAT + COL_VALUE + COL_MIN + 11);
 
     writeln!(w).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+    writeln!(w, "  Goal Stat Summary:").unwrap();
     writeln!(
         w,
         "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  Met?",
         "Stat",
+        "Goal",
         "Total",
-        "Minimum",
         COL_STAT = COL_STAT,
         COL_VALUE = COL_VALUE,
         COL_MIN = COL_MIN,
@@ -606,12 +609,12 @@ fn write_stat_summary_text(
             w,
             "  {:<COL_STAT$}  {:>COL_VALUE$}  {:>COL_MIN$}  {}{}",
             format!("{}", goal.stat),
-            format_number(total),
             if goal.minimum > 0 {
                 format_number(goal.minimum)
             } else {
                 "—".to_string()
             },
+            format_number(total),
             met_marker,
             flag,
             COL_STAT = COL_STAT,
@@ -670,11 +673,7 @@ fn write_projected_base_stats_text(w: &mut String, projected_base_stats: &HashMa
     writeln!(w, "  {}", divider).unwrap();
 }
 
-fn write_infeasible_banner_text(w: &mut String, failed_minima: &[(Stat, i64, i64)]) {
-    writeln!(w).unwrap();
-    writeln!(w, "  ════════════════════════════════════════════════").unwrap();
-    writeln!(w, "  ✗  INFEASIBLE — not all stat minima can be met ✗").unwrap();
-    writeln!(w, "  ════════════════════════════════════════════════").unwrap();
+fn write_infeasible_details_text(w: &mut String, failed_minima: &[(Stat, i64, i64)]) {
     writeln!(w).unwrap();
     writeln!(w, "  The following stats could not reach their minima").unwrap();
     writeln!(w, "  with any combination of the available items:").unwrap();
@@ -708,6 +707,22 @@ fn write_infeasible_banner_text(w: &mut String, failed_minima: &[(Stat, i64, i64
     )
     .unwrap();
     writeln!(w, "  goals still short of target.").unwrap();
+}
+
+fn write_feasibility_status_html(w: &mut String, feasible: bool) {
+    if feasible {
+        writeln!(
+            w,
+            "  <p class=\"banner feasible\">✓ All stat minima met.</p>"
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            w,
+            "  <div class=\"banner infeasible\">✗ INFEASIBLE — not all stat minima can be met ✗</div>"
+        )
+        .unwrap();
+    }
 }
 
 fn goal_met_marker(minimum: i64, total: i64) -> &'static str {
@@ -908,6 +923,75 @@ mod tests {
     }
 
     #[test]
+    fn text_optimize_report_uses_section_headers_and_new_order() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 1000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+        );
+
+        assert!(report.contains("Goal Stat Summary:"));
+        assert!(report.contains("Recommended Gear:"));
+        assert!(
+            report.find("✓  All stat minima met.")
+                .expect("status present")
+                < report.find("Goal Stat Summary:").expect("goal summary present")
+        );
+        assert!(
+            report.find("Goal Stat Summary:").expect("goal summary present")
+                < report
+                    .find("Recommended Gear:")
+                    .expect("recommended gear present")
+        );
+        assert!(report.contains("Stat                         Goal       Total  Met?"));
+        assert!(!report.contains("Stat                         Total     Minimum  Met?"));
+        assert!(report.contains("Morale                       1,000      1,250  ✓"));
+        assert_eq!(report.matches("✓  All stat minima met.").count(), 1);
+    }
+
+    #[test]
+    fn infeasible_text_report_shows_single_top_banner_and_lower_details() {
+        let report = format_optimize_report(
+            &infeasible_optimize_result(),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 2000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+        );
+
+        assert_eq!(
+            report
+                .matches("✗  INFEASIBLE — not all stat minima can be met ✗")
+                .count(),
+            1
+        );
+        assert!(
+            report
+                .find("✗  INFEASIBLE — not all stat minima can be met ✗")
+                .expect("banner present")
+                < report.find("Goal Stat Summary:").expect("goal summary present")
+        );
+        assert!(
+            report
+                .find("The following stats could not reach their minima")
+                .expect("details present")
+                > report.find("Projected raw Base stats").expect("base stats present")
+        );
+    }
+
+    #[test]
     fn html_report_escapes_item_names() {
         let report = format_optimize_report_html(
             &sample_optimize_result_with_name("Shield <&> \"Quote\" 'Single'"),
@@ -926,6 +1010,38 @@ mod tests {
         assert!(report.contains("&quot;Quote&quot;"));
         assert!(report.contains("&#39;Single&#39;"));
         assert!(report.contains("<meta charset=\"utf-8\">"));
+    }
+
+    #[test]
+    fn html_optimize_report_uses_new_order_and_goal_headers() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 1000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+        );
+
+        assert!(
+            report.find("✓ All stat minima met.").expect("status present")
+                < report.find("<h2>Goal stat summary</h2>").expect("goal summary present")
+        );
+        assert!(
+            report
+                .find("<h2>Goal stat summary</h2>")
+                .expect("goal summary present")
+                < report.find("<h2>Recommended gear</h2>").expect("gear section present")
+        );
+        assert!(report.contains(
+            "<thead><tr><th>Stat</th><th class=\"num\">Goal</th><th class=\"num\">Total</th><th>Met?</th></tr></thead>"
+        ));
+        assert!(!report.contains("Minimum"));
+        assert_eq!(report.matches("✓ All stat minima met.").count(), 1);
     }
 
     #[test]
@@ -1070,6 +1186,13 @@ mod tests {
             failed_minima: Vec::new(),
             warnings: Vec::new(),
         }
+    }
+
+    fn infeasible_optimize_result() -> OptimizeResult {
+        let mut result = sample_optimize_result();
+        result.feasible = false;
+        result.failed_minima = vec![(Stat::Morale, 2000, 1250)];
+        result
     }
 
     fn projected_tracked_stat_value(report: &str, stat_name: &str) -> Option<i64> {
