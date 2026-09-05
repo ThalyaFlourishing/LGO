@@ -357,50 +357,26 @@ pub fn format_scrap_gear_report(
         writeln!(w, "    - {}: {}", name, format_goal_list(goals)).unwrap();
     }
     writeln!(w).unwrap();
-    writeln!(w, "  Items not used in any saved build").unwrap();
-    writeln!(w, "  These items may still be near-misses.").unwrap();
+    let mut scrapable_items: Vec<&ScrapUnusedItem> = unused_items
+        .iter()
+        .filter(|item| item.max_used_count == 0)
+        .collect();
+    let mut extra_copy_items: Vec<&ScrapUnusedItem> = unused_items
+        .iter()
+        .filter(|item| item.max_used_count > 0 && item.owned_count > item.max_used_count)
+        .collect();
+    scrapable_items.sort_by(item_usage_sort_key);
+    extra_copy_items.sort_by(item_usage_sort_key);
 
-    if unused_items.is_empty() {
-        writeln!(w).unwrap();
-        writeln!(
-            w,
-            "  All current items are used by at least one saved build."
-        )
-        .unwrap();
-        writeln!(w).unwrap();
-        return out;
-    }
-
-    let mut seen_slot_families = HashSet::new();
-    for slot in Slot::all() {
-        if !seen_slot_families.insert(slot.display_name()) {
-            continue;
-        }
-        let mut slot_items: Vec<&ScrapUnusedItem> = unused_items
-            .iter()
-            .filter(|item| item.slot.display_name() == slot.display_name())
-            .collect();
-        if slot_items.is_empty() {
-            continue;
-        }
-        slot_items.sort_by(|left, right| left.name.cmp(&right.name));
-
-        writeln!(w).unwrap();
-        writeln!(w, "  {}:", slot.display_name()).unwrap();
-        for item in slot_items {
-            let unused_count = item.owned_count.saturating_sub(item.max_used_count);
-            writeln!(
-                w,
-                "    - {} — {} owned, at most {} used in any build ({} {} not used in any saved build)",
-                item.name,
-                item.owned_count,
-                item.max_used_count,
-                unused_count,
-                copy_word(unused_count),
-            )
-            .unwrap();
-        }
-    }
+    writeln!(w, "  Items you can scrap:").unwrap();
+    write_name_only_item_list(w, &scrapable_items);
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Items of which you have more than one, but only need one:"
+    )
+    .unwrap();
+    write_name_only_item_list(w, &extra_copy_items);
 
     writeln!(w).unwrap();
     out
@@ -776,12 +752,27 @@ fn format_number(n: i64) -> String {
     }
 }
 
-fn copy_word(n: usize) -> &'static str {
-    if n == 1 {
-        "copy"
-    } else {
-        "copies"
+fn write_name_only_item_list(w: &mut String, items: &[&ScrapUnusedItem]) {
+    if items.is_empty() {
+        writeln!(w, "    - None").unwrap();
+        return;
     }
+
+    for item in items {
+        writeln!(w, "    - {}", item.name).unwrap();
+    }
+}
+
+fn item_usage_sort_key(left: &&ScrapUnusedItem, right: &&ScrapUnusedItem) -> std::cmp::Ordering {
+    slot_family_order(left.slot)
+        .cmp(&slot_family_order(right.slot))
+        .then_with(|| left.name.cmp(&right.name))
+}
+
+fn slot_family_order(slot: Slot) -> usize {
+    Slot::all()
+        .position(|candidate| candidate.display_name() == slot.display_name())
+        .unwrap_or(usize::MAX)
 }
 
 /// Truncate a string to `max_chars`, appending "…" if truncated.
@@ -1123,7 +1114,7 @@ mod tests {
     }
 
     #[test]
-    fn scrap_gear_report_lists_builds_and_unused_copies() {
+    fn scrap_gear_report_lists_builds_and_simple_item_sections() {
         let report = format_scrap_gear_report(
             "Thalya",
             "Lore-master",
@@ -1151,25 +1142,40 @@ mod tests {
                     }],
                 ),
             ],
-            &[ScrapUnusedItem {
-                slot: Slot::Finger1,
-                name: "Keen Pristine Madáshi Ring".to_string(),
-                owned_count: 2,
-                max_used_count: 1,
-            }],
+            &[
+                ScrapUnusedItem {
+                    slot: Slot::Head,
+                    name: "Unworn Hood".to_string(),
+                    owned_count: 1,
+                    max_used_count: 0,
+                },
+                ScrapUnusedItem {
+                    slot: Slot::Finger1,
+                    name: "Keen Pristine Madáshi Ring".to_string(),
+                    owned_count: 2,
+                    max_used_count: 1,
+                },
+            ],
         );
 
         assert!(report.contains("Saved builds evaluated:"));
         assert!(report.contains("- healer: oh:200000, cr:350000"));
         assert!(report.contains("- tank: tt:450000"));
-        assert!(report.contains("Items not used in any saved build"));
-        assert!(report.contains(
-            "Keen Pristine Madáshi Ring — 2 owned, at most 1 used in any build (1 copy not used in any saved build)"
-        ));
+        assert!(report.contains("LGO — Saved-build item usage"));
+        assert!(report.contains("Items you can scrap:"));
+        assert!(report.contains("Items of which you have more than one, but only need one:"));
+        assert!(report.contains("    - Unworn Hood"));
+        assert!(report.contains("    - Keen Pristine Madáshi Ring"));
+        assert!(!report.contains("  Head:"));
+        assert!(!report.contains("  Finger:"));
+        assert!(!report.contains("owned"));
+        assert!(!report.contains("at most"));
+        assert!(!report.contains("copy not used"));
+        assert!(!report.contains("near-misses"));
     }
 
     #[test]
-    fn scrap_gear_report_handles_fully_used_pool() {
+    fn scrap_gear_report_shows_none_for_empty_sections() {
         let report = format_scrap_gear_report(
             "Thalya",
             "Lore-master",
@@ -1185,7 +1191,67 @@ mod tests {
             &[],
         );
 
-        assert!(report.contains("All current items are used by at least one saved build."));
+        assert!(report.contains("Items you can scrap:"));
+        assert!(report.contains("Items of which you have more than one, but only need one:"));
+        assert_eq!(report.matches("    - None").count(), 2);
+    }
+
+    #[test]
+    fn scrap_gear_report_keeps_deterministic_slot_then_name_order_without_headers() {
+        let report = format_scrap_gear_report(
+            "Thalya",
+            "Lore-master",
+            "gear.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[(
+                "healer".to_string(),
+                vec![StatGoal {
+                    stat: Stat::OutgoingHealing,
+                    minimum: 200000,
+                }],
+            )],
+            &[
+                ScrapUnusedItem {
+                    slot: Slot::Finger2,
+                    name: "Beta Ring".to_string(),
+                    owned_count: 1,
+                    max_used_count: 0,
+                },
+                ScrapUnusedItem {
+                    slot: Slot::Head,
+                    name: "Alpha Hood".to_string(),
+                    owned_count: 1,
+                    max_used_count: 0,
+                },
+                ScrapUnusedItem {
+                    slot: Slot::Finger1,
+                    name: "Alpha Ring".to_string(),
+                    owned_count: 1,
+                    max_used_count: 0,
+                },
+                ScrapUnusedItem {
+                    slot: Slot::Feet,
+                    name: "Gamma Boots".to_string(),
+                    owned_count: 2,
+                    max_used_count: 1,
+                },
+            ],
+        );
+
+        let alpha_hood = report.find("    - Alpha Hood").expect("head item present");
+        let alpha_ring = report
+            .find("    - Alpha Ring")
+            .expect("finger item present");
+        let beta_ring = report
+            .find("    - Beta Ring")
+            .expect("second finger item present");
+        let gamma_boots = report
+            .find("    - Gamma Boots")
+            .expect("duplicate item present");
+
+        assert!(alpha_hood < alpha_ring);
+        assert!(alpha_ring < beta_ring);
+        assert!(beta_ring < gamma_boots);
     }
 
     fn sample_optimize_result() -> OptimizeResult {

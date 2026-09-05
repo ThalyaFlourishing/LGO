@@ -179,18 +179,19 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
     `lgo_<character>_builds.toml`, re-runs the live optimizer once per saved
     build, then lists the items not used in any saved build. The output first
-    lists every build evaluated (name plus goals in priority order), then groups
-    the unused items by slot in canonical order. It prints only to the terminal;
-    no LGO_Reports files are written.
+  lists every build evaluated (name plus goals in priority order), then shows
+  two simple name-only sections: `Items you can scrap:` for items used by no
+  saved build, and `Items of which you have more than one, but only need
+  one:` for duplicate-owned items whose extra copies are never needed. It
+  prints only to the terminal; no LGO_Reports files are written.
 
-    Count-aware duplicate handling: for each item name, `scrap-gear` compares
-    how many copies you own against the maximum number of copies used by any
-    one saved build. Example:
-     Keen Pristine Madáshi Ring — 2 owned, at most 1 used in any build
-     (1 copy not used in any saved build)
+  Count-aware duplicate handling: for each item name, `scrap-gear` compares
+  how many copies you own against the maximum number of copies used by any
+  one saved build. The report shows item names only, but the underlying
+  duplicate-aware accounting is unchanged.
 
-    Empty-slot placeholders, `(2-handed item)` off-hand lines, and `NO ITEMS`
-    placeholders are never counted as items.
+  Empty-slot placeholders, `(2-handed item)` off-hand lines, and `NO ITEMS`
+  placeholders are never counted as items.
 
     If the builds file is missing, empty, or malformed, the command errors
     clearly and tells you to save a build with:
