@@ -347,14 +347,15 @@ goals = ["tt:10"]
     assert!(stdout.contains("Saved builds evaluated:"));
     assert!(stdout.contains("- healer: oh:10"));
     assert!(stdout.contains("- tank: tt:10"));
-    assert!(stdout.contains("Items not used in any saved build"));
-    assert!(stdout.contains("These items may still be near-misses."));
+    assert!(stdout.contains("Items you can scrap:"));
     assert!(stdout.contains(
-        "Shared Focus — 2 owned, at most 1 used in any build (1 copy not used in any saved build)"
+        "Items of which you have more than one, but only need one:"
     ));
-    assert!(stdout.contains(
-        "Unused Focus — 1 owned, at most 0 used in any build (1 copy not used in any saved build)"
-    ));
+    assert!(stdout.contains("    - Shared Focus"));
+    assert!(stdout.contains("    - Unused Focus"));
+    assert!(!stdout.contains("Items not used in any saved build"));
+    assert!(!stdout.contains("near-misses"));
+    assert!(!stdout.contains("owned, at most"));
 
     fs::remove_dir_all(&dir).expect("cleanup");
 }

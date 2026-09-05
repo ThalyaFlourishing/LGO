@@ -371,7 +371,11 @@ pub fn format_scrap_gear_report(
     writeln!(w, "  Items you can scrap:").unwrap();
     write_name_only_item_list(w, &scrapable_items);
     writeln!(w).unwrap();
-    writeln!(w, "  Items of which you have more than one, but only need one:").unwrap();
+    writeln!(
+        w,
+        "  Items of which you have more than one, but only need one:"
+    )
+    .unwrap();
     write_name_only_item_list(w, &extra_copy_items);
 
     writeln!(w).unwrap();
@@ -767,7 +771,6 @@ fn item_usage_sort_key(left: &&ScrapUnusedItem, right: &&ScrapUnusedItem) -> std
 
 fn slot_family_order(slot: Slot) -> usize {
     Slot::all()
-        .iter()
         .position(|candidate| candidate.display_name() == slot.display_name())
         .unwrap_or(usize::MAX)
 }
@@ -1139,17 +1142,20 @@ mod tests {
                     }],
                 ),
             ],
-            &[ScrapUnusedItem {
-                slot: Slot::Head,
-                name: "Unworn Hood".to_string(),
-                owned_count: 1,
-                max_used_count: 0,
-            }, ScrapUnusedItem {
-                slot: Slot::Finger1,
-                name: "Keen Pristine Madáshi Ring".to_string(),
-                owned_count: 2,
-                max_used_count: 1,
-            }],
+            &[
+                ScrapUnusedItem {
+                    slot: Slot::Head,
+                    name: "Unworn Hood".to_string(),
+                    owned_count: 1,
+                    max_used_count: 0,
+                },
+                ScrapUnusedItem {
+                    slot: Slot::Finger1,
+                    name: "Keen Pristine Madáshi Ring".to_string(),
+                    owned_count: 2,
+                    max_used_count: 1,
+                },
+            ],
         );
 
         assert!(report.contains("Saved builds evaluated:"));
@@ -1233,9 +1239,15 @@ mod tests {
         );
 
         let alpha_hood = report.find("    - Alpha Hood").expect("head item present");
-        let alpha_ring = report.find("    - Alpha Ring").expect("finger item present");
-        let beta_ring = report.find("    - Beta Ring").expect("second finger item present");
-        let gamma_boots = report.find("    - Gamma Boots").expect("duplicate item present");
+        let alpha_ring = report
+            .find("    - Alpha Ring")
+            .expect("finger item present");
+        let beta_ring = report
+            .find("    - Beta Ring")
+            .expect("second finger item present");
+        let gamma_boots = report
+            .find("    - Gamma Boots")
+            .expect("duplicate item present");
 
         assert!(alpha_hood < alpha_ring);
         assert!(alpha_ring < beta_ring);
