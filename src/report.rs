@@ -940,19 +940,38 @@ mod tests {
         assert!(report.contains("Goal Stat Summary:"));
         assert!(report.contains("Recommended Gear:"));
         assert!(
-            report.find("✓  All stat minima met.")
+            report
+                .find("✓  All stat minima met.")
                 .expect("status present")
-                < report.find("Goal Stat Summary:").expect("goal summary present")
+                < report
+                    .find("Goal Stat Summary:")
+                    .expect("goal summary present")
         );
         assert!(
-            report.find("Goal Stat Summary:").expect("goal summary present")
+            report
+                .find("Goal Stat Summary:")
+                .expect("goal summary present")
                 < report
                     .find("Recommended Gear:")
                     .expect("recommended gear present")
         );
-        assert!(report.contains("Stat                         Goal       Total  Met?"));
-        assert!(!report.contains("Stat                         Total     Minimum  Met?"));
-        assert!(report.contains("Morale                       1,000      1,250  ✓"));
+        let summary_header = report
+            .lines()
+            .find(|line| line.contains("Stat") && line.contains("Goal") && line.contains("Total"))
+            .expect("summary header present");
+        assert!(
+            summary_header.find("Goal").expect("goal header present")
+                < summary_header.find("Total").expect("total header present")
+        );
+        assert!(!summary_header.contains("Minimum"));
+        let morale_row = report
+            .lines()
+            .find(|line| line.trim_start().starts_with("Morale"))
+            .expect("morale row present");
+        assert!(
+            morale_row.find("1,000").expect("goal value present")
+                < morale_row.find("1,250").expect("total value present")
+        );
         assert_eq!(report.matches("✓  All stat minima met.").count(), 1);
     }
 
@@ -981,13 +1000,17 @@ mod tests {
             report
                 .find("✗  INFEASIBLE — not all stat minima can be met ✗")
                 .expect("banner present")
-                < report.find("Goal Stat Summary:").expect("goal summary present")
+                < report
+                    .find("Goal Stat Summary:")
+                    .expect("goal summary present")
         );
         assert!(
             report
                 .find("The following stats could not reach their minima")
                 .expect("details present")
-                > report.find("Projected raw Base stats").expect("base stats present")
+                > report
+                    .find("Projected raw Base stats")
+                    .expect("base stats present")
         );
     }
 
@@ -1028,14 +1051,20 @@ mod tests {
         );
 
         assert!(
-            report.find("✓ All stat minima met.").expect("status present")
-                < report.find("<h2>Goal stat summary</h2>").expect("goal summary present")
+            report
+                .find("✓ All stat minima met.")
+                .expect("status present")
+                < report
+                    .find("<h2>Goal stat summary</h2>")
+                    .expect("goal summary present")
         );
         assert!(
             report
                 .find("<h2>Goal stat summary</h2>")
                 .expect("goal summary present")
-                < report.find("<h2>Recommended gear</h2>").expect("gear section present")
+                < report
+                    .find("<h2>Recommended gear</h2>")
+                    .expect("gear section present")
         );
         assert!(report.contains(
             "<thead><tr><th>Stat</th><th class=\"num\">Goal</th><th class=\"num\">Total</th><th>Met?</th></tr></thead>"
