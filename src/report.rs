@@ -118,7 +118,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
     writeln!(w, "  <title>{}</title>", html_escape(REPORT_TITLE)).unwrap();
     writeln!(w, "  <style>").unwrap();
-    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #fff; }}").unwrap();
+    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #cde; }}").unwrap();
     writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
     writeln!(w, "    p.meta {{ margin: 0.2rem 0; }}").unwrap();
     writeln!(
@@ -126,7 +126,7 @@ pub fn format_optimize_report_html(
         "    table {{ border-collapse: collapse; margin: 1rem 0 1.5rem; min-width: 32rem; }}"
     )
     .unwrap();
-    writeln!(w, "    th, td {{ border: 1px solid #c9c9c9; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }}").unwrap();
+    writeln!(w, "    th, td {{ border: 1px solid #8888CC; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }}").unwrap();
     writeln!(
         w,
         "    th.num, td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}"
@@ -135,12 +135,12 @@ pub fn format_optimize_report_html(
     writeln!(w, "    .banner {{ font-weight: 700; padding: 0.75rem 1rem; border-radius: 0.35rem; margin: 1.25rem 0; }}").unwrap();
     writeln!(
         w,
-        "    .feasible {{ background: #edf9ed; border: 1px solid #9fcd9f; }}"
+        "    .feasible {{ background: #ccffcc; border: 1px solid #9fcd9f; }}"
     )
     .unwrap();
     writeln!(
         w,
-        "    .infeasible {{ background: #fff1f1; border: 1px solid #d79b9b; }}"
+        "    .infeasible {{ background: #ffBBBB; border: 1px solid #d79b9b; }}"
     )
     .unwrap();
     writeln!(w, "    ul {{ margin-top: 0.4rem; }}").unwrap();
