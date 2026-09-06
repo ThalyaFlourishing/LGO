@@ -1116,7 +1116,8 @@ fn print_usage() {
     println!("  --statlist          Print stat abbreviations and full stat names");
     println!();
     println!("Options (optimize):");
-    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --character <name>  Character name; selects the <name>_Gear folder");
+    println!("                      (auto-detected when only one exists)");
     println!(
         "  --file      <path>  Explicit canonical gear TOML to optimize instead of auto-detect"
     );
@@ -1127,15 +1128,19 @@ fn print_usage() {
     println!();
     println!("  `--build` may not be combined with positional goals.");
     println!();
-    println!("  optimize requires data/base_stat_derivations.json (resolved relative to the");
-    println!("  current directory) to derive Base-stat contributions before optimization.");
-    println!("  If [Virtues] contains any non-empty selections, optimize also resolves them");
-    println!("  against data/lgo_virtues.json in that same data/ folder.");
-    println!("  By default optimize prints only to the terminal; add --to-file to also");
-    println!("  write matching .txt and .html reports into LGO_Reports beside the gear TOML.");
+    println!("  All paths resolve from the install directory (the folder containing lgo.exe).");
+    println!("  Characters live in <install>\\<CharacterName>_Gear folders; when several");
+    println!("  exist the most recently updated is chosen and announced. optimize requires");
+    println!("  data\\base_stat_derivations.json in <install>\\data to derive Base-stat");
+    println!("  contributions before optimization. If [Virtues] contains any non-empty");
+    println!("  selections, optimize also resolves them against data\\lgo_virtues.json.");
+    println!("  By default optimize prints only to the terminal; add --to-file to also write");
+    println!("  matching .txt and .html reports into <install>\\<CharacterName>_Gear\\");
+    println!("  <CharacterName>_Reports.");
     println!();
     println!("Options (scrap-gear):");
-    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --character <name>  Character name; selects the <name>_Gear folder");
+    println!("                      (auto-detected when only one exists)");
     println!(
         "  --file      <path>  Explicit canonical gear TOML whose sibling builds file will be used"
     );
@@ -1146,7 +1151,8 @@ fn print_usage() {
     println!("    lgo optimize --save-build <name> <stat:min> [<stat:min> ...]");
     println!();
     println!("Options (base-stats):");
-    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --character <name>  Character name; selects the <name>_Gear folder");
+    println!("                      (auto-detected when only one exists)");
     println!("  --file      <path>  Explicit canonical gear TOML to read instead of auto-detect");
     println!();
     println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
@@ -1154,14 +1160,19 @@ fn print_usage() {
     println!("  totals). It does not run an optimization.");
     println!();
     println!("Options (resolve-slots):");
-    println!("  --character <name>  Character name (auto-detected if only one exists)");
+    println!("  --character <name>  Character name; selects or creates the <name>_Gear folder");
+    println!("                      (auto-detected when only one exists)");
     println!("  --force, -f         Prompt per item before overwriting or removing entries");
     println!("                      in the canonical gear file. Without --force, existing");
     println!("                      entries are preserved on every iteration.");
     println!();
+    println!("  resolve-slots creates <install>\\<CharacterName>_Gear if needed. A");
+    println!("  lgo_<character>_gearStats.toml left loose in the install root is moved into");
+    println!("  its character folder automatically before resolving.");
+    println!();
     println!("Options (build-db):");
-    println!("  --items        <path>  Items XML  (default: data/items.xml)");
-    println!("  --out          <path>  Output JSON  (default: data/lgo_items.json)");
+    println!("  --items        <path>  Items XML  (default: <install>\\data\\items.xml)");
+    println!("  --out          <path>  Output JSON  (default: <install>\\data\\lgo_items.json)");
     println!();
     println!("Workflow:");
     println!("  1) Place candidate items in a Shared Storage chest named 'lgo'");
@@ -1170,8 +1181,9 @@ fn print_usage() {
     println!("  4) Click the LGO bookmarklet");
     println!("  5) Paste the contents of lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted");
     println!(
-        "  6) Save the generated TOML as lgo_<character>_gearStats.toml in your AllServers directory"
+        "  6) Save the generated lgo_<character>_gearStats.toml into <install>\\<CharacterName>_Gear"
     );
+    println!("     (or the install root — resolve-slots will move it into the folder)");
     println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gearReady.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!("     Optional: add --save-build <name> to save those goals for later");
