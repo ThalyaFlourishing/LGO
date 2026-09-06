@@ -33,7 +33,6 @@ use crate::virtues::{VIRTUE_FIELD_KEYS, VIRTUE_TABLE_KEY};
 
 /// Default items-DB file, resolved under the install directory's `data/`
 /// folder.
-pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
 const DEFAULT_ITEMS_DB_FILE: &str = "lgo_items.json";
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 const STAT_EQUALS_COLUMN: usize = 20;
@@ -73,6 +72,10 @@ pub struct DbItem {
 /// Errors that can occur when loading or parsing the items DB.
 #[derive(Debug)]
 pub enum ItemsDbError {
+    ResolveDefaultPath {
+        file_name: &'static str,
+        source: std::io::Error,
+    },
     /// I/O failure reading the file.
     Io {
         path: PathBuf,
@@ -95,6 +98,11 @@ pub enum ItemsDbError {
 impl std::fmt::Display for ItemsDbError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ItemsDbError::ResolveDefaultPath { file_name, source } => write!(
+                f,
+                "Cannot resolve the install-directory path for items DB '{}': {}",
+                file_name, source
+            ),
             ItemsDbError::Io { path, source } => {
                 write!(f, "Cannot read items DB '{}': {}", path.display(), source)
             }
@@ -136,11 +144,12 @@ struct RawEntry {
 impl ItemsDb {
     /// Load from `<install>/data/lgo_items.json`.
     pub fn load_default() -> Result<Self, ItemsDbError> {
-        let path =
-            crate::install::data_path(DEFAULT_ITEMS_DB_FILE).map_err(|e| ItemsDbError::Io {
-                path: PathBuf::from(DEFAULT_ITEMS_DB_PATH),
-                source: e,
-            })?;
+        let path = crate::install::data_path(DEFAULT_ITEMS_DB_FILE).map_err(|source| {
+            ItemsDbError::ResolveDefaultPath {
+                file_name: DEFAULT_ITEMS_DB_FILE,
+                source,
+            }
+        })?;
         Self::load(&path)
     }
 

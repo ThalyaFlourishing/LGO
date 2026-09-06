@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use crate::stat::{Stat, BASE_STATS};
 
-pub const DEFAULT_DERIVATIONS_PATH: &str = "data/base_stat_derivations.json";
 /// File name resolved under the install directory's `data/` folder.
 const DEFAULT_DERIVATIONS_FILE: &str = "base_stat_derivations.json";
 
@@ -32,6 +31,10 @@ pub struct BaseStatDerivations {
 
 #[derive(Debug)]
 pub enum DerivationError {
+    ResolveDefaultPath {
+        file_name: &'static str,
+        source: std::io::Error,
+    },
     Io {
         path: PathBuf,
         source: std::io::Error,
@@ -72,6 +75,11 @@ pub enum DerivationError {
 impl std::fmt::Display for DerivationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            DerivationError::ResolveDefaultPath { file_name, source } => write!(
+                f,
+                "Cannot resolve the install-directory path for derivation data '{}': {}",
+                file_name, source
+            ),
             DerivationError::Io { path, source } => {
                 write!(
                     f,
@@ -146,8 +154,8 @@ impl std::error::Error for DerivationError {}
 impl BaseStatDerivations {
     pub fn load_default() -> Result<Self, DerivationError> {
         let path = crate::install::data_path(DEFAULT_DERIVATIONS_FILE).map_err(|source| {
-            DerivationError::Io {
-                path: PathBuf::from(DEFAULT_DERIVATIONS_PATH),
+            DerivationError::ResolveDefaultPath {
+                file_name: DEFAULT_DERIVATIONS_FILE,
                 source,
             }
         })?;

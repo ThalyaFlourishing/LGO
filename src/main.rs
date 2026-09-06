@@ -293,11 +293,7 @@ fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
     match base_stats::BaseStatDerivations::load_default() {
         Ok(d) => d,
         Err(e) => {
-            eprintln!(
-                "Failed to load base-stat derivation data ({}): {}",
-                base_stats::DEFAULT_DERIVATIONS_PATH,
-                e
-            );
+            eprintln!("Failed to load base-stat derivation data: {}", e);
             eprintln!(
                 "Ensure data/base_stat_derivations.json exists in the install directory (beside lgo.exe)."
             );
@@ -312,11 +308,7 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
     match virtues::VirtuesDb::load_default() {
         Ok(v) => v,
         Err(e) => {
-            eprintln!(
-                "Failed to load virtue data ({}): {}",
-                virtues::DEFAULT_VIRTUES_PATH,
-                e
-            );
+            eprintln!("Failed to load virtue data: {}", e);
             eprintln!(
                 "Ensure data/lgo_virtues.json exists in the install directory (beside lgo.exe)."
             );
@@ -352,6 +344,11 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         process::exit(1);
     }
 
+    let reports_dir = resolve_reports_dir(
+        &stats_file,
+        auto_discovered_character.as_deref(),
+        gear_doc.character.as_deref(),
+    );
     let character = resolve_report_character(
         gear_doc.character.clone(),
         cli.character.as_deref(),
@@ -420,11 +417,6 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
     );
     print!("{}", text_report);
 
-    let reports_dir = resolve_reports_dir(
-        &stats_file,
-        auto_discovered_character.as_deref(),
-        gear_doc.character.as_deref(),
-    );
     match report_files::write_scrap_gear_report_file(&reports_dir, &text_report) {
         Ok(path) => {
             println!("  Scrap-gear report written to: {}", path.display());
@@ -509,6 +501,14 @@ fn run_optimize(cli: &OptimizeCli) {
         cli.goals.clone()
     };
 
+    let reports_dir = cli.to_file.then(|| {
+        resolve_reports_dir(
+            &stats_file,
+            auto_discovered_character.as_deref(),
+            gear_doc.character.as_deref(),
+        )
+    });
+
     prepare_gear_doc_for_optimization(&mut gear_doc, &class);
 
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
@@ -555,7 +555,7 @@ fn run_optimize(cli: &OptimizeCli) {
         );
     }
 
-    if cli.to_file {
+    if let Some(reports_dir) = reports_dir {
         let html_report = report::format_optimize_report_html(
             &result,
             &goals,
@@ -566,11 +566,6 @@ fn run_optimize(cli: &OptimizeCli) {
             &projected_base_stats,
         );
 
-        let reports_dir = resolve_reports_dir(
-            &stats_file,
-            auto_discovered_character.as_deref(),
-            gear_doc.character.as_deref(),
-        );
         match report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report) {
             Ok(paths) => {
                 println!(
@@ -711,7 +706,7 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
     let db = match slot_resolver::ItemsDb::load_default() {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to load items DB (data/lgo_items.json): {}", e);
+            eprintln!("Failed to load items DB: {}", e);
             eprintln!(
                 "Ensure data/lgo_items.json exists in the install directory (beside lgo.exe)."
             );

@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use crate::gearstats::GearDoc;
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
-pub const DEFAULT_VIRTUES_PATH: &str = "data/lgo_virtues.json";
 /// File name resolved under the install directory's `data/` folder.
 const DEFAULT_VIRTUES_FILE: &str = "lgo_virtues.json";
 pub const VIRTUE_TABLE_KEY: &str = "Virtues";
@@ -54,6 +53,10 @@ pub struct VirtuesDb {
 
 #[derive(Debug)]
 pub enum VirtuesError {
+    ResolveDefaultPath {
+        file_name: &'static str,
+        source: std::io::Error,
+    },
     Io {
         path: PathBuf,
         source: std::io::Error,
@@ -89,6 +92,11 @@ pub enum VirtuesError {
 impl std::fmt::Display for VirtuesError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            VirtuesError::ResolveDefaultPath { file_name, source } => write!(
+                f,
+                "Cannot resolve the install-directory path for virtue data '{}': {}",
+                file_name, source
+            ),
             VirtuesError::Io { path, source } => {
                 write!(
                     f,
@@ -134,8 +142,8 @@ impl std::fmt::Display for VirtuesError {
             ),
             VirtuesError::UnknownSelectedVirtue { entered_name } => write!(
                 f,
-                "Unknown Virtue '{}'; check the spelling in {}.",
-                entered_name, DEFAULT_VIRTUES_PATH
+                "Unknown Virtue '{}'; check the spelling in data/lgo_virtues.json.",
+                entered_name
             ),
             VirtuesError::DuplicateSelectedVirtue { virtue_name } => write!(
                 f,
@@ -150,11 +158,12 @@ impl std::error::Error for VirtuesError {}
 
 impl VirtuesDb {
     pub fn load_default() -> Result<Self, VirtuesError> {
-        let path =
-            crate::install::data_path(DEFAULT_VIRTUES_FILE).map_err(|source| VirtuesError::Io {
-                path: PathBuf::from(DEFAULT_VIRTUES_PATH),
+        let path = crate::install::data_path(DEFAULT_VIRTUES_FILE).map_err(|source| {
+            VirtuesError::ResolveDefaultPath {
+                file_name: DEFAULT_VIRTUES_FILE,
                 source,
-            })?;
+            }
+        })?;
         Self::load(&path)
     }
 

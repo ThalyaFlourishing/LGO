@@ -52,8 +52,9 @@ folder containing the executable — never the current working directory.
   `.plugindata` export still lives in the game's `Documents\...\AllServers\` tree;
   its location is fixed by the Turbine API.
 - User may invoke `lgo scrap-gear`, which re-runs the live optimizer once per
-  saved build and lists items not used in any saved build; it never parses old
-  report files.
+  saved build, prints a text report listing items not used in any saved build,
+  writes that same text report into the character's
+  `<CharacterName>_Reports\` folder, and never parses old report files.
 
 ---
 
@@ -71,7 +72,9 @@ folder containing the executable — never the current working directory.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (16, canonical order), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter.
-- `src/report.rs` also formats the terminal-only `scrap-gear` output.
+- `src/report.rs` also formats the `scrap-gear` text report that is printed to
+  the terminal and written into the character's `<CharacterName>_Reports`
+  folder.
 - `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install directory); the caller passes the resolved reports directory.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
