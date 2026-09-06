@@ -18,10 +18,24 @@ fn lgo_bin() -> PathBuf {
     PathBuf::from(std::env::var_os("CARGO_BIN_EXE_lgo").expect("cargo must set lgo binary path"))
 }
 
-fn run_lgo(args: &[&str], current_dir: &Path) -> std::process::Output {
+/// Seed a temp install directory with the `data/` files the optimize and
+/// scrap-gear paths need (base-stat derivations), so tests are self-contained
+/// and route their output under the temp tree rather than the repo.
+fn seed_install(dir: &Path) {
+    let data_dir = dir.join("data");
+    fs::create_dir_all(&data_dir).expect("create data dir");
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("data/base_stat_derivations.json"),
+        data_dir.join("base_stat_derivations.json"),
+    )
+    .expect("copy derivations");
+}
+
+fn run_lgo(args: &[&str], install_dir: &Path) -> std::process::Output {
     Command::new(lgo_bin())
         .args(args)
-        .current_dir(current_dir)
+        .current_dir(install_dir)
+        .env("LGO_HOME", install_dir)
         .output()
         .expect("run lgo")
 }
@@ -29,6 +43,7 @@ fn run_lgo(args: &[&str], current_dir: &Path) -> std::process::Output {
 #[test]
 fn optimize_save_build_round_trips_and_build_flag_loads_goals() {
     let dir = make_test_dir("save_roundtrip");
+    seed_install(&dir);
     let gear = dir.join("lgo_Thalya_gearReady.toml");
     fs::write(
         &gear,
@@ -49,7 +64,6 @@ TacticalMitigation = 100
     )
     .expect("write gear file");
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let gear_arg = gear.to_str().expect("utf-8 gear path");
 
     let saved = run_lgo(
@@ -61,7 +75,7 @@ TacticalMitigation = 100
             "Burst",
             "cr:50",
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         saved.status.success(),
@@ -80,7 +94,7 @@ TacticalMitigation = 100
 
     let loaded = run_lgo(
         &["optimize", "--file", gear_arg, "--build", "burst"],
-        repo_root,
+        &dir,
     );
     assert!(
         loaded.status.success(),
@@ -97,6 +111,7 @@ TacticalMitigation = 100
 #[test]
 fn plain_optimize_ignores_builds_discovery_when_not_using_saved_build_flags() {
     let dir = make_test_dir("plain_optimize");
+    seed_install(&dir);
     let gear = dir.join("my_test_gear.toml");
     fs::write(
         &gear,
@@ -111,7 +126,6 @@ CriticalRating = 100
     )
     .expect("write gear file");
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let output = run_lgo(
         &[
             "optimize",
@@ -119,7 +133,7 @@ CriticalRating = 100
             gear.to_str().expect("utf-8 gear path"),
             "cr:50",
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         output.status.success(),
@@ -134,6 +148,7 @@ CriticalRating = 100
 #[test]
 fn custom_named_gear_file_uses_toml_character_for_builds_file_discovery() {
     let dir = make_test_dir("custom_named_gear");
+    seed_install(&dir);
     let gear = dir.join("my_test_gear.toml");
     fs::write(
         &gear,
@@ -149,7 +164,6 @@ OutgoingHealing = 20
     )
     .expect("write gear file");
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let output = run_lgo(
         &[
             "optimize",
@@ -159,7 +173,7 @@ OutgoingHealing = 20
             "healer",
             "oh:10",
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         output.status.success(),
@@ -178,6 +192,7 @@ OutgoingHealing = 20
 #[test]
 fn explicit_builds_file_override_is_used_for_save_build_build_and_scrap_gear() {
     let dir = make_test_dir("explicit_builds_file");
+    seed_install(&dir);
     let gear = dir.join("my_test_gear.toml");
     let builds = dir.join("my_saved_builds.toml");
     fs::write(
@@ -199,7 +214,6 @@ TacticalMitigation = 20
     )
     .expect("write gear file");
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let gear_arg = gear.to_str().expect("utf-8 gear path");
     let builds_arg = builds.to_str().expect("utf-8 builds path");
 
@@ -214,7 +228,7 @@ TacticalMitigation = 20
             "healer",
             "oh:10",
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         save_output.status.success(),
@@ -238,7 +252,7 @@ TacticalMitigation = 20
             "--save-build",
             "copy",
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         build_output.status.success(),
@@ -259,7 +273,7 @@ TacticalMitigation = 20
             "--builds-file",
             builds_arg,
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         scrap_output.status.success(),
@@ -278,6 +292,7 @@ TacticalMitigation = 20
 #[test]
 fn scrap_gear_reports_items_not_used_in_any_saved_build_with_copy_counts() {
     let dir = make_test_dir("scrap_gear");
+    seed_install(&dir);
     let gear = dir.join("lgo_Thalya_gearReady.toml");
     let builds = dir.join("lgo_Thalya_builds.toml");
     fs::write(
@@ -327,14 +342,13 @@ goals = ["tt:10"]
     )
     .expect("write builds file");
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let output = run_lgo(
         &[
             "scrap-gear",
             "--file",
             gear.to_str().expect("utf-8 gear path"),
         ],
-        repo_root,
+        &dir,
     );
     assert!(
         output.status.success(),

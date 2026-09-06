@@ -2,8 +2,8 @@
 
 use chrono::Local;
 use lgo::{
-    base_stats, build_db, build_profiles, gear, gearstats, optimizer, report, report_files,
-    slot_resolver, stat, virtues,
+    base_stats, build_db, build_profiles, gear, gearstats, install, optimizer, report,
+    report_files, slot_resolver, stat, virtues,
 };
 
 use std::collections::HashMap;
@@ -164,10 +164,45 @@ fn is_empty_placeholder(name: &str) -> bool {
 
 const UNKNOWN: &str = "Unknown";
 
-/// Locate the canonical gear file for optimize/base-stats: an explicit
-/// `--file` path when given, otherwise auto-discovery of
-/// `lgo_<character>_gearReady.toml` in the character's AllServers directory.
-/// Returns the path plus the auto-discovered character name (if any).
+/// Determine the install directory (exe-anchored, or `LGO_HOME`), exiting with
+/// a clear message if it cannot be resolved.
+fn install_dir_or_exit() -> PathBuf {
+    match install::install_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("Error: cannot determine the install directory: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+/// The install-tree reports directory for a run: `<install>/<char>_Gear/<char>_Reports`.
+/// The character is the authoritative discovered folder name when auto-detected,
+/// otherwise resolved from the gear TOML's `character` field or filename.
+fn resolve_reports_dir(
+    stats_file: &Path,
+    discovered_character: Option<&str>,
+    gear_doc_character: Option<&str>,
+) -> PathBuf {
+    let install = install_dir_or_exit();
+    let character = match discovered_character {
+        Some(c) => c.to_string(),
+        None => match install::resolve_report_character(stats_file, gear_doc_character) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        },
+    };
+    install::reports_dir(&install, &character)
+}
+
+/// Locate the canonical gear file for optimize/base-stats/scrap-gear: an
+/// explicit `--file` path when given, otherwise auto-discovery of
+/// `lgo_<character>_gearReady.toml` inside the selected `<character>_Gear`
+/// folder under the install directory. Returns the path plus the discovered
+/// character name (the authoritative folder name, or `None` for `--file`).
 /// Exits the process with a clear message on failure.
 fn locate_canonical_gear_file(
     character: Option<&str>,
@@ -180,26 +215,30 @@ fn locate_canonical_gear_file(
         }
         return (path.clone(), None);
     }
-    let (char_dir, resolved_character) = match resolve_character_allservers(character) {
-        Ok(v) => v,
+
+    let install = install_dir_or_exit();
+    let selection = match install::select_character(&install, character) {
+        Ok(s) => s,
         Err(e) => {
             eprintln!("Error: {}", e);
             process::exit(1);
         }
     };
-    let auto_discovered_character = if character.is_none() {
-        Some(resolved_character.clone())
-    } else {
-        None
-    };
+    if let Some(note) = &selection.note {
+        println!("{}", note);
+    }
+    install::warn_on_name_mismatch(&selection.gear_dir, &selection.character);
 
-    let stats_file = match gearstats::find_canonical_gear_file(&char_dir, &resolved_character) {
+    let stats_file = match gearstats::find_canonical_gear_file(
+        &selection.gear_dir,
+        &selection.character,
+    ) {
         Ok(Some(path)) => path,
         Ok(None) => {
             eprintln!(
                 "No lgo_{}_gearReady.toml file found in {}",
-                resolved_character,
-                char_dir.display()
+                selection.character,
+                selection.gear_dir.display()
             );
             eprintln!(
                 "\nThis file is created by running 'lgo resolve-slots' after completing the bookmarklet workflow."
@@ -213,12 +252,13 @@ fn locate_canonical_gear_file(
                 "  5) Paste lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted"
             );
             eprintln!(
-                "  6) The bookmarklet generates lgo_{}_gearStats.toml — save it to your AllServers directory",
-                resolved_character
+                "  6) Save the generated lgo_{}_gearStats.toml into {} (or the install root — it will be moved automatically)",
+                selection.character,
+                selection.gear_dir.display()
             );
             eprintln!(
-                "  7) Run: lgo resolve-slots  (processes stats.toml and creates lgo_{}_gearReady.toml)",
-                resolved_character
+                "  7) Run: lgo resolve-slots  (creates lgo_{}_gearReady.toml in that folder)",
+                selection.character
             );
             eprintln!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
             process::exit(1);
@@ -228,11 +268,26 @@ fn locate_canonical_gear_file(
             process::exit(1);
         }
     };
-    (stats_file, auto_discovered_character)
+    (stats_file, Some(selection.character))
 }
 
-/// Load `data/base_stat_derivations.json` (resolved relative to the current
-/// directory, same convention as `build-db`), exiting with a clear message
+/// The game's Documents export directory for `character`
+/// (`Documents\The Lord of the Rings Online\PluginData\<char>\AllServers`).
+/// The `.plugindata` file's location is fixed by the Turbine API and is the
+/// only input that still lives outside the install tree. Returns `None` if the
+/// Documents root cannot be determined.
+fn plugindata_dir_for(character: &str) -> Option<PathBuf> {
+    let docs = documents_dir().ok()?;
+    Some(
+        docs.join("The Lord of the Rings Online")
+            .join("PluginData")
+            .join(character)
+            .join("AllServers"),
+    )
+}
+
+/// Load `data/base_stat_derivations.json` from the install directory (the
+/// folder containing `lgo.exe`, or `LGO_HOME`), exiting with a clear message
 /// if the file is missing or malformed.
 fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
     match base_stats::BaseStatDerivations::load_default() {
@@ -244,15 +299,15 @@ fn load_derivations_or_exit() -> base_stats::BaseStatDerivations {
                 e
             );
             eprintln!(
-                "Run lgo from a directory containing a data/ folder with that file (same working-directory convention as build-db)."
+                "Ensure data/base_stat_derivations.json exists in the install directory (beside lgo.exe)."
             );
             process::exit(1);
         }
     }
 }
 
-/// Load `data/lgo_virtues.json` (resolved relative to the current directory),
-/// exiting with a clear message if the file is missing or malformed.
+/// Load `data/lgo_virtues.json` from the install directory, exiting with a
+/// clear message if the file is missing or malformed.
 fn load_virtues_or_exit() -> virtues::VirtuesDb {
     match virtues::VirtuesDb::load_default() {
         Ok(v) => v,
@@ -262,7 +317,7 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
                 virtues::DEFAULT_VIRTUES_PATH,
                 e
             );
-            eprintln!("Run lgo from a directory containing a data/ folder with that file.");
+            eprintln!("Ensure data/lgo_virtues.json exists in the install directory (beside lgo.exe).");
             process::exit(1);
         }
     }
@@ -298,7 +353,7 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
     let character = resolve_report_character(
         gear_doc.character.clone(),
         cli.character.as_deref(),
-        auto_discovered_character,
+        auto_discovered_character.clone(),
     );
     let mut gear_doc = gear_doc;
     let class = gear_doc
@@ -363,7 +418,12 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
     );
     print!("{}", text_report);
 
-    match report_files::write_scrap_gear_report_file(&stats_file, &text_report) {
+    let reports_dir = resolve_reports_dir(
+        &stats_file,
+        auto_discovered_character.as_deref(),
+        gear_doc.character.as_deref(),
+    );
+    match report_files::write_scrap_gear_report_file(&reports_dir, &text_report) {
         Ok(path) => {
             println!("  Scrap-gear report written to: {}", path.display());
         }
@@ -388,7 +448,7 @@ fn run_optimize(cli: &OptimizeCli) {
     let character = resolve_report_character(
         gear_doc.character.clone(),
         cli.character.as_deref(),
-        auto_discovered_character,
+        auto_discovered_character.clone(),
     );
     let class = gear_doc
         .class
@@ -504,7 +564,12 @@ fn run_optimize(cli: &OptimizeCli) {
             &projected_base_stats,
         );
 
-        match report_files::write_optimize_report_files(&stats_file, &text_report, &html_report) {
+        let reports_dir = resolve_reports_dir(
+            &stats_file,
+            auto_discovered_character.as_deref(),
+            gear_doc.character.as_deref(),
+        );
+        match report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report) {
             Ok(paths) => {
                 println!(
                     "  Report written to: {} and {}",
@@ -628,18 +693,24 @@ fn run_base_stats(cli: &BaseStatsCli) {
 }
 
 fn run_resolve_slots(cli: &ResolveSlotsCli) {
-    let (char_dir, character) = match resolve_character_allservers(cli.character.as_deref()) {
-        Ok(v) => v,
+    let install = install_dir_or_exit();
+    let selection = match install::prepare_resolve_slots(&install, cli.character.as_deref()) {
+        Ok(s) => s,
         Err(e) => {
             eprintln!("Error: {}", e);
             process::exit(1);
         }
     };
+    if let Some(note) = &selection.note {
+        println!("{}", note);
+    }
+    install::warn_on_name_mismatch(&selection.gear_dir, &selection.character);
 
     let db = match slot_resolver::ItemsDb::load_default() {
         Ok(db) => db,
         Err(e) => {
             eprintln!("Failed to load items DB (data/lgo_items.json): {}", e);
+            eprintln!("Ensure data/lgo_items.json exists in the install directory (beside lgo.exe).");
             process::exit(1);
         }
     };
@@ -652,7 +723,14 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
         slot_resolver::ForceMode::NoForce
     };
 
-    let report = match slot_resolver::resolve_stats_file(&char_dir, &character, &db, force) {
+    let plugindata_dir = plugindata_dir_for(&selection.character);
+    let report = match slot_resolver::resolve_stats_file(
+        &selection.gear_dir,
+        plugindata_dir.as_deref(),
+        &selection.character,
+        &db,
+        force,
+    ) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error: {}", e);
@@ -940,18 +1018,18 @@ fn parse_resolve_slots_args(args: &[String]) -> Result<ResolveSlotsCli, String> 
 }
 
 fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
-    let mut items = PathBuf::from("data/items.xml");
-    let mut out = PathBuf::from("data/lgo_items.json");
+    let mut items: Option<PathBuf> = None;
+    let mut out: Option<PathBuf> = None;
     let mut i = 0;
 
     while i < args.len() {
         let arg = args[i].as_str();
         if option_matches(arg, &["--items"]) {
             i += 1;
-            items = PathBuf::from(args.get(i).ok_or("--items requires a path")?);
+            items = Some(PathBuf::from(args.get(i).ok_or("--items requires a path")?));
         } else if option_matches(arg, &["--out"]) {
             i += 1;
-            out = PathBuf::from(args.get(i).ok_or("--out requires a path")?);
+            out = Some(PathBuf::from(args.get(i).ok_or("--out requires a path")?));
         } else if arg.starts_with('-') {
             return Err(format!("Unknown option: '{}'", arg));
         } else {
@@ -960,6 +1038,17 @@ fn parse_build_db_args(args: &[String]) -> Result<BuildDbCli, String> {
         i += 1;
     }
 
+    let items = match items {
+        Some(path) => path,
+        None => install::data_path("items.xml")
+            .map_err(|e| format!("cannot resolve the default data/items.xml path: {}", e))?,
+    };
+    let out = match out {
+        Some(path) => path,
+        None => install::data_path("lgo_items.json")
+            .map_err(|e| format!("cannot resolve the default data/lgo_items.json path: {}", e))?,
+    };
+
     Ok(BuildDbCli { items, out })
 }
 
@@ -967,63 +1056,6 @@ fn option_matches(arg: &str, options: &[&str]) -> bool {
     options
         .iter()
         .any(|expected| arg.eq_ignore_ascii_case(expected))
-}
-
-fn resolve_character_allservers(character_opt: Option<&str>) -> Result<(PathBuf, String), String> {
-    let docs = documents_dir()?;
-    let plugin_root = docs.join("The Lord of the Rings Online").join("PluginData");
-
-    if !plugin_root.exists() {
-        return Err(format!(
-            "PluginData directory not found: {}",
-            plugin_root.display()
-        ));
-    }
-
-    let character = match character_opt {
-        Some(c) => c.to_string(),
-        None => discover_character(&plugin_root)?,
-    };
-
-    let char_dir = plugin_root.join(&character).join("AllServers");
-    if !char_dir.exists() {
-        return Err(format!(
-            "Character directory not found: {}",
-            char_dir.display()
-        ));
-    }
-
-    ensure_lgo_dir(&char_dir)?;
-    Ok((char_dir, character))
-}
-
-fn ensure_lgo_dir(char_dir: &Path) -> Result<(), String> {
-    let lgo_dir = char_dir.join("lgo");
-    std::fs::create_dir_all(&lgo_dir)
-        .map_err(|e| format!("Cannot create lgo directory {}: {}", lgo_dir.display(), e))?;
-    Ok(())
-}
-
-fn discover_character(plugin_root: &Path) -> Result<String, String> {
-    let dirs: Vec<String> = std::fs::read_dir(plugin_root)
-        .map_err(|e| format!("Cannot read PluginData directory: {}", e))?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().into_string().ok())
-        .collect();
-
-    match dirs.len() {
-        0 => Err("No character directories found in PluginData.".to_string()),
-        1 => Ok(dirs.into_iter().next().unwrap()),
-        _ => {
-            let mut msg =
-                String::from("Multiple characters found. Specify one with --character:\n");
-            for d in &dirs {
-                msg.push_str(&format!("  {}\n", d));
-            }
-            Err(msg)
-        }
-    }
 }
 
 fn documents_dir() -> Result<PathBuf, String> {
@@ -1431,8 +1463,15 @@ mod tests {
         let cmd = parse_command(&s(&["build-db"])).expect("build-db should parse with no args");
         match cmd {
             Command::BuildDb(cli) => {
-                assert_eq!(cli.items, PathBuf::from("data/items.xml"));
-                assert_eq!(cli.out, PathBuf::from("data/lgo_items.json"));
+                // Defaults resolve under the install directory's data/ folder.
+                assert_eq!(
+                    cli.items,
+                    install::data_path("items.xml").expect("install data path")
+                );
+                assert_eq!(
+                    cli.out,
+                    install::data_path("lgo_items.json").expect("install data path")
+                );
             }
             _ => panic!("expected build-db command"),
         }

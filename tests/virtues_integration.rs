@@ -148,6 +148,7 @@ name = "Statless Helm"
             "tm:0",
         ])
         .current_dir(&dir)
+        .env("LGO_HOME", &dir)
         .output()
         .expect("lgo optimize must run");
     assert!(
@@ -199,6 +200,7 @@ name = "Statless Helm"
             "tm:0",
         ])
         .current_dir(&dir)
+        .env("LGO_HOME", &dir)
         .output()
         .expect("lgo optimize must run");
     assert!(
@@ -253,6 +255,7 @@ name = "Statless Helm"
             "tm:0",
         ])
         .current_dir(&dir)
+        .env("LGO_HOME", &dir)
         .output()
         .expect("lgo optimize must run");
     assert!(

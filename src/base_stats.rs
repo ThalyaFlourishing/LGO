@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use crate::stat::{Stat, BASE_STATS};
 
 pub const DEFAULT_DERIVATIONS_PATH: &str = "data/base_stat_derivations.json";
+/// File name resolved under the install directory's `data/` folder.
+const DEFAULT_DERIVATIONS_FILE: &str = "base_stat_derivations.json";
 
 const EXPECTED_CLASSES: &[&str] = &[
     "Beorning",
@@ -143,7 +145,14 @@ impl std::error::Error for DerivationError {}
 
 impl BaseStatDerivations {
     pub fn load_default() -> Result<Self, DerivationError> {
-        Self::load(Path::new(DEFAULT_DERIVATIONS_PATH))
+        let path =
+            crate::install::data_path(DEFAULT_DERIVATIONS_FILE).map_err(|source| {
+                DerivationError::Io {
+                    path: PathBuf::from(DEFAULT_DERIVATIONS_PATH),
+                    source,
+                }
+            })?;
+        Self::load(&path)
     }
 
     pub fn load(path: &Path) -> Result<Self, DerivationError> {

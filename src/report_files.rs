@@ -3,7 +3,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const REPORTS_DIR: &str = "LGO_Reports";
 const STEM_PREFIX: &str = "lgo_GearReport_";
 const SCRAP_GEAR_STEM_PREFIX: &str = "lgo_ScrapGearReport_";
 
@@ -13,18 +12,14 @@ pub struct ReportPaths {
     pub html_path: PathBuf,
 }
 
+/// Write the optimize `.txt`/`.html` reports into `reports_dir`, creating it
+/// (and any missing parents, e.g. the enclosing `<char>_Gear` folder) first.
 pub fn write_optimize_report_files(
-    input_file: &Path,
+    reports_dir: &Path,
     text_report: &str,
     html_report: &str,
 ) -> Result<ReportPaths, String> {
-    let reports_dir = input_file
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."))
-        .join(REPORTS_DIR);
-
-    fs::create_dir_all(&reports_dir).map_err(|e| {
+    fs::create_dir_all(reports_dir).map_err(|e| {
         format!(
             "cannot create reports directory {}: {}",
             reports_dir.display(),
@@ -32,7 +27,7 @@ pub fn write_optimize_report_files(
         )
     })?;
 
-    let stem = choose_report_stem(&reports_dir)?;
+    let stem = choose_report_stem(reports_dir)?;
     let text_path = reports_dir.join(format!("{}.txt", stem));
     let html_path = reports_dir.join(format!("{}.html", stem));
 
@@ -47,13 +42,13 @@ pub fn write_optimize_report_files(
     })
 }
 
+/// Write the scrap-gear `.txt` report into `reports_dir`, creating it (and any
+/// missing parents) first.
 pub fn write_scrap_gear_report_file(
-    input_file: &Path,
+    reports_dir: &Path,
     text_report: &str,
 ) -> Result<PathBuf, String> {
-    let reports_dir = reports_dir_for(input_file);
-
-    fs::create_dir_all(&reports_dir).map_err(|e| {
+    fs::create_dir_all(reports_dir).map_err(|e| {
         format!(
             "cannot create reports directory {}: {}",
             reports_dir.display(),
@@ -61,21 +56,13 @@ pub fn write_scrap_gear_report_file(
         )
     })?;
 
-    let serial = highest_report_serial(&reports_dir)?.unwrap_or(0);
-    let text_path = choose_scrap_gear_report_path(&reports_dir, serial)?;
+    let serial = highest_report_serial(reports_dir)?.unwrap_or(0);
+    let text_path = choose_scrap_gear_report_path(reports_dir, serial)?;
 
     fs::write(&text_path, text_report)
         .map_err(|e| format!("cannot write {}: {}", text_path.display(), e))?;
 
     Ok(text_path)
-}
-
-fn reports_dir_for(input_file: &Path) -> PathBuf {
-    input_file
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."))
-        .join(REPORTS_DIR)
 }
 
 fn choose_scrap_gear_report_path(reports_dir: &Path, serial: u16) -> Result<PathBuf, String> {
@@ -198,14 +185,14 @@ mod tests {
     #[test]
     fn serial_increments_from_highest_existing_report() {
         let temp = TempDir::new();
-        let input = temp.input_file();
-        let reports_dir = temp.path.join(REPORTS_DIR);
+        let reports_dir = temp.reports_dir();
         fs::create_dir_all(&reports_dir).expect("reports dir");
         fs::write(reports_dir.join("lgo_GearReport_000.txt"), "").expect("seed");
         fs::write(reports_dir.join("lgo_GearReport_000.html"), "").expect("seed");
         fs::write(reports_dir.join("lgo_GearReport_004-2.txt"), "").expect("seed");
 
-        let paths = write_optimize_report_files(&input, "text", "html").expect("write succeeds");
+        let paths =
+            write_optimize_report_files(&reports_dir, "text", "html").expect("write succeeds");
 
         assert_eq!(
             paths
@@ -228,12 +215,12 @@ mod tests {
     #[test]
     fn serial_wraps_from_999_to_000() {
         let temp = TempDir::new();
-        let input = temp.input_file();
-        let reports_dir = temp.path.join(REPORTS_DIR);
+        let reports_dir = temp.reports_dir();
         fs::create_dir_all(&reports_dir).expect("reports dir");
         fs::write(reports_dir.join("lgo_GearReport_999.txt"), "").expect("seed");
 
-        let paths = write_optimize_report_files(&input, "text", "html").expect("write succeeds");
+        let paths =
+            write_optimize_report_files(&reports_dir, "text", "html").expect("write succeeds");
 
         assert_eq!(
             paths
@@ -248,14 +235,14 @@ mod tests {
     #[test]
     fn collision_uses_single_digit_suffix_with_matching_stems() {
         let temp = TempDir::new();
-        let input = temp.input_file();
-        let reports_dir = temp.path.join(REPORTS_DIR);
+        let reports_dir = temp.reports_dir();
         fs::create_dir_all(&reports_dir).expect("reports dir");
         fs::write(reports_dir.join("lgo_GearReport_999.txt"), "").expect("seed");
         fs::write(reports_dir.join("lgo_GearReport_000.txt"), "").expect("seed");
         fs::write(reports_dir.join("lgo_GearReport_000.html"), "").expect("seed");
 
-        let paths = write_optimize_report_files(&input, "text", "html").expect("write succeeds");
+        let paths =
+            write_optimize_report_files(&reports_dir, "text", "html").expect("write succeeds");
 
         assert_eq!(
             paths
@@ -276,11 +263,12 @@ mod tests {
     }
 
     #[test]
-    fn relative_input_path_keeps_plain_relative_report_paths() {
+    fn relative_reports_dir_keeps_plain_relative_report_paths() {
         let temp = TempDir::new_in_current_dir();
-        let input = temp.relative_input_file();
+        let reports_dir = temp.relative_reports_dir();
 
-        let paths = write_optimize_report_files(&input, "text", "html").expect("write succeeds");
+        let paths = write_optimize_report_files(&reports_dir, "text", "html")
+            .expect("write succeeds");
 
         let text = paths.text_path.display().to_string();
         let html = paths.html_path.display().to_string();
@@ -292,14 +280,16 @@ mod tests {
                 .parent()
                 .and_then(|parent| parent.file_name())
                 .and_then(|name| name.to_str()),
-            Some(REPORTS_DIR)
+            reports_dir
+                .file_name()
+                .and_then(|name| name.to_str())
         );
     }
 
     #[test]
     fn zero_stat_rows_are_written_to_text_report() {
         let temp = TempDir::new();
-        let input = temp.input_file();
+        let reports_dir = temp.reports_dir();
         let result = sample_optimize_result("Simple Helm");
         let text_report = format_optimize_report(
             &result,
@@ -326,7 +316,7 @@ mod tests {
             &sample_base_stats(),
         );
 
-        let paths = write_optimize_report_files(&input, &text_report, &html_report)
+        let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
             .expect("write succeeds");
         let written = fs::read_to_string(paths.text_path).expect("read text report");
 
@@ -351,7 +341,7 @@ mod tests {
     #[test]
     fn html_report_writes_escaped_item_names() {
         let temp = TempDir::new();
-        let input = temp.input_file();
+        let reports_dir = temp.reports_dir();
         let result = sample_optimize_result("Shield <&> \"Quote\" 'Single'");
         let text_report = format_optimize_report(
             &result,
@@ -378,7 +368,7 @@ mod tests {
             &sample_base_stats(),
         );
 
-        let paths = write_optimize_report_files(&input, &text_report, &html_report)
+        let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
             .expect("write succeeds");
         let written = fs::read_to_string(paths.html_path).expect("read html report");
 
@@ -389,8 +379,7 @@ mod tests {
     #[test]
     fn fails_when_all_suffixes_for_wrapped_serial_are_taken() {
         let temp = TempDir::new();
-        let input = temp.input_file();
-        let reports_dir = temp.path.join(REPORTS_DIR);
+        let reports_dir = temp.reports_dir();
         fs::create_dir_all(&reports_dir).expect("reports dir");
         fs::write(reports_dir.join("lgo_GearReport_999.txt"), "").expect("seed");
         fs::write(reports_dir.join("lgo_GearReport_000.txt"), "").expect("seed");
@@ -408,7 +397,8 @@ mod tests {
             .expect("seed");
         }
 
-        let err = write_optimize_report_files(&input, "text", "html").expect_err("must fail");
+        let err =
+            write_optimize_report_files(&reports_dir, "text", "html").expect_err("must fail");
         assert!(err.contains("lgo_GearReport_000"));
         assert!(err.contains("-9"));
     }
@@ -416,15 +406,14 @@ mod tests {
     #[test]
     fn scrap_gear_report_file_uses_highest_existing_gear_report_serial() {
         let temp = TempDir::new();
-        let input = temp.input_file();
-        let reports_dir = temp.path.join(REPORTS_DIR);
+        let reports_dir = temp.reports_dir();
         fs::create_dir_all(&reports_dir).expect("reports dir");
         fs::write(reports_dir.join("lgo_GearReport_008.txt"), "").expect("seed optimize txt");
         fs::write(reports_dir.join("lgo_GearReport_008.html"), "").expect("seed optimize html");
         fs::write(reports_dir.join("lgo_ScrapGearReport_099.txt"), "").expect("seed scrap txt");
 
-        let path =
-            write_scrap_gear_report_file(&input, "scrap report text").expect("write succeeds");
+        let path = write_scrap_gear_report_file(&reports_dir, "scrap report text")
+            .expect("write succeeds");
 
         assert_eq!(
             path.file_name()
@@ -477,7 +466,7 @@ mod tests {
 
     struct TempDir {
         path: PathBuf,
-        relative_input: Option<PathBuf>,
+        relative_dir: Option<PathBuf>,
     }
 
     impl TempDir {
@@ -495,14 +484,9 @@ mod tests {
                 unique
             ));
             fs::create_dir_all(&path).expect("temp dir created");
-            fs::write(
-                path.join("lgo_Thalya_gearReady.toml"),
-                "character = \"Thalya\"\n[[item]]\nslot = \"Head\"\nname = \"Test\"\n",
-            )
-            .expect("input file");
             TempDir {
                 path,
-                relative_input: None,
+                relative_dir: None,
             }
         }
 
@@ -514,25 +498,23 @@ mod tests {
                 .expect("current dir")
                 .join(&dir_name);
             fs::create_dir_all(&path).expect("temp dir created");
-            fs::write(
-                path.join("lgo_Thalya_gearReady.toml"),
-                "character = \"Thalya\"\n[[item]]\nslot = \"Head\"\nname = \"Test\"\n",
-            )
-            .expect("input file");
             TempDir {
                 path,
-                relative_input: Some(PathBuf::from(&dir_name).join("lgo_Thalya_gearReady.toml")),
+                relative_dir: Some(PathBuf::from(&dir_name)),
             }
         }
 
-        fn input_file(&self) -> PathBuf {
-            self.path.join("lgo_Thalya_gearReady.toml")
+        /// Absolute reports directory mirroring the install-tree layout.
+        fn reports_dir(&self) -> PathBuf {
+            self.path.join("Thalya_Gear").join("Thalya_Reports")
         }
 
-        fn relative_input_file(&self) -> PathBuf {
-            self.relative_input
+        /// Relative reports directory (for the plain-relative-path test).
+        fn relative_reports_dir(&self) -> PathBuf {
+            self.relative_dir
                 .clone()
-                .expect("relative input available for this temp dir")
+                .expect("relative dir available for this temp dir")
+                .join("Thalya_Reports")
         }
     }
 
