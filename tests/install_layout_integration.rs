@@ -192,7 +192,10 @@ fn optimize_character_flag_without_match_errors() {
     make_gear_folder(&install, "Thalya");
 
     let output = run(&install, &["optimize", "-c", "Legolas", "tm:0"]);
-    assert!(!output.status.success(), "must fail with no matching folder");
+    assert!(
+        !output.status.success(),
+        "must fail with no matching folder"
+    );
     let stderr = stderr_of(&output);
     assert!(
         stderr.contains("Legolas_Gear"),

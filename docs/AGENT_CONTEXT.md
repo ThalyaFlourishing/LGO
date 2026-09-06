@@ -28,8 +28,8 @@ The short form:
 - User uses the bookmarklet, pasting in the .plugindata contents, which
 then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
-- User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml.
-- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml.
+- User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml, into the character's `<install>\<CharacterName>_Gear\` folder (the install directory is the folder containing `lgo.exe`), or into the install root on the first run — a root-saved file is moved into the character folder by `resolve-slots`.
+- User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml, in the same `<CharacterName>_Gear\` folder (created if missing).
 - User hand-edits persistent corrections, including top-level `[Virtues]` and
   per-item essence totals, in `gearReady.toml` only.
 - User may optionally save named build-goal profiles in the sibling file
@@ -41,8 +41,16 @@ via the per-class coefficients in `data/base_stat_derivations.json`, folds in
 the fixed stats from any selected Virtues in `[Virtues]` via
 `data/lgo_virtues.json`, and provides a final optimization report according to
 user's specified stats of interest. Derivation happens at optimize time, before
-candidates enter the optimizer; `optimize` must be run from a directory
-containing `data/`.
+candidates enter the optimizer. All inputs (`data/` and the `<CharacterName>_Gear`
+folders) and all outputs (reports) resolve from the install directory — the
+folder containing the executable — never the current working directory.
+- Characters are discovered as `<CharacterName>_Gear\` folders under the install
+  directory. With one folder it auto-selects; with several it picks the most
+  recently updated `gearReady.toml` and prints the choice; `-c/--character`
+  selects a specific one (case-insensitive directory match). Reports for a run go
+  to `<install>\<CharacterName>_Gear\<CharacterName>_Reports\`. Only the
+  `.plugindata` export still lives in the game's `Documents\...\AllServers\` tree;
+  its location is fixed by the Turbine API.
 - User may invoke `lgo scrap-gear`, which re-runs the live optimizer once per
   saved build and lists items not used in any saved build; it never parses old
   report files.
@@ -51,7 +59,8 @@ containing `data/`.
 
 ## 3. Repo layout (relevant)
 
-- `src/main.rs` — CLI entry: find plugindata → find `.toml` → optimize → report.
+- `src/main.rs` — CLI entry: resolve install dir → discover/select character folder → find `.toml` → optimize → route report.
+- `src/install.rs` — install-directory anchoring and character-folder discovery: `install_dir()` (the executable's directory, or `LGO_HOME` for dev/test), the `<CharacterName>_Gear` / `<CharacterName>_Reports` path helpers, character selection (single / most-recently-updated / `-c` override / errors), the resolve-slots stray-file relocation and folder creation, the name-mismatch warning, and report-character resolution for out-of-tree `--file` TOMLs.
 - `src/build_profiles.rs` — saved-build profile reader/writer for
   `lgo_<character>_builds.toml`; pure user-data TOML, strict validation on read.
 - `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats }`.
@@ -63,7 +72,7 @@ containing `data/`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
 - `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter.
 - `src/report.rs` also formats the terminal-only `scrap-gear` output.
-- `src/report_files.rs` — optimize report file naming and writing (`LGO_Reports` beside the canonical gear TOML).
+- `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install directory); the caller passes the resolved reports directory.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB), `data/lgo_virtues.json`
@@ -74,9 +83,9 @@ containing `data/`.
   - `lgo_Thalya_gearStats.toml` — historical bookmarklet-output fixture (input for `resolve-slots`); contains a mix of canonical slots, `slot = "Unknown"` entries, and pre-Bug-2-fix wiki-vocabulary slots (`"Shoulder"`, `"Gloves"`).
   - `lgo_Thalya_gearReady.toml` — already-resolved canonical gear file (input for `optimize`).
 - `docs/` — live docs: `User Workflow.txt`, `BUG_HISTORY.md`, `lgo_reference_slots.md`, `lgo_reference_stats.md`, `Command Line Reference.txt`, `MODEL_GUIDANCE.md`, and `Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` (authoritative optimizer spec). The optimizer audit chain and PR prompt docs under `docs/Optimizer_Overhaul/` are historical records retained for traceability; do not treat them as the live optimizer spec.
-- Saved build profiles live beside the canonical gear file as
-  `lgo_<character>_builds.toml`, discovered with the same case-insensitive
-  character-name filename convention as `gearReady.toml`.
+- Saved build profiles live beside the canonical gear file, inside the
+  `<CharacterName>_Gear` folder, as `lgo_<character>_builds.toml`, discovered with
+  the same case-insensitive character-name filename convention as `gearReady.toml`.
 
 **Recent structural changes (2026-08):** `data/progressions.xml` removed from the repo and from `build-db` entirely. `data/lgo_items.json` no longer carries item stats — it is a slot + `two_handed` + `either_hand` index only; item stats come exclusively from the bookmarklet's lotro-wiki lookups. `CachedItem` (DB entry: name/slot/two_handed/either_hand) and `GearItem` (TOML-derived, with stats) are now distinct types. [PRs #53, #55]
 
@@ -271,7 +280,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - `data/lgo_items.json` (~5 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
 - Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_display` and the canonical 16-stat list. Do not invent or paraphrase.
-- Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment. On Windows, names differing only by case are the same file, so case-only "collisions" are not a real runtime condition in LGO's target environment.
+- Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment, and directory discovery of `<CharacterName>_Gear` folders is likewise case-insensitive on both the character segment and the `_Gear` suffix. On Windows, names differing only by case are the same file/folder, so case-only "collisions" are not a real runtime condition in LGO's target environment.
 - The bookmarklet does **not** trust or parse the wiki's free-text `slot=` / slot-bearing `type=` vocabulary. It always writes `slot = "Unknown"` and leaves slot resolution to `resolve-slots` and `data/lgo_items.json`.
 - **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).
 - **`GetDescription()` on `ItemInfo` returns `<string table error; tableDID [...] token [...]>` for *all* gear items** on the current client. This is a long-standing wiki-side or engine-side string-table failure, not something the plugin can fix. The probe confirmed it succeeds for non-gear items (e.g. fireworks) but fails uniformly across gear.
@@ -303,7 +312,6 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 ## 9. Likely next features
 
 - Improve text input and output
-- Move output files to an 'LGO' program directory
 
 ---
 

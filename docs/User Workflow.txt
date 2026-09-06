@@ -17,7 +17,7 @@
   4. Click the **LGO Stats** bookmarklet. A small pop-up will appear.
   5. Copy and paste in the contents of `lgo_<character-name>_gearNames_<timestamp>.plugindata`, then hit 'OK'.
   6. The bookmarklet builds a `*_gearStats.toml` file. (Scroll down to see it)
-  7. Save the `.toml` to the `AllServers` directory as `lgo_<character-name>_gearStats.toml`.
+  7. Save the `.toml` as `lgo_<character-name>_gearStats.toml`. The recommended location is the character's gear folder next to the program, `<install>\<CharacterName>_Gear\` (where `<install>` is the folder containing `lgo.exe`). On the very first run that folder may not exist yet — in that case save it in the install root beside `lgo.exe`, and `resolve-slots` will move it into the character folder for you.
   8. Open a command-line window on your computer and run `lgo resolve-slots`.
   9. Run `lgo optimize tm:450000 cr:350000 fn:0`, replacing those values with your actual stat goals. Add `--save-build <name>` if you want to keep that priority list for later re-use. Add `--to-file` if you also want .txt and .html report files saved for that run. The optimizer then searches for the exact best build under those goal priorities and prints the report in the terminal window.
   10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool against every saved build. It lists the saved builds first, then item names under `Items you can scrap:` and `Items of which you have more than one, but only need one:`.
@@ -38,6 +38,8 @@
       lgo_<character-name>_gearNames_<timestamp>.plugindata
          
     This file is a list of all the items you currently have equipped, plus all the ones you put in the 'lgo' shared-storage chest, plus your character's name and base stats. Unfortunately getting item stats from LotRO is *extremely* difficult, so this file is not the last one you have to make, sorry. :(
+    
+    This `.plugindata` export is the only LGO file that lives in the game's Documents (PluginData) folder; its location is fixed by the game. Every other LGO file — the gear TOMLs, saved builds, and reports — lives beside lgo.exe in the install directory (see step 7).
   
   3. Open https://lotro-wiki.com in your web browser. You must be on lotro-wiki.com before clicking the bookmarklet; it will refuse to run on any other site.
   
@@ -48,16 +50,23 @@
   
   6. Wait while the bookmarklet looks each item up on the wiki. It usually takes 5–10 seconds, depending on your internet connection. Progress is shown on the page. When it finishes, it shows a summary of how many items were found cleanly, how many had to be picked from a list of variants automatically, and how many it could not find at all. The unfound items appear in the output with all stats set to 0 and a comment line beginning # UNRESOLVED: explaining why. You will need to fill those stats in by hand later (step 9). The bookmarklet then displays a text area containing the generated file.
   
-  7. Hit the 'Save TOML' button and save the file in this folder:
-  
-      C:\Users\ <YOUR USER NAME> \Documents\The Lord of the Rings Online\PluginData\<YOUR CHARACTER NAME>\AllServers
-  
-    and name the file:
-  
+  7. Hit the 'Save TOML' button and name the file:
+
       lgo_<character-name>_gearStats.toml
-  
-    If that doesn't work, click 'Select All', copy the text, paste it into a new file and *then* save it.
-  
+
+    Save it in the character's gear folder beside the program:
+
+      <install>\<CharacterName>_Gear\
+
+    where <install> is the folder that contains lgo.exe. The Save dialog
+    suggests the correct lgo_<character-name>_gearStats.toml filename
+    automatically. On your very first run for a character that folder may not
+    exist yet; in that case just save the file in the install root, beside
+    lgo.exe, and the next step will move it into the character folder for you.
+
+    If the Save button doesn't work, click 'Select All', copy the text, paste it
+    into a new file and *then* save it.
+
     Replace <character-name> with your character's name, exactly as LotRO spells it. The next step reads this file and combines it with your existing saved gear file, if you have one.
   
   8. From a command prompt, run:
@@ -67,6 +76,16 @@
     This reads the stats .toml file you just saved, looks each item's slot up in the local item database, and creates or updates the canonical editable file:
   
       lgo_<character-name>_gearReady.toml
+  
+    resolve-slots creates the <install>\<CharacterName>_Gear folder if it does
+    not exist. If you saved lgo_<character-name>_gearStats.toml in the install
+    root (first-run case), resolve-slots moves it into the character folder first
+    and prints a note saying it did so. When you have gear folders for more than
+    one character, resolve-slots and the other commands auto-select the character
+    whose gearReady file was updated most recently and print which one, for
+    example: `Using character: Thalya (most recently updated)`. Use
+    `--character <name>` (or `-c <name>`) to pick a specific character; the folder
+    name match is case-insensitive.
   
   9. It is optional, but to get an accurate set of stats, you will usually need to hand-edit some of the information in the 'lgo_<CharacterName>_gearReady.toml' file in a text editor and review it. This includes:
     - Your five selected Virtues in the top-level [Virtues] block. Fill in Virtue1 ... Virtue5 with names from data/lgo_virtues.json. Matching is case-insensitive and trims surrounding whitespace. Empty strings are allowed; unknown or duplicate non-empty Virtue names make optimize fail with a clear error.
@@ -78,7 +97,7 @@
    
     Hand-editing may also be needed for recently renamed items and very new items.
      
-    Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in your character's AllServers directory, the same place you saved the file in step 7. The filename is lgo_<CharacterName>_gearReady.toml.
+    Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in the character's gear folder, <install>\<CharacterName>_Gear\, the same folder resolve-slots used in step 8. The filename is lgo_<CharacterName>_gearReady.toml.
    
     Near the top of the file you will see the header fields `character`, `class`, `[InnateStats]`, and `[Virtues]`. [InnateStats] contains only the five raw Base stats (Might, Agility, Vitality, Will, Fate). [Virtues] contains your five user-maintained Virtue name slots. The item list begins
     after that. Each item has normal stat lines for the base item plus an attached item.EssenceTotals] block. Put the sum of that item's socketed essence stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but resolve-slots writes every tracked stat explicitly to reduce copy/paste mistakes. If you mistype a stat name, or enter an unknown Virtue name,
@@ -116,10 +135,9 @@
   
     Goals are checked in priority order. The optimizer first prefers builds that meet higher-priority minima, then gets still-unmet goals as close to target as possible, and only then uses extra raw totals as a polish/tiebreak. A minimum of 0 means 'no floor, but maximise this stat in the later polish stage'. Two-letter abbreviations and full stat names are both accepted; see the Command Line Reference for the full list.
       
-    NOTE: optimize needs the class coefficient table in data/base_stat_derivations.json to derive your raw Base stats (Might, Agility, Vitality, Will, Fate) into tracked stats, so run
-    it from a directory containing the 'data' folder (the same convention as build-db).
+    NOTE: optimize needs the class coefficient table in data\base_stat_derivations.json to derive your raw Base stats (Might, Agility, Vitality, Will, Fate) into tracked stats. LGO always looks for the 'data' folder beside lgo.exe (the install directory), so you can run the command from anywhere.
   
-    By default, optimize prints the report only to the terminal. If you add `--to-file`, it also writes two copies of the report beside the canonical gear TOML, inside an LGO_Reports folder: one .txt and one self-contained .html file with matching lgo_GearReport_### names.
+    By default, optimize prints the report only to the terminal. If you add `--to-file`, it also writes two copies of the report — one .txt and one self-contained .html file with matching lgo_GearReport_### names — into the character's reports folder, <install>\<CharacterName>_Gear\<CharacterName>_Reports\ (created if needed).
   
     If you know this goal list is one of your regular builds, add
   
@@ -142,7 +160,7 @@
   
     This does not run an optimization.
   
-  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each tracked stat, and the projected raw Base-stat pool. If you used `--to-file`, the same report is also saved in the LGO_Reports folder as both text and HTML.
+  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each tracked stat, and the projected raw Base-stat pool. If you used `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both text and HTML.
   
   12. If you keep several saved builds, run:
   

@@ -150,12 +150,11 @@ impl std::error::Error for VirtuesError {}
 
 impl VirtuesDb {
     pub fn load_default() -> Result<Self, VirtuesError> {
-        let path = crate::install::data_path(DEFAULT_VIRTUES_FILE).map_err(|source| {
-            VirtuesError::Io {
+        let path =
+            crate::install::data_path(DEFAULT_VIRTUES_FILE).map_err(|source| VirtuesError::Io {
                 path: PathBuf::from(DEFAULT_VIRTUES_PATH),
                 source,
-            }
-        })?;
+            })?;
         Self::load(&path)
     }
 

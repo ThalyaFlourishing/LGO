@@ -139,16 +139,14 @@ pub fn list_gear_folders(install: &Path) -> io::Result<Vec<GearFolder>> {
 /// `base-stats`) using the discovery rules. Errors clearly on no match / zero
 /// folders.
 pub fn select_character(install: &Path, requested: Option<&str>) -> Result<Selection, String> {
-    let folders = list_gear_folders(install).map_err(|e| {
-        format!(
-            "Cannot read install directory {}: {}",
-            install.display(),
-            e
-        )
-    })?;
+    let folders = list_gear_folders(install)
+        .map_err(|e| format!("Cannot read install directory {}: {}", install.display(), e))?;
 
     if let Some(req) = requested {
-        return match folders.iter().find(|f| f.character.eq_ignore_ascii_case(req)) {
+        return match folders
+            .iter()
+            .find(|f| f.character.eq_ignore_ascii_case(req))
+        {
             Some(f) => Ok(Selection {
                 character: f.character.clone(),
                 gear_dir: f.path.clone(),
@@ -167,10 +165,7 @@ pub fn select_character(install: &Path, requested: Option<&str>) -> Result<Selec
 /// Resolve-slots preparation: relocate any stray `lgo_<char>_gearStats.toml`
 /// files from the install root into their `<char>_Gear` folder, then select or
 /// create the target folder. Prints move and auto-selection messages.
-pub fn prepare_resolve_slots(
-    install: &Path,
-    requested: Option<&str>,
-) -> Result<Selection, String> {
+pub fn prepare_resolve_slots(install: &Path, requested: Option<&str>) -> Result<Selection, String> {
     relocate_stray_gear_stats(install).map_err(|e| {
         format!(
             "Cannot relocate stray gear files in {}: {}",
@@ -179,16 +174,14 @@ pub fn prepare_resolve_slots(
         )
     })?;
 
-    let folders = list_gear_folders(install).map_err(|e| {
-        format!(
-            "Cannot read install directory {}: {}",
-            install.display(),
-            e
-        )
-    })?;
+    let folders = list_gear_folders(install)
+        .map_err(|e| format!("Cannot read install directory {}: {}", install.display(), e))?;
 
     if let Some(req) = requested {
-        if let Some(f) = folders.iter().find(|f| f.character.eq_ignore_ascii_case(req)) {
+        if let Some(f) = folders
+            .iter()
+            .find(|f| f.character.eq_ignore_ascii_case(req))
+        {
             return Ok(Selection {
                 character: f.character.clone(),
                 gear_dir: f.path.clone(),
@@ -235,7 +228,8 @@ fn select_among(folders: &[GearFolder]) -> Selection {
 }
 
 fn gear_ready_mtime(folder: &GearFolder) -> Option<SystemTime> {
-    let path = crate::gearstats::find_canonical_gear_file(&folder.path, &folder.character).ok()??;
+    let path =
+        crate::gearstats::find_canonical_gear_file(&folder.path, &folder.character).ok()??;
     fs::metadata(&path).and_then(|m| m.modified()).ok()
 }
 
@@ -349,10 +343,7 @@ pub fn resolve_report_character(
     gear_file: &Path,
     gear_doc_character: Option<&str>,
 ) -> Result<String, String> {
-    if let Some(c) = gear_doc_character
-        .map(str::trim)
-        .filter(|c| !c.is_empty())
-    {
+    if let Some(c) = gear_doc_character.map(str::trim).filter(|c| !c.is_empty()) {
         return Ok(c.to_string());
     }
     if let Some(name) = gear_file.file_name().and_then(|n| n.to_str()) {

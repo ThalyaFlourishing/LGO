@@ -145,13 +145,12 @@ impl std::error::Error for DerivationError {}
 
 impl BaseStatDerivations {
     pub fn load_default() -> Result<Self, DerivationError> {
-        let path =
-            crate::install::data_path(DEFAULT_DERIVATIONS_FILE).map_err(|source| {
-                DerivationError::Io {
-                    path: PathBuf::from(DEFAULT_DERIVATIONS_PATH),
-                    source,
-                }
-            })?;
+        let path = crate::install::data_path(DEFAULT_DERIVATIONS_FILE).map_err(|source| {
+            DerivationError::Io {
+                path: PathBuf::from(DEFAULT_DERIVATIONS_PATH),
+                source,
+            }
+        })?;
         Self::load(&path)
     }
 

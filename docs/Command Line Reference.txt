@@ -28,7 +28,11 @@ SECTION 2 - BOOKMARKLET WORKFLOW!
   3) Paste the contents of lgo_<character-name>_gearNames_<timestamp>.plugindata when prompted.
   4) Let the bookmarklet fetch item stats and generate TOML output.
      The generated TOML includes top-level character = "..." and class = "..." fields.
-  5) Save the generated file as lgo_<character>_gearStats.toml into your character's AllServers directory.
+  5) Save the generated file as lgo_<character>_gearStats.toml into the character's
+     <install>\<CharacterName>_Gear folder (the folder is beside lgo.exe). The Save
+     dialog suggests that filename automatically. On the first run the folder may
+     not exist yet; save it in the install root beside lgo.exe instead and
+     resolve-slots will move it into the character folder.
 
 SECTION 3 - LGO CLI (USER COMMANDS)
 -----------------------------------
@@ -78,20 +82,36 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.3 resolve-slots
   lgo resolve-slots
-    Auto-detect lgo_<character>_gearStats.toml in the selected character's AllServers
-    directory, resolve slot names via data/lgo_items.json, and merge the result into
-    lgo_<character>_gearReady.toml.
+    Auto-detect lgo_<character>_gearStats.toml in the selected character's
+    <install>\<CharacterName>_Gear folder (the install directory is the folder
+    containing lgo.exe), resolve slot names via data\lgo_items.json, and merge the
+    result into lgo_<character>_gearReady.toml in that same folder.
     gearReady.toml is the canonical file for persistent manual corrections,
     including top-level [Virtues] plus each item's [item.EssenceTotals] block.
     resolve-slots keeps [InnateStats] followed immediately by [Virtues] near the
     top of the file. The bookmarklet-produced gearStats.toml should be treated
     as disposable input to resolve-slots.
 
-    Filename matching for the character name is case-insensitive on Windows.
+    resolve-slots creates the <CharacterName>_Gear folder if it does not exist.
+    If a lgo_<character>_gearStats.toml is found loose in the install root, its
+    character is read from the filename, the folder is created if needed, the file
+    is moved into it (a note is printed), and resolving continues normally.
+
+    Character selection (shared by resolve-slots, optimize, scrap-gear, and
+    base-stats):
+      - With -c/--character <name>, use the matching <name>_Gear folder. The
+        directory-name match is case-insensitive. It is an error if no matching
+        folder exists (resolve-slots creates it instead).
+      - With exactly one <name>_Gear folder present, it is auto-selected.
+      - With several, the one whose lgo_<char>_gearReady.toml was modified most
+        recently is auto-selected, and the choice is always printed, for example:
+        `Using character: Thalya (most recently updated)`.
+    If a <name>_Gear folder holds files named for a different character, a loud
+    warning is printed to stderr and the directory name is used anyway.
 
   lgo resolve-slots --character <name>
   lgo resolve-slots -c <name>
-    Resolve slots using that character's AllServers directory.
+    Select (or create) that character's <name>_Gear folder.
 
   lgo resolve-slots --force
    In --force mode, the program will ask you, item by item, before changing or removing anything. Each prompt looks like:
@@ -106,12 +126,13 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     builds that meet higher-priority goals, then gets still-unmet goals as close to
     their minima as possible, and only then uses extra raw totals as a polish/tiebreak.
     A minimum of 0 means no floor, but maximize that stat only in the later polish stage.
-    Auto-discovers lgo_<character>_gearReady.toml from the character's AllServers directory.
+    Auto-discovers lgo_<character>_gearReady.toml from the selected character's
+    <install>\<CharacterName>_Gear folder (see the selection rules in 3.3).
     By default optimize prints the report only to the terminal.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
-    Use the specified character's AllServers folder for auto-discovery.
+    Use the specified character's <name>_Gear folder for auto-discovery.
 
   lgo optimize --file <path> <stat:min> ...
   lgo optimize -f <path> <stat:min> ...
@@ -131,10 +152,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Fate) carried in gearReady.toml — innate, per-item, and essence values —
     plus any raw Base stats granted by selected Virtues — into tracked-stat
     contributions using the per-class coefficients in
-    data/base_stat_derivations.json. Selected Virtue tracked stats contribute
-    directly as fixed baseline totals. Both data files are resolved relative to
-    the current directory (same convention as build-db), so run optimize from a
-    directory containing the data/ folder. optimize errors clearly if the class
+    data\base_stat_derivations.json. Selected Virtue tracked stats contribute
+    directly as fixed baseline totals. Both data files are resolved from the
+    install directory's data\ folder (the folder beside lgo.exe), so optimize can
+    be run from anywhere. optimize errors clearly if the class
     entry, derivation file, or needed virtue data file is missing.
     The report content includes the chosen gear, goal summary, the full projected
     16 tracked stats (zero rows included), and the combined raw Base-stat pool.
@@ -144,10 +165,16 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 
   lgo optimize --to-file <stat:min> ...
-    Also write a plain-text report and a self-contained HTML report into an
-    LGO_Reports sub-folder beside the canonical gear TOML (or beside the
-    explicit --file/-f path). Filenames are lgo_GearReport_###.txt and
+    Also write a plain-text report and a self-contained HTML report into the
+    character's <install>\<CharacterName>_Gear\<CharacterName>_Reports folder
+    (created if needed). Filenames are lgo_GearReport_###.txt and
     lgo_GearReport_###.html, with a shared serial number per run.
+    This routing applies even when --file/-f points to a TOML outside the install
+    tree: the character is taken from the TOML's top-level character = "..." field,
+    falling back to the lgo_<character>_gearReady.toml filename convention, and the
+    matching <CharacterName>_Gear\<CharacterName>_Reports folder is created under
+    the install directory. optimize errors clearly if the character cannot be
+    resolved.
     If the file name or any of the folders in the path have spaces, you'll 
     need to put quote marks around it.
 
@@ -182,8 +209,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lists every build evaluated (name plus goals in priority order), then shows
   two simple name-only sections: `Items you can scrap:` for items used by no
   saved build, and `Items of which you have more than one, but only need
-  one:` for duplicate-owned items whose extra copies are never needed. It
-  prints only to the terminal; no LGO_Reports files are written.
+  one:` for duplicate-owned items whose extra copies are never needed. The
+  same text report is also written into the character's
+  <install>\<CharacterName>_Gear\<CharacterName>_Reports folder (created if
+  needed), using the shared lgo_GearReport_### serial numbering.
 
   Count-aware duplicate handling: for each item name, `scrap-gear` compares
   how many copies you own against the maximum number of copies used by any
@@ -199,7 +228,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
   lgo scrap-gear --character <name>
   lgo scrap-gear -c <name>
-    Use the specified character's AllServers folder for auto-discovery.
+    Use the specified character's <name>_Gear folder for auto-discovery.
 
   lgo scrap-gear --file <path>
   lgo scrap-gear -f <path>
@@ -221,13 +250,13 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Print the five raw innate Base stats from [InnateStats] in
     lgo_<character>_gearReady.toml, and the 16 derived tracked-stat
     contributions computed from them (already included in optimize totals).
-    Does not run an optimization. Requires data/base_stat_derivations.json in
-    the current directory's data/ folder, like optimize.
+    Does not run an optimization. Requires data\base_stat_derivations.json in
+    the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
 
   lgo base-stats --character <name>
   lgo base-stats -c <name>
-    Use the specified character's AllServers folder for auto-discovery.
+    Use the specified character's <name>_Gear folder for auto-discovery.
 
   lgo base-stats --file <path>
   lgo base-stats -f <path>
@@ -296,10 +325,13 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
     authoritative catalog of verbs and flags; Section 4 only covers build and
     test tooling.
 
-    Tip: cargo build --release produces target/release/lgo, which you can run
-    directly (lgo <verb> ...) — but still from a directory containing data/,
-    since resolve-slots and optimize resolve data files relative to the
-    current directory.
+    Tip: cargo build --release produces target/release/lgo, the standalone
+    executable. LGO resolves the data/ folder, the per-character _Gear folders,
+    and reports from the directory that contains the executable (the install
+    directory), never the current working directory. Under `cargo run` and
+    `cargo test` the repo root is used automatically, so those work in a checkout
+    without a data/ folder under target/. When you run a built lgo directly, keep
+    data/ (and the _Gear folders) beside it.
 
   cargo test
     Run all unit and integration tests.
@@ -331,18 +363,18 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
 
 SECTION 5 - ITEMS DATABASE BUILDER
 -------------------------------------------------
-Build the items database (data/lgo_items.json):
+Build the items database (data\lgo_items.json):
   Dev: cargo run --release -- build-db
   User: lgo build-db
     or: lgo -build-db
     or: lgo --build-db
     or: lgo -b
 
-This reads data/items.xml and produces 'data/lgo_items.json' — each item's canonical slot plus the two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
+This reads data\items.xml and produces 'data\lgo_items.json' — each item's canonical slot plus the two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
 
-Working directory matters. db_build resolves data/items.xml and data/lgo_items.json as relative paths. So the user has to run it from a directory that contains a data/ folder with those files (i.e. the LGO repo root, or wherever they keep their copy of the game-data dumps).
+build-db resolves data\items.xml and data\lgo_items.json from the install directory's data\ folder (the folder beside lgo.exe), not the current working directory, so it can be run from anywhere.
 
 So the build-db command will use the items.xml file from the 'data' folder, and the new database file will be written to the 'data' folder too, but both the input and output files can be specified if desired:
-  cargo run -- build-db --items <path>/items.xml --out <path>/lgo_items.json
+  cargo run -- build-db --items <path>\items.xml --out <path>\lgo_items.json
 
 The JSON file is consumed by resolve-slots.

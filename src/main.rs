@@ -317,7 +317,9 @@ fn load_virtues_or_exit() -> virtues::VirtuesDb {
                 virtues::DEFAULT_VIRTUES_PATH,
                 e
             );
-            eprintln!("Ensure data/lgo_virtues.json exists in the install directory (beside lgo.exe).");
+            eprintln!(
+                "Ensure data/lgo_virtues.json exists in the install directory (beside lgo.exe)."
+            );
             process::exit(1);
         }
     }
@@ -710,7 +712,9 @@ fn run_resolve_slots(cli: &ResolveSlotsCli) {
         Ok(db) => db,
         Err(e) => {
             eprintln!("Failed to load items DB (data/lgo_items.json): {}", e);
-            eprintln!("Ensure data/lgo_items.json exists in the install directory (beside lgo.exe).");
+            eprintln!(
+                "Ensure data/lgo_items.json exists in the install directory (beside lgo.exe)."
+            );
             process::exit(1);
         }
     };

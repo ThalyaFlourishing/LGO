@@ -267,8 +267,8 @@ mod tests {
         let temp = TempDir::new_in_current_dir();
         let reports_dir = temp.relative_reports_dir();
 
-        let paths = write_optimize_report_files(&reports_dir, "text", "html")
-            .expect("write succeeds");
+        let paths =
+            write_optimize_report_files(&reports_dir, "text", "html").expect("write succeeds");
 
         let text = paths.text_path.display().to_string();
         let html = paths.html_path.display().to_string();
@@ -280,9 +280,7 @@ mod tests {
                 .parent()
                 .and_then(|parent| parent.file_name())
                 .and_then(|name| name.to_str()),
-            reports_dir
-                .file_name()
-                .and_then(|name| name.to_str())
+            reports_dir.file_name().and_then(|name| name.to_str())
         );
     }
 
@@ -397,8 +395,7 @@ mod tests {
             .expect("seed");
         }
 
-        let err =
-            write_optimize_report_files(&reports_dir, "text", "html").expect_err("must fail");
+        let err = write_optimize_report_files(&reports_dir, "text", "html").expect_err("must fail");
         assert!(err.contains("lgo_GearReport_000"));
         assert!(err.contains("-9"));
     }

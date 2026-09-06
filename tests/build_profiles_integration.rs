@@ -92,10 +92,7 @@ TacticalMitigation = 100
     assert!(builds_text.contains(r#"[builds.Burst]"#));
     assert!(builds_text.contains(r#"goals = ["cr:50"]"#));
 
-    let loaded = run_lgo(
-        &["optimize", "--file", gear_arg, "--build", "burst"],
-        &dir,
-    );
+    let loaded = run_lgo(&["optimize", "--file", gear_arg, "--build", "burst"], &dir);
     assert!(
         loaded.status.success(),
         "build optimize failed:\nstdout:\n{}\nstderr:\n{}",
