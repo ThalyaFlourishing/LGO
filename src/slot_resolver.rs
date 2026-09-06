@@ -31,8 +31,10 @@ use crate::gear::{parse_slot_display, Slot};
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 use crate::virtues::{VIRTUE_FIELD_KEYS, VIRTUE_TABLE_KEY};
 
-/// Default path to the offline items DB, relative to the working directory.
+/// Default items-DB file, resolved under the install directory's `data/`
+/// folder.
 pub const DEFAULT_ITEMS_DB_PATH: &str = "data/lgo_items.json";
+const DEFAULT_ITEMS_DB_FILE: &str = "lgo_items.json";
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 const STAT_EQUALS_COLUMN: usize = 20;
 const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
@@ -132,9 +134,14 @@ struct RawEntry {
 }
 
 impl ItemsDb {
-    /// Load from the default path (`data/lgo_items.json`).
+    /// Load from `<install>/data/lgo_items.json`.
     pub fn load_default() -> Result<Self, ItemsDbError> {
-        Self::load(Path::new(DEFAULT_ITEMS_DB_PATH))
+        let path =
+            crate::install::data_path(DEFAULT_ITEMS_DB_FILE).map_err(|e| ItemsDbError::Io {
+                path: PathBuf::from(DEFAULT_ITEMS_DB_PATH),
+                source: e,
+            })?;
+        Self::load(&path)
     }
 
     /// Load from an explicit path. Useful in tests against synthetic fixtures.
@@ -2024,6 +2031,12 @@ fn find_latest_plugindata_file(
     dir: &Path,
     character: &str,
 ) -> Result<Option<PathBuf>, ResolveError> {
+    // The plugindata export lives in the game's Documents tree, which may not
+    // exist on this machine (e.g. in tests, or before the game has ever run).
+    // A missing directory simply means "no export", not an error.
+    if !dir.exists() {
+        return Ok(None);
+    }
     let prefix = format!("lgo_{}_", character.to_ascii_lowercase());
     let mut matches: Vec<PathBuf> = fs::read_dir(dir)
         .map_err(|e| ResolveError::IoRead {
@@ -2067,8 +2080,14 @@ fn find_latest_plugindata_file(
 ///
 /// If no bookmarklet output file is present, the canonical file is left
 /// untouched and the returned `Report` carries `bookmarklet_path = None`.
+///
+/// `plugindata_dir` is the game's Documents export directory for this
+/// character; it is separate from `char_dir` (the install-tree gear folder)
+/// because the `.plugindata` file's location is fixed by the Turbine API.
+/// Pass `None` to skip the base-stat export entirely.
 pub fn resolve_stats_file(
     char_dir: &Path,
+    plugindata_dir: Option<&Path>,
     character: &str,
     db: &ItemsDb,
     force: ForceMode,
@@ -2125,14 +2144,17 @@ pub fn resolve_stats_file(
             source: e,
         })?;
 
-    let plugin_export = find_latest_plugindata_file(char_dir, character)?
-        .map(|path| {
-            // `plugindata` parses the in-game `gearNames` export, including
-            // character class and raw base stats for the `[InnateStats]` block.
-            crate::plugindata::load(&path)
-                .map_err(|message| ResolveError::PluginData { path, message })
-        })
-        .transpose()?;
+    let plugin_export = match plugindata_dir {
+        Some(dir) => find_latest_plugindata_file(dir, character)?
+            .map(|path| {
+                // `plugindata` parses the in-game `gearNames` export, including
+                // character class and raw base stats for the `[InnateStats]` block.
+                crate::plugindata::load(&path)
+                    .map_err(|message| ResolveError::PluginData { path, message })
+            })
+            .transpose()?,
+        None => None,
+    };
 
     let bookmarklet_doc: DocumentMut =
         bookmarklet_src

@@ -321,6 +321,7 @@
               let handle;
               try {
                 handle = await window.showSaveFilePicker({
+                  id: 'lgo-toml',
                   suggestedName: filename,
                   types: [{ description: "TOML", accept: { "text/plain": [".toml"] } }]
                 });

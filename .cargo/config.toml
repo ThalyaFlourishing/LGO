@@ -1,0 +1,8 @@
+# Dev/test-only: anchor the install directory at the repository root so that
+# `cargo run` and `cargo test` resolve `data/` and `<Character>_Gear/` folders
+# from the repo rather than from `target/`. `relative = true` makes Cargo turn
+# the empty value into the absolute path of the directory containing this
+# `.cargo/` folder (the repository root). Shipped builds ignore this file and
+# anchor on the executable's own directory instead.
+[env]
+LGO_HOME = { value = "", relative = true }

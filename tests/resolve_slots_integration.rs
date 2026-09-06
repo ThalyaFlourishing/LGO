@@ -591,6 +591,7 @@ fn file_level_merge_first_run_creates_canonical_file() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -638,6 +639,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -656,6 +658,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     std::fs::copy(&fixture, &bookmarklet).expect("re-copy fixture");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -701,6 +704,7 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
 
     let first_report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -713,6 +717,7 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
 
     let second_report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -827,6 +832,7 @@ CriticalRating = 200
 
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -877,6 +883,7 @@ CriticalRating = 200
 
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -937,6 +944,7 @@ CriticalRating = 3
     std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet first run");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -963,6 +971,7 @@ CriticalRating = 3
     std::fs::write(&bookmarklet, bookmarklet_text).expect("write bookmarklet second run");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1013,6 +1022,7 @@ fn file_level_merge_no_new_export_leaves_canonical_untouched() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1032,6 +1042,7 @@ fn file_level_merge_no_files_at_all_is_an_error() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let err = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         "TestChar",
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1072,6 +1083,7 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1115,6 +1127,7 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1135,6 +1148,7 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
     std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for second run");
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1194,6 +1208,7 @@ fn file_level_merge_first_run_canonical_contains_metadata() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1228,6 +1243,7 @@ fn file_level_merge_repeat_merge_keeps_metadata() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1238,6 +1254,7 @@ fn file_level_merge_repeat_merge_keeps_metadata() {
     std::fs::write(&bookmarklet, &bm_content).expect("write bookmarklet second run");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1272,6 +1289,7 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1287,6 +1305,7 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
     std::fs::write(&bookmarklet, &bm_content).expect("write bookmarklet second run");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1380,6 +1399,7 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -1452,6 +1472,7 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -1549,6 +1570,7 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1633,6 +1655,7 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -1702,6 +1725,7 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1719,6 +1743,7 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1785,6 +1810,7 @@ CriticalRating = 200
     std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1810,6 +1836,7 @@ CriticalRating = 200
         std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -1889,6 +1916,7 @@ Armor = 40
     std::fs::write(&bookmarklet, two_item_export).expect("write bookmarklet export");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -1934,6 +1962,7 @@ Armor = 40
         std::fs::write(&bookmarklet, three_item_export).expect("write bookmarklet export");
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -2016,6 +2045,7 @@ CriticalRating = 123
     std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -2050,6 +2080,7 @@ CriticalRating = 123
         std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,
@@ -2141,6 +2172,7 @@ CriticalRating = 200
     std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
+        Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
@@ -2162,6 +2194,7 @@ CriticalRating = 200
         std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
+            Some(&dir),
             character,
             &db,
             lgo::slot_resolver::ForceMode::NoForce,

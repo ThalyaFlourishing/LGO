@@ -8,6 +8,8 @@ use crate::gearstats::GearDoc;
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 pub const DEFAULT_VIRTUES_PATH: &str = "data/lgo_virtues.json";
+/// File name resolved under the install directory's `data/` folder.
+const DEFAULT_VIRTUES_FILE: &str = "lgo_virtues.json";
 pub const VIRTUE_TABLE_KEY: &str = "Virtues";
 pub const VIRTUE_FIELD_KEYS: [&str; 5] = ["Virtue1", "Virtue2", "Virtue3", "Virtue4", "Virtue5"];
 
@@ -148,7 +150,12 @@ impl std::error::Error for VirtuesError {}
 
 impl VirtuesDb {
     pub fn load_default() -> Result<Self, VirtuesError> {
-        Self::load(Path::new(DEFAULT_VIRTUES_PATH))
+        let path =
+            crate::install::data_path(DEFAULT_VIRTUES_FILE).map_err(|source| VirtuesError::Io {
+                path: PathBuf::from(DEFAULT_VIRTUES_PATH),
+                source,
+            })?;
+        Self::load(&path)
     }
 
     pub fn load(path: &Path) -> Result<Self, VirtuesError> {
