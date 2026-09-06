@@ -142,8 +142,8 @@ impl std::fmt::Display for VirtuesError {
             ),
             VirtuesError::UnknownSelectedVirtue { entered_name } => write!(
                 f,
-                "Unknown Virtue '{}'; check the spelling in {}.",
-                entered_name, "data/lgo_virtues.json"
+                "Unknown Virtue '{}'; check the spelling in data/lgo_virtues.json.",
+                entered_name
             ),
             VirtuesError::DuplicateSelectedVirtue { virtue_name } => write!(
                 f,
