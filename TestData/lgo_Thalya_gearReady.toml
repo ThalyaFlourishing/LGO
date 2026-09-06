@@ -1,11 +1,12 @@
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 # LGO 2026, by Thalya
-# gearReady.toml updated: 09/02/26 20:17:53
+# gearReady.toml updated: 09/06/26 15:46:25
 # _-=-_-=-_-=-_-=-_-=-_-=-_
 character = "Thalya"
 class = "Lore-master"
 
 [InnateStats]
+# Extracted by in-game plugin; do not edit.
 Might              = 5300
 Agility            = 2650
 Vitality           = 10200
@@ -13,6 +14,7 @@ Will               = 7950
 Fate               = 4000
 
 [Virtues]
+# Not extracted, you must add these yourself.
 Virtue1            = ""
 Virtue2            = ""
 Virtue3            = ""
@@ -1440,6 +1442,53 @@ Vitality           = 0
 Will               = 0
 Fate               = 0
 
+[[item]]
+slot = "Feet"
+name               = "Blighted Shoes of the Keeper"
+Morale             = 0
+Power              = 0
+Armor              = 8242
+CriticalRating     = 12845
+Finesse            = 16988
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 3020
+Will               = 3053
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
 # --- Shoulders ---
 
 [[item]]
@@ -1794,6 +1843,53 @@ Might              = 0
 Agility            = 0
 Vitality           = 3351
 Will               = 2714
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Shoulders"
+name               = "Blighted Shoulder-guards of the Keeper"
+Morale             = 0
+Power              = 0
+Armor              = 6067
+CriticalRating     = 0
+Finesse            = 4846
+PhysicalMastery    = 0
+TacticalMastery    = 9107
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 3351
+Will               = 3385
 Fate               = 0
 [item.EssenceTotals]
 Morale             = 0
@@ -2362,6 +2458,53 @@ TacticalMitigation = 0
 Might              = 0
 Agility            = 0
 Vitality           = 0
+Will               = 0
+Fate               = 0
+[item.EssenceTotals]
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 0
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 0
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 0
+Will               = 0
+Fate               = 0
+
+[[item]]
+slot = "Wrist"
+name               = "Strong Ordâkhai Bracelet"
+Morale             = 0
+Power              = 0
+Armor              = 0
+CriticalRating     = 18644
+Finesse            = 0
+PhysicalMastery    = 0
+TacticalMastery    = 0
+OutgoingHealing    = 0
+Resistance         = 0
+CriticalDefense    = 0
+IncomingHealing    = 0
+Block              = 0
+Parry              = 0
+Evade              = 0
+PhysicalMitigation = 7457
+TacticalMitigation = 0
+Might              = 0
+Agility            = 0
+Vitality           = 3094
 Will               = 0
 Fate               = 0
 [item.EssenceTotals]
