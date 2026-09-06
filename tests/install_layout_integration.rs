@@ -178,6 +178,11 @@ fn optimize_errors_when_no_gear_folders_exist() {
     let output = run(&install, &["optimize", "tm:0"]);
     assert!(!output.status.success(), "must fail with no gear folders");
     let stderr = stderr_of(&output);
+    let expected_prefix = format!("Error: Install directory:\n{}\n", install.display());
+    assert!(
+        stderr.starts_with(&expected_prefix),
+        "should lead with the install directory; got:\n{stderr}"
+    );
     assert!(
         stderr.contains("No character gear folders"),
         "should explain the expected layout; got:\n{stderr}"
@@ -409,4 +414,78 @@ fn to_file_out_of_tree_unresolvable_character_errors() {
 
     std::fs::remove_dir_all(&install).ok();
     std::fs::remove_dir_all(&outside).ok();
+}
+
+#[test]
+fn scrap_gear_out_of_tree_unresolvable_character_fails_before_printing_report() {
+    let install = seed_install("scrap_outtree_unresolvable");
+    let outside = unique_dir("scrap_outtree_unresolvable_src");
+    let gear = outside.join("mystery.toml");
+    let builds = outside.join("saved_builds.toml");
+    std::fs::write(
+        &gear,
+        "class = \"Lore-master\"\n\n[[item]]\nslot = \"Head\"\nname = \"Hat\"\nTacticalMastery = 5\n",
+    )
+    .expect("write out-of-tree gear");
+    std::fs::write(&builds, "[builds.any]\ngoals = [\"tm:0\"]\n").expect("write builds file");
+
+    let output = run(
+        &install,
+        &[
+            "scrap-gear",
+            "--file",
+            gear.to_str().expect("utf-8"),
+            "--builds-file",
+            builds.to_str().expect("utf-8"),
+        ],
+    );
+    assert!(
+        !output.status.success(),
+        "must fail when the report character cannot be resolved"
+    );
+    let stderr = stderr_of(&output);
+    assert!(
+        stderr.contains("Cannot determine the character"),
+        "should explain the routing failure; got:\n{stderr}"
+    );
+    let stdout = stdout_of(&output);
+    assert!(
+        !stdout.contains("Items you can scrap:"),
+        "must not print the scrap report before failing; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("Saved builds evaluated:"),
+        "must not print the scrap report header before failing; got:\n{stdout}"
+    );
+
+    std::fs::remove_dir_all(&install).ok();
+    std::fs::remove_dir_all(&outside).ok();
+}
+
+#[test]
+fn optimize_missing_derivations_error_shows_resolved_install_tree_path() {
+    let install = unique_dir("missing_derivations");
+    let gear = install.join("lgo_Thalya_gearReady.toml");
+    std::fs::write(&gear, gear_ready_contents("Thalya")).expect("write gear file");
+
+    let output = run(
+        &install,
+        &["optimize", "--file", gear.to_str().expect("utf-8"), "tm:0"],
+    );
+    assert!(
+        !output.status.success(),
+        "must fail when derivation data is missing"
+    );
+    let stderr = stderr_of(&output);
+    let expected_path = install.join("data/base_stat_derivations.json");
+    assert!(
+        stderr.contains(expected_path.to_str().expect("utf-8")),
+        "should show the resolved install-tree path; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("Ensure data/base_stat_derivations.json exists in the install directory"),
+        "should keep the install-directory guidance; got:\n{stderr}"
+    );
+
+    std::fs::remove_dir_all(&install).ok();
 }

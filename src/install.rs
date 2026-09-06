@@ -49,8 +49,10 @@ pub struct Selection {
 }
 
 /// The install directory: `LGO_HOME` when set and non-empty, otherwise the
-/// directory that contains the running executable. Never the working
-/// directory.
+/// directory that contains the running executable; an empty `LGO_HOME` is
+/// treated as unset, and `.cargo/config.toml` deliberately relies on a
+/// non-empty relative `LGO_HOME` during dev/test so `cargo run` and
+/// `cargo test` anchor at the repo root instead. Never the working directory.
 pub fn install_dir() -> io::Result<PathBuf> {
     if let Some(home) = env::var_os(LGO_HOME_ENV) {
         if !home.is_empty() {
@@ -397,20 +399,20 @@ lgo_{}_gearStats.toml and run 'lgo resolve-slots' to create it.",
 
 fn zero_folder_message(install: &Path) -> String {
     format!(
-        "No character gear folders found in {}.\n\
-Expected one '<CharacterName>_Gear' folder per character, each containing \
-lgo_<character>_gearReady.toml.\n\
-Run 'lgo resolve-slots' after saving the bookmarklet output \
-(lgo_<character>_gearStats.toml) to create it.",
+        "Install directory:\n{}\nNo character gear folders found.\nExpected one \
+'<CharacterName>_Gear' folder per character, each containing \
+lgo_<character>_gearReady.toml.\nRun 'lgo resolve-slots' after saving the \
+bookmarklet output (lgo_<character>_gearStats.toml) to create it.",
         install.display()
     )
 }
 
 fn resolve_slots_zero_message(install: &Path) -> String {
     format!(
-        "No gear folders or loose gearStats files found in {}.\n\
+        "Install directory:\n{}\nNo gear folders or loose gearStats files found.\n\
 Save the bookmarklet output as lgo_<character>_gearStats.toml into that \
-directory (or into a '<CharacterName>_Gear' folder), then re-run 'lgo resolve-slots'.",
+directory (or into a '<CharacterName>_Gear' folder), then re-run \
+'lgo resolve-slots'.",
         install.display()
     )
 }
@@ -481,7 +483,22 @@ mod tests {
     fn zero_folders_errors() {
         let install = temp_dir("zero");
         let err = select_character(&install, None).unwrap_err();
+        let expected_prefix = format!("Install directory:\n{}\n", install.display());
+        assert!(err.starts_with(&expected_prefix), "got: {err}");
         assert!(err.contains("No character gear folders"), "got: {err}");
+        fs::remove_dir_all(&install).ok();
+    }
+
+    #[test]
+    fn resolve_slots_zero_message_starts_with_install_directory() {
+        let install = temp_dir("resolve_zero");
+        let err = prepare_resolve_slots(&install, None).unwrap_err();
+        let expected_prefix = format!("Install directory:\n{}\n", install.display());
+        assert!(err.starts_with(&expected_prefix), "got: {err}");
+        assert!(
+            err.contains("No gear folders or loose gearStats files found"),
+            "got: {err}"
+        );
         fs::remove_dir_all(&install).ok();
     }
 
