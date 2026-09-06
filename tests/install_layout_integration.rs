@@ -477,7 +477,7 @@ fn optimize_missing_derivations_error_shows_resolved_install_tree_path() {
         "must fail when derivation data is missing"
     );
     let stderr = stderr_of(&output);
-    let expected_path = install.join("data/base_stat_derivations.json");
+    let expected_path = install.join("data").join("base_stat_derivations.json");
     assert!(
         stderr.contains(expected_path.to_str().expect("utf-8")),
         "should show the resolved install-tree path; got:\n{stderr}"
