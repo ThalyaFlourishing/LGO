@@ -311,6 +311,21 @@ fn resolves_full_bookmarklet_output_matches_known_summary() {
 }
 
 #[test]
+fn resolved_output_uses_armour_stat_key_not_armor() {
+    let (out, _) = setup();
+    assert!(
+        out.lines()
+            .any(|line| line.starts_with("Armour             =")),
+        "resolved gearReady.toml must contain an 'Armour             =' line:\n{out}"
+    );
+    assert!(
+        !out.lines()
+            .any(|line| line.starts_with("Armor ") || line.starts_with("Armor=")),
+        "resolved gearReady.toml must not contain a misspelled 'Armor' stat key:\n{out}"
+    );
+}
+
+#[test]
 fn resolved_output_round_trips_through_gearstats_reader_and_skips_unknown_slots() {
     let (out, _) = setup();
     let tmp = std::env::temp_dir().join(format!(
@@ -646,7 +661,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     )
     .expect("first run");
 
-    // Simulate a hand-edit: bump every Armor value by inserting a sentinel
+    // Simulate a hand-edit: bump every Armour value by inserting a sentinel
     // line into the canonical file. We do it by injecting a unique
     // comment that must round-trip.
     let mut canon_text = std::fs::read_to_string(&canonical).expect("read canonical");
@@ -927,7 +942,7 @@ slot = \"Unknown\"
 name = \"Test Greatsword\"
 Morale = 0
 Power = 0
-Armor = 0
+Armour = 0
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 CriticalRating = 7
 
@@ -936,7 +951,7 @@ slot = \"Unknown\"
 name = \"Test Helm\"
 Morale = 0
 Power = 0
-Armor = 0
+Armour = 0
 # AUTO-PICKED highest-item-level variant: Item:Test_Helm_(Item_Level_999)
 CriticalRating = 3
 ";
@@ -1911,7 +1926,7 @@ CriticalRating = 200
 [[item]]
 slot = \"Unknown\"
 name = \"Test Sword\"
-Armor = 40
+Armour = 40
 ";
     std::fs::write(&bookmarklet, two_item_export).expect("write bookmarklet export");
     let _ = lgo::slot_resolver::resolve_stats_file(
@@ -1949,12 +1964,12 @@ CriticalRating = 200
 [[item]]
 slot = \"Unknown\"
 name = \"Test Chestpiece\"
-Armor = 30
+Armour = 30
 
 [[item]]
 slot = \"Unknown\"
 name = \"Test Sword\"
-Armor = 40
+Armour = 40
 ";
 
     let mut previous = String::new();
@@ -2035,7 +2050,7 @@ fn file_level_hand_corrected_slot_survives_re_export_across_reruns() {
 [[item]]
 slot = \"Unknown\"
 name = \"Test Helm\"
-Armor = 50
+Armour = 50
 
 [[item]]
 slot = \"Unknown\"

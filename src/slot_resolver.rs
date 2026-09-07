@@ -2539,7 +2539,7 @@ mod tests {
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n\
-Armor = 100\n";
+Armour = 100\n";
         let (out, outcomes) = resolve_toml_str(input, &db).expect("must resolve");
         assert_eq!(outcomes.len(), 1);
         assert!(matches!(
@@ -3074,14 +3074,14 @@ Fate = 2\n";
     fn warning_comments_inside_items_are_preserved() {
         // The bookmarklet writes "# WARNING: all stats unknown" inside
         // [[item]] blocks for legendary items. That comment lives as decor
-        // on the next stat key (Armor). It must survive the rewrite.
+        // on the next stat key (Armour). It must survive the rewrite.
         let db = fixture_db();
         let input = "\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Mystery Item\"\n\
 # WARNING: all stats unknown\n\
-Armor = 0\n";
+Armour = 0\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
         assert!(
             out.contains("# WARNING: all stats unknown"),
@@ -3392,7 +3392,7 @@ name = \"Test Helm\"\n";
 
     #[test]
     fn merge_first_run_takes_incoming_modulo_timestamp() {
-        let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armour", 100)])]);
         let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.added, vec!["Test Helm"]);
         assert!(outcome.preserved.is_empty());
@@ -3414,15 +3414,15 @@ name = \"Test Helm\"\n";
     #[test]
     fn merge_first_run_preserves_duplicate_same_name_instances() {
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 200)]),
         ]);
         let outcome = merge_ic(None, &incoming, ForceMode::NoForce).expect("must merge");
 
         assert_eq!(outcome.added, vec!["Test Bracelet", "Test Bracelet"]);
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 200));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 100));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 200));
     }
 
     /// The cornerstone idempotency test: running the merge twice in a row
@@ -3432,8 +3432,8 @@ name = \"Test Helm\"\n";
     fn merge_idempotent_when_nothing_changes() {
         let db = fixture_db();
         let bookmarklet = make_doc(&[
-            ("Test Helm", "Unknown", &[("Armor", 100)]),
-            ("Test Bracelet", "Unknown", &[("Armor", 50)]),
+            ("Test Helm", "Unknown", &[("Armour", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armour", 50)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
@@ -3477,7 +3477,7 @@ Fate              = 4000\n\
 slot = \"Head\"\n\
 name = \"Test Helm\"\n\
 CriticalRating\t=\t100\n\
-Armor        = 5\n\
+Armour        = 5\n\
 Might=9\n\
 [item.EssenceTotals]\n\
 CriticalRating\t=\t3\n\
@@ -3494,7 +3494,7 @@ Fate = 4000\n\
 slot = \"Head\"\n\
 name = \"Test Helm\"\n\
 CriticalRating = 100\n\
-Armor = 5\n\
+Armour = 5\n\
 Might = 9\n";
 
         let first = merge_ic(Some(previous), incoming, ForceMode::NoForce)
@@ -3544,7 +3544,7 @@ Might = 9\n";
             Some(100)
         );
         assert_eq!(
-            item.get("Armor").and_then(|item| item.as_integer()),
+            item.get("Armour").and_then(|item| item.as_integer()),
             Some(5)
         );
         assert_eq!(
@@ -3579,7 +3579,7 @@ Might = 9\n";
     #[test]
     fn resolve_toml_str_does_not_insert_canonical_timestamp() {
         let db = fixture_db();
-        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
 
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
 
@@ -3589,7 +3589,7 @@ Might = 9\n";
     #[test]
     fn merge_removes_old_timestamp_comments_before_prepending_one() {
         let db = fixture_db();
-        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
@@ -3627,8 +3627,8 @@ Might = 9\n";
     fn merge_idempotent_with_duplicate_same_name_stat_divergence() {
         let db = fixture_db();
         let bookmarklet = make_doc(&[
-            ("Test Bracelet", "Unknown", &[("Armor", 100)]),
-            ("Test Bracelet", "Unknown", &[("Armor", 200)]),
+            ("Test Bracelet", "Unknown", &[("Armour", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armour", 200)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
@@ -3650,8 +3650,8 @@ Might = 9\n";
             strip_generated_timestamp_comment(&third)
         );
         assert_eq!(count_item_name(&third, "Test Bracelet"), 2);
-        assert!(has_assignment_line(&third, "Armor", 100));
-        assert!(has_assignment_line(&third, "Armor", 200));
+        assert!(has_assignment_line(&third, "Armour", 100));
+        assert!(has_assignment_line(&third, "Armour", 200));
     }
 
     #[test]
@@ -3661,15 +3661,15 @@ Might = 9\n";
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
 # user note that must not affect identity\n\
-Armor = 100\n\
+Armour = 100\n\
 \n\
 [[item]]\n\
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
-Armor = 900\n";
+Armour = 900\n";
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
         ]);
 
         let outcome = merge_ic(
@@ -3681,9 +3681,9 @@ Armor = 900\n";
 
         assert_eq!(outcome.preserved, vec!["Test Bracelet"]);
         assert_eq!(outcome.overwritten, vec!["Test Bracelet"]);
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 200));
-        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 900));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 100));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 200));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armour", 900));
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
     }
 
@@ -3694,8 +3694,8 @@ Armor = 900\n";
 slot = \"Head\"\n\
 name = \"Test Helm\"\n\
 # Ash Nazg Gimbatul\n\
-Armor = 100\n";
-        let incoming = make_doc(&[("Test Helm", "Head", &[("Armor", 100)])]);
+Armour = 100\n";
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armour", 100)])]);
 
         let outcome = merge_ic(Some(prev), &incoming, force_with(vec![]))
             .expect("must merge without prompting");
@@ -3709,10 +3709,10 @@ Armor = 100\n";
 
     #[test]
     fn merge_count_increase_adds_only_new_duplicate_instances() {
-        let prev = make_doc(&[("Test Bracelet", "Wrist", &[("Armor", 100)])]);
+        let prev = make_doc(&[("Test Bracelet", "Wrist", &[("Armour", 100)])]);
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 200)]),
         ]);
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
@@ -3726,10 +3726,10 @@ Armor = 100\n";
     #[test]
     fn merge_count_decrease_removes_only_missing_duplicate_instances() {
         let prev = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 200)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 200)]),
         ]);
-        let incoming = make_doc(&[("Test Bracelet", "Wrist", &[("Armor", 100)])]);
+        let incoming = make_doc(&[("Test Bracelet", "Wrist", &[("Armour", 100)])]);
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
 
@@ -3737,17 +3737,17 @@ Armor = 100\n";
         assert_eq!(outcome.removed, vec!["Test Bracelet"]);
         assert!(outcome.added.is_empty());
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 1);
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
-        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 200));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 100));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armour", 200));
     }
 
     #[test]
     fn merge_adds_new_items_from_incoming() {
         let db = fixture_db();
-        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
         let inc_in = make_doc(&[
-            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Helm", "Unknown", &[("Armour", 100)]),
             ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
         ]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
@@ -3763,11 +3763,11 @@ Armor = 100\n";
     fn merge_removes_items_absent_from_incoming() {
         let db = fixture_db();
         let prev_in = make_doc(&[
-            ("Test Helm", "Unknown", &[("Armor", 100)]),
+            ("Test Helm", "Unknown", &[("Armour", 100)]),
             ("Test Sword", "Unknown", &[("CriticalRating", 50)]),
         ]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
@@ -3779,16 +3779,16 @@ Armor = 100\n";
     #[test]
     fn merge_preserves_previous_when_stats_differ_no_force() {
         let db = fixture_db();
-        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 999)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
         assert!(
-            has_assignment_line(&outcome.merged_text, "Armor", 999),
+            has_assignment_line(&outcome.merged_text, "Armour", 999),
             "previous value must be preserved:\n{}",
             outcome.merged_text
         );
@@ -3797,9 +3797,9 @@ Armor = 100\n";
     #[test]
     fn merge_force_yes_overwrites() {
         let db = fixture_db();
-        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 999)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(
@@ -3809,16 +3809,16 @@ Armor = 100\n";
         )
         .expect("must merge");
         assert_eq!(outcome.overwritten, vec!["Test Helm"]);
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 100));
-        assert!(!has_assignment_line(&outcome.merged_text, "Armor", 999));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 100));
+        assert!(!has_assignment_line(&outcome.merged_text, "Armour", 999));
     }
 
     #[test]
     fn merge_force_no_keeps_previous() {
         let db = fixture_db();
-        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 999)])]);
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 999)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(
@@ -3829,21 +3829,21 @@ Armor = 100\n";
         .expect("must merge");
         assert_eq!(outcome.preserved, vec!["Test Helm"]);
         assert!(outcome.overwritten.is_empty());
-        assert!(has_assignment_line(&outcome.merged_text, "Armor", 999));
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 999));
     }
 
     #[test]
     fn merge_force_yes_to_all_overwrite_skips_subsequent_overwrite_prompts() {
         let db = fixture_db();
         let inc_in = make_doc(&[
-            ("Test Helm", "Unknown", &[("Armor", 100)]),
-            ("Test Bracelet", "Unknown", &[("Armor", 5)]),
+            ("Test Helm", "Unknown", &[("Armour", 100)]),
+            ("Test Bracelet", "Unknown", &[("Armour", 5)]),
             // also a removal candidate, to verify YesToAll on overwrite
             // does NOT auto-accept removals.
         ]);
         let prev_in = make_doc(&[
-            ("Test Helm", "Unknown", &[("Armor", 999)]),
-            ("Test Bracelet", "Unknown", &[("Armor", 50)]),
+            ("Test Helm", "Unknown", &[("Armour", 999)]),
+            ("Test Bracelet", "Unknown", &[("Armour", 50)]),
             ("Test Sword", "Unknown", &[("CriticalRating", 1)]),
         ]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
@@ -3870,9 +3870,9 @@ Armor = 100\n";
     #[test]
     fn merge_force_identical_data_never_prompts() {
         let db = fixture_db();
-        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let prev_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         // Empty answer queue: any prompt would panic.
@@ -3887,7 +3887,7 @@ Armor = 100\n";
         let db = fixture_db();
         let prev_in = make_doc(&[("Test Sword", "Unknown", &[("CriticalRating", 50)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(
@@ -3905,7 +3905,7 @@ Armor = 100\n";
         let db = fixture_db();
         let prev_in = make_doc(&[("Test Sword", "Unknown", &[("CriticalRating", 50)])]);
         let (prev, _) = resolve_toml_str(&prev_in, &db).expect("resolve prev");
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(
@@ -3943,8 +3943,8 @@ name = \"Mystery Renamed Legendary\"\n\
 slot = \"Head\"\n\
 name = \"Test Helm\"\n\
 # essence: +1500 tactical mastery\n\
-Armor = 100\n";
-        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+Armour = 100\n";
+        let inc_in = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (incoming, _) = resolve_toml_str(&inc_in, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("must merge");
@@ -3982,7 +3982,7 @@ Armor = 100\n";
         let input = make_doc_with_meta(
             "Thalya",
             "Lore-master",
-            &[("Test Helm", "Unknown", &[("Armor", 100)])],
+            &[("Test Helm", "Unknown", &[("Armour", 100)])],
         );
         let (out, _) = resolve_toml_str(&input, &db).expect("must resolve");
         assert!(
@@ -4013,7 +4013,7 @@ Armor = 100\n";
         let bookmarklet = make_doc_with_meta(
             "Thalya",
             "Lore-master",
-            &[("Test Helm", "Unknown", &[("Armor", 100)])],
+            &[("Test Helm", "Unknown", &[("Armour", 100)])],
         );
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let outcome = merge_ic(None, &resolved, ForceMode::NoForce).expect("merge");
@@ -4035,7 +4035,7 @@ Armor = 100\n";
         let bookmarklet = make_doc_with_meta(
             "Thalya",
             "Lore-master",
-            &[("Test Helm", "Unknown", &[("Armor", 100)])],
+            &[("Test Helm", "Unknown", &[("Armour", 100)])],
         );
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
 
@@ -4081,7 +4081,7 @@ Armor = 100\n";
         let bookmarklet = make_doc(&[(
             "Test Helm",
             "Unknown",
-            &[("Armor", 100), ("Might", 9), ("Vitality", 3434)],
+            &[("Armour", 100), ("Might", 9), ("Vitality", 3434)],
         )]);
         let (resolved, _) = resolve_toml_str_with_metadata(
             &bookmarklet,
@@ -4129,7 +4129,7 @@ Armor = 100\n";
     #[test]
     fn merge_refreshes_innate_base_stats_and_drops_extra_keys() {
         let db = fixture_db();
-        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
 
         let stale_base: HashMap<Stat, i64> = [(Stat::Might, 100)].into_iter().collect();
         let (resolved_stale, _) = resolve_toml_str_with_metadata(
@@ -4220,7 +4220,7 @@ Armor = 100\n";
     #[test]
     fn merge_preserves_existing_virtue_values_and_restores_missing_fields() {
         let db = fixture_db();
-        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let base_stats: HashMap<Stat, i64> = [(Stat::Might, 5300)].into_iter().collect();
         let (resolved, _) = resolve_toml_str_with_metadata(
             &bookmarklet,
@@ -4277,13 +4277,13 @@ Armor = 100\n";
         // (no metadata fields). The new incoming TOML carries metadata; the
         // merge must copy it into the canonical output.
         let db = fixture_db();
-        let prev = make_doc(&[("Test Helm", "Unknown", &[("Armor", 100)])]);
+        let prev = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let (prev_resolved, _) = resolve_toml_str(&prev, &db).expect("resolve prev");
 
         let incoming = make_doc_with_meta(
             "Thalya",
             "Lore-master",
-            &[("Test Helm", "Unknown", &[("Armor", 100)])],
+            &[("Test Helm", "Unknown", &[("Armour", 100)])],
         );
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
@@ -4317,7 +4317,7 @@ Armor = 100\n";
     #[test]
     fn resolved_two_handed_item_gains_flag_after_name_before_stats() {
         let db = fixture_db();
-        let input = make_doc(&[("Test Greatsword", "Unknown", &[("Armor", 100)])]);
+        let input = make_doc(&[("Test Greatsword", "Unknown", &[("Armour", 100)])]);
         let (out, _) = resolve_toml_str(&input, &db).expect("must resolve");
         assert!(
             out.contains("name = \"Test Greatsword\"\ntwo_handed = true\nMorale"),
@@ -4336,7 +4336,7 @@ Armor = 100\n";
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
 two_handed = true\n\
-Armor = 100\n";
+Armour = 100\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
         assert!(
             !out.contains("two_handed"),
@@ -4353,7 +4353,7 @@ Armor = 100\n";
 slot = \"Main-hand\"\n\
 name = \"Renamed Legendary Greatclub\"\n\
 two_handed = true\n\
-Armor = 100\n";
+Armour = 100\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
         assert!(
             out.contains("two_handed = true"),
@@ -4371,10 +4371,10 @@ Armor = 100\n";
 [[item]]\n\
 slot = \"Main-hand\"\n\
 name = \"Test Greatsword\"\n\
-Armor = 555\n\
+Armour = 555\n\
 [item.EssenceTotals]\n\
 Morale = 77\n";
-        let incoming = make_doc(&[("Test Greatsword", "Unknown", &[("Armor", 100)])]);
+        let incoming = make_doc(&[("Test Greatsword", "Unknown", &[("Armour", 100)])]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
@@ -4385,7 +4385,7 @@ Morale = 77\n";
             merged
         );
         assert!(
-            has_assignment_line(merged, "Armor", 555),
+            has_assignment_line(merged, "Armour", 555),
             "hand-edited stats must be preserved:\n{}",
             merged
         );
@@ -4404,8 +4404,8 @@ Morale = 77\n";
 slot = \"Main-hand\"\n\
 name = \"Test Sword\"\n\
 two_handed = true\n\
-Armor = 555\n";
-        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armor", 100)])]);
+Armour = 555\n";
+        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armour", 100)])]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
@@ -4416,7 +4416,7 @@ Armor = 555\n";
             merged
         );
         assert!(
-            has_assignment_line(merged, "Armor", 555),
+            has_assignment_line(merged, "Armour", 555),
             "hand-edited stats must still be preserved:\n{}",
             merged
         );
@@ -4430,11 +4430,11 @@ Armor = 555\n";
 slot = \"Main-hand\"\n\
 name = \"Renamed Legendary Greatclub\"\n\
 two_handed = true\n\
-Armor = 555\n";
+Armour = 555\n";
         let incoming = make_doc(&[(
             "Renamed Legendary Greatclub",
             "Main-hand",
-            &[("Armor", 100)],
+            &[("Armour", 100)],
         )]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
@@ -4450,8 +4450,8 @@ Armor = 555\n";
     fn merge_with_two_handed_flag_is_idempotent_modulo_timestamp() {
         let db = fixture_db();
         let bookmarklet = make_doc(&[
-            ("Test Greatsword", "Unknown", &[("Armor", 100)]),
-            ("Test Helm", "Unknown", &[("Armor", 50)]),
+            ("Test Greatsword", "Unknown", &[("Armour", 100)]),
+            ("Test Helm", "Unknown", &[("Armour", 50)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
@@ -4491,7 +4491,7 @@ Armor = 555\n";
     #[test]
     fn resolved_either_hand_item_gains_flag_after_name_before_stats() {
         let db = fixture_db();
-        let input = make_doc(&[("Test Rune-stone", "Unknown", &[("Armor", 100)])]);
+        let input = make_doc(&[("Test Rune-stone", "Unknown", &[("Armour", 100)])]);
         let (out, _) = resolve_toml_str(&input, &db).expect("must resolve");
         assert!(
             out.contains("name = \"Test Rune-stone\"\neither_hand = true\nMorale"),
@@ -4513,7 +4513,7 @@ Armor = 555\n";
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
 either_hand = true\n\
-Armor = 100\n";
+Armour = 100\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
         assert!(
             !out.contains("either_hand"),
@@ -4530,7 +4530,7 @@ Armor = 100\n";
 slot = \"Off-hand\"\n\
 name = \"Renamed Legendary Rune-stone\"\n\
 either_hand = true\n\
-Armor = 100\n";
+Armour = 100\n";
         let (out, _) = resolve_toml_str(input, &db).expect("must resolve");
         assert!(
             out.contains("either_hand = true"),
@@ -4548,10 +4548,10 @@ Armor = 100\n";
 [[item]]\n\
 slot = \"Off-hand\"\n\
 name = \"Test Rune-stone\"\n\
-Armor = 555\n\
+Armour = 555\n\
 [item.EssenceTotals]\n\
 Morale = 77\n";
-        let incoming = make_doc(&[("Test Rune-stone", "Unknown", &[("Armor", 100)])]);
+        let incoming = make_doc(&[("Test Rune-stone", "Unknown", &[("Armour", 100)])]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
@@ -4562,7 +4562,7 @@ Morale = 77\n";
             merged
         );
         assert!(
-            has_assignment_line(merged, "Armor", 555),
+            has_assignment_line(merged, "Armour", 555),
             "hand-edited stats must be preserved:\n{}",
             merged
         );
@@ -4581,8 +4581,8 @@ Morale = 77\n";
 slot = \"Main-hand\"\n\
 name = \"Test Sword\"\n\
 either_hand = true\n\
-Armor = 555\n";
-        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armor", 100)])]);
+Armour = 555\n";
+        let incoming = make_doc(&[("Test Sword", "Unknown", &[("Armour", 100)])]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
         let outcome = merge_ic(Some(prev), &resolved, ForceMode::NoForce).expect("must merge");
@@ -4593,7 +4593,7 @@ Armor = 555\n";
             merged
         );
         assert!(
-            has_assignment_line(merged, "Armor", 555),
+            has_assignment_line(merged, "Armour", 555),
             "hand-edited stats must still be preserved:\n{}",
             merged
         );
@@ -4607,11 +4607,11 @@ Armor = 555\n";
 slot = \"Off-hand\"\n\
 name = \"Renamed Legendary Rune-stone\"\n\
 either_hand = true\n\
-Armor = 555\n";
+Armour = 555\n";
         let incoming = make_doc(&[(
             "Renamed Legendary Rune-stone",
             "Off-hand",
-            &[("Armor", 100)],
+            &[("Armour", 100)],
         )]);
         let (resolved, _) = resolve_toml_str(&incoming, &db).expect("resolve incoming");
 
@@ -4627,8 +4627,8 @@ Armor = 555\n";
     fn merge_with_either_hand_flag_is_idempotent_modulo_timestamp() {
         let db = fixture_db();
         let bookmarklet = make_doc(&[
-            ("Test Rune-stone", "Unknown", &[("Armor", 100)]),
-            ("Test Helm", "Unknown", &[("Armor", 50)]),
+            ("Test Rune-stone", "Unknown", &[("Armour", 100)]),
+            ("Test Helm", "Unknown", &[("Armour", 50)]),
         ]);
         let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
@@ -4745,7 +4745,7 @@ CriticalRating = 100\n";
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n\
+Armour = 5\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
@@ -4791,7 +4791,7 @@ Fate = 3\n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n\
+Armour = 5\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
@@ -4839,7 +4839,7 @@ Fate = 7\n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n"
+Armour = 5\n"
         );
 
         let assert_comment_with_next_header = |src: &str, run: &str| {
@@ -4877,7 +4877,7 @@ CriticalRating = 100\n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n";
+Armour = 5\n";
         let (incoming, _) = resolve_toml_str(plain_input, &db).expect("resolve incoming");
 
         let mut previous = resolved;
@@ -4912,17 +4912,17 @@ Armor = 5\n";
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Rune-stone\"\n\
-Armor = 9\n\
+Armour = 9\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n\
+Armour = 5\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Greatsword\"\n\
-Armor = 7\n\
+Armour = 7\n\
 [item.EssenceTotals]\n\
 CriticalRating = 4200\n\
 Fate = 3\n\
@@ -4961,17 +4961,17 @@ Fate = 3\n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Rune-stone\"\n\
-Armor = 9\n\
+Armour = 9\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Sword\"\n\
-Armor = 5\n\
+Armour = 5\n\
 \n\
 [[item]]\n\
 slot = \"Unknown\"\n\
 name = \"Test Greatsword\"\n\
-Armor = 7\n";
+Armour = 7\n";
         let (incoming, _) = resolve_toml_str(plain_input, &db).expect("resolve incoming");
 
         let mut previous = resolved;
@@ -4997,9 +4997,9 @@ Armor = 7\n";
 
     #[test]
     fn merge_force_duplicate_hand_edited_instance_pairs_with_most_similar_incoming() {
-        // Two owned copies of "Test Bracelet": the Armor-100 instance carries
-        // a hand-edited essence total; the Armor-200 instance is untouched
-        // but its incoming counterpart changed (wiki update to Armor 250).
+        // Two owned copies of "Test Bracelet": the Armour-100 instance carries
+        // a hand-edited essence total; the Armour-200 instance is untouched
+        // but its incoming counterpart changed (wiki update to Armour 250).
         // Incoming arrives in reversed occurrence order so the old
         // first-remaining-occurrence fallback would pair both instances with
         // the wrong counterpart.
@@ -5007,22 +5007,22 @@ Armor = 7\n";
 [[item]]\n\
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
-Armor = 100\n\
+Armour = 100\n\
 [item.EssenceTotals]\n\
 CriticalRating = 999\n\
 \n\
 [[item]]\n\
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
-Armor = 200\n";
+Armour = 200\n";
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 250)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 250)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
         ]);
 
         // Prompt order follows prev occurrence order: first the hand-edited
-        // instance (against its true Armor-100 counterpart -> keep edits),
-        // then the unedited instance (against the Armor-250 update -> take).
+        // instance (against its true Armour-100 counterpart -> keep edits),
+        // then the unedited instance (against the Armour-250 update -> take).
         let outcome = merge_ic(
             Some(prev),
             &incoming,
@@ -5039,7 +5039,7 @@ Armor = 200\n";
         assert!(outcome.removed.is_empty());
         assert_eq!(count_item_name(&outcome.merged_text, "Test Bracelet"), 2);
         assert!(
-            has_assignment_line(&outcome.merged_text, "Armor", 100),
+            has_assignment_line(&outcome.merged_text, "Armour", 100),
             "hand-edited instance's base data must survive:\n{}",
             outcome.merged_text
         );
@@ -5049,12 +5049,12 @@ Armor = 200\n";
             outcome.merged_text
         );
         assert!(
-            has_assignment_line(&outcome.merged_text, "Armor", 250),
+            has_assignment_line(&outcome.merged_text, "Armour", 250),
             "unedited instance must be the one overwritten by its update:\n{}",
             outcome.merged_text
         );
         assert!(
-            !has_assignment_line(&outcome.merged_text, "Armor", 200),
+            !has_assignment_line(&outcome.merged_text, "Armour", 200),
             "stale unedited data must be replaced:\n{}",
             outcome.merged_text
         );
@@ -5066,17 +5066,17 @@ Armor = 200\n";
 [[item]]\n\
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
-Armor = 100\n\
+Armour = 100\n\
 [item.EssenceTotals]\n\
 CriticalRating = 999\n\
 \n\
 [[item]]\n\
 slot = \"Wrist\"\n\
 name = \"Test Bracelet\"\n\
-Armor = 200\n";
+Armour = 200\n";
         let incoming = make_doc(&[
-            ("Test Bracelet", "Wrist", &[("Armor", 250)]),
-            ("Test Bracelet", "Wrist", &[("Armor", 100)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 250)]),
+            ("Test Bracelet", "Wrist", &[("Armour", 100)]),
         ]);
 
         let first = merge_ic(Some(prev), &incoming, ForceMode::NoForce).expect("first merge");
@@ -5084,8 +5084,8 @@ Armor = 200\n";
         assert!(first.added.is_empty());
         assert!(first.removed.is_empty());
         assert_eq!(count_item_name(&first.merged_text, "Test Bracelet"), 2);
-        assert!(has_assignment_line(&first.merged_text, "Armor", 100));
-        assert!(has_assignment_line(&first.merged_text, "Armor", 200));
+        assert!(has_assignment_line(&first.merged_text, "Armour", 100));
+        assert!(has_assignment_line(&first.merged_text, "Armour", 200));
         assert!(has_assignment_line(
             &first.merged_text,
             "CriticalRating",
@@ -5123,11 +5123,11 @@ Armor = 200\n";
 [[item]]\n\
 slot = \"Finger\"\n\
 name = \"{nfc_name_str}\"\n\
-Armor = 100\n\
+Armour = 100\n\
 [item.EssenceTotals]\n\
 CriticalRating = 4200\n"
         );
-        let incoming = make_doc(&[(nfd_name_str, "Finger", &[("Armor", 100)])]);
+        let incoming = make_doc(&[(nfd_name_str, "Finger", &[("Armour", 100)])]);
 
         let first = merge_ic(Some(&prev), &incoming, ForceMode::NoForce).expect("first merge");
         assert_eq!(

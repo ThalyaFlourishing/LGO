@@ -54,7 +54,7 @@ pub const BASE_STATS: &[(Stat, &str)] = &[
 pub const TRACKED_STATS: &[(Stat, &str)] = &[
     (Stat::Morale, "Morale"),
     (Stat::Power, "Power"),
-    (Stat::Armor, "Armor"),
+    (Stat::Armor, "Armour"),
     (Stat::CriticalRating, "CriticalRating"),
     (Stat::Finesse, "Finesse"),
     (Stat::PhysicalMastery, "PhysicalMastery"),
@@ -271,7 +271,7 @@ mod tests {
             vec![
                 "Morale",
                 "Power",
-                "Armor",
+                "Armour",
                 "CriticalRating",
                 "Finesse",
                 "PhysicalMastery",
