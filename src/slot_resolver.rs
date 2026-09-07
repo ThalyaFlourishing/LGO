@@ -5492,7 +5492,10 @@ CriticalRating = 1.5\n";
         let err = resolve_toml_str(input, &db).expect_err("float stat value must error");
         match err {
             ResolveError::InvalidStatValue { item, key, .. } => {
-                assert!(item.contains("Test Helm"), "error must name the item: {item}");
+                assert!(
+                    item.contains("Test Helm"),
+                    "error must name the item: {item}"
+                );
                 assert_eq!(key, "CriticalRating");
             }
             other => panic!("expected InvalidStatValue, got {other:?}"),

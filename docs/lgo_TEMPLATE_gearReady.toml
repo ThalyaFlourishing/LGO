@@ -59,6 +59,9 @@ Will               = 0
 Fate               = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
+# A stat may also be a list of values in square brackets, separated by
+# commas -- one per socket -- and LGO adds them up for you. For example:
+# CriticalRating   = [4917, 3222]
 Power              = 0
 Armour             = 0
 CriticalRating     = 0

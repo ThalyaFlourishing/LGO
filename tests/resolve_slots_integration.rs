@@ -2331,9 +2331,7 @@ CriticalRating = 200
             out
         );
         assert!(
-            out.contains(
-                "CriticalRating     = [4917, 3222] # 2x Vivid Essence of Critical Rating"
-            ),
+            out.contains("CriticalRating     = [4917, 3222] # 2x Vivid Essence of Critical Rating"),
             "run {}: essence array with its comment must survive verbatim:\n{}",
             run,
             out

@@ -1239,8 +1239,7 @@ CriticalRating = [5, -5]
                 "[[item]]\nslot = \"Head\"\nname = \"Test Helm\"\n{}\n",
                 line
             );
-            let err = read_toml_str(&toml)
-                .expect_err(&format!("{} must be a hard error", label));
+            let err = read_toml_str(&toml).expect_err(&format!("{} must be a hard error", label));
             assert!(
                 err.contains("Test Helm"),
                 "{} error must name the item: {}",
