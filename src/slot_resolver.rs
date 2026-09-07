@@ -5297,4 +5297,231 @@ CriticalRating = 4200\n"
             strip_generated_timestamp_comment(&third)
         );
     }
+
+    // ── Multi-value stat entries (arrays preserved verbatim) ──────────────
+
+    #[test]
+    fn resolve_preserves_array_values_verbatim_and_aligned() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Tome\"\n\
+Finesse = 9691\n\
+PhysicalMastery = [4917, 3222]\n\
+TacticalMastery = [4917,3222]\n\
+Vitality = [ 4917 , 3222 ]\n\
+OutgoingHealing = [\n    41878,\n    16757,\n]\n\
+[item.EssenceTotals]\n\
+CriticalRating = [4917, 3222]\n";
+
+        let (resolved, _) = resolve_toml_str(input, &db).expect("resolve");
+        for verbatim in [
+            "[4917, 3222]",
+            "[4917,3222]",
+            "[ 4917 , 3222 ]",
+            "[\n    41878,\n    16757,\n]",
+        ] {
+            assert!(
+                resolved.contains(verbatim),
+                "array must survive verbatim ({verbatim}):\n{resolved}"
+            );
+        }
+        assert_eq!(
+            resolved.matches("[4917, 3222]").count(),
+            2,
+            "base-block and essence-block arrays must both survive:\n{resolved}"
+        );
+        assert_stat_assignments_align_to_column_20(&resolved);
+    }
+
+    #[test]
+    fn resolve_keeps_array_suffix_comment_attached() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+Armour = 100\n\
+[item.EssenceTotals]\n\
+CriticalRating = [4917, 3222] # 2x Vivid\n";
+
+        let (resolved, _) = resolve_toml_str(input, &db).expect("resolve");
+        assert!(
+            resolved.contains("[4917, 3222] # 2x Vivid"),
+            "suffix comment must stay attached to the array value:\n{resolved}"
+        );
+    }
+
+    #[test]
+    fn merge_three_runs_idempotent_with_arrays_and_trailing_essence_comment() {
+        let db = fixture_db();
+        let trailing_comment = "# 2x Vivid Essence of Fate";
+        // Arrays in the base block, the essence block, and on the last
+        // essence key (Fate) with a below-line comment — the comment
+        // exercises the essence trailing-comment stash/hoist path with an
+        // array as the stash key's value.
+        let input = format!(
+            "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = [100, 50]\n\
+[item.EssenceTotals]\n\
+CriticalRating = [4917, 3222]\n\
+Fate = [1, 2]\n\
+{trailing_comment}\n\
+\n\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Sword\"\n\
+Armour = 5\n"
+        );
+        let (previous, _) = resolve_toml_str(&input, &db).expect("resolve previous");
+
+        let incoming_input = make_doc(&[
+            ("Test Helm", "Unknown", &[("CriticalRating", 150)]),
+            ("Test Sword", "Unknown", &[("Armour", 5)]),
+        ]);
+        let (incoming, _) = resolve_toml_str(&incoming_input, &db).expect("resolve incoming");
+
+        let mut previous = previous;
+        for run in 1..=3 {
+            let outcome = merge_ic(Some(&previous), &incoming, ForceMode::NoForce)
+                .unwrap_or_else(|e| panic!("merge {run} must succeed: {e}"));
+            let merged = outcome.merged_text;
+            for verbatim in ["[100, 50]", "[4917, 3222]", "[1, 2]", trailing_comment] {
+                assert!(
+                    merged.contains(verbatim),
+                    "merge {run}: {verbatim} must survive:\n{merged}"
+                );
+            }
+            if run > 1 {
+                assert_eq!(
+                    strip_generated_timestamp_comment(&previous),
+                    strip_generated_timestamp_comment(&merged),
+                    "merge {run} must be idempotent modulo the generated banner"
+                );
+            }
+            previous = merged;
+        }
+    }
+
+    #[test]
+    fn array_sum_equals_integer_for_item_data_distance_and_skips_force_prompt() {
+        let prev_doc: DocumentMut = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+Armour = [50, 50]\n"
+            .parse()
+            .expect("prev parses");
+        let inc_doc: DocumentMut = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+Armour = 100\n"
+            .parse()
+            .expect("incoming parses");
+        let prev_table = prev_doc
+            .get("item")
+            .and_then(|i| i.as_array_of_tables())
+            .and_then(|a| a.get(0))
+            .expect("prev item table");
+        let inc_table = inc_doc
+            .get("item")
+            .and_then(|i| i.as_array_of_tables())
+            .and_then(|a| a.get(0))
+            .expect("incoming item table");
+        assert_eq!(
+            item_data_distance(prev_table, inc_table),
+            0,
+            "an array summing to the incoming integer must compare equal"
+        );
+
+        // The empty answer queue makes ScriptedPrompter panic on any prompt:
+        // equal data means --force must not ask Overwrite.
+        let prev = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+Armour = [50, 50]\n";
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armour", 100)])]);
+        let outcome =
+            merge_ic(Some(prev), &incoming, force_with(vec![])).expect("must merge silently");
+        assert_eq!(outcome.preserved, vec!["Test Helm"]);
+        assert!(
+            outcome.merged_text.contains("[50, 50]"),
+            "the user's array breakdown must be preserved:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn force_overwrite_yes_replaces_array_block_with_incoming_integers() {
+        let prev = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+Armour = [50, 60]\n";
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armour", 100)])]);
+
+        let outcome = merge_ic(
+            Some(prev),
+            &incoming,
+            force_with(vec![(PromptCategory::Overwrite, PromptAnswer::Yes)]),
+        )
+        .expect("must merge");
+        assert_eq!(outcome.overwritten, vec!["Test Helm"]);
+        assert!(has_assignment_line(&outcome.merged_text, "Armour", 100));
+        assert!(
+            !outcome.merged_text.contains("[50, 60]"),
+            "overwrite must replace the array with the incoming block:\n{}",
+            outcome.merged_text
+        );
+    }
+
+    #[test]
+    fn resolve_invalid_stat_value_type_is_invalid_stat_value_error() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = 1.5\n";
+        let err = resolve_toml_str(input, &db).expect_err("float stat value must error");
+        match err {
+            ResolveError::InvalidStatValue { item, key, .. } => {
+                assert!(item.contains("Test Helm"), "error must name the item: {item}");
+                assert_eq!(key, "CriticalRating");
+            }
+            other => panic!("expected InvalidStatValue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn merge_rejects_array_in_previous_innate_stats() {
+        let prev = "\
+[InnateStats]\n\
+Might = [10, 20]\n\
+\n\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+Armour = 100\n";
+        let incoming = make_doc(&[("Test Helm", "Head", &[("Armour", 100)])]);
+
+        let err = merge_ic(Some(prev), &incoming, ForceMode::NoForce)
+            .expect_err("array in previous [InnateStats] must error");
+        match err {
+            ResolveError::InvalidStatValue { key, found, .. } => {
+                assert_eq!(key, "Might");
+                assert!(
+                    found.contains("generated"),
+                    "error must mention the block is generated: {found}"
+                );
+            }
+            other => panic!("expected InvalidStatValue, got {other:?}"),
+        }
+    }
 }

@@ -1147,4 +1147,133 @@ either_hand = true
         assert!(err.contains("EssenceTotals"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
+
+    // ── Multi-value stat entries (arrays sum on read) ─────────────────────────
+
+    fn read_toml_str(toml: &str) -> Result<GearDoc, String> {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+        result
+    }
+
+    #[test]
+    fn array_stat_in_item_block_sums() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Class Item"
+name = "Encyclopedia of Fauna"
+TacticalMastery = [6059, 6059, 6059, 6059]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].item.stat(&Stat::TacticalMastery), 24236);
+    }
+
+    #[test]
+    fn array_stat_in_essence_totals_sums_and_adds_to_base_block() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = 1000
+[item.EssenceTotals]
+CriticalRating = [4917, 3222]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 9139);
+    }
+
+    #[test]
+    fn array_base_stat_lands_in_base_stats_not_tracked() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+Will = [3053, 1358]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].base_stats.get(&Stat::Will), Some(&4411));
+        assert!(
+            doc.items[0].item.stats.is_empty(),
+            "Base stats must never land in tracked stats"
+        );
+    }
+
+    #[test]
+    fn array_summing_to_zero_is_omitted_like_integer_zero() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = [5, -5]
+"#,
+        )
+        .expect("must return Ok");
+        assert!(
+            !doc.items[0].item.stats.contains_key(&Stat::CriticalRating),
+            "zero-sum array must be omitted like an integer zero"
+        );
+    }
+
+    #[test]
+    fn invalid_stat_value_types_are_hard_errors_naming_item_and_key() {
+        let cases = [
+            ("float", "CriticalRating = 1.5"),
+            ("string", "CriticalRating = \"12\""),
+            ("bool", "CriticalRating = true"),
+            ("empty array", "CriticalRating = []"),
+            ("mixed array", "CriticalRating = [1, \"2\"]"),
+            ("nested array", "CriticalRating = [[1], [2]]"),
+        ];
+        for (label, line) in cases {
+            let toml = format!(
+                "[[item]]\nslot = \"Head\"\nname = \"Test Helm\"\n{}\n",
+                line
+            );
+            let err = read_toml_str(&toml)
+                .expect_err(&format!("{} must be a hard error", label));
+            assert!(
+                err.contains("Test Helm"),
+                "{} error must name the item: {}",
+                label,
+                err
+            );
+            assert!(
+                err.contains("CriticalRating"),
+                "{} error must name the key: {}",
+                label,
+                err
+            );
+        }
+    }
+
+    #[test]
+    fn array_in_innate_stats_is_hard_error_mentioning_generated_block() {
+        let err = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+
+[InnateStats]
+Might = [10, 20]
+"#,
+        )
+        .expect_err("array in [InnateStats] must fail");
+        assert!(err.contains("Might"), "error must name the key: {}", err);
+        assert!(
+            err.contains("generated"),
+            "error must mention the block is generated: {}",
+            err
+        );
+    }
 }
