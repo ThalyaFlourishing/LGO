@@ -333,6 +333,15 @@ pub enum ResolveError {
         path: PathBuf,
         message: String,
     },
+    /// A canonical stat key holds a value that is neither an integer nor a
+    /// non-empty array of integers (or an array where only integers are
+    /// allowed). Silently reading such a value as zero would destroy the
+    /// user's entry on the next merge (Bug 13), so it is a hard error.
+    InvalidStatValue {
+        item: String,
+        key: String,
+        found: String,
+    },
 }
 
 impl std::fmt::Display for ResolveError {
@@ -368,6 +377,13 @@ impl std::fmt::Display for ResolveError {
                     "Cannot read plugin export '{}': {}",
                     path.display(),
                     message
+                )
+            }
+            ResolveError::InvalidStatValue { item, key, found } => {
+                write!(
+                    f,
+                    "Invalid value for stat `{}` in {}: found {}; a stat value must be a single integer or a non-empty array of integers (e.g. [4917, 3222])",
+                    key, item, found
                 )
             }
         }
@@ -479,7 +495,7 @@ fn resolve_toml_str_inner(
     // next-table prefix decor.
     capture_essence_trailing_comments(&mut original_tables, &mut doc);
 
-    let outcomes_and_buckets = bucket_items(original_tables, db);
+    let outcomes_and_buckets = bucket_items(original_tables, db)?;
     let (mut buckets, unknowns, outcomes_local) = outcomes_and_buckets;
 
     // Rebuild the array in canonical family order with divider comments.
@@ -587,16 +603,33 @@ fn build_innate_stats_table(base_stats: &HashMap<Stat, i64>) -> Table {
     table
 }
 
-fn read_innate_base_stats(table: &Table) -> HashMap<Stat, i64> {
+/// Read the five raw Base stats from a `[InnateStats]` table. The block is
+/// generated from the plugin export and regenerated on every merge, so it is
+/// **integer-only**: arrays (or any other non-integer value) are hard errors
+/// rather than multi-value entries.
+fn read_innate_base_stats(table: &Table) -> Result<HashMap<Stat, i64>, ResolveError> {
     let mut stats = HashMap::new();
     for (stat, key) in BASE_STATS {
-        if let Some(value) = table.get(key).and_then(|item| item.as_integer()) {
-            if value != 0 {
-                stats.insert(*stat, value);
-            }
+        let Some(item) = table.get(key) else {
+            continue;
+        };
+        let Some(value) = item.as_integer() else {
+            let found = if item.as_array().is_some() {
+                "an array (arrays are not allowed in `[InnateStats]` because the block is generated from the plugin export)".to_string()
+            } else {
+                format!("a value of type {}", item.type_name())
+            };
+            return Err(ResolveError::InvalidStatValue {
+                item: "`[InnateStats]`".to_string(),
+                key: (*key).to_string(),
+                found,
+            });
+        };
+        if value != 0 {
+            stats.insert(*stat, value);
         }
     }
-    stats
+    Ok(stats)
 }
 
 fn ensure_virtue_fields(table: &mut Table) {
@@ -651,11 +684,14 @@ fn ensure_table_header_note(table: &mut Table, note: &str) {
 fn bucket_items(
     tables: Vec<Table>,
     db: &ItemsDb,
-) -> (
-    HashMap<Slot, Vec<Table>>,
-    Vec<Table>,
-    Vec<ResolutionOutcome>,
-) {
+) -> Result<
+    (
+        HashMap<Slot, Vec<Table>>,
+        Vec<Table>,
+        Vec<ResolutionOutcome>,
+    ),
+    ResolveError,
+> {
     let mut buckets: HashMap<Slot, Vec<Table>> = HashMap::new();
     let mut unknowns: Vec<Table> = Vec::new();
     let mut outcomes: Vec<ResolutionOutcome> = Vec::new();
@@ -683,7 +719,7 @@ fn bucket_items(
             set_either_hand_flag(&mut table, db.lookup_either_hand(&name));
         }
 
-        canonicalize_item_stats(&mut table, &outcome_comments);
+        canonicalize_item_stats(&mut table, &outcome_comments)?;
         match db_slot {
             Some(slot) => {
                 // Rewrite slot field to canonical Display form. Existing key
@@ -708,7 +744,7 @@ fn bucket_items(
         }
     }
 
-    (buckets, unknowns, outcomes)
+    Ok((buckets, unknowns, outcomes))
 }
 
 /// Enforce the DB-derived `two_handed` flag on an item table.
@@ -778,10 +814,15 @@ fn normalize_existing_canonical_stat_decor(table: &mut Table) {
 /// Rewrite an item's stat block into canonical shape: all 16 tracked stats
 /// followed by the five raw Base stats (zeros for omissions), then a fully
 /// populated `[item.EssenceTotals]` child table with the same key layout.
-/// Existing values — tracked and Base alike — pass through unchanged.
-fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
-    let explicit = read_item_stats(table);
-    let essence = read_essence_stats(table);
+/// Existing values — tracked and Base alike — pass through unchanged;
+/// invalid value types (anything other than an integer or a non-empty array
+/// of integers) are hard errors, never silent zeros.
+fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) -> Result<(), ResolveError> {
+    let name = table_name(table).unwrap_or_default();
+    let item_label = item_error_label(&name);
+    let essence_label = essence_error_label(&name);
+    let explicit = read_item_stats(table, &item_label)?;
+    let essence = read_essence_stats(table, &essence_label)?;
     let essence_decor = read_essence_decor(table);
     // Capture per-key decor from the existing essence block before it is
     // dropped, so comments the user wrote inside [item.EssenceTotals]
@@ -796,6 +837,26 @@ fn canonicalize_item_stats(table: &mut Table, outcome_comments: &str) {
     insert_canonical_stats(table, &explicit, &old_items);
     attach_outcome_comments_to_header(table, outcome_comments);
     insert_essence_totals(table, &essence, essence_decor, &old_essence_items);
+    Ok(())
+}
+
+/// Error label naming an item in `InvalidStatValue` messages.
+fn item_error_label(name: &str) -> String {
+    if name.is_empty() {
+        "an unnamed `[[item]]` block".to_string()
+    } else {
+        format!("item `{}`", name)
+    }
+}
+
+/// Error label naming an item's `[item.EssenceTotals]` block in
+/// `InvalidStatValue` messages.
+fn essence_error_label(name: &str) -> String {
+    if name.is_empty() {
+        format!("`{}` in an unnamed `[[item]]` block", ESSENCE_TOTALS_KEY)
+    } else {
+        format!("`{}` for item `{}`", ESSENCE_TOTALS_KEY, name)
+    }
 }
 
 /// Drain bookmarklet outcome comments from every place older outputs may have
@@ -949,20 +1010,19 @@ fn insert_canonical_stats(
     old_items: &HashMap<&'static str, RemovedStatItem>,
 ) {
     for (stat, key) in canonical_stat_entries() {
-        let mut item = value(stats.get(stat).copied().unwrap_or(0));
-        if let (Some(old_value), Some(new_value)) = (
-            old_items
-                .get(key)
-                .and_then(|removed| removed.item.as_value()),
-            item.as_value_mut(),
-        ) {
-            new_value.decor_mut().set_suffix(
-                old_value
-                    .decor()
-                    .suffix()
-                    .map_or("", |s| s.as_str().unwrap_or("")),
-            );
-        }
+        // Carry an existing integer or array node forward as-is (its own
+        // suffix decor included) instead of rebuilding it: this is what
+        // preserves a user's multi-value array entry — internal formatting
+        // and all — byte-identically across merges. Missing keys become
+        // fresh integer nodes.
+        let item = match old_items.get(key) {
+            Some(removed)
+                if removed.item.as_integer().is_some() || removed.item.as_array().is_some() =>
+            {
+                removed.item.clone()
+            }
+            _ => value(stats.get(stat).copied().unwrap_or(0)),
+        };
         table.insert(key, item);
         if let Some(removed) = old_items.get(key) {
             if let Some((mut key_mut, _)) = table.get_key_value_mut(key) {
@@ -1024,12 +1084,17 @@ fn strip_leading_blank_lines(mut prefix: &str) -> &str {
     }
 }
 
-fn read_essence_stats(table: &Table) -> HashMap<Stat, i64> {
-    table
+fn read_essence_stats(
+    table: &Table,
+    essence_label: &str,
+) -> Result<HashMap<Stat, i64>, ResolveError> {
+    match table
         .get(ESSENCE_TOTALS_KEY)
         .and_then(|essence_item| essence_item.as_table())
-        .map(read_item_stats)
-        .unwrap_or_default()
+    {
+        Some(essence_table) => read_item_stats(essence_table, essence_label),
+        None => Ok(HashMap::new()),
+    }
 }
 
 fn read_essence_decor(table: &Table) -> Option<Decor> {
@@ -1219,17 +1284,66 @@ fn hoist_essence_trailing_comments_to_last_line(essence_table: &mut Table) {
 }
 
 /// Read all canonical stat keys (tracked + Base) from a table. Zero values
-/// are omitted — absence means zero throughout the pipeline.
-fn read_item_stats(table: &Table) -> HashMap<Stat, i64> {
+/// (including arrays summing to zero) are omitted — absence means zero
+/// throughout the pipeline. Every read routes through `stat_item_to_i64`, so
+/// invalid value types are hard errors, never silent zeros.
+fn read_item_stats(table: &Table, item_label: &str) -> Result<HashMap<Stat, i64>, ResolveError> {
     let mut values = HashMap::new();
     for (stat, key) in canonical_stat_entries() {
-        if let Some(stat_value) = table.get(key).and_then(|v| v.as_integer()) {
+        if let Some(item) = table.get(key) {
+            let stat_value = stat_item_to_i64(item, item_label, key)?;
             if stat_value != 0 {
                 values.insert(*stat, stat_value);
             }
         }
     }
-    values
+    Ok(values)
+}
+
+/// Convert one stat node to its effective `i64`: an integer passes through;
+/// a non-empty array of integers sums (the multi-value essence/tracery entry
+/// form); anything else is `ResolveError::InvalidStatValue`. The shared
+/// `toml_edit`-side twin of `gearstats::stat_value_to_i64` — route every stat
+/// read through one of the two.
+fn stat_item_to_i64(item: &Item, item_label: &str, key: &str) -> Result<i64, ResolveError> {
+    if let Some(n) = item.as_integer() {
+        return Ok(n);
+    }
+    if let Some(array) = item.as_array() {
+        if array.is_empty() {
+            return Err(ResolveError::InvalidStatValue {
+                item: item_label.to_string(),
+                key: key.to_string(),
+                found: "an empty array `[]` (ambiguous — delete the entry or write 0)".to_string(),
+            });
+        }
+        let mut sum: i64 = 0;
+        for element in array.iter() {
+            let Some(n) = element.as_integer() else {
+                return Err(ResolveError::InvalidStatValue {
+                    item: item_label.to_string(),
+                    key: key.to_string(),
+                    found: format!(
+                        "an array containing a non-integer element of type {}",
+                        element.type_name()
+                    ),
+                });
+            };
+            sum = sum
+                .checked_add(n)
+                .ok_or_else(|| ResolveError::InvalidStatValue {
+                    item: item_label.to_string(),
+                    key: key.to_string(),
+                    found: "an array whose sum overflows a 64-bit integer".to_string(),
+                })?;
+        }
+        return Ok(sum);
+    }
+    Err(ResolveError::InvalidStatValue {
+        item: item_label.to_string(),
+        key: key.to_string(),
+        found: format!("a value of type {}", item.type_name()),
+    })
 }
 
 /// Push a slot group onto the new array of tables, inserting a divider
@@ -1456,10 +1570,15 @@ pub fn merge_into_canonical(
     // Base stats from current export truth and drop any stale or hand-added
     // extra keys. When values are already current, keep the existing table in
     // place so repeat merges serialize byte-identically apart from spacing
-    // normalization.
+    // normalization. `[InnateStats]` is integer-only on both sides: an array
+    // (or any other non-integer value) in the previous canonical file is a
+    // hard error, not something to silently replace.
+    if let Some(prev_innate) = prev_doc.get("InnateStats").and_then(|i| i.as_table()) {
+        read_innate_base_stats(prev_innate)?;
+    }
     if let Some(incoming_innate) = incoming_doc.get("InnateStats").and_then(|i| i.as_table()) {
         let canonical_incoming_innate =
-            build_innate_stats_table(&read_innate_base_stats(incoming_innate));
+            build_innate_stats_table(&read_innate_base_stats(incoming_innate)?);
         match prev_doc
             .get_mut("InnateStats")
             .and_then(|i| i.as_table_mut())
@@ -1615,9 +1734,9 @@ pub fn merge_into_canonical(
                 set_two_handed_flag(t, db.lookup_two_handed(&name));
                 set_either_hand_flag(t, db.lookup_either_hand(&name));
             }
-            canonicalize_item_stats(t, &outcome_comments);
+            canonicalize_item_stats(t, &outcome_comments)?;
         } else {
-            canonicalize_item_stats(t, "");
+            canonicalize_item_stats(t, "")?;
         }
         strip_family_dividers_from_prefix(t);
     }
@@ -1992,15 +2111,21 @@ fn table_str(t: &Table, key: &str) -> Option<String> {
     t.get(key).and_then(|v| v.as_str()).map(String::from)
 }
 
+/// Effective value of a stat key for `item_data_distance` comparisons: an
+/// integer or the sum of an array, so a hand-edited `[4917, 3222]` compares
+/// equal to an incoming `8139`. Invalid value types are treated as zero here
+/// *only* — the hard error is raised by the canonicalization pass, which runs
+/// on every merged table, so nothing invalid escapes the merge.
 fn table_int_or_zero(t: &Table, key: &str) -> i64 {
-    t.get(key).and_then(|v| v.as_integer()).unwrap_or(0)
+    t.get(key)
+        .map(|item| stat_item_to_i64(item, "", key).unwrap_or(0))
+        .unwrap_or(0)
 }
 
 fn table_nested_int_or_zero(t: &Table, nested: &str, key: &str) -> i64 {
     t.get(nested)
         .and_then(|item| item.as_table())
-        .and_then(|table| table.get(key))
-        .and_then(|v| v.as_integer())
+        .map(|table| table_int_or_zero(table, key))
         .unwrap_or(0)
 }
 
