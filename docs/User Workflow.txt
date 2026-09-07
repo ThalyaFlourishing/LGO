@@ -6,6 +6,9 @@
 
   Assumes the in-game plugin, the bookmarklet, and the lgo binary are already installed. (Installation instructions: TBD, separate document.)
 
+  CONTROL FLOW:
+  /lgo export → .plugindata → [bookmarklet] → gearStats.toml → lgo resolve-slots → gearReady.toml (hand-edited) → lgo optimize → terminal + optional .txt & .html reports
+
 
 =======================================================
   Short User Instructions (detailed instructions below)

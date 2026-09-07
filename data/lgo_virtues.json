@@ -6,7 +6,7 @@
     "Morale": 1778
   },
   "Compassion": {
-    "Armor": 2163,
+    "Armour": 2163,
     "PhysicalMitigation": 13357,
     "TacticalMitigation": 6670,
     "Morale": 1778
@@ -31,7 +31,7 @@
     "Morale": 1778
   },
   "Empathy": {
-    "Armor": 7206,
+    "Armour": 7206,
     "CriticalDefense": 11086,
     "Resistance": 9051,
     "Morale": 1778
@@ -74,7 +74,7 @@
     "TacticalMitigation": 4007
   },
   "Loyalty": {
-    "Armor": 3603,
+    "Armour": 3603,
     "IncomingHealing": 6651,
     "Vitality": 2978,
     "Morale": 1778
