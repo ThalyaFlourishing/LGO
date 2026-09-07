@@ -360,6 +360,44 @@ mod tests {
     }
 
     #[test]
+    fn default_virtue_data_stat_keys_are_all_canonical() {
+        // Independently re-parse the raw JSON (rather than relying on
+        // `VirtuesDb::from_json_str`'s own validation) so this test fails
+        // loudly, naming the offending virtue and key, if
+        // `data/lgo_virtues.json` ever contains a stat key that isn't an
+        // exact `TRACKED_STATS`/`BASE_STATS` match (e.g. the `Armor` vs.
+        // `Armour` mismatch that broke Compassion/Empathy/Loyalty).
+        let path = crate::install::data_path(DEFAULT_VIRTUES_FILE)
+            .expect("default virtue data path should resolve");
+        let src = fs::read_to_string(&path).expect("default virtue data should be readable");
+        let value: serde_json::Value =
+            serde_json::from_str(&src).expect("default virtue data should be valid JSON");
+        let root = value
+            .as_object()
+            .expect("default virtue data top level should be an object");
+
+        let canonical_keys: HashSet<&str> = TRACKED_STATS
+            .iter()
+            .chain(BASE_STATS.iter())
+            .map(|(_, key)| *key)
+            .collect();
+
+        for (virtue_name, virtue_value) in root {
+            let virtue_obj = virtue_value
+                .as_object()
+                .unwrap_or_else(|| panic!("virtue '{}' should be an object", virtue_name));
+            for stat_key in virtue_obj.keys() {
+                assert!(
+                    canonical_keys.contains(stat_key.as_str()),
+                    "virtue '{}' has stat key '{}' that is not a canonical TRACKED_STATS/BASE_STATS key",
+                    virtue_name,
+                    stat_key
+                );
+            }
+        }
+    }
+
+    #[test]
     fn resolve_selected_trims_case_insensitively_and_canonicalizes_names() {
         let db = db_from_json(
             r#"{

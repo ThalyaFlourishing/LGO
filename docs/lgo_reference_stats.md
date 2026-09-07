@@ -12,7 +12,7 @@ The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 |--------------|----------------------|-----------------------|----------------------|---------------------|
 | `ml`         | `Morale`             | `morale`              | `Morale`             | Morale              |
 | `pw`         | `Power`              | `power`               | `Power`              | Power               |
-| `am`         | `Armor`              | `armor`               | `Armor`              | Armour              |
+| `am`         | `Armor`              | `armor`               | `Armour`             | Armour              |
 | `cr`         | `CriticalRating`     | `critical_rating`     | `CriticalRating`     | Critical Rating     |
 | `fn`         | `Finesse`            | `finesse`             | `Finesse`            | Finesse             |
 | `pm`         | `PhysicalMastery`    | `physical_mastery`    | `PhysicalMastery`    | Physical Mastery    |

@@ -23,7 +23,7 @@
     (function () {
       function runBookmarklet() {
         const TRACKED = [
-          "Armor", "CriticalRating", "Finesse", "PhysicalMastery", "TacticalMastery",
+          "Armour", "CriticalRating", "Finesse", "PhysicalMastery", "TacticalMastery",
           "OutgoingHealing", "Resistance", "CriticalDefense", "IncomingHealing", "Block",
           "Parry", "Evade", "PhysicalMitigation", "TacticalMitigation"
         ];
@@ -37,8 +37,8 @@
            Defence/Defense and Armor/Armour spelling pairs must still be
            listed explicitly — they are not suffix variants.*/
         const STAT_MAP = {
-          "armor":               "Armor",
-          "armour":              "Armor",
+          "armor":               "Armour",
+          "armour":              "Armour",
           "critical":            "CriticalRating",
           "finesse":             "Finesse",
           "physical mastery":    "PhysicalMastery",
@@ -428,7 +428,7 @@
           const stats = parseAttribs(attribRaw);
           if (armourRaw) {
             const m = armourRaw.replace(/<[^>]+>/g, "").match(/\d[\d,]*/);
-            if (m) stats.Armor += parseInt(m[0].replace(/,/g, ""), 10) || 0;
+            if (m) stats.Armour += parseInt(m[0].replace(/,/g, ""), 10) || 0;
           }
           return { stats };
         }

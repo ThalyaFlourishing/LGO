@@ -140,3 +140,48 @@ file feeds back into the next merge; a bit-identical idempotency test (modulo
 the timestamp line) is the tripwire for this class of bug.
 
 ---
+
+### Bug 12 — `Armor` vs `Armour` split between the canonical TOML key and everything else ✅ FIXED
+
+**Symptom:** `gearReady.toml` (and `gearStats.toml`) wrote and read the stat key
+`Armor`, even though LotRO spells it **Armour** and every other user-facing
+surface (`Display`, `--statlist`, report formatters) already said `Armour`. A
+contributor hand-corrected `data/lgo_virtues.json` to use `"Armour"` for
+Compassion, Empathy, and Loyalty (commit `d505f73`) without also fixing
+`TRACKED_STATS` in `src/stat.rs` — which still said `"Armor"` — and that broke
+`optimize` for any character selecting one of those three Virtues: `[Virtues]`
+resolution calls `virtues::parse_canonical_stat_key`, which matches JSON keys
+*exactly* against `TRACKED_STATS`/`BASE_STATS`, so `"Armour"` in the JSON no
+longer matched `"Armor"` in the table and every affected Virtue failed with an
+unknown-stat error.
+
+**Root cause:** a single string, `(Stat::Armor, "Armor")` in `TRACKED_STATS`
+(`src/stat.rs`), is the **sole source of truth** for the TOML key that
+`slot_resolver::canonical_stat_entries` writes, that `gearstats::read_stats_map`
+reads back, that `gearstats::validate_*_keys` validates against, and that
+`virtues::parse_canonical_stat_key` matches exactly with no aliasing. Fixing
+the JSON data without also fixing this one table was guaranteed to break
+anything that round-trips through it — the two changes were coupled but not
+visibly so.
+
+**Fix:** changed `TRACKED_STATS` to `(Stat::Armor, "Armour")`. This flips the
+canonical TOML key everywhere it is read, written, or validated with no other
+production-code change; `Stat::Armor` (the enum variant), its `Display` impl
+(already `"Armour"`), and `Stat::from_str`'s `"armor" | "armour"` input
+tolerance are all unchanged. Fixtures (`TestData/lgo_Thalya_gearStats.toml`,
+`TestData/lgo_Thalya_gearReady.toml`, `docs/lgo_TEMPLATE_gearReady.toml`),
+test-module strings in `src/slot_resolver.rs` and
+`tests/resolve_slots_integration.rs`, `docs/lgo_reference_stats.md`'s TOML-key
+column, and the bookmarklet's `TRACKED` list / `STAT_MAP` output key /
+`stats.Armour` aggregation were all updated to match. The bookmarklet's
+`STAT_MAP` still *accepts* both `armor` and `armour` from lotro-wiki input —
+only its emitted key changed.
+
+**Lesson for future agents:** `src/virtues.rs::tests::default_virtue_data_stat_keys_are_all_canonical`
+now independently re-parses `data/lgo_virtues.json` and asserts every stat key
+in every virtue is an exact `TRACKED_STATS`/`BASE_STATS` match, naming the
+offending virtue and key if not. This is the test that would have caught both
+the original `"Armor"` typo in the JSON and this table/JSON mismatch — run
+`cargo test` before trusting a hand-edit to a data file that's validated by
+exact-string matching elsewhere in the codebase.
+
