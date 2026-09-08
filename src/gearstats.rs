@@ -1256,6 +1256,34 @@ CriticalRating = [5, -5]
     }
 
     #[test]
+    fn array_sum_overflow_is_hard_error_naming_item_and_key() {
+        let err = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = [9223372036854775807, 1]
+"#,
+        )
+        .expect_err("array sum overflowing i64 must be a hard error");
+        assert!(
+            err.contains("Test Helm"),
+            "error must name the item: {}",
+            err
+        );
+        assert!(
+            err.contains("CriticalRating"),
+            "error must name the key: {}",
+            err
+        );
+        assert!(
+            err.contains("overflow"),
+            "error must mention overflow: {}",
+            err
+        );
+    }
+
+    #[test]
     fn array_in_innate_stats_is_hard_error_mentioning_generated_block() {
         let err = read_toml_str(
             r#"

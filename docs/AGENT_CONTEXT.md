@@ -186,7 +186,13 @@ rebuilding it. `[InnateStats]` stays integer-only (the block is generated from
 the plugin export). Everything else — empty array, float, string, bool,
 datetime, inline table, nested or mixed array — is a hard error naming the
 item and key. A sum of zero is omitted from the runtime stat maps like an
-integer zero.
+integer zero. A side effect of carrying the existing node forward: a
+hand-typed integer's *spelling* also survives `resolve-slots` — `1_000`,
+`+100`, or `0x64` stay as written instead of being normalised to `1000` /
+`100` (TOML parses them to the same value, so `optimize` is unaffected). This
+is intentional and idempotent; do not "fix" it back to normalisation, because
+rebuilding the node would break the merge-idempotency invariant for any user
+who typed such a value.
 
 ### Stat-line alignment (canonical, enforced)
 

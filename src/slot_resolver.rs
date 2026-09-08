@@ -5503,6 +5503,27 @@ CriticalRating = 1.5\n";
     }
 
     #[test]
+    fn resolve_array_sum_overflow_is_invalid_stat_value_error() {
+        let db = fixture_db();
+        let input = "\
+[[item]]\n\
+slot = \"Head\"\n\
+name = \"Test Helm\"\n\
+CriticalRating = [9223372036854775807, 1]\n";
+        let err = resolve_toml_str(input, &db).expect_err("overflowing array sum must error");
+        match err {
+            ResolveError::InvalidStatValue { key, found, .. } => {
+                assert_eq!(key, "CriticalRating");
+                assert!(
+                    found.contains("overflow"),
+                    "error must mention overflow: {found}"
+                );
+            }
+            other => panic!("expected InvalidStatValue, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn merge_rejects_array_in_previous_innate_stats() {
         let prev = "\
 [InnateStats]\n\

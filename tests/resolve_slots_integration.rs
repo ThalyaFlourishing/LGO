@@ -2360,4 +2360,48 @@ fn template_gear_ready_file_parses_via_read_stats_file() {
         !doc.items.is_empty(),
         "template must contain at least one item"
     );
+
+    // Every [item.EssenceTotals] block must keep its 21 canonical stat lines
+    // consecutive: comments may sit between the header and the first stat
+    // line, but nothing (comment-only or blank line) may split the stat run.
+    let text = std::fs::read_to_string(&template).expect("read template");
+    let is_stat_line = |line: &str| {
+        let trimmed = line.trim_start();
+        let Some((key, _)) = trimmed.split_once('=') else {
+            return false;
+        };
+        let key = key.trim_end();
+        TRACKED_STATS
+            .iter()
+            .chain(BASE_STATS.iter())
+            .any(|(_, canonical_key)| *canonical_key == key)
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let mut saw_essence_block = false;
+    for (idx, line) in lines.iter().enumerate() {
+        if line.trim() != "[item.EssenceTotals]" {
+            continue;
+        }
+        saw_essence_block = true;
+        let first_stat = lines[idx + 1..]
+            .iter()
+            .position(|l| is_stat_line(l))
+            .map(|offset| idx + 1 + offset)
+            .unwrap_or_else(|| panic!("no stat line after [item.EssenceTotals] at line {idx}"));
+        let run = &lines[first_stat..first_stat + 21];
+        for (offset, stat_line) in run.iter().enumerate() {
+            assert!(
+                is_stat_line(stat_line),
+                "line {} must be a canonical stat line — the 21-line stat run \
+                 after [item.EssenceTotals] (line {}) must be consecutive:\n{}",
+                first_stat + offset + 1,
+                idx + 1,
+                stat_line
+            );
+        }
+    }
+    assert!(
+        saw_essence_block,
+        "template must contain at least one [item.EssenceTotals] block"
+    );
 }
