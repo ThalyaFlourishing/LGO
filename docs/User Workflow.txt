@@ -93,7 +93,7 @@
   9. It is optional, but to get an accurate set of stats, you will usually need to hand-edit some of the information in the 'lgo_<CharacterName>_gearReady.toml' file in a text editor and review it. This includes:
     - Your five selected Virtues in the top-level [Virtues] block. Fill in Virtue1 ... Virtue5 with names from data/lgo_virtues.json. Matching is case-insensitive and trims surrounding whitespace. Empty strings are allowed; unknown or duplicate non-empty Virtue names make optimize fail with a clear error.
     - Legendary Items
-    - Essence stats: enter them in each item's [item.EssenceTotals] block. NOTE: The optimizer derives tracked stats (e.g. Crit Rating or Phys Mitigation) from the essence Base stats (e.g. Vitality or Will essences) automatically, so no manual derivation is needed. 
+    - Essence stats: enter them in each item's [item.EssenceTotals] block. NOTE: The optimizer derives tracked stats (e.g. Crit Rating or Phys Mitigation) from the essence Base stats (e.g. Vitality or Will essences) automatically, so no manual derivation is needed. A stat value may also be a list of values in square brackets, separated by commas (e.g. CriticalRating = [4917, 3222]) — one per socket — and LGO adds them up for you. The list is kept as you wrote it, so you keep seeing the per-socket breakdown.
     - Items flagged with '# UNRESOLVED'.
     - Items left with slot = "Unknown" by resolve-slots.
     - Note: don't bother aligning or prettifying the '= value' spacing when hand-editing; resolve-slots automatically re-aligns every stat line (= at column 20) on its next run. Your values and comments are kept.

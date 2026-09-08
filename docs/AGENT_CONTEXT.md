@@ -173,6 +173,27 @@ stat sources before that derivation step: tracked Virtue stats add directly to
 the fixed tracked baseline, while Virtue Base stats join the `[InnateStats]`
 Base-stat pool first and are then derived normally.
 
+### Multi-value stat entries
+
+A stat value in an `[[item]]` block or `[item.EssenceTotals]` may be either a
+single integer or a non-empty TOML array of integers (e.g.
+`CriticalRating = [4917, 3222]`, one element per socket). The effective value
+is the sum; readers get the sum, but `resolve-slots` preserves the array
+**verbatim** (internal whitespace, multi-line layout, and trailing comments
+included) so the user keeps seeing the per-socket breakdown —
+`insert_canonical_stats` carries the existing node forward rather than
+rebuilding it. `[InnateStats]` stays integer-only (the block is generated from
+the plugin export). Everything else — empty array, float, string, bool,
+datetime, inline table, nested or mixed array — is a hard error naming the
+item and key. A sum of zero is omitted from the runtime stat maps like an
+integer zero. A side effect of carrying the existing node forward: a
+hand-typed integer's *spelling* also survives `resolve-slots` — `1_000`,
+`+100`, or `0x64` stay as written instead of being normalised to `1000` /
+`100` (TOML parses them to the same value, so `optimize` is unaffected). This
+is intentional and idempotent; do not "fix" it back to normalisation, because
+rebuilding the node would break the merge-idempotency invariant for any user
+who typed such a value.
+
 ### Stat-line alignment (canonical, enforced)
 
 Every stat assignment line in `gearReady.toml` — the 16 tracked stats and the

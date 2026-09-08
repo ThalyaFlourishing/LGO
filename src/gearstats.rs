@@ -123,8 +123,10 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             }
         };
 
-        let mut stats = read_stats_map(entry_table, TRACKED_STATS);
-        let mut base_stats = read_stats_map(entry_table, BASE_STATS);
+        let item_label = format!("`item` for item `{}`", name);
+        let essence_label = format!("`{}` for item `{}`", ESSENCE_TOTALS_KEY, name);
+        let mut stats = read_stats_map(entry_table, TRACKED_STATS, &item_label, true)?;
+        let mut base_stats = read_stats_map(entry_table, BASE_STATS, &item_label, true)?;
         if let Some(essence_totals) = entry_table.get(ESSENCE_TOTALS_KEY) {
             let essence_table = essence_totals.as_table().ok_or_else(|| {
                 format!(
@@ -133,10 +135,11 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
                 )
             })?;
             validate_essence_keys(essence_table, &name)?;
-            for (stat, value) in read_stats_map(essence_table, TRACKED_STATS) {
+            for (stat, value) in read_stats_map(essence_table, TRACKED_STATS, &essence_label, true)?
+            {
                 *stats.entry(stat).or_insert(0) += value;
             }
-            for (stat, value) in read_stats_map(essence_table, BASE_STATS) {
+            for (stat, value) in read_stats_map(essence_table, BASE_STATS, &essence_label, true)? {
                 *base_stats.entry(stat).or_insert(0) += value;
             }
             // Runtime item stat maps store only non-zero effective totals; if
@@ -175,7 +178,7 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         validate_virtue_keys(virtues_table)?;
     }
     let innate_stats = HashMap::new();
-    let innate_base_stats = read_innate_stats(&doc, BASE_STATS);
+    let innate_base_stats = read_innate_stats(&doc, BASE_STATS)?;
     let selected_virtues = read_selected_virtues(&doc)?;
 
     Ok(GearDoc {
@@ -188,25 +191,88 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
     })
 }
 
-fn read_innate_stats(doc: &toml::Value, keys: &[(Stat, &str)]) -> HashMap<Stat, i64> {
+fn read_innate_stats(
+    doc: &toml::Value,
+    keys: &[(Stat, &str)],
+) -> Result<HashMap<Stat, i64>, String> {
     let Some(table) = doc.get("InnateStats").and_then(|v| v.as_table()) else {
-        return HashMap::new();
+        return Ok(HashMap::new());
     };
-    read_stats_map(table, keys)
+    read_stats_map(table, keys, "`InnateStats`", false)
+}
+
+/// Convert one stat value to its effective `i64`: an integer passes through;
+/// a non-empty array of integers sums (the multi-value essence/tracery entry
+/// form); anything else is a hard error naming the item and key. A silent
+/// zero for a wrong-typed value would destroy user data on the next merge —
+/// "missing" and "wrong type" must never be conflated (Bug 13).
+fn stat_value_to_i64(
+    value: &toml::Value,
+    item_label: &str,
+    key: &str,
+    allow_array: bool,
+) -> Result<i64, String> {
+    match value {
+        toml::Value::Integer(n) => Ok(*n),
+        toml::Value::Array(_) if !allow_array => Err(format!(
+            "Invalid value for stat `{}` in {}: arrays are not allowed in `[InnateStats]` because the block is generated from the plugin export; use a single integer.",
+            key, item_label
+        )),
+        toml::Value::Array(elements) => {
+            if elements.is_empty() {
+                return Err(format!(
+                    "Invalid value for stat `{}` in {}: an empty array `[]` is ambiguous — delete the entry or write 0.",
+                    key, item_label
+                ));
+            }
+            let mut sum: i64 = 0;
+            for element in elements {
+                let toml::Value::Integer(n) = element else {
+                    return Err(format!(
+                        "Invalid value for stat `{}` in {}: array elements must all be integers, found {}.",
+                        key,
+                        item_label,
+                        element.type_str()
+                    ));
+                };
+                sum = sum.checked_add(*n).ok_or_else(|| {
+                    format!(
+                        "Invalid value for stat `{}` in {}: array sum overflows a 64-bit integer.",
+                        key, item_label
+                    )
+                })?;
+            }
+            Ok(sum)
+        }
+        other => Err(format!(
+            "Invalid value for stat `{}` in {}: found {}; a stat value must be a single integer or a non-empty array of integers (e.g. [4917, 3222]).",
+            key,
+            item_label,
+            other.type_str()
+        )),
+    }
 }
 
 /// Read the non-zero values for `keys` (a `(Stat, TOML key)` table such as
-/// `TRACKED_STATS` or `BASE_STATS`) out of a TOML table.
-fn read_stats_map(table: &toml::value::Table, keys: &[(Stat, &str)]) -> HashMap<Stat, i64> {
+/// `TRACKED_STATS` or `BASE_STATS`) out of a TOML table. Arrays sum to their
+/// effective value (and a zero sum is omitted like an integer zero); invalid
+/// value types are hard errors via `stat_value_to_i64`.
+fn read_stats_map(
+    table: &toml::value::Table,
+    keys: &[(Stat, &str)],
+    item_label: &str,
+    allow_array: bool,
+) -> Result<HashMap<Stat, i64>, String> {
     let mut stats = HashMap::new();
     for (stat, key) in keys {
-        if let Some(val) = table.get(*key).and_then(|v| v.as_integer()) {
+        if let Some(val) = table.get(*key) {
+            let val = stat_value_to_i64(val, item_label, key, allow_array)?;
             if val != 0 {
                 stats.insert(*stat, val);
             }
         }
     }
-    stats
+    Ok(stats)
 }
 
 fn is_tracked_stat_key(key: &str) -> bool {
@@ -1080,5 +1146,161 @@ either_hand = true
         assert!(err.contains("either_hand"));
         assert!(err.contains("EssenceTotals"));
         std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    // ── Multi-value stat entries (arrays sum on read) ─────────────────────────
+
+    fn read_toml_str(toml: &str) -> Result<GearDoc, String> {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        std::fs::write(&path, toml).expect("write toml");
+        let result = read_stats_file(&path);
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+        result
+    }
+
+    #[test]
+    fn array_stat_in_item_block_sums() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Class Item"
+name = "Encyclopedia of Fauna"
+TacticalMastery = [6059, 6059, 6059, 6059]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].item.stat(&Stat::TacticalMastery), 24236);
+    }
+
+    #[test]
+    fn array_stat_in_essence_totals_sums_and_adds_to_base_block() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = 1000
+[item.EssenceTotals]
+CriticalRating = [4917, 3222]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].item.stat(&Stat::CriticalRating), 9139);
+    }
+
+    #[test]
+    fn array_base_stat_lands_in_base_stats_not_tracked() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+Will = [3053, 1358]
+"#,
+        )
+        .expect("must return Ok");
+        assert_eq!(doc.items[0].base_stats.get(&Stat::Will), Some(&4411));
+        assert!(
+            doc.items[0].item.stats.is_empty(),
+            "Base stats must never land in tracked stats"
+        );
+    }
+
+    #[test]
+    fn array_summing_to_zero_is_omitted_like_integer_zero() {
+        let doc = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = [5, -5]
+"#,
+        )
+        .expect("must return Ok");
+        assert!(
+            !doc.items[0].item.stats.contains_key(&Stat::CriticalRating),
+            "zero-sum array must be omitted like an integer zero"
+        );
+    }
+
+    #[test]
+    fn invalid_stat_value_types_are_hard_errors_naming_item_and_key() {
+        let cases = [
+            ("float", "CriticalRating = 1.5"),
+            ("string", "CriticalRating = \"12\""),
+            ("bool", "CriticalRating = true"),
+            ("empty array", "CriticalRating = []"),
+            ("mixed array", "CriticalRating = [1, \"2\"]"),
+            ("nested array", "CriticalRating = [[1], [2]]"),
+        ];
+        for (label, line) in cases {
+            let toml = format!(
+                "[[item]]\nslot = \"Head\"\nname = \"Test Helm\"\n{}\n",
+                line
+            );
+            let err = read_toml_str(&toml).expect_err(&format!("{} must be a hard error", label));
+            assert!(
+                err.contains("Test Helm"),
+                "{} error must name the item: {}",
+                label,
+                err
+            );
+            assert!(
+                err.contains("CriticalRating"),
+                "{} error must name the key: {}",
+                label,
+                err
+            );
+        }
+    }
+
+    #[test]
+    fn array_sum_overflow_is_hard_error_naming_item_and_key() {
+        let err = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+CriticalRating = [9223372036854775807, 1]
+"#,
+        )
+        .expect_err("array sum overflowing i64 must be a hard error");
+        assert!(
+            err.contains("Test Helm"),
+            "error must name the item: {}",
+            err
+        );
+        assert!(
+            err.contains("CriticalRating"),
+            "error must name the key: {}",
+            err
+        );
+        assert!(
+            err.contains("overflow"),
+            "error must mention overflow: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn array_in_innate_stats_is_hard_error_mentioning_generated_block() {
+        let err = read_toml_str(
+            r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+
+[InnateStats]
+Might = [10, 20]
+"#,
+        )
+        .expect_err("array in [InnateStats] must fail");
+        assert!(err.contains("Might"), "error must name the key: {}", err);
+        assert!(
+            err.contains("generated"),
+            "error must mention the block is generated: {}",
+            err
+        );
     }
 }

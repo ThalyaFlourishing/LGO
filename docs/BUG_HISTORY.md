@@ -185,3 +185,43 @@ the original `"Armor"` typo in the JSON and this table/JSON mismatch — run
 `cargo test` before trusting a hand-edit to a data file that's validated by
 exact-string matching elsewhere in the codebase.
 
+
+---
+
+### Bug 13 — TOML array stat values silently read as zero and destroyed on merge ✅ FIXED
+
+**Symptom:** a user who entered a stat as a TOML array of integers (e.g.
+`CriticalRating = [4917, 3222]`, one element per essence socket) got no error
+anywhere: `optimize` treated the stat as zero, and the next `resolve-slots`
+run **overwrote the user's entry with `0`**, destroying the hand-entered
+per-socket breakdown with no warning. Trailing comments survived but ended up
+attached to a zero line.
+
+**Root cause:** every stat read went through a typed accessor
+(`.as_integer()` in `gearstats` and on `toml_edit::Item` in `slot_resolver`)
+whose `None` result — which means *wrong type*, not *key absent* — was
+collapsed into "absent, so zero". `slot_resolver::insert_canonical_stats` then
+rebuilt each canonical stat node from that zero via `value(0)`, discarding the
+original array node entirely.
+
+**Fix:** stat values may now be an integer or a non-empty array of integers
+(the effective value is the sum). All reads route through two shared helpers —
+`gearstats::stat_value_to_i64` and `slot_resolver::stat_item_to_i64` — that
+sum arrays with `checked_add` and turn *every* other value type (float,
+string, bool, empty/mixed/nested array, overflow) into a hard error naming
+the item and key (`ResolveError::InvalidStatValue` on the resolver side).
+`[InnateStats]` stays integer-only on both the previous and incoming side,
+with an error explaining that the block is generated. On the write side,
+`insert_canonical_stats` no longer rebuilds a node whose old value is an
+integer or array — it clones the existing `Item` forward, preserving the
+array verbatim (internal whitespace, multi-line layout, suffix comments)
+across merges. `item_data_distance` compares by effective sum, so an array
+equals the matching integer for duplicate pairing and the `--force`
+Overwrite prompt.
+
+**Lesson for future agents:** a `None` from a typed accessor is **not** the
+same as "key absent". Distinguish "missing" (fine, means zero) from "wrong
+type" (user data you don't understand — error out loudly). Any silent
+`unwrap_or(0)`/`unwrap_or_default()` on a parse of user-maintained data is a
+latent data-loss bug: the zero doesn't just misreport, it gets written back
+over the user's file on the next merge.

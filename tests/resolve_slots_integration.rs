@@ -2254,3 +2254,154 @@ CriticalRating = 200
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Multi-value stat entries: arrays hand-entered in the canonical file must
+/// survive repeat `resolve_stats_file` runs byte-identically (modulo the
+/// generated timestamp) with every array intact.
+#[test]
+fn file_level_array_stat_values_survive_reruns_byte_identically() {
+    let dir = make_temp_dir("array_values");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+";
+    std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        Some(&dir),
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    // Hand-edit the canonical file: turn the base-block value into a
+    // per-socket breakdown summing to the same total, and enter essence
+    // stats as an array with a comment.
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let edited = first
+        .replacen(
+            "CriticalRating     = 200",
+            "CriticalRating     = [150, 50]",
+            1,
+        )
+        .replacen(
+            "CriticalRating     = 0",
+            "CriticalRating     = [4917, 3222] # 2x Vivid Essence of Critical Rating",
+            1,
+        );
+    assert_ne!(edited, first, "hand-edit must apply");
+    std::fs::write(&canonical, &edited).expect("write edited canonical");
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            Some(&dir),
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+        assert!(
+            out.contains("CriticalRating     = [150, 50]"),
+            "run {}: base-block array must survive verbatim:\n{}",
+            run,
+            out
+        );
+        assert!(
+            out.contains("CriticalRating     = [4917, 3222] # 2x Vivid Essence of Critical Rating"),
+            "run {}: essence array with its comment must survive verbatim:\n{}",
+            run,
+            out
+        );
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {}: output must be idempotent modulo timestamp",
+                run
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Smoke test: the shipped template must always parse through the optimize
+/// path's reader (it documents the array syntax users are told to use).
+#[test]
+fn template_gear_ready_file_parses_via_read_stats_file() {
+    let template = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/lgo_TEMPLATE_gearReady.toml");
+    let doc = lgo::gearstats::read_stats_file(&template).expect("template must parse");
+    assert!(
+        !doc.items.is_empty(),
+        "template must contain at least one item"
+    );
+
+    // Every [item.EssenceTotals] block must keep its 21 canonical stat lines
+    // consecutive: comments may sit between the header and the first stat
+    // line, but nothing (comment-only or blank line) may split the stat run.
+    let text = std::fs::read_to_string(&template).expect("read template");
+    let is_stat_line = |line: &str| {
+        let trimmed = line.trim_start();
+        let Some((key, _)) = trimmed.split_once('=') else {
+            return false;
+        };
+        let key = key.trim_end();
+        TRACKED_STATS
+            .iter()
+            .chain(BASE_STATS.iter())
+            .any(|(_, canonical_key)| *canonical_key == key)
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let mut saw_essence_block = false;
+    for (idx, line) in lines.iter().enumerate() {
+        if line.trim() != "[item.EssenceTotals]" {
+            continue;
+        }
+        saw_essence_block = true;
+        let first_stat = lines[idx + 1..]
+            .iter()
+            .position(|l| is_stat_line(l))
+            .map(|offset| idx + 1 + offset)
+            .unwrap_or_else(|| panic!("no stat line after [item.EssenceTotals] at line {idx}"));
+        let run = &lines[first_stat..first_stat + 21];
+        for (offset, stat_line) in run.iter().enumerate() {
+            assert!(
+                is_stat_line(stat_line),
+                "line {} must be a canonical stat line — the 21-line stat run \
+                 after [item.EssenceTotals] (line {}) must be consecutive:\n{}",
+                first_stat + offset + 1,
+                idx + 1,
+                stat_line
+            );
+        }
+    }
+    assert!(
+        saw_essence_block,
+        "template must contain at least one [item.EssenceTotals] block"
+    );
+}

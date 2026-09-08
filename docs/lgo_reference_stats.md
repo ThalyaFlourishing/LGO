@@ -27,6 +27,14 @@ The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 | `pt`         | `PhysicalMitigation` | `physical_mitigation` | `PhysicalMitigation` | Physical Mitigation |
 | `tt`         | `TacticalMitigation` | `tactical_mitigation` | `TacticalMitigation` | Tactical Mitigation |
 
+A stat value in `gearReady.toml` may be a single integer or a non-empty TOML
+array of integers (e.g. `CriticalRating = [4917, 3222]`, one element per
+socket); LGO sums the array on read and `resolve-slots` preserves it verbatim.
+Array values are accepted everywhere except `[InnateStats]`, which is
+generated from the plugin export and stays integer-only. Any other value type
+(float, string, bool, empty/mixed/nested array, ...) is a hard error naming
+the item and key.
+
 ## Base Stats (5 total, derivation inputs only)
 
 The five raw Base stats appear in `gearReady.toml` after the 16 tracked
