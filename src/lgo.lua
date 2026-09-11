@@ -479,9 +479,9 @@ local function ExportCombined(sharedChestName)
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
   SaveAccount("gearNames", out);
-  Print("export: level=" .. tostring(out.level or "TBD") ..
-    " maxMorale=" .. tostring(out.maxMorale or "TBD") ..
-    " maxPower=" .. tostring(out.maxPower or "TBD") ..
+  Print("export: level=" .. tostring(out.level or "unavailable") ..
+    " maxMorale=" .. tostring(out.maxMorale or "unavailable") ..
+    " maxPower=" .. tostring(out.maxPower or "unavailable") ..
     " effects=" .. tostring(out.activeEffects or 0) ..
     " equipped=" .. tostring(#out.equipped));
   if (out.activeEffects or 0) > 0 then
