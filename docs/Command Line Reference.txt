@@ -12,9 +12,17 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
 
   /lgo export
     Export a unified gearlist from equipped items plus Shared Storage chest "LGO".
-    Writes lgo_<character-name>_gearNames_<timestamp>.plugindata.
+    Writes lgo_<character-name>_gearNames_<timestamp>.plugindata containing:
+      - character name and class
+      - level (integer)
+      - measured max Morale and max Power (includes active buffs)
+      - active effect count
+      - equipped items list
+      - base stats (Might, Agility, Vitality, Will, Fate)
+      - complete item names (equipped + chest)
     Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
     there is no need to unequip them before exporting.
+    TIP: For a clean innate-stat baseline, export with no food/hope/fellowship buffs active.
 
   /lgo export chest <name>
     Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
@@ -250,6 +258,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Print the five raw innate Base stats from [InnateStats] in
     lgo_<character>_gearReady.toml, and the 16 derived tracked-stat
     contributions computed from them (already included in optimize totals).
+    Also shows a "Measured innate baseline" section with:
+      - measured max Morale and max Power from plugindata
+      - CalcStat class-base morale at character level (for sanity check)
+      - residual (measured − equipped gear − virtues) assigned to passives/racials/tomes
     Does not run an optimization. Requires data\base_stat_derivations.json in
     the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.

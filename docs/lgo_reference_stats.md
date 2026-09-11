@@ -91,3 +91,39 @@ Selected Virtues are fixed stat sources. Their tracked stats contribute
 directly to the fixed baseline totals, and any raw Base stats they contain are
 merged into the same Base-stat pool as `[InnateStats]` before class derivation.
 Virtues are not optimizer goals, and the final report format is unchanged.
+
+## Innate Morale and Power baseline
+
+### Measured residual method
+
+The Rust optimizer calibrates innate Morale and Power baselines (before any gear, virtues, or effects) by subtracting known gear stats from measured in-game values:
+
+1. The plugin export captures the character's current `MaxMorale` and `MaxPower` from the Turbine API (includes all active buffs, if any).
+2. The plugindata populates `[MeasuredStats]` with these values and the equipped items list.
+3. At optimization time, the optimizer sums the known stats of all equipped gear from the TOML (via wiki lookups), then subtracts that sum from the measured value.
+4. The residual is then compared against a class-independent sanity check using CalcStat formulas.
+
+### CalcStat sanity check
+
+CalcStat's `ClassBaseMorale(L)` formula is **class-independent**:
+
+```
+ClassBaseMorale(L) = RoundDbl(RoundDbl(StdProgHealth(L, 4.0), 0) * 10)
+```
+
+At L160, this yields exactly 68,000. This formula appears in the CalcStat source as a fixed hard-coded value per level, and it is validated empirically:
+- Test export: Thalya (Lore-master), Level 160, with the following measured and base stats:
+  - Measured Max Morale: 187,342
+  - Equipped gear Morale: 0
+  - Virtues (slotted only): contribute ~47,417 Morale
+  - **Residual: 187,342 − 0 − 47,417 = 139,925**
+  - ClassBaseMorale(160) = 68,000
+  - Passives/racials/tomes (residual − class base) = 139,925 − 68,000 = 71,925 ✓
+  
+This residual method recovers an innate baseline that can be used to calibrate the optimizer against player-measured in-game values. The discrepancy (earned-but-unslotted virtue passives, racials, tomes) is noted but accepted as a permanent blind spot due to API limitations.
+
+### Character panel rounding discrepancy
+
+The LotRO character panel rounds `Fate × 1.5` using **half-down rounding** (e.g., 3219 × 1.5 = 4828.5 → 4828).  
+LGO's per-item derivation rule uses `ceil()`, producing a known **±1 discrepancy** in Fate-derived stats.
+This is documented for transparency; it is not considered a bug, and no fix is warranted.
