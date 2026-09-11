@@ -44,6 +44,9 @@
     
     This `.plugindata` export is the only LGO file that lives in the game's Documents (PluginData) folder; its location is fixed by the game. Every other LGO file — the gear TOMLs, saved builds, and reports — lives beside lgo.exe in the install directory (see step 7).
   
+  **Tip:** The plugindata export captures your current Max Morale and Max Power, which include any active food, hope, or fellowship buffs. For a clean baseline, export with no buffs active. If you export with buffs on, the measured stats will include them — the Rust optimizer will then calculate innate stats as if those buffs were permanent (since they were active at export time).
+
+  
   3. Open https://lotro-wiki.com in your web browser. You must be on lotro-wiki.com before clicking the bookmarklet; it will refuse to run on any other site.
   
   4. Click the 'LGO Stats' bookmarklet/link/button in your bookmarks bar.

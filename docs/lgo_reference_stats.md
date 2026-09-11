@@ -91,3 +91,36 @@ Selected Virtues are fixed stat sources. Their tracked stats contribute
 directly to the fixed baseline totals, and any raw Base stats they contain are
 merged into the same Base-stat pool as `[InnateStats]` before class derivation.
 Virtues are not optimizer goals, and the final report format is unchanged.
+
+## Innate Morale and Power baseline
+
+The innate Morale/Power baseline — the character's morale and power contribution from class level, racial traits, and stat-tome buffs, excluding all equipped gear and virtues — is measured via the residual method:
+
+```
+innate_morale = measured_morale − equipped_gear_morale − selected_virtue_morale − derived_base_stat_morale
+innate_power = measured_power − equipped_gear_power − selected_virtue_power − derived_base_stat_power
+```
+
+### Measured residual method
+
+The plugin exports `GetMaxMorale()` and `GetMaxPower()` (measured with equipped gear and active buffs on the character at export time), plus the list of equipped items, so the Rust optimizer can subtract their known stat contributions.
+
+**Important:** Export the plugindata with no active food, hope, or fellowship buffs for a clean baseline. If buffs are active at export, the measured stats will include them, and the optimizer will calculate innate stats as if those buffs were permanent.
+
+### CalcStat formula (research input only)
+
+During development, the following formula was investigated via CalcStat:
+
+```
+ClassBaseMorale(L) = RoundDbl(RoundDbl(StdProgHealth(L, 4.0), 0) * 10)
+ClassBaseVitality(L) = L * 60 + 600
+```
+
+This class-independent formula yields exactly 68,000 Morale and 10,200 Vitality at L160. The formula was validated against Thalya (High Elf Lore-master, L160): measured naked Max Morale 143,695, minus Vitality contribution 45,900, leaves 97,795. The class base 68,000 accounts for most of this residual; the remainder includes virtue passives (~14,121 estimated), High Elf racial (~14,197), and miscellaneous.
+
+This formula is historical evidence only. **LGO does not implement or import CalcStat.** The innate baseline is measured directly, not modelled. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+
+### Rounding discrepancy
+
+The character panel rounds Fate × 1.5 using half-down (3219 × 1.5 → 4828.5 → 4828), whereas LGO's per-item derivation uses `ceil()`. This produces an expected ±1 discrepancy in Fate-derived stats (Fate Resilience, Fate Mitigation). Not a bug; it is accepted and documented.
+

@@ -906,7 +906,8 @@ CriticalRating = 200
     .expect("second rerun must succeed");
     let after_second = std::fs::read_to_string(&canonical).expect("read canonical");
     assert_eq!(
-        after_first, after_second,
+        strip_generated_timestamp_line(&after_first),
+        strip_generated_timestamp_line(&after_second),
         "canonical file with existing EssenceTotals must be idempotent after rerun"
     );
 

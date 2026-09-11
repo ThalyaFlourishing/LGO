@@ -225,3 +225,38 @@ type" (user data you don't understand — error out loudly). Any silent
 `unwrap_or(0)`/`unwrap_or_default()` on a parse of user-maintained data is a
 latent data-loss bug: the zero doesn't just misreport, it gets written back
 over the user's file on the next merge.
+
+---
+
+### Bug 14 — Innate Morale baseline unknown (`GetBaseMaxMorale` broken) ✅ FIXED
+
+**Symptom:** The optimizer needs to calibrate the character's innate Morale and Power baseline by subtracting the known stats of equipped gear and slotted virtues. The expected solution was `Actor:GetBaseMaxMorale()`, which the Turbine API advertises as a method to "get the character's base maximum morale." It returns a number. But which baseline is it? Empirically: **it returns the character's current Max Morale on this client, including all equipped gear, active buffs, and virtues — not the innate baseline.** So it is useless.
+
+**Root cause:** The Turbine `Actor` class does not and never did expose the innate Morale/Power baseline. `GetBaseMaxMorale()` is a misnomer; it simply returns the current calculated total. Verified empirically by probing the `Item` and `ItemInfo` Turbine APIs (see Bug 9).
+
+**Solution:** Measured-residual method. The plugin exports the character's measured Max Morale/Power (from `GetMaxMorale()` / `GetMaxPower()`, which include equipped gear and active buffs), the character's level, the list of equipped items, and the count of active effects. The Rust optimizer then computes:
+
+```
+innate_morale = measured_morale − equipment_morale − selected_virtue_morale − derived_base_stat_morale
+```
+
+**Example (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
+- Measured Max Morale: 143,695
+- Equipped gear Morale: 0
+- Slotted Virtue Morale contribution: 0
+- Derived Base-stat Morale (Vitality): Vitality 10,200 × 4.5 = 45,900 (including 337 from tomes)
+- **Residual (innate):** 143,695 − 0 − 0 − 45,900 = **97,795**
+
+Breakdown of the residual:
+- 68,000 — class base (CalcStat `ClassBaseMorale(160) = RoundDbl(RoundDbl(StdProgHealth(160, 4.0), 0) * 10)`, class-independent)
+- 14,121 — virtue *passives* (all earned virtues, slotted or not; not exposed by the API)
+- 14,197 — unexplained; High Elf racial suspected
+- 1,477 — miscellaneous (stat tomes, other racials, or rounding errors)
+
+**Sanity check:** CalcStat was used as research input only — LGO does not implement or import the formula. The formula is class-independent: at L160, `ClassBaseMorale(160)` = exactly 68,000 for all classes. This can be cross-checked: the Vitality formula is `ClassBaseVitality(L) = L * 60 + 600`; at L160, = 10,200 exactly, which matches the exported `[InnateStats]` Vitality. So the class-base formula is sound. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+
+**⚠ Limitation:** Virtue *passives* (earned-but-unslotted virtues) add Morale/PhysMit/TacMit but are not exposed by the Turbine API. They are not modelled; they are absorbed into the measured innate baseline and cannot be distinguished from racials and stat tomes. This is an accepted permanent blind spot.
+
+**⚠ Measurement note:** `GetMaxMorale()` and `GetMaxPower()` are calculated with the character's currently equipped gear and active buffs (food, hope, fellowship) at export time. To get a clean baseline, the user should export with no buffs active. If they export with buffs active, the measured stats will include them, and the optimizer will calculate innate stats as if those buffs were permanent (since they were active at export time).
+
+---
