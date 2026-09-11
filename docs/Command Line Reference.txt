@@ -92,9 +92,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     result into lgo_<character>_gearReady.toml in that same folder.
     gearReady.toml is the canonical file for persistent manual corrections,
     including top-level [Virtues] plus each item's [item.EssenceTotals] block.
-    resolve-slots keeps [InnateStats] followed immediately by [Virtues] near the
-    top of the file. The bookmarklet-produced gearStats.toml should be treated
-    as disposable input to resolve-slots.
+    resolve-slots keeps level, [InnateStats], [MeasuredStats], and [Virtues]
+    near the top of the file. The bookmarklet-produced gearStats.toml should be
+    treated as disposable input to resolve-slots.
 
     resolve-slots creates the <CharacterName>_Gear folder if it does not exist.
     If a lgo_<character>_gearStats.toml is found loose in the install root, its

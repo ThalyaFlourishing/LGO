@@ -32,7 +32,7 @@
 -- Notes on gear stats:
 --   The LotRO plugin API does not expose numeric stat values.
 --   GetDescription() returns an unserializable engine token.
---   GetLevel/GetRequiredLevel/GetItemClass are absent on this API version.
+--   Item GetRequiredLevel/GetItemClass are absent on this API version.
 --   Per-item data exported: item names only (for wiki lookup).
 --   The Rust optimizer looks up stats externally by item name.
 

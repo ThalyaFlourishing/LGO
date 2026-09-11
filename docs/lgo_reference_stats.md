@@ -66,8 +66,8 @@ Negative values follow plain `ceil()` semantics (round toward zero).
 
 ## Virtues
 
-`gearReady.toml` also carries a top-level `[Virtues]` block immediately after
-`[InnateStats]`:
+`gearReady.toml` also carries a top-level `[Virtues]` block after generated
+`[MeasuredStats]`:
 
 ```toml
 [Virtues]
