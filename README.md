@@ -26,6 +26,8 @@ See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-st
 3. Run `lgo resolve-slots` to merge into `lgo_<character>_gearReady.toml` (hand-edit legendaries / `Unknown` slots as needed).
 4. Run `lgo optimize <stat:minimum> …` and read the report.
 
+- Measured innate baseline: the plugin exports Max Morale/Power and the equipped set so the optimizer can calibrate the character's innate baseline instead of guessing it.
+
 ## Stat goal syntax
 
 Each goal is `stat:minimum`.

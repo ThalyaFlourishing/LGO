@@ -91,3 +91,25 @@ Selected Virtues are fixed stat sources. Their tracked stats contribute
 directly to the fixed baseline totals, and any raw Base stats they contain are
 merged into the same Base-stat pool as `[InnateStats]` before class derivation.
 Virtues are not optimizer goals, and the final report format is unchanged.
+
+## Innate Morale and Power baseline
+
+```
+innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats[s] − derived Base-stat contributions[s]
+```
+
+Export with no food/hope/fellowship buffs active for a clean Morale/Power baseline.
+
+**Evidence (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
+
+| Component | Morale |
+|---|---|
+| Measured naked Max Morale | 143,695 |
+| Vitality 10,537 × 4.5 (10,200 base + 337 stat tomes) | −47,417 |
+| **Residual absorbed into the innate baseline** | **96,278** |
+
+The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) + 14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was 13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
+
+**Research note:** CalcStat was research input only; LGO does not implement or import its formulas. `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported Vitality exactly, which is what made the class-base figure trustworthy. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+
+- **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.
