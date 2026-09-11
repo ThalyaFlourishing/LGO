@@ -17,9 +17,14 @@
 --   - lgo_<character>_gearNames_<timestamp>.plugindata
 --   - top-level shape:
 --       {
---         version = "lgo-gearlist-1",
+--         version = "lgo-gearlist-2",
 --         character = "...",
 --         class = "...",
+--         level = 160,
+--         maxMorale = 187342,
+--         maxPower = 21005,
+--         activeEffects = 0,
+--         equipped = { "item name 1", ... },
 --         baseStats = { GetBaseMight=..., GetBaseAgility=..., ... },
 --         names = { [1.000000]="...", [2.000000]="...", ... },
 --       }
@@ -187,6 +192,42 @@ local function GetBaseStats()
     end
   end
   return stats;
+end
+
+local function GetPlayerLevel()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil then return nil end
+  local level, existed, ok = TryCall0(player, "GetLevel");
+  if existed and ok then return level end
+  return nil
+end
+
+local function GetMaxMorale()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil then return nil end
+  local morale, existed, ok = TryCall0(player, "GetMaxMorale");
+  if existed and ok then return morale end
+  return nil
+end
+
+local function GetMaxPower()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil then return nil end
+  local power, existed, ok = TryCall0(player, "GetMaxPower");
+  if existed and ok then return power end
+  return nil
+end
+
+local function GetActiveEffectsCount()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  if player == nil then return 0 end
+  if type(player.GetEffects) ~= "function" then return 0 end
+  local ok, effects = pcall(function() return player:GetEffects(); end);
+  if not ok or effects == nil then return 0 end
+  if type(effects.GetCount) ~= "function" then return 0 end
+  local okCount, count = pcall(function() return effects:GetCount(); end);
+  if okCount and type(count) == "number" then return count end
+  return 0
 end
 
 
@@ -399,6 +440,20 @@ local function CollectItemNames(equip, ss)
   return names;
 end
 
+local function CollectEquippedItemNames(equip)
+  local names = {};
+  local function addName(rec)
+    local n = rec.infoName or rec.name;
+    if n ~= nil and n ~= "" then
+      table.insert(names, n);
+    end
+  end
+  if equip ~= nil and equip.items ~= nil then
+    for _, rec in ipairs(equip.items) do addName(rec) end
+  end
+  return names;
+end
+
 -- ── Combined export (equipped + shared storage chest) ───────────────────────
 
 local function ExportCombined(sharedChestName)
@@ -420,17 +475,46 @@ local function ExportCombined(sharedChestName)
   end
 
   local out = {
-    version = "lgo-gearlist-1",
+    version = "lgo-gearlist-2",
     character = CharacterName(),
     class = CharacterClass(),
     baseStats = GetBaseStats(),
     names = CollectItemNames(equip, ss),
   };
 
+  -- Add optional measured stats (skip field if function unavailable)
+  local level = GetPlayerLevel();
+  if level ~= nil then out.level = level end
+
+  local maxMorale = GetMaxMorale();
+  if maxMorale ~= nil then out.maxMorale = maxMorale end
+
+  local maxPower = GetMaxPower();
+  if maxPower ~= nil then out.maxPower = maxPower end
+
+  local activeEffects = GetActiveEffectsCount();
+  out.activeEffects = activeEffects;
+
+  local equipped = CollectEquippedItemNames(equip);
+  if equipped ~= nil and #equipped > 0 then out.equipped = equipped end
+
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
   SaveAccount("gearNames", out);
-  Print("export: saved " .. tostring(#out.names) .. " owned item instances");
+
+  -- Print summary line
+  local summary = "export: ";
+  if out.level ~= nil then summary = summary .. "level=" .. tostring(out.level) .. " " end
+  if out.maxMorale ~= nil then summary = summary .. "maxMorale=" .. tostring(out.maxMorale) .. " " end
+  if out.maxPower ~= nil then summary = summary .. "maxPower=" .. tostring(out.maxPower) .. " " end
+  summary = summary .. "effects=" .. tostring(activeEffects);
+  if out.equipped ~= nil then summary = summary .. " equipped=" .. tostring(#out.equipped) end
+  Print(summary);
+
+  -- Note if active effects present
+  if activeEffects > 0 then
+    Print("note: " .. tostring(activeEffects) .. " effects active — Max Morale/Power include them. Export unbuffed for a clean baseline.");
+  end
 end
 
 -- ── Shell command ─���──────────────────────────────────────────────────────────
