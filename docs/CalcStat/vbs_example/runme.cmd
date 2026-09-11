@@ -1,0 +1,1 @@
+CScript //Job:"CalcStat Example" example.wsf > example.txt

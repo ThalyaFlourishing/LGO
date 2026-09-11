@@ -1,0 +1,67 @@
+<html>
+ <head>
+  <title>CalcStat JavaScript Test</title>
+ </head>
+ <body>
+  <h2>CalcStat test set</h2>
+  <script src="calcstat.js"></script>
+  <script>
+function OutputStat(csn,cl,sparam) {
+	var res = CalcStat(csn,cl,sparam);
+	if (typeof sparam === "number")
+		document.write("CalcStat(\""+csn+"\","+cl+","+sparam+") = "+res+(csn.substr(-5) == "PRatP" ? " ("+(res+0.0002).toFixed(1)+"%)" : "")+"<br />");
+	else if (typeof sparam === "string")
+		document.write("CalcStat(\""+csn+"\","+cl+",\""+sparam+"\") = "+res+"<br />");
+	else
+		document.write("CalcStat(\""+csn+"\","+cl+") = "+res+"<br />");
+}
+var LevelCap = CalcStat("LevelCap",0);
+OutputStat("-VERSION",0);
+OutputStat("LEVELCAP",0);
+OutputStat("CLASSNAME",217);
+OutputStat("OutHealPRatP",LevelCap,47964);
+OutputStat("CritHitT",135,2.0);
+OutputStat("TPenArmour",LevelCap,3);
+OutputStat("Armour",467,"HHT");
+OutputStat("TomeTotalMain",0,"XX");
+OutputStat("CritHit",81,0.8);
+OutputStat("PhyMitHPRatPCapR",LevelCap);
+OutputStat("LvlExpCostTot",LevelCap);
+OutputStat("LvlExpCost",LevelCap);
+OutputStat("BEOFATE",LevelCap,1);
+OutputStat("BEOVITALITYINCREASE",LevelCap,1);
+OutputStat("BRGALLINFINESSE",LevelCap,1);
+OutputStat("CHP2HWPNBLOCK",LevelCap,1);
+OutputStat("CHPCONTRBURNICPR",LevelCap,1);
+OutputStat("CHPFINESSEINCREASE",LevelCap,1);
+OutputStat("CHPFLURRYINCRCRITHIT",LevelCap,1);
+OutputStat("CHPMIGHTINCREASE",LevelCap,1);
+OutputStat("CHPSTALWBLADEVITALITY",LevelCap,1);
+OutputStat("CPTCOVMAIN",LevelCap,1);
+OutputStat("CPTCOVPHYMIT",LevelCap,1);
+OutputStat("CPTCOVVITALITY",LevelCap,1);
+OutputStat("GRDTENDERIZECRITHIT",LevelCap,1);
+OutputStat("GRDWARDTACTTACMIT",LevelCap,1);
+OutputStat("LMHEARTYDIETMORALE",LevelCap,1);
+OutputStat("LMPREPFORWARTACMAS",LevelCap,1);
+OutputStat("MINCOMPOSURERESIST",LevelCap,1);
+OutputStat("MINCOMPOSURETACMIT",LevelCap,1);
+OutputStat("MINENDMORALE",LevelCap,1);
+OutputStat("MINTACMAS",LevelCap,1);
+OutputStat("RKDETERMINATIONWILL",LevelCap,1);
+OutputStat("RKFORTUNESMILESFATE",LevelCap,1);
+OutputStat("WRDFINESSE",LevelCap,1);
+OutputStat("WRDPHYMAS",LevelCap,1);
+OutputStat("WRDRECKLESSNCRITHIT",LevelCap,1);
+OutputStat("WRDSHIELDMASBLOCK",LevelCap,1);
+OutputStat("WRDSTDYOURGRBLOCK",LevelCap,1);
+OutputStat("WRDSTDYOURGRPARRY",LevelCap,1);
+OutputStat("Might",488,1);
+OutputStat("WpnDPS",488,"HBT");
+document.write("EquSng(2.467346906662) = "+EquSng(2.467346906662)+"<br />");
+document.write("DecSng(2.467346906662) = "+DecSng(2.467346906662)+"<br />");
+document.write("EquSng(5.3333333333333333) = "+EquSng(5.3333333333333333)+"<br />");
+document.write("DecSng(5.3333333333333333) = "+DecSng(5.3333333333333333)+"<br />");
+  </script>
+ </body>
+</html>

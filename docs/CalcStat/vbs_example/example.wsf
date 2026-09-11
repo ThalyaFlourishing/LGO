@@ -1,0 +1,4 @@
+<job id="CalcStat Example">
+<script language="VBScript" src="CalcStat.vbs"/>
+<script language="VBScript" src="example.vbs"/>
+</job>
