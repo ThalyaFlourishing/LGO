@@ -30,9 +30,9 @@
   Detailed User Instructions
 ----------------------------
 
-  2. In LotRO, rename a Shared Storage chest 'lgo' (or 'LGO'). Place the gear items you want considered into that chest. Items already equipped on the character are picked up automatically and do not need to go in the chest. Your equipped craft tool and bridle are automatically skipped — you do not need to unequip them. Do not place craft tools or bridles in the `lgo` chest; they are not optimizer candidates.
+  1. In LotRO, rename a Shared Storage chest 'lgo' (or 'LGO'). Place the gear items you want considered into that chest. Items already equipped on the character are picked up automatically and do not need to go in the chest. Your equipped craft tool and bridle are automatically skipped — you do not need to unequip them. Do not place craft tools or bridles in the `lgo` chest; they are not optimizer candidates.
   
-  **Tip:** The plugindata export captures your current Max Morale and Max Power, which include any active food, hope, or fellowship buffs. For a clean baseline, export with no buffs active. If you export with buffs on, the measured stats will include them — the Rust optimizer will then calculate innate stats as if those buffs were permanent (since they were active at export time).
+  2. In the LotRO chat window, type:
   
       /lgo export
   
@@ -102,8 +102,8 @@
      
     Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in the character's gear folder, <install>\<CharacterName>_Gear\, the same folder resolve-slots used in step 8. The filename is lgo_<CharacterName>_gearReady.toml.
    
-    Near the top of the file you will see the header fields `character`, `class`, `level`, `[InnateStats]`, `[MeasuredStats]`, and `[Virtues]`. The `level` field and `[MeasuredStats]` block are **generated and regenerated on every `resolve-slots` run — do not hand-edit them**. [InnateStats] contains only the five raw Base stats (Might, Agility, Vitality, Will, Fate). [MeasuredStats] contains your character's measured level, max Morale/Power (with buffs active at export time), active effect count, and the list of equipped items — all from the plugindata export. [Virtues] contains your five user-maintained Virtue name slots. The item list begins
-    after that. Each item has normal stat lines for the base item plus an attached [item.EssenceTotals] block. Put the sum of that item's socketed essence stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but resolve-slots writes every tracked stat explicitly to reduce copy/paste mistakes. If you mistype a stat name, or enter an unknown Virtue name,
+    Near the top of the file you will see the header fields `character`, `class`, `[InnateStats]`, and `[Virtues]`. [InnateStats] contains only the five raw Base stats (Might, Agility, Vitality, Will, Fate). [Virtues] contains your five user-maintained Virtue name slots. The item list begins
+    after that. Each item has normal stat lines for the base item plus an attached item.EssenceTotals] block. Put the sum of that item's socketed essence stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but resolve-slots writes every tracked stat explicitly to reduce copy/paste mistakes. If you mistype a stat name, or enter an unknown Virtue name,
     optimize will fail with an error rather than silently ignore it.
      
     There may be items not found in the database. They will keep their original slot value (usually 'Unknown'). Their names are printed to the terminal window so you know which entries in the 'lgo_<character-name>_gearReady.toml' file are likely to need hand-editing.
