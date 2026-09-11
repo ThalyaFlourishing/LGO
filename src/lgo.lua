@@ -17,10 +17,15 @@
 --   - lgo_<character>_gearNames_<timestamp>.plugindata
 --   - top-level shape:
 --       {
---         version = "lgo-gearlist-1",
+--         version = "lgo-gearlist-2",
 --         character = "...",
 --         class = "...",
+--         level = 160,
 --         baseStats = { GetBaseMight=..., GetBaseAgility=..., ... },
+--         maxMorale = 187342,
+--         maxPower = 21005,
+--         activeEffects = 0,
+--         equipped = { [1.000000]="...", [2.000000]="...", ... },
 --         names = { [1.000000]="...", [2.000000]="...", ... },
 --       }
 --
@@ -187,6 +192,29 @@ local function GetBaseStats()
     end
   end
   return stats;
+end
+
+local function GetPlayerNumber(methodName)
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  local v, existed, ok = TryCall0(player, methodName);
+  if existed and ok and v ~= nil then
+    return tonumber(v);
+  end
+  return nil;
+end
+
+local function GetActiveEffectCount()
+  local player = Turbine.Gameplay.LocalPlayer.GetInstance();
+  local effects, existed, ok = TryCall0(player, "GetEffects");
+  if not existed or not ok or effects == nil then
+    return 0;
+  end
+
+  local count, countExisted, countOk = TryCall0(effects, "GetCount");
+  if countExisted and countOk and count ~= nil then
+    return tonumber(count) or 0;
+  end
+  return 0;
 end
 
 
@@ -399,6 +427,19 @@ local function CollectItemNames(equip, ss)
   return names;
 end
 
+local function CollectEquippedItemNames(equip)
+  local names = {};
+  if equip ~= nil and equip.items ~= nil then
+    for _, rec in ipairs(equip.items) do
+      local n = rec.infoName or rec.name;
+      if n ~= nil and n ~= "" then
+        table.insert(names, n);
+      end
+    end
+  end
+  return names;
+end
+
 -- ── Combined export (equipped + shared storage chest) ───────────────────────
 
 local function ExportCombined(sharedChestName)
@@ -420,16 +461,32 @@ local function ExportCombined(sharedChestName)
   end
 
   local out = {
-    version = "lgo-gearlist-1",
+    version = "lgo-gearlist-2",
     character = CharacterName(),
     class = CharacterClass(),
     baseStats = GetBaseStats(),
+    activeEffects = GetActiveEffectCount(),
+    equipped = CollectEquippedItemNames(equip),
     names = CollectItemNames(equip, ss),
   };
+  local level = GetPlayerNumber("GetLevel");
+  if level ~= nil then out.level = level end
+  local maxMorale = GetPlayerNumber("GetMaxMorale");
+  if maxMorale ~= nil then out.maxMorale = maxMorale end
+  local maxPower = GetPlayerNumber("GetMaxPower");
+  if maxPower ~= nil then out.maxPower = maxPower end
 
   Print("export: equipped=" .. tostring(#equip.items) ..
     " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
   SaveAccount("gearNames", out);
+  Print("export: level=" .. tostring(out.level or "TBD") ..
+    " maxMorale=" .. tostring(out.maxMorale or "TBD") ..
+    " maxPower=" .. tostring(out.maxPower or "TBD") ..
+    " effects=" .. tostring(out.activeEffects or 0) ..
+    " equipped=" .. tostring(#out.equipped));
+  if (out.activeEffects or 0) > 0 then
+    Print("note: " .. tostring(out.activeEffects) .. " effects active — Max Morale/Power include them. Export unbuffed for a clean baseline.");
+  end
   Print("export: saved " .. tostring(#out.names) .. " owned item instances");
 end
 

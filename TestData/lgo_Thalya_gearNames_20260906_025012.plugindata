@@ -1,8 +1,12 @@
 return 
 {
 	["character"] = "Thalya",
-	["version"] = "lgo-gearlist-1",
+	["version"] = "lgo-gearlist-2",
 	["class"] = "Lore-master",
+	["level"] = 160.000000,
+	["maxMorale"] = 187342.000000,
+	["maxPower"] = 21005.000000,
+	["activeEffects"] = 0.000000,
 	["baseStats"] = 
 	{
 		["GetBaseWill"] = 7950.000000,
@@ -10,6 +14,28 @@ return
 		["GetBaseAgility"] = 2650.000000,
 		["GetBaseFate"] = 4000.000000,
 		["GetBaseMight"] = 5300.000000
+	},
+	["equipped"] = 
+	{
+		[1.000000] = "Veteran Sage's Hooded Helm",
+		[2.000000] = "Blighted Shirt of the Tempest",
+		[3.000000] = "Blighted Leggings of the Tempest",
+		[4.000000] = "Blighted Gloves of the Tempest",
+		[5.000000] = "Blighted Shoes of the Tempest",
+		[6.000000] = "Blighted Shoulder-guards of the Tempest",
+		[7.000000] = "Zajâni Scholar's Cloak",
+		[8.000000] = "Ensorceled Bracelet",
+		[9.000000] = "Strong Ordâkhai Bracelet",
+		[10.000000] = "Hunter's Necklace of Lamentation",
+		[11.000000] = "Keen Pristine Madáshi Ring",
+		[12.000000] = "Tri-colour Gemstone Ring",
+		[13.000000] = "Keen Pristine Madáshi Earring",
+		[14.000000] = "Keen Pristine Madáshi Earring",
+		[15.000000] = "Golden Scroll Case",
+		[16.000000] = "Legendary Lore-keeper's Staff",
+		[17.000000] = "Elegant Blade of the Adventurer",
+		[18.000000] = "Pristine Mûrai Stickpin of Nature's Glory",
+		[19.000000] = "Lore-master's Book"
 	},
 	["names"] = 
 	{
