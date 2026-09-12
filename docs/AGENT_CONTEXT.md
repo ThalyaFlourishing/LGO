@@ -13,7 +13,7 @@
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*. The target user base is a small group of personal acquaintances of the author of this project. There will be no general public release, and there are no commercial needs or long-term engineering best-practices needs. It has not yet been released at all, in fact, so there are currently no concerns about backwards compatibility. Also, it is meant to function exclusively in the Windows OS. No concerns regarding other OS's is warranted.
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class and base stats (input for the bookmarklet).
+   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class, base stats, level, measured Max Morale/Power, active-effect count, and equipped-item list (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata-derived canonical gear `.toml` file and finds the best gear combination for a set of priority-ordered stat goals using the clamped-satisfaction objective in `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`.
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the plugindata, and the bookmarklet either opens a Save As dialog (Chromium browsers, via `showSaveFilePicker`) or saves to the browser's Downloads folder (other browsers).
@@ -24,12 +24,13 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 
 See 'docs/User Workflow.txt' for the full step-by-step.
 The short form:
-- User exports a file from the in-game plug-in: `lgo_<character-name>_gearNames_<timestamp>.plugindata`.plugindata.
+- User exports a file from the in-game plug-in: `lgo_<character-name>_gearNames_<timestamp>.plugindata`.plugindata (export with no food/hope/fellowship buffs active for a clean Morale/Power baseline).
 - User uses the bookmarklet, pasting in the .plugindata contents, which
 then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml, into the character's `<install>\<CharacterName>_Gear\` folder (the install directory is the folder containing `lgo.exe`), or into the install root on the first run — a root-saved file is moved into the character folder by `resolve-slots`.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml, in the same `<CharacterName>_Gear\` folder (created if missing).
+- This step generates/regenerates `level` and `[MeasuredStats]` from the plugindata; do not hand-edit them.
 - User hand-edits persistent corrections, including top-level `[Virtues]` and
   per-item essence totals, in `gearReady.toml` only.
 - User may optionally save named build-goal profiles in the sibling file
@@ -130,13 +131,46 @@ The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of tr
 
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
 
-The file begins with a top header containing `character`, `class`,
-`[InnateStats]`, and `[Virtues]` as the last pre-items blocks. `[InnateStats]`
-holds only the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`,
-`Fate`), passed through verbatim from the plugindata by `resolve-slots`.
-`[Virtues]` holds five user-maintained string slots (`Virtue1` ... `Virtue5`)
-whose non-empty values are matched case-insensitively against the top-level keys
-in `data/lgo_virtues.json`. After that, the format per item is:
+The file begins with a top header containing `character`, `class`, `level`,
+`[InnateStats]`, `[MeasuredStats]`, and `[Virtues]` as the last pre-items blocks.
+
+- `level` is an integer, taken from the plugindata and regenerated on every `resolve-slots`.
+- `[InnateStats]` holds only the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`.
+- `[MeasuredStats]` is **generated, regenerated wholesale on every `resolve-slots`, never hand-edited**: `MaxMorale` (integer), `MaxPower` (integer), `ActiveEffects` (integer), `Equipped` (array of strings, equipped item names in slot order, duplicates preserved).
+- `[Virtues]` holds five user-maintained string slots (`Virtue1` … `Virtue5`) whose non-empty values are matched case-insensitively against the top-level keys in `data/lgo_virtues.json`.
+
+Top-level structure:
+
+```toml
+character = "Thalya"
+class = "Lore-master"
+level = 160
+
+[InnateStats]
+# Extracted by in-game plugin; do not edit.
+Might              = 5300
+Agility            = 2650
+Vitality           = 10200
+Will               = 7950
+Fate               = 4000
+
+[MeasuredStats]
+# Generated by resolve-slots; do not hand-edit. Re-run /lgo export instead.
+MaxMorale          = 187342
+MaxPower           = 21005
+ActiveEffects      = 0
+Equipped           = ["Veteran Sage's Hooded Helm", "Blighted Shirt of the Tempest"]
+
+[Virtues]
+# Not extracted, you must add these yourself.
+Virtue1            = ""
+Virtue2            = ""
+Virtue3            = ""
+Virtue4            = ""
+Virtue5            = ""
+```
+
+After that, the format per item is:
 
 ```toml
 [[item]]
@@ -320,6 +354,10 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **`data/lgo_virtues.json` stat keys must exactly match a `TRACKED_STATS` or `BASE_STATS` key** (see `src/stat.rs`); `src/virtues.rs::parse_canonical_stat_key` matches JSON keys exactly with no aliasing, and a dedicated test (`virtues::tests::default_virtue_data_stat_keys_are_all_canonical`) enforces this against the real file.
 - **After any edit to `bookmarklet/lgo_bookmarklet.html`, the user must reload the harness page and re-drag the link to the bookmarks bar.** The bookmarks-bar copy is a snapshot of the generated URL; editing the file does nothing to already-installed bookmarks. When debugging "my edit had no effect," check this first.
 - **Cloudflare challenges on lotro-wiki.com can return HTTP 200 with an HTML interstitial body, not a 403.** `resp.ok` checks do NOT detect them; only attempting `resp.json()` does. This produced the "first run speeds through and everything is a fetch-error" symptom (Bug 10). The bookmarklet's warm-up probe therefore verifies the body parses as JSON (`j && j.query`), not just the status code.
+- **`Actor:GetBaseMaxMorale()` returns the *current* max morale on this client, not an innate baseline.** It includes gear, buffs, and virtues. Do not use it. The innate Morale/Power baseline is **measured, not modelled**: measured Max (from the export) minus known equipped-gear stats, slotted-Virtue stats, and derived Base-stat contributions. Do not reintroduce a formula for it.
+- **Virtue *passives* (all earned virtues, slotted or not) add Morale / PhysMit / TacMit and are not exposed by the Turbine API.** They are not modelled; they are absorbed into the measured innate baseline along with racials and stat tomes.
+- **CalcStat was research input only; LGO does not implement or import it.** Its `ClassBaseMorale(L)` is class-independent (every `<CLASS>CDBASEMORALE` row points at the same `@ClassBaseMorale`), and `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported `[InnateStats]` Vitality exactly. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+- **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.
 
 ---
 
@@ -350,42 +388,4 @@ These are known, decided-but-not-urgent items. Do **not** silently fold them int
 
 ---
 
-### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item `fetch-error` ✅ FIXED
-
-**Symptom:** on the first run in a fresh browser session (typically noticed right
-after updating the bookmarklet), the fetch loop completed near-instantly and every
-item was emitted as `slot = "Unknown"` with the `fetch-error` outcome comment. The
-second and all subsequent runs worked normally. Looked like a server-side glitch;
-it was Cloudflare.
-
-**Root cause:** Cloudflare bot mitigation on lotro-wiki.com answers `api.php`
-fetches from a not-yet-cleared session with an **HTTP 200 HTML challenge
-interstitial**, not a 403. `fetchByTitle` passed its `resp.ok` check, then threw
-inside `resp.json()` — a plain `SyntaxError` with no `.code` — which `fetchItem`
-mapped to `fetch-error`. Because the failure is instant (no wikitext download, no
-prefixsearch fallback), the whole list burned in milliseconds. The first run's
-requests let the challenge resolve and set the `cf_clearance` cookie, so run two
-succeeded. The correlation with "just updated the bookmarklet" was incidental —
-updating is simply when a fresh session starts.
-
-**Fix:** two additions to `run()` in `bookmarklet/lgo_bookmarklet.html`:
-
-1. **Warm-up probe** before the fetch loop: fetch
-   `action=query&meta=siteinfo` and require the body to *parse as JSON with a
-   `query` key* — `resp.ok` alone cannot detect the 200-HTML challenge. On
-   failure, wait 3 s and retry once (the challenge usually auto-clears after the
-   first request); if still failing, abort with an instructive status message
-   before burning the item list.
-2. **Circuit breaker** in the loop: if the first 3 items all come back
-   `fetch-error`, abort with a "reload the wiki page and re-run" message instead
-   of emitting a garbage TOML.
-
-During the fix, Bug 8 struck again: the first draft of the warm-up used a `//`
-line comment, which broke the entire serialized `javascript:` URL. Block comments
-only — see Bug 8's lesson.
-
-**⚠ Lesson for future agents:** a Cloudflare-fronted API can fail with
-**HTTP 200 + HTML body**; status-code checks are not sufficient liveness checks —
-verify the payload parses. And an instant, uniform failure across all items in a
-fetch loop is the signature of a transport/session problem, not a data problem:
-fail fast and loud rather than emitting plausible-looking all-zero output.
+Bug 11 write-up moved to `docs/BUG_HISTORY.md`.

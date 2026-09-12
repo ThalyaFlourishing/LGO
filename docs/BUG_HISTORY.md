@@ -141,6 +141,49 @@ the timestamp line) is the tripwire for this class of bug.
 
 ---
 
+### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item `fetch-error` ✅ FIXED
+
+**Symptom:** on the first run in a fresh browser session (typically noticed right
+after updating the bookmarklet), the fetch loop completed near-instantly and every
+item was emitted as `slot = "Unknown"` with the `fetch-error` outcome comment. The
+second and all subsequent runs worked normally. Looked like a server-side glitch;
+it was Cloudflare.
+
+**Root cause:** Cloudflare bot mitigation on lotro-wiki.com answers `api.php`
+fetches from a not-yet-cleared session with an **HTTP 200 HTML challenge
+interstitial**, not a 403. `fetchByTitle` passed its `resp.ok` check, then threw
+inside `resp.json()` — a plain `SyntaxError` with no `.code` — which `fetchItem`
+mapped to `fetch-error`. Because the failure is instant (no wikitext download, no
+prefixsearch fallback), the whole list burned in milliseconds. The first run's
+requests let the challenge resolve and set the `cf_clearance` cookie, so run two
+succeeded. The correlation with "just updated the bookmarklet" was incidental —
+updating is simply when a fresh session starts.
+
+**Fix:** two additions to `run()` in `bookmarklet/lgo_bookmarklet.html`:
+
+1. **Warm-up probe** before the fetch loop: fetch
+   `action=query&meta=siteinfo` and require the body to *parse as JSON with a
+   `query` key* — `resp.ok` alone cannot detect the 200-HTML challenge. On
+   failure, wait 3 s and retry once (the challenge usually auto-clears after the
+   first request); if still failing, abort with an instructive status message
+   before burning the item list.
+2. **Circuit breaker** in the loop: if the first 3 items all come back
+   `fetch-error`, abort with a "reload the wiki page and re-run" message instead
+   of emitting a garbage TOML.
+
+During the fix, Bug 8 struck again: the first draft of the warm-up used a `//`
+line comment, which broke the entire serialized `javascript:` URL. Block comments
+only — see Bug 8's lesson.
+
+**⚠ Lesson for future agents:** a Cloudflare-fronted API can fail with
+**HTTP 200 + HTML body**; status-code checks are not sufficient liveness checks —
+verify the payload parses. And an instant, uniform failure across all items in a
+fetch loop is the signature of a transport/session problem, not a data problem:
+fail fast and loud rather than emitting plausible-looking all-zero output.
+
+
+---
+
 ### Bug 12 — `Armor` vs `Armour` split between the canonical TOML key and everything else ✅ FIXED
 
 **Symptom:** `gearReady.toml` (and `gearStats.toml`) wrote and read the stat key
@@ -225,3 +268,35 @@ type" (user data you don't understand — error out loudly). Any silent
 `unwrap_or(0)`/`unwrap_or_default()` on a parse of user-maintained data is a
 latent data-loss bug: the zero doesn't just misreport, it gets written back
 over the user's file on the next merge.
+
+---
+
+### Bug 14 — Innate Morale baseline unknown (`GetBaseMaxMorale` broken) ✅ FIXED
+
+**Symptom:** `optimize` needs the character's innate Morale/Power baseline (everything that is not gear or slotted Virtues) so that `ml:<goal>` thresholds land where the in-game panel says. `Actor:GetBaseMaxMorale()` looked like the answer, but on the current client it returns the *current* Max Morale — gear, buffs and virtues included. The baseline had been hard-coded as a 100k comb-over.
+
+**Root cause:** the Turbine API exposes no innate Morale/Power value, and several real contributors (virtue passives, racials, stat tomes) are not exposed at all.
+
+**Fix:** measure instead of model. The plugin (`lgo-gearlist-2`) exports the dressed character's `GetMaxMorale()` / `GetMaxPower()`, the character level, the active-effect count, and the equipped item names. `resolve-slots` writes these into `level` and a generated `[MeasuredStats]` block. At optimize time LGO computes
+
+```
+innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats[s] − derived Base-stat contributions[s]
+```
+
+for Morale and Power. The residual absorbs class base, virtue passives, racials and tomes without modelling any of them.
+
+**Evidence (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
+
+| Component | Morale |
+|---|---|
+| Measured naked Max Morale | 143,695 |
+| Vitality 10,537 × 4.5 (10,200 base + 337 stat tomes) | −47,417 |
+| **Residual absorbed into the innate baseline** | **96,278** |
+
+The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) + 14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was 13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
+
+**Research note:** CalcStat was research input only; LGO does not implement or import its formulas. `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported Vitality exactly, which is what made the class-base figure trustworthy. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+
+**Limitations:** `GetMaxMorale()`/`GetMaxPower()` include whatever buffs are active at export; the plugin prints the active-effect count and users are told to export unbuffed. If they don't, LGO treats those buffs as permanent.
+
+**Lesson:** when an API name promises a capability ("BaseMaxMorale") but returns current state, measure the residual rather than modelling the unknowns.
