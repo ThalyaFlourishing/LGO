@@ -145,11 +145,10 @@ fn match_equipped_items(equipped: &[String], doc: &GearDoc) -> (Vec<usize>, Vec<
     let mut unmatched = Vec::new();
 
     for name in equipped {
-        let found = doc
-            .items
-            .iter()
-            .enumerate()
-            .position(|(index, doc_item)| !consumed[index] && nfc_eq(&doc_item.item.name, name));
+        let found =
+            doc.items.iter().enumerate().position(|(index, doc_item)| {
+                !consumed[index] && nfc_eq(&doc_item.item.name, name)
+            });
         match found {
             Some(index) => {
                 consumed[index] = true;

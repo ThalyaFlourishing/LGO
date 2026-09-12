@@ -394,7 +394,14 @@ pub fn print_base_stats_report(
 ) {
     print!(
         "{}",
-        format_base_stats_report(character, class, input_file, innate_base, derived, calibration)
+        format_base_stats_report(
+            character,
+            class,
+            input_file,
+            innate_base,
+            derived,
+            calibration
+        )
     );
 }
 

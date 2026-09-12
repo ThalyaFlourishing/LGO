@@ -1410,6 +1410,7 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
 
     let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
 
+    let mut outputs: Vec<String> = Vec::new();
     for run in 1..=3 {
         // Re-copy the bookmarklet output each iteration: resolve_stats_file
         // consumes it, and each run must exercise a fresh export → merge.
@@ -1429,33 +1430,80 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
         let class_pos = out
             .find("\nclass")
             .unwrap_or_else(|| panic!("run {}: class line missing:\n{}", run, out));
+        let level_pos = out
+            .find("\nlevel")
+            .unwrap_or_else(|| panic!("run {}: level line missing:\n{}", run, out));
         let innate_pos = out
             .find("[InnateStats]")
             .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
+        let measured_pos = out
+            .find("[MeasuredStats]")
+            .unwrap_or_else(|| panic!("run {}: [MeasuredStats] missing:\n{}", run, out));
+        let virtues_pos = out
+            .find("[Virtues]")
+            .unwrap_or_else(|| panic!("run {}: [Virtues] missing:\n{}", run, out));
         let divider_pos = out
             .find("# --- Head ---")
             .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
 
-        assert_eq!(
-            out.matches("[InnateStats]").count(),
-            1,
-            "run {}: exactly one [InnateStats] block expected:\n{}",
+        for header in ["[InnateStats]", "[MeasuredStats]", "[Virtues]"] {
+            assert_eq!(
+                out.matches(header).count(),
+                1,
+                "run {}: exactly one {} block expected:\n{}",
+                run,
+                header,
+                out
+            );
+        }
+        assert!(
+            class_pos < level_pos,
+            "run {}: level must come after the class line:\n{}",
             run,
             out
         );
         assert!(
-            class_pos < innate_pos,
-            "run {}: [InnateStats] must come after the class line (drift regression):\n{}",
+            level_pos < innate_pos,
+            "run {}: [InnateStats] must come after the level line (drift regression):\n{}",
             run,
             out
         );
         assert!(
-            innate_pos < divider_pos,
-            "run {}: [InnateStats] must come before the first slot divider (drift regression):\n{}",
+            innate_pos < measured_pos,
+            "run {}: [MeasuredStats] must follow [InnateStats]:\n{}",
             run,
             out
         );
+        assert!(
+            measured_pos < virtues_pos,
+            "run {}: [Virtues] must follow [MeasuredStats]:\n{}",
+            run,
+            out
+        );
+        assert!(
+            virtues_pos < divider_pos,
+            "run {}: the header blocks must come before the first slot divider (drift regression):\n{}",
+            run,
+            out
+        );
+
+        outputs.push(out);
     }
+
+    // Byte-identical across reruns, modulo the generated timestamp line.
+    let stripped: Vec<String> = outputs
+        .iter()
+        .map(|out| strip_generated_timestamp_line(out))
+        .collect();
+    assert_eq!(
+        stripped[0], stripped[1],
+        "run 2 must match run 1 apart from the timestamp:\n--- run 1 ---\n{}\n--- run 2 ---\n{}",
+        outputs[0], outputs[1]
+    );
+    assert_eq!(
+        stripped[1], stripped[2],
+        "run 3 must match run 2 apart from the timestamp"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }

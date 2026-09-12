@@ -1681,7 +1681,9 @@ pub fn merge_into_canonical(
     let export_driven = incoming_doc.get("InnateStats").is_some();
     match incoming_doc.get(LEVEL_KEY).cloned() {
         Some(incoming_level) => {
-            if prev_doc.get(LEVEL_KEY).and_then(|existing| existing.as_integer())
+            if prev_doc
+                .get(LEVEL_KEY)
+                .and_then(|existing| existing.as_integer())
                 != incoming_level.as_integer()
             {
                 prev_doc.insert(LEVEL_KEY, incoming_level);
@@ -1706,7 +1708,8 @@ pub fn merge_into_canonical(
         None => {}
     }
 
-    // Carry forward or create `[Virtues]`. These five fields are user-maintained:    // preserve existing values verbatim, add any missing fields as empty
+    // Carry forward or create `[Virtues]`. These five fields are user-maintained:
+    // preserve existing values verbatim, add any missing fields as empty
     // strings, and normalize their alignment.
     let should_have_virtues = incoming_doc.get("InnateStats").is_some()
         || prev_doc.get("InnateStats").is_some()
@@ -2606,6 +2609,60 @@ mod tests {
         );
     }
 
+    /// The canonical pre-items header order documented in
+    /// `docs/AGENT_CONTEXT.md` §5: root values first, then the three header
+    /// tables at positions 0/1/2, then the items.
+    fn assert_canonical_header_order(src: &str) {
+        let character = src.find("character =").expect("character field exists");
+        let class = src.find("class =").expect("class field exists");
+        let level = src.find("level =").expect("level field exists");
+        let innate = src.find("[InnateStats]").expect("InnateStats block exists");
+        let measured = src
+            .find("[MeasuredStats]")
+            .expect("MeasuredStats block exists");
+        let virtues = src.find("[Virtues]").expect("Virtues block exists");
+        let divider = src.find("# --- Head ---").expect("first divider exists");
+        assert!(
+            character < class
+                && class < level
+                && level < innate
+                && innate < measured
+                && measured < virtues
+                && virtues < divider,
+            "header must read character, class, level, [InnateStats], [MeasuredStats], \
+             [Virtues], first divider:\n{}",
+            src
+        );
+    }
+
+    fn assert_assignment_aligns_to_column_20(src: &str, key: &str) {
+        let line = src
+            .lines()
+            .find(|line| line.trim_start().starts_with(key))
+            .unwrap_or_else(|| panic!("expected an assignment line for {key}:\n{src}"));
+        assert_eq!(
+            line.find('=').map(|idx| idx + 1),
+            Some(STAT_EQUALS_COLUMN),
+            "{} must align '=' to column {}:\n{}",
+            key,
+            STAT_EQUALS_COLUMN,
+            line
+        );
+    }
+
+    fn sample_measured() -> MeasuredStats {
+        MeasuredStats {
+            max_morale: 187_342,
+            max_power: 21_005,
+            active_effects: 0,
+            equipped: vec![
+                "Test Helm".to_string(),
+                "Test Bracelet".to_string(),
+                "Test Bracelet".to_string(),
+            ],
+        }
+    }
+
     fn assert_stat_assignments_align_to_column_20(src: &str) {
         let mut saw_stat_line = false;
         for line in src.lines() {
@@ -3014,17 +3071,16 @@ name = \"Mystery Renamed Legendary\"\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
 
-        let (out, _) =
-            resolve_toml_str_with_metadata(
-                input,
-                &db,
-                Some("Thalya"),
-                "Lore-master",
-                &base_stats,
-                None,
-                None,
-            )
-                .expect("must resolve with metadata");
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("must resolve with metadata");
 
         let doc: DocumentMut = out.parse().expect("output parses");
         let innate = doc
@@ -3069,17 +3125,16 @@ name = \"Test Helm\"\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
 
-        let (out, _) =
-            resolve_toml_str_with_metadata(
-                input,
-                &db,
-                Some("Thalya"),
-                "Lore-master",
-                &base_stats,
-                None,
-                None,
-            )
-                .expect("must resolve with metadata");
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("must resolve with metadata");
 
         let character_pos = out.find("character").expect("character field exists");
         let class_pos = out.find("class").expect("class field exists");
@@ -3118,17 +3173,16 @@ name = \"Test Helm\"\n";
 slot = \"Unknown\"\n\
 name = \"Test Helm\"\n";
 
-        let (out, _) =
-            resolve_toml_str_with_metadata(
-                input,
-                &db,
-                Some("Thalya"),
-                "Lore-master",
-                &base_stats,
-                None,
-                None,
-            )
-                .expect("must resolve with metadata");
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("must resolve with metadata");
 
         let doc: DocumentMut = out.parse().expect("output parses");
         let virtues = doc
@@ -3149,6 +3203,176 @@ name = \"Test Helm\"\n";
             "Virtues must sit between InnateStats and the first item:\n{}",
             out
         );
+    }
+
+    /// `level` and `[MeasuredStats]` are generated from the plugin export:
+    /// plain integers, a single-line `Equipped` array, `=` at column 20, and
+    /// the generated-block note emitted exactly once.
+    #[test]
+    fn resolver_writes_level_and_measured_stats_from_the_export() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Vitality, 10200)].into_iter().collect();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(160),
+            Some(&sample_measured()),
+        )
+        .expect("must resolve with metadata");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        assert_eq!(
+            doc.get(LEVEL_KEY).and_then(|item| item.as_integer()),
+            Some(160)
+        );
+
+        let measured = doc
+            .get(MEASURED_TABLE_KEY)
+            .and_then(|item| item.as_table())
+            .expect("MeasuredStats table exists");
+        let keys: Vec<&str> = measured.iter().map(|(key, _)| key).collect();
+        assert_eq!(keys, MEASURED_FIELD_KEYS);
+        assert_eq!(
+            measured
+                .get(MEASURED_MAX_MORALE_KEY)
+                .and_then(|item| item.as_integer()),
+            Some(187_342)
+        );
+        assert_eq!(
+            measured
+                .get(MEASURED_MAX_POWER_KEY)
+                .and_then(|item| item.as_integer()),
+            Some(21_005)
+        );
+        assert_eq!(
+            measured
+                .get(MEASURED_ACTIVE_EFFECTS_KEY)
+                .and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        let equipped: Vec<&str> = measured
+            .get(MEASURED_EQUIPPED_KEY)
+            .and_then(|item| item.as_array())
+            .expect("Equipped is an array")
+            .iter()
+            .map(|value| value.as_str().expect("Equipped holds strings"))
+            .collect();
+        assert_eq!(
+            equipped,
+            vec!["Test Helm", "Test Bracelet", "Test Bracelet"],
+            "Equipped must keep export order and duplicates"
+        );
+
+        assert_header_note_immediately_after(&out, "[MeasuredStats]", MEASURED_STATS_NOTE);
+        for key in MEASURED_FIELD_KEYS {
+            assert_assignment_aligns_to_column_20(&out, key);
+        }
+        assert!(
+            out.contains(
+                "Equipped           = [\"Test Helm\", \"Test Bracelet\", \"Test Bracelet\"]"
+            ),
+            "Equipped must render as a single-line array:\n{}",
+            out
+        );
+        assert_canonical_header_order(&out);
+    }
+
+    /// Position indices are fixed: `[InnateStats]` 0, `[MeasuredStats]` 1,
+    /// `[Virtues]` 2, items from 3 (Bug 10 territory).
+    #[test]
+    fn resolver_assigns_fixed_header_table_positions() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Might, 5300)].into_iter().collect();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(160),
+            Some(&sample_measured()),
+        )
+        .expect("must resolve with metadata");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        let position_of = |key: &str| -> usize {
+            doc.get(key)
+                .and_then(|item| item.as_table())
+                .and_then(|table| table.position())
+                .unwrap_or_else(|| panic!("{key} must carry a position:\n{out}"))
+        };
+        let innate = position_of("InnateStats");
+        let measured = position_of(MEASURED_TABLE_KEY);
+        let virtues = position_of(VIRTUE_TABLE_KEY);
+        let first_item = doc
+            .get("item")
+            .and_then(|item| item.as_array_of_tables())
+            .and_then(|items| items.get(0))
+            .and_then(|table| table.position())
+            .expect("first item must carry a position");
+
+        assert_eq!(
+            measured,
+            innate + 1,
+            "MeasuredStats must follow InnateStats"
+        );
+        assert_eq!(virtues, measured + 1, "Virtues must follow MeasuredStats");
+        assert_eq!(
+            first_item,
+            virtues + 1,
+            "items must start right after Virtues:\n{}",
+            out
+        );
+        assert_canonical_header_order(&out);
+    }
+
+    /// An old `lgo-gearlist-1` export carries neither field, so the resolver
+    /// writes neither: no `level`, no `[MeasuredStats]`.
+    #[test]
+    fn resolver_omits_level_and_measured_stats_when_the_export_lacks_them() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Might, 5300)].into_iter().collect();
+        let input = "\
+[[item]]\n\
+slot = \"Unknown\"\n\
+name = \"Test Helm\"\n";
+
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("must resolve with metadata");
+
+        let doc: DocumentMut = out.parse().expect("output parses");
+        assert!(
+            doc.get(LEVEL_KEY).is_none(),
+            "level must be absent:\n{}",
+            out
+        );
+        assert!(
+            doc.get(MEASURED_TABLE_KEY).is_none(),
+            "MeasuredStats must be absent:\n{}",
+            out
+        );
+        assert!(!out.contains(MEASURED_STATS_NOTE));
     }
 
     #[test]
@@ -3425,17 +3649,16 @@ Might=9\n";
             .into_iter()
             .collect();
 
-        let (out, _) =
-            resolve_toml_str_with_metadata(
-                input,
-                &db,
-                Some("Thalya"),
-                "Lore-master",
-                &base_stats,
-                None,
-                None,
-            )
-                .expect("must resolve with metadata");
+        let (out, _) = resolve_toml_str_with_metadata(
+            input,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("must resolve with metadata");
 
         assert_stat_assignments_align_to_column_20(&out);
     }
@@ -3724,11 +3947,21 @@ name = \"Test Helm\"\n";
     #[test]
     fn merge_idempotent_when_nothing_changes() {
         let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Vitality, 10200)].into_iter().collect();
         let bookmarklet = make_doc(&[
             ("Test Helm", "Unknown", &[("Armour", 100)]),
             ("Test Bracelet", "Unknown", &[("Armour", 50)]),
         ]);
-        let (resolved, _) = resolve_toml_str(&bookmarklet, &db).expect("resolve");
+        let (resolved, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(160),
+            Some(&sample_measured()),
+        )
+        .expect("resolve");
         let first = merge_ic(None, &resolved, ForceMode::NoForce)
             .expect("first merge")
             .merged_text;
@@ -3753,6 +3986,145 @@ name = \"Test Helm\"\n";
             "third merge must also be identical apart from timestamp"
         );
         assert_eq!(count_generated_timestamp_comments(&third), 1);
+
+        for (label, out) in [("first", &first), ("second", &second), ("third", &third)] {
+            assert_canonical_header_order(out);
+            assert_header_note_immediately_after(out, "[InnateStats]", INNATE_STATS_NOTE);
+            assert_header_note_immediately_after(out, "[MeasuredStats]", MEASURED_STATS_NOTE);
+            assert_header_note_immediately_after(out, "[Virtues]", VIRTUES_NOTE);
+            assert!(
+                has_assignment_line(out, "MaxMorale", 187_342)
+                    && has_assignment_line(out, "MaxPower", 21_005),
+                "{} merge must keep the measured values:\n{}",
+                label,
+                out
+            );
+        }
+    }
+
+    /// `[MeasuredStats]` is generated, not preserved: every merge rebuilds it
+    /// from the incoming export, overwriting stale or hand-edited values.
+    #[test]
+    fn merge_regenerates_measured_stats_and_level_from_the_incoming_export() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Vitality, 10200)].into_iter().collect();
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
+        let stale = MeasuredStats {
+            max_morale: 1,
+            max_power: 2,
+            active_effects: 9,
+            equipped: vec!["Stale Helm".to_string()],
+        };
+        let (resolved_stale, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(150),
+            Some(&stale),
+        )
+        .expect("resolve stale");
+        let (resolved_current, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(160),
+            Some(&sample_measured()),
+        )
+        .expect("resolve current");
+
+        let previous = merge_ic(None, &resolved_stale, ForceMode::NoForce)
+            .expect("seed merge")
+            .merged_text;
+        let merged = merge_ic(Some(&previous), &resolved_current, ForceMode::NoForce)
+            .expect("refresh merge")
+            .merged_text;
+
+        let doc: DocumentMut = merged.parse().expect("merged parses");
+        assert_eq!(
+            doc.get(LEVEL_KEY).and_then(|item| item.as_integer()),
+            Some(160)
+        );
+        let measured = doc
+            .get(MEASURED_TABLE_KEY)
+            .and_then(|item| item.as_table())
+            .expect("MeasuredStats table exists");
+        assert_eq!(
+            measured
+                .get(MEASURED_MAX_MORALE_KEY)
+                .and_then(|item| item.as_integer()),
+            Some(187_342)
+        );
+        assert_eq!(
+            measured
+                .get(MEASURED_ACTIVE_EFFECTS_KEY)
+                .and_then(|item| item.as_integer()),
+            Some(0)
+        );
+        assert!(
+            !merged.contains("Stale Helm"),
+            "the stale equipped list must be replaced wholesale:\n{}",
+            merged
+        );
+        assert_canonical_header_order(&merged);
+        assert_header_note_immediately_after(&merged, "[MeasuredStats]", MEASURED_STATS_NOTE);
+    }
+
+    /// An old `lgo-gearlist-1` export carries no measured fields, so a merge
+    /// driven by one drops the block rather than leaving stale numbers behind.
+    #[test]
+    fn merge_removes_measured_stats_when_the_export_lacks_them() {
+        let db = fixture_db();
+        let base_stats: HashMap<Stat, i64> = [(Stat::Vitality, 10200)].into_iter().collect();
+        let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
+        let (resolved_measured, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            Some(160),
+            Some(&sample_measured()),
+        )
+        .expect("resolve with measured fields");
+        let (resolved_bare, _) = resolve_toml_str_with_metadata(
+            &bookmarklet,
+            &db,
+            Some("Thalya"),
+            "Lore-master",
+            &base_stats,
+            None,
+            None,
+        )
+        .expect("resolve without measured fields");
+
+        let previous = merge_ic(None, &resolved_measured, ForceMode::NoForce)
+            .expect("seed merge")
+            .merged_text;
+        let merged = merge_ic(Some(&previous), &resolved_bare, ForceMode::NoForce)
+            .expect("bare merge")
+            .merged_text;
+
+        let doc: DocumentMut = merged.parse().expect("merged parses");
+        assert!(
+            doc.get(LEVEL_KEY).is_none(),
+            "level must be dropped:\n{}",
+            merged
+        );
+        assert!(
+            doc.get(MEASURED_TABLE_KEY).is_none(),
+            "MeasuredStats must be dropped:\n{}",
+            merged
+        );
+        assert!(!merged.contains(MEASURED_STATS_NOTE));
+        assert!(
+            merged.find("[InnateStats]") < merged.find("[Virtues]"),
+            "the remaining header blocks must stay in canonical order:\n{}",
+            merged
+        );
     }
 
     #[test]
