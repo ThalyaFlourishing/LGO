@@ -164,6 +164,21 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     The report content includes the chosen gear, goal summary, the full projected
     16 tracked stats (zero rows included), and the combined raw Base-stat pool.
 
+    If gearReady.toml carries a [MeasuredStats] block, optimize also calibrates
+    the innate Morale and Power baseline from it: the measured Max Morale/Power
+    minus the stats of the items listed in Equipped. The remainder covers
+    everything LGO does not model (class base, virtue passives, racials, stat
+    tomes), so Morale and Power goals land where the in-game panel says. Equipped
+    names with no matching item in the file are warned about on stderr and
+    absorbed into the baseline; nothing here is ever a hard error. Without a
+    [MeasuredStats] block no calibration happens. scrap-gear calibrates the same
+    way.
+    Under the projected totals, the terminal and HTML reports (and the scrap-gear
+    report) state which baseline was used:
+      Innate Morale/Power baseline: measured (0 effects at export)
+      Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])
+    A non-zero effect count means buffs may be baked into the measurement.
+
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
 

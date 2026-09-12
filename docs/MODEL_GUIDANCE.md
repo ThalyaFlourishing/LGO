@@ -34,6 +34,7 @@ invariant?"**
 | `src/build_db.rs` | 🟠 Moderate | Frontier *for control-flow edits*; cheap for lookup-table edits | Streaming XML state machine with `&mut` accumulators and `ref mut` bindings into `Option`s that are `.take()`n elsewhere. Adding a stat/slot mapping is trivial; reorganising the state machine is not. |
 | `src/plugindata.rs` | 🟠 Moderate | Frontier *for parser edits*; cheap for lookup-table edits | Hand-written recursive-descent parser whose functions return `(_, &str)` slices threaded through the whole recursion — an implicit lifetime contract. Editing the `method_to_name` table is easy; editing parser control flow fights the borrow checker. |
 | `src/gearstats.rs` | 🟢 Very low | Cheap | Iterator `.filter().collect()` chains over owned `PathBuf`s; short-lived `.get()` borrows. Clean. |
+| `src/measured.rs` | 🟢 Low | Cheap | One calibration pass over owned maps: a count-aware matching walk plus arithmetic. The subtlety is policy, not borrows — the baseline is measured, never modelled (Bug 14). |
 | `src/main.rs` | 🟢 Low | Cheap | Lots of `&` / `PathBuf` passing, but an index-based arg loop sidesteps iterator-borrow issues. Mostly mechanical. |
 | `src/stat.rs` | 🟢 None | Cheap | Enums + `FromStr` / `Display` match arms. |
 | `src/gear.rs` | 🟢 None | Cheap | Struct/enum definitions, `Display`, a simple `.values().map().sum()`. |

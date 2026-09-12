@@ -300,6 +300,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
+            None,
         );
         let html_report = format_optimize_report_html(
             &result,
@@ -312,6 +313,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
+            None,
         );
 
         let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
@@ -352,6 +354,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
+            None,
         );
         let html_report = format_optimize_report_html(
             &result,
@@ -364,6 +367,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
+            None,
         );
 
         let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
