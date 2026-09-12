@@ -9,6 +9,36 @@ use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 use crate::virtues::{SelectedVirtues, VIRTUE_FIELD_KEYS, VIRTUE_TABLE_KEY};
 
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
+/// Top-level table holding the generated, never-hand-edited measurements the
+/// in-game plugin exported (`/lgo export`).
+pub const MEASURED_TABLE_KEY: &str = "MeasuredStats";
+pub const MEASURED_MAX_MORALE_KEY: &str = "MaxMorale";
+pub const MEASURED_MAX_POWER_KEY: &str = "MaxPower";
+pub const MEASURED_ACTIVE_EFFECTS_KEY: &str = "ActiveEffects";
+pub const MEASURED_EQUIPPED_KEY: &str = "Equipped";
+pub const MEASURED_FIELD_KEYS: [&str; 4] = [
+    MEASURED_MAX_MORALE_KEY,
+    MEASURED_MAX_POWER_KEY,
+    MEASURED_ACTIVE_EFFECTS_KEY,
+    MEASURED_EQUIPPED_KEY,
+];
+
+/// The generated `[MeasuredStats]` block: what the in-game panel showed when
+/// the plugin exported, plus the equipped set those numbers were measured
+/// with. Used to calibrate the innate Morale/Power baseline by subtraction —
+/// LGO never models that baseline (see `docs/BUG_HISTORY.md`, Bug 14).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MeasuredStats {
+    /// Max Morale as shown in game at export time (dressed, buffs included).
+    pub max_morale: i64,
+    /// Max Power as shown in game at export time.
+    pub max_power: i64,
+    /// Effects active on the character at export time; non-zero means the
+    /// measurements may include buffs.
+    pub active_effects: u32,
+    /// Equipped item names in slot order, duplicates preserved.
+    pub equipped: Vec<String>,
+}
 
 /// The parsed contents of a gear stats TOML file, including any top-level
 /// metadata and the list of items.
@@ -18,6 +48,12 @@ pub struct GearDoc {
     pub character: Option<String>,
     /// Character class, if present as `class = "..."` at top level.
     pub class: Option<String>,
+    /// Character level, if present as `level = <int>` at top level. Generated
+    /// from the plugin export by `resolve-slots`.
+    pub level: Option<u32>,
+    /// The generated `[MeasuredStats]` block, when the file carries one.
+    /// `None` means the innate Morale/Power calibration pass is skipped.
+    pub measured: Option<MeasuredStats>,
     /// Fixed tracked-stat totals present before item optimization begins.
     /// `[InnateStats]` no longer contributes tracked stats directly; this map
     /// is populated by fixed tracked-stat sources such as selected Virtues,
@@ -180,15 +216,128 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
     let innate_stats = HashMap::new();
     let innate_base_stats = read_innate_stats(&doc, BASE_STATS)?;
     let selected_virtues = read_selected_virtues(&doc)?;
+    let level = read_level(&doc)?;
+    let measured = read_measured_stats(&doc)?;
 
     Ok(GearDoc {
         character,
         class,
+        level,
+        measured,
         innate_stats,
         innate_base_stats,
         selected_virtues,
         items,
     })
+}
+
+/// Read the generated top-level `level` value. Absent ⇒ `None`; present but
+/// not a non-negative integer ⇒ hard error (the value is generated, so a
+/// wrong type means the user hand-edited something they shouldn't have).
+fn read_level(doc: &toml::Value) -> Result<Option<u32>, String> {
+    let Some(value) = doc.get("level") else {
+        return Ok(None);
+    };
+    let Some(level) = value.as_integer() else {
+        return Err(format!(
+            "Invalid value for `level`: found {}; `level` must be a non-negative integer.",
+            value.type_str()
+        ));
+    };
+    u32::try_from(level).map(Some).map_err(|_| {
+        format!("Invalid value for `level`: {level} is out of range; `level` must be a non-negative integer.")
+    })
+}
+
+/// Read the generated `[MeasuredStats]` block. The block is written by
+/// `resolve-slots` from the plugin export and must never be hand-edited, so
+/// it is strictly typed: the three counters are plain integers (arrays are
+/// rejected exactly as in `[InnateStats]`, per Bug 13) and `Equipped` is an
+/// array of strings. Unknown keys are hard errors. A missing block is `None`.
+fn read_measured_stats(doc: &toml::Value) -> Result<Option<MeasuredStats>, String> {
+    let Some(value) = doc.get(MEASURED_TABLE_KEY) else {
+        return Ok(None);
+    };
+    let table = value
+        .as_table()
+        .ok_or_else(|| format!("`{}` must be a TOML table", MEASURED_TABLE_KEY))?;
+    validate_measured_keys(table)?;
+
+    Ok(Some(MeasuredStats {
+        max_morale: read_measured_integer(table, MEASURED_MAX_MORALE_KEY)?,
+        max_power: read_measured_integer(table, MEASURED_MAX_POWER_KEY)?,
+        active_effects: read_measured_count(table, MEASURED_ACTIVE_EFFECTS_KEY)?,
+        equipped: read_measured_equipped(table)?,
+    }))
+}
+
+fn read_measured_integer(table: &toml::value::Table, key: &str) -> Result<i64, String> {
+    let Some(value) = table.get(key) else {
+        return Ok(0);
+    };
+    value.as_integer().ok_or_else(|| {
+        let found = if value.is_array() {
+            "an array (arrays are not allowed in `[MeasuredStats]` because the block is generated from the plugin export)".to_string()
+        } else {
+            format!("a value of type {}", value.type_str())
+        };
+        format!(
+            "Invalid value for `{}` in `[{}]`: found {}; use a single integer.",
+            key, MEASURED_TABLE_KEY, found
+        )
+    })
+}
+
+fn read_measured_count(table: &toml::value::Table, key: &str) -> Result<u32, String> {
+    let value = read_measured_integer(table, key)?;
+    u32::try_from(value).map_err(|_| {
+        format!(
+            "Invalid value for `{}` in `[{}]`: {} is out of range; use a non-negative integer.",
+            key, MEASURED_TABLE_KEY, value
+        )
+    })
+}
+
+fn read_measured_equipped(table: &toml::value::Table) -> Result<Vec<String>, String> {
+    let Some(value) = table.get(MEASURED_EQUIPPED_KEY) else {
+        return Ok(Vec::new());
+    };
+    let elements = value.as_array().ok_or_else(|| {
+        format!(
+            "Invalid value for `{}` in `[{}]`: found {}; use an array of item-name strings.",
+            MEASURED_EQUIPPED_KEY,
+            MEASURED_TABLE_KEY,
+            value.type_str()
+        )
+    })?;
+    let mut names = Vec::with_capacity(elements.len());
+    for element in elements {
+        let name = element.as_str().ok_or_else(|| {
+            format!(
+                "Invalid value for `{}` in `[{}]`: array elements must all be strings, found {}.",
+                MEASURED_EQUIPPED_KEY,
+                MEASURED_TABLE_KEY,
+                element.type_str()
+            )
+        })?;
+        names.push(name.to_string());
+    }
+    Ok(names)
+}
+
+fn validate_measured_keys(table: &toml::value::Table) -> Result<(), String> {
+    for key in table.keys() {
+        if MEASURED_FIELD_KEYS.contains(&key.as_str()) {
+            continue;
+        }
+        return Err(format!(
+            "Unknown key `{}` in `[{}]`; the block is generated by resolve-slots and may contain only {}.",
+            key,
+            MEASURED_TABLE_KEY,
+            MEASURED_FIELD_KEYS.join(", ")
+        ));
+    }
+    Ok(())
 }
 
 fn read_innate_stats(

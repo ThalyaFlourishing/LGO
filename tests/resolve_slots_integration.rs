@@ -31,6 +31,8 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
         Some("Thalya"),
         "Lore-master",
         &base_stats,
+        None,
+        None,
     )
     .expect("must resolve")
 }

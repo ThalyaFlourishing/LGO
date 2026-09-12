@@ -10,6 +10,7 @@ pub mod build_profiles;
 pub mod gear;
 pub mod gearstats;
 pub mod install;
+pub mod measured;
 pub mod optimizer;
 pub mod plugindata;
 pub mod report;

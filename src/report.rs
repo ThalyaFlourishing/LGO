@@ -10,6 +10,7 @@
 //!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
 
 use crate::gear::{GearSet, Slot};
+use crate::measured::CalibrationReport;
 use crate::optimizer::OptimizeResult;
 use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
@@ -389,10 +390,11 @@ pub fn print_base_stats_report(
     input_file: &str,
     innate_base: &HashMap<Stat, i64>,
     derived: &HashMap<Stat, i64>,
+    calibration: Option<&CalibrationReport>,
 ) {
     print!(
         "{}",
-        format_base_stats_report(character, class, input_file, innate_base, derived)
+        format_base_stats_report(character, class, input_file, innate_base, derived, calibration)
     );
 }
 
@@ -401,12 +403,17 @@ pub fn print_base_stats_report(
 /// Base stats are derivation inputs only — they are never added raw to any
 /// tracked total, and the derived contributions shown here are already
 /// included in `lgo optimize` totals.
+///
+/// When the gear file carries a `[MeasuredStats]` block, a final section
+/// reports the in-game measurement and the innate Morale/Power baseline
+/// calibrated from it; otherwise it says the block is missing.
 pub fn format_base_stats_report(
     character: &str,
     class: &str,
     input_file: &str,
     innate_base: &HashMap<Stat, i64>,
     derived: &HashMap<Stat, i64>,
+    calibration: Option<&CalibrationReport>,
 ) -> String {
     let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
     let mut out = String::new();
@@ -458,7 +465,88 @@ pub fn format_base_stats_report(
     }
     writeln!(w, "  {}", divider).unwrap();
 
+    write_measured_section(w, calibration);
+
     out
+}
+
+/// The measured/calibration section of the `base-stats` report: what the
+/// plugin measured in game, and the innate Morale/Power baseline LGO derived
+/// from it by subtracting the equipped set.
+fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport>) {
+    let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
+    let Some(calibration) = calibration else {
+        writeln!(w).unwrap();
+        writeln!(
+            w,
+            "  No [MeasuredStats] block in this gear file, so innate Morale/Power are not"
+        )
+        .unwrap();
+        writeln!(
+            w,
+            "  calibrated. Re-run /lgo export in game, then lgo resolve-slots."
+        )
+        .unwrap();
+        writeln!(w, "  {}", divider).unwrap();
+        return;
+    };
+
+    writeln!(w).unwrap();
+    writeln!(w, "  Measured in game at export time ([MeasuredStats]):").unwrap();
+    writeln!(w).unwrap();
+    for (label, value) in [
+        ("Max Morale", calibration.measured_morale),
+        ("Max Power", calibration.measured_power),
+        ("Active effects", i64::from(calibration.active_effects)),
+    ] {
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            label,
+            format_number(value),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    if calibration.active_effects > 0 {
+        writeln!(
+            w,
+            "  Effects were active at export; the measured maxima may include buffs."
+        )
+        .unwrap();
+    }
+
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Calibrated innate baseline (measured minus the equipped set):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, value) in [
+        (Stat::Morale, calibration.innate_morale),
+        (Stat::Power, calibration.innate_power),
+    ] {
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(value),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    for name in &calibration.unmatched {
+        writeln!(
+            w,
+            "  Equipped item with no gear-file match (absorbed into the baseline): {}",
+            name
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
 }
 
 fn write_header_text(
@@ -844,6 +932,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             &innate_base,
             &derived,
+            None,
         );
 
         assert!(report.contains("Character : Thalya (Lore-master)"));
@@ -874,6 +963,48 @@ mod tests {
                 stat
             );
         }
+        assert!(
+            report.contains("No [MeasuredStats] block"),
+            "an uncalibrated file must say so; got:\n{}",
+            report
+        );
+    }
+
+    /// With a calibration report, `base-stats` shows the in-game measurement
+    /// and the innate baseline derived from it.
+    #[test]
+    fn base_stats_report_lists_measured_and_calibrated_sections() {
+        let innate_base: HashMap<Stat, i64> = [(Stat::Vitality, 10200)].into_iter().collect();
+        let derived: HashMap<Stat, i64> = [(Stat::Morale, 45900)].into_iter().collect();
+        let calibration = CalibrationReport {
+            level: Some(160),
+            active_effects: 2,
+            measured_morale: 187_342,
+            measured_power: 21_005,
+            innate_morale: 96_278,
+            innate_power: 8_640,
+            unmatched: vec!["Mystery Trinket".to_string()],
+        };
+
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &innate_base,
+            &derived,
+            Some(&calibration),
+        );
+
+        assert!(report.contains("[MeasuredStats]"));
+        assert!(report.contains("Max Morale"));
+        assert!(report.contains("187,342"));
+        assert!(report.contains("Max Power"));
+        assert!(report.contains("21,005"));
+        assert!(report.contains("Active effects"));
+        assert!(report.contains("may include buffs"));
+        assert!(report.contains("96,278"));
+        assert!(report.contains("8,640"));
+        assert!(report.contains("Mystery Trinket"));
     }
 
     #[test]

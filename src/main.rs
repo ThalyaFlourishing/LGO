@@ -2,7 +2,7 @@
 
 use chrono::Local;
 use lgo::{
-    base_stats, build_db, build_profiles, gear, gearstats, install, optimizer, report,
+    base_stats, build_db, build_profiles, gear, gearstats, install, measured, optimizer, report,
     report_files, slot_resolver, stat, virtues,
 };
 
@@ -60,7 +60,14 @@ fn read_gear_doc_or_exit(stats_file: &Path) -> gearstats::GearDoc {
     }
 }
 
-fn prepare_gear_doc_for_optimization(gear_doc: &mut gearstats::GearDoc, class: &str) {
+/// Fold Virtues in, derive Base-stat contributions, then calibrate the innate
+/// Morale/Power baseline against the measured export. Calibration runs last so
+/// that every item and the innate map are already in final tracked-stat form,
+/// and before any optimization consumes `innate_stats`.
+fn prepare_gear_doc_for_optimization(
+    gear_doc: &mut gearstats::GearDoc,
+    class: &str,
+) -> Option<measured::CalibrationReport> {
     if !gear_doc.selected_virtues.is_empty() {
         let virtues = load_virtues_or_exit();
         if let Err(e) = virtues.apply_selected_virtues(gear_doc) {
@@ -74,6 +81,8 @@ fn prepare_gear_doc_for_optimization(gear_doc: &mut gearstats::GearDoc, class: &
         eprintln!("Error deriving Base stats for class '{}': {}", class, e);
         process::exit(1);
     }
+
+    measured::calibrate_innate(gear_doc)
 }
 
 fn build_resolved_candidates(
@@ -680,12 +689,19 @@ fn run_base_stats(cli: &BaseStatsCli) {
         }
     };
 
+    // The raw section reports the file's own `[InnateStats]` values, so keep a
+    // copy before the optimize pre-pass folds Virtue Base stats into them.
+    let innate_base = gear_doc.innate_base_stats.clone();
+    let mut gear_doc = gear_doc;
+    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+
     report::print_base_stats_report(
         &character,
         &class,
         &stats_file.display().to_string(),
-        &gear_doc.innate_base_stats,
+        &innate_base,
         &derived,
+        calibration.as_ref(),
     );
 }
 
