@@ -302,3 +302,26 @@ The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, 
 **Limitations:** `GetMaxMorale()`/`GetMaxPower()` include whatever buffs are active at export; the plugin prints the active-effect count and users are told to export unbuffed. If they don't, LGO treats those buffs as permanent.
 
 **Lesson:** when an API name promises a capability ("BaseMaxMorale") but returns current state, measure the residual rather than modelling the unknowns.
+
+**Follow-up:** Bug 15 documents a bookmarklet parsing regression exposed by the
+additional `lgo-gearlist-2` keys shipped with this fix.
+
+---
+
+### Bug 15 — Bookmarklet leaks other plugindata keys into item names ✅ FIXED
+
+**Symptom:** after the `lgo-gearlist-2` export shipped in PR #81, the bookmarklet
+could append spurious `[[item]]` blocks named `Thalya`, `lgo-gearlist-2`, and
+each equipped item, duplicating real entries near the end of `gearStats.toml`.
+
+**Root cause:** `parsePlugindata` captured the `["names"]` table with a lazy
+regex that only stopped correctly when `names` was the final top-level key.
+Turbine `Save()` serializes keys in unspecified `pairs()` order, so the new
+`character`, `version`, or `equipped` fields could follow `names`; the capture
+then reached the root closing brace and harvested their quoted values.
+
+**Fix:** locate the `["names"]` assignment and scan its table with balanced
+brace depth while skipping escaped string contents. Extract only numeric-keyed
+string entries from that bounded substring, then sort them by numeric index.
+The reordered fixture keeps `names` first and guards the Rust parser's
+order-independent behavior as an additional regression check.
