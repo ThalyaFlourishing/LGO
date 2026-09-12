@@ -1,6 +1,6 @@
-return 
+return
 {
-	["names"] = 
+	["names"] =
 	{
 		[1.000000] = "Veteran Sage's Hooded Helm",
 		[2.000000] = "Blighted Shirt of the Tempest",
@@ -91,7 +91,7 @@ return
 		[87.000000] = "Brass Alchemist's Bracelet",
 		[88.000000] = "Blighted Shoulder-guards of the Keeper"
 	},
-	["equipped"] = 
+	["equipped"] =
 	{
 		[1.000000] = "Veteran Sage's Hooded Helm",
 		[2.000000] = "Blighted Shirt of the Tempest",
@@ -113,7 +113,7 @@ return
 		[18.000000] = "Pristine Mûrai Stickpin of Nature's Glory",
 		[19.000000] = "Lore-master's Book"
 	},
-	["baseStats"] = 
+	["baseStats"] =
 	{
 		["GetBaseWill"] = 7950.000000,
 		["GetBaseVitality"] = 10200.000000,
