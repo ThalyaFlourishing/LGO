@@ -545,6 +545,11 @@ fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport
         )
         .unwrap();
     }
+    writeln!(
+        w,
+        "  These replace the derived Morale/Power above in optimize totals."
+    )
+    .unwrap();
     for name in &calibration.unmatched {
         writeln!(
             w,
