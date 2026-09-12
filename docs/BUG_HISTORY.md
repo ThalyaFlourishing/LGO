@@ -285,6 +285,8 @@ innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats
 
 for Morale and Power. The residual absorbs class base, virtue passives, racials and tomes without modelling any of them.
 
+**Shipped in:** PR #81 (plugin export `lgo-gearlist-2`, docs) and PR #82 (`src/measured.rs`, `[MeasuredStats]` header generation, `base-stats` / `optimize` / `scrap-gear` reporting, real-fixture round-trip test `thalya_fixture_equipped_set_reproduces_measured_maxima`).
+
 **Evidence (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
 
 | Component | Morale |

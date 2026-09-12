@@ -159,15 +159,17 @@
   
        lgo optimize --build <name>
   
-    To see just your character's raw innate Base stats and the
-    tracked-stat contributions derived from them (already included in
-    optimize totals), run:
+    To see just your character's raw innate Base stats, the tracked-stat
+    contributions derived from them (already included in optimize totals),
+    and the measured Max Morale/Power from your export together with the
+    innate Morale/Power baseline LGO calibrated from them, run:
   
         lgo base-stats
   
-    This does not run an optimization.
+    This does not run an optimization. If it says "No [MeasuredStats] block",
+    re-run /lgo export in game and lgo resolve-slots.
   
-  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each tracked stat, and the projected raw Base-stat pool. If you used `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both text and HTML.
+  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each tracked stat, and the projected raw Base-stat pool. Under the totals, one line says which innate Morale/Power baseline was used — `measured (N effects at export)` means your export drove it; if N is not 0 you exported buffed and should re-export. If you used `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both text and HTML.
   
   12. If you keep several saved builds, run:
   
@@ -179,7 +181,7 @@
   Iteration
 -----------
   
-    - To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1.
+    - To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1. To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1. Also repeat from step 1 whenever you level up, change your slotted Virtues, or read a new stat tome — those change the measured baseline, and resolve-slots regenerates it from the fresh export.
     
     - To re-run with different stat goals on the same gear: just repeat step 10 with new goals. Steps 1-9 do not need to be redone.
     
