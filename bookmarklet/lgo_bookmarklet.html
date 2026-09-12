@@ -74,15 +74,58 @@
         }
 
         function parsePlugindata(src) {
-          const blockMatch = src.match(/\["names"\]\s*=\s*\{([\s\S]*?)\}\s*\}/m);
-          if (!blockMatch) throw new Error("Could not find [\"names\"] table in pasted data.");
-          const namesBlock = blockMatch[1];
-          const names = [];
-          const re = /\[[^\]]+\]\s*=\s*"((?:\\.|[^"])*)"/g;
+          const error = "Could not find [\"names\"] table in pasted data.";
+          const key = "[\"names\"]";
+          let pos = src.indexOf(key);
+          if (pos < 0) throw new Error(error);
+          pos += key.length;
+          while (pos < src.length && /\s/.test(src[pos])) pos += 1;
+          if (src[pos] !== "=") throw new Error(error);
+          pos += 1;
+          while (pos < src.length && /\s/.test(src[pos])) pos += 1;
+          if (src[pos] !== "{") throw new Error(error);
+
+          const blockStart = pos + 1;
+          let blockEnd = -1;
+          let depth = 1;
+          let inString = false;
+          let escaped = false;
+          for (pos = blockStart; pos < src.length; pos += 1) {
+            const ch = src[pos];
+            if (inString) {
+              if (escaped) {
+                escaped = false;
+              } else if (ch === "\\") {
+                escaped = true;
+              } else if (ch === "\"") {
+                inString = false;
+              }
+            } else if (ch === "\"") {
+              inString = true;
+            } else if (ch === "{") {
+              depth += 1;
+            } else if (ch === "}") {
+              depth -= 1;
+              if (depth === 0) {
+                blockEnd = pos;
+                break;
+              }
+            }
+          }
+          if (blockEnd < 0) throw new Error(error);
+
+          const namesBlock = src.slice(blockStart, blockEnd);
+          const indexedNames = [];
+          const re = /\[\s*(\d+(?:\.\d+)?)\s*\]\s*=\s*"((?:\\.|[^"])*)"/g;
           let m;
           while ((m = re.exec(namesBlock)) !== null) {
-            names.push(unescapePlugindataString(m[1]));
+            indexedNames.push({
+              index: Number(m[1]),
+              name: unescapePlugindataString(m[2])
+            });
           }
+          indexedNames.sort((a, b) => a.index - b.index);
+          const names = indexedNames.map(entry => entry.name);
           const charMatch = src.match(/\["character"\]\s*=\s*"((?:\\.|[^"])*)"/);
           const character = charMatch ? unescapePlugindataString(charMatch[1]).trim() : "";
           const classMatch = src.match(/\["class"\]\s*=\s*"((?:\\.|[^"])*)"/);

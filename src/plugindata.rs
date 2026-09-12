@@ -23,7 +23,7 @@ use std::path::Path;
 // ── Public types ──────────────────────────────────────────────────────────────
 
 /// All item data extracted from the plugin export file, before wiki lookup.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PluginExport {
     #[allow(dead_code)]
     pub character: String,
@@ -549,5 +549,17 @@ mod tests {
             2,
             "duplicate equipped names must be preserved"
         );
+    }
+
+    #[test]
+    fn reordered_fixture_parses_identically() {
+        let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
+        let original = load(&test_data.join("lgo_Thalya_gearNames_20260906_025012.plugindata"))
+            .expect("original fixture must parse");
+        let reordered =
+            load(&test_data.join("lgo_Thalya_gearNames_20260906_030000_reordered.plugindata"))
+                .expect("reordered fixture must parse");
+
+        assert_eq!(reordered, original);
     }
 }
