@@ -173,6 +173,11 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     absorbed into the baseline; nothing here is ever a hard error. Without a
     [MeasuredStats] block no calibration happens. scrap-gear calibrates the same
     way.
+    Under the projected totals, the terminal and HTML reports (and the scrap-gear
+    report) state which baseline was used:
+      Innate Morale/Power baseline: measured (0 effects at export)
+      Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])
+    A non-zero effect count means buffs may be baked into the measurement.
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0

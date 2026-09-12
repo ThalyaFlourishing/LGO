@@ -10,13 +10,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use lgo::base_stats::BaseStatDerivations;
-use lgo::gear::optimizer_candidate_key;
+use lgo::gear::{optimizer_candidate_key, GearItem, GearSet, Slot};
 use lgo::gearstats::read_stats_file;
 use lgo::measured::calibrate_innate;
 use lgo::optimizer::optimize;
 use lgo::stat::{Stat, StatGoal};
 
 const LORE_MASTER: &str = "Lore-master";
+const THALYA_FIXTURE: &str = "TestData/lgo_Thalya_gearReady.toml";
 
 /// A gear file carrying a measured export: one equipped Head item plus a
 /// spare the character owns but is not wearing.
@@ -129,6 +130,94 @@ fn calibrated_innate_reproduces_the_measured_maxima() {
     );
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+/// The same defining property over the real committed fixture: 19 equipped
+/// names including a duplicate earring pair, real Vitality-derived Morale,
+/// and non-ASCII item names that only pair under NFC normalization.
+#[test]
+fn thalya_fixture_equipped_set_reproduces_measured_maxima() {
+    let derivations =
+        BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load");
+    let mut doc = read_stats_file(Path::new(THALYA_FIXTURE)).expect("fixture must parse");
+    derivations
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+
+    let equipped = doc
+        .measured
+        .clone()
+        .expect("the fixture carries [MeasuredStats]")
+        .equipped;
+    let report = calibrate_innate(&mut doc).expect("the fixture carries [MeasuredStats]");
+
+    assert_eq!(report.level, Some(160));
+    assert_eq!(report.measured_morale, 187_342);
+    assert_eq!(report.measured_power, 21_005);
+    assert_eq!(report.active_effects, 0);
+
+    // Re-equip the exported set: walk `Equipped` with the same count-aware
+    // NFC rule the calibration uses, so the duplicate earring consumes two
+    // owned copies. Names the fixture has no item for (a legendary, or one
+    // the bookmarklet left as `slot = "Unknown"` and `read_stats_file`
+    // skipped) are reported as unmatched and simply not worn here.
+    let mut gear_set = GearSet::new(doc.innate_stats.clone());
+    let mut consumed = vec![false; doc.items.len()];
+    for name in &equipped {
+        let found = doc.items.iter().enumerate().position(|(index, doc_item)| {
+            !consumed[index] && nfc(&doc_item.item.name) == nfc(name)
+        });
+        let Some(index) = found else {
+            continue;
+        };
+        consumed[index] = true;
+        equip(&mut gear_set, doc.items[index].item.clone());
+    }
+    let worn = consumed.iter().filter(|taken| **taken).count();
+    assert_eq!(
+        worn + report.unmatched.len(),
+        equipped.len(),
+        "every equipped name must be either worn or reported unmatched; unmatched: {:?}",
+        report.unmatched
+    );
+
+    assert_eq!(
+        gear_set.total(&Stat::Morale),
+        187_342,
+        "the exported set plus the calibrated baseline must reproduce Max Morale; unmatched: {:?}",
+        report.unmatched
+    );
+    assert_eq!(
+        gear_set.total(&Stat::Power),
+        21_005,
+        "the exported set plus the calibrated baseline must reproduce Max Power; unmatched: {:?}",
+        report.unmatched
+    );
+}
+
+/// Normalize to NFC for name comparison, matching `slot_resolver`'s rule.
+fn nfc(name: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    name.nfc().collect()
+}
+
+/// Wear one item, falling back to the second slot of a paired family when the
+/// first is taken — that is how a second bracelet, ring or earring is worn.
+fn equip(gear_set: &mut GearSet, item: GearItem) {
+    let alternate = match item.slot {
+        Slot::Wrist1 => Some(Slot::Wrist2),
+        Slot::Finger1 => Some(Slot::Finger2),
+        Slot::Ear1 => Some(Slot::Ear2),
+        _ => None,
+    };
+    let slot = match alternate {
+        Some(second) if gear_set.items.contains_key(&item.slot) => second,
+        _ => item.slot,
+    };
+    assert!(
+        gear_set.items.insert(slot, item).is_none(),
+        "an exported set must not equip two items in the same slot"
+    );
 }
 
 /// `base-stats` reports the measurement and the baseline derived from it.

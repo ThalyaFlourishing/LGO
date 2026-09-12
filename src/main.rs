@@ -369,7 +369,7 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
-    prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
 
     let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
@@ -423,6 +423,7 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         &timestamp,
         &evaluated_builds,
         &unused_items,
+        calibration.as_ref(),
     );
     print!("{}", text_report);
 
@@ -518,7 +519,7 @@ fn run_optimize(cli: &OptimizeCli) {
         )
     });
 
-    prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
 
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
     let result = optimizer::optimize(&resolved, &candidate_names, &goals, &gear_doc.innate_stats);
@@ -538,6 +539,7 @@ fn run_optimize(cli: &OptimizeCli) {
         &stats_file_display,
         &timestamp,
         &projected_base_stats,
+        calibration.as_ref(),
     );
     print!("{}", report::colorize_terminal_status_markers(&text_report));
 
@@ -573,6 +575,7 @@ fn run_optimize(cli: &OptimizeCli) {
             &stats_file_display,
             &timestamp,
             &projected_base_stats,
+            calibration.as_ref(),
         );
 
         match report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report) {

@@ -32,6 +32,9 @@ pub struct ScrapUnusedItem {
 }
 
 /// Build the full text optimize report used for terminal and `.txt` output.
+// One parameter per independent piece of report content; bundling them in a
+// struct would only move the same list to the call sites.
+#[allow(clippy::too_many_arguments)]
 pub fn format_optimize_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
@@ -40,6 +43,7 @@ pub fn format_optimize_report(
     input_file: &str,
     timestamp: &str,
     projected_base_stats: &HashMap<Stat, i64>,
+    calibration: Option<&CalibrationReport>,
 ) -> String {
     let mut out = String::new();
     let w = &mut out;
@@ -55,6 +59,8 @@ pub fn format_optimize_report(
     write_gear_table_text(w, &result.gear_set);
     write_projected_tracked_stats_text(w, &result.gear_set);
     write_projected_base_stats_text(w, projected_base_stats);
+    writeln!(w).unwrap();
+    writeln!(w, "  {}", calibration_baseline_line(calibration)).unwrap();
 
     if !result.feasible {
         write_infeasible_details_text(w, &result.failed_minima);
@@ -100,6 +106,8 @@ pub fn colorize_terminal_status_markers(report: &str) -> String {
 }
 
 /// Build a self-contained HTML optimize report.
+// Same parameter list as the text report; see `format_optimize_report`.
+#[allow(clippy::too_many_arguments)]
 pub fn format_optimize_report_html(
     result: &OptimizeResult,
     goals: &[StatGoal],
@@ -108,6 +116,7 @@ pub fn format_optimize_report_html(
     input_file: &str,
     timestamp: &str,
     projected_base_stats: &HashMap<Stat, i64>,
+    calibration: Option<&CalibrationReport>,
 ) -> String {
     let failed_stats: HashSet<Stat> = result.failed_minima.iter().map(|(s, _, _)| *s).collect();
     let mut out = String::new();
@@ -296,6 +305,13 @@ pub fn format_optimize_report_html(
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
 
+    writeln!(
+        w,
+        "  <p class=\"meta\">{}</p>",
+        html_escape(&calibration_baseline_line(calibration)),
+    )
+    .unwrap();
+
     if !result.feasible {
         writeln!(
             w,
@@ -342,6 +358,7 @@ pub fn format_scrap_gear_report(
     timestamp: &str,
     evaluated_builds: &[(String, Vec<StatGoal>)],
     unused_items: &[ScrapUnusedItem],
+    calibration: Option<&CalibrationReport>,
 ) -> String {
     let mut out = String::new();
     let w = &mut out;
@@ -357,6 +374,8 @@ pub fn format_scrap_gear_report(
     for (name, goals) in evaluated_builds {
         writeln!(w, "    - {}: {}", name, format_goal_list(goals)).unwrap();
     }
+    writeln!(w).unwrap();
+    writeln!(w, "  {}", calibration_baseline_line(calibration)).unwrap();
     writeln!(w).unwrap();
     let mut scrapable_items: Vec<&ScrapUnusedItem> = unused_items
         .iter()
@@ -381,6 +400,22 @@ pub fn format_scrap_gear_report(
 
     writeln!(w).unwrap();
     out
+}
+
+/// One line stating where the innate Morale/Power baseline came from: the
+/// measured export, or nothing at all. The active-effect count travels with
+/// it because buffs active at export time are baked into the measurement.
+fn calibration_baseline_line(calibration: Option<&CalibrationReport>) -> String {
+    match calibration {
+        Some(report) => format!(
+            "Innate Morale/Power baseline: measured ({} effects at export)",
+            report.active_effects
+        ),
+        None => {
+            "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
+                .to_string()
+        }
+    }
 }
 
 /// Print the `lgo base-stats` report to stdout.
@@ -1040,11 +1075,15 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            None,
         );
 
         assert!(report.contains("Run time  : 2026-08-31 08:00:00 +00:00"));
         assert!(report.contains("Projected tracked stats"));
         assert!(report.contains("Projected raw Base stats"));
+        assert!(report.contains(
+            "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
+        ));
         for (stat, _) in TRACKED_STATS {
             assert!(
                 report.contains(&format!("{}", stat)),
@@ -1069,6 +1108,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &HashMap::new(),
+            None,
         );
 
         assert!(report.contains("Goal Stat Summary:"));
@@ -1122,6 +1162,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &HashMap::new(),
+            None,
         );
 
         assert_eq!(
@@ -1161,6 +1202,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &HashMap::new(),
+            None,
         );
 
         assert!(report.contains("&lt;&amp;&gt;"));
@@ -1182,6 +1224,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &HashMap::new(),
+            None,
         );
 
         assert!(
@@ -1205,6 +1248,77 @@ mod tests {
         ));
         assert!(!report.contains("Minimum"));
         assert_eq!(report.matches("✓ All stat minima met.").count(), 1);
+        assert!(report.contains(
+            "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
+        ));
+    }
+
+    /// With a measured export, all three reports say the baseline was
+    /// measured and how many effects were active when it was taken.
+    #[test]
+    fn reports_state_that_the_baseline_was_measured() {
+        let calibration = CalibrationReport {
+            level: Some(160),
+            active_effects: 2,
+            measured_morale: 187_342,
+            measured_power: 21_005,
+            innate_morale: 96_278,
+            innate_power: 8_640,
+            unmatched: Vec::new(),
+        };
+        let goals = [StatGoal {
+            stat: Stat::Morale,
+            minimum: 1000,
+        }];
+        let expected = "Innate Morale/Power baseline: measured (2 effects at export)";
+
+        let text = format_optimize_report(
+            &sample_optimize_result(),
+            &goals,
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+            Some(&calibration),
+        );
+        assert!(text.contains(expected), "text report:\n{}", text);
+        assert!(
+            text.find("Projected raw Base stats")
+                .expect("base stats present")
+                < text.find(expected).expect("baseline line present"),
+            "the baseline line belongs under the projected totals:\n{}",
+            text
+        );
+
+        let html = format_optimize_report_html(
+            &sample_optimize_result(),
+            &goals,
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+            Some(&calibration),
+        );
+        assert!(html.contains(expected), "html report:\n{}", html);
+
+        let scrap = format_scrap_gear_report(
+            "Thalya",
+            "Lore-master",
+            "gear.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[(
+                "healer".to_string(),
+                vec![StatGoal {
+                    stat: Stat::OutgoingHealing,
+                    minimum: 200000,
+                }],
+            )],
+            &[],
+            Some(&calibration),
+        );
+        assert!(scrap.contains(expected), "scrap report:\n{}", scrap);
     }
 
     #[test]
@@ -1299,6 +1413,7 @@ mod tests {
                     max_used_count: 1,
                 },
             ],
+            None,
         );
 
         assert!(report.contains("Saved builds evaluated:"));
@@ -1332,11 +1447,15 @@ mod tests {
                 }],
             )],
             &[],
+            None,
         );
 
         assert!(report.contains("Items you can scrap:"));
         assert!(report.contains("Items of which you have more than one, but only need one:"));
         assert_eq!(report.matches("    - None").count(), 2);
+        assert!(report.contains(
+            "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
+        ));
     }
 
     #[test]
@@ -1379,6 +1498,7 @@ mod tests {
                     max_used_count: 1,
                 },
             ],
+            None,
         );
 
         let alpha_hood = report.find("    - Alpha Hood").expect("head item present");

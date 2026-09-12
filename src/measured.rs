@@ -331,6 +331,30 @@ mod tests {
         assert_eq!(report.innate_power, 0);
     }
 
+    /// Calibration runs *after* Virtue folding, so a Virtue's Morale is
+    /// already in the innate map. It must be subtracted from the residual
+    /// (not double-counted) while still being preserved in the total.
+    #[test]
+    fn folded_virtue_morale_is_subtracted_from_the_residual_and_kept_in_the_total() {
+        const VIRTUE_MORALE: i64 = 500;
+        const ITEM_MORALE: i64 = 5_000;
+        const MEASURED_MORALE: i64 = 100_000;
+
+        let mut doc = gear_doc(
+            &[(Stat::Morale, VIRTUE_MORALE)],
+            vec![doc_item("Helm", ITEM_MORALE, 0)],
+            Some(measured(MEASURED_MORALE, 9_000, &["Helm"])),
+        );
+
+        let report = calibrate_innate(&mut doc).expect("measured block present");
+
+        let residual = MEASURED_MORALE - ITEM_MORALE - VIRTUE_MORALE;
+        let calibrated = VIRTUE_MORALE + residual;
+        assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&calibrated));
+        assert_eq!(report.innate_morale, calibrated);
+        assert_eq!(calibrated + ITEM_MORALE, MEASURED_MORALE);
+    }
+
     /// A stale measurement can leave the baseline negative. That is a
     /// warning, not an error — the numbers still round-trip.
     #[test]
