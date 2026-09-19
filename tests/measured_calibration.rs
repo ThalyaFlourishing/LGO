@@ -17,7 +17,6 @@ use lgo::optimizer::optimize;
 use lgo::stat::{Stat, StatGoal};
 
 const LORE_MASTER: &str = "Lore-master";
-const THALYA_FIXTURE: &str = "TestData/lgo_Thalya_gearReady.toml";
 
 /// A gear file carrying a measured export: one equipped Head item plus a
 /// spare the character owns but is not wearing.
@@ -132,14 +131,21 @@ fn calibrated_innate_reproduces_the_measured_maxima() {
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
-/// The committed fixture currently carries measured metadata that no longer
-/// fully matches the owned `[[item]]` blocks, so calibration is skipped
-/// rather than inflating the baseline.
+/// If a parsed gear file's measured Equipped list no longer fully matches the
+/// current `[[item]]` blocks, calibration is skipped rather than inflating the
+/// baseline.
 #[test]
-fn thalya_fixture_with_unmatched_equipped_names_skips_calibration() {
+fn parsed_doc_with_unmatched_equipped_names_skips_calibration() {
+    let dir = make_test_dir("parsed_unmatched");
+    let body = MEASURED_DOC.replace(
+        "Equipped           = [\"Measured Helm\"]",
+        "Equipped           = [\"Measured Helm\", \"Mystery Trinket\"]",
+    );
+    let path = write_doc(&dir, "lgo_Thalya_gearReady.toml", &body);
+
     let derivations =
         BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load");
-    let mut doc = read_stats_file(Path::new(THALYA_FIXTURE)).expect("fixture must parse");
+    let mut doc = read_stats_file(&path).expect("fixture must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)
         .expect("derivation pre-pass must succeed");
@@ -148,15 +154,23 @@ fn thalya_fixture_with_unmatched_equipped_names_skips_calibration() {
     let report = calibrate_innate(&mut doc).expect("the fixture carries [MeasuredStats]");
 
     assert_eq!(report.level, Some(160));
-    assert_eq!(report.measured_morale, 187_342);
-    assert_eq!(report.measured_power, 21_005);
+    assert_eq!(report.measured_morale, 100_000);
+    assert_eq!(report.measured_power, 20_000);
     assert_eq!(report.active_effects, 0);
 
     assert!(!report.used_for_calibration);
-    assert!(!report.unmatched.is_empty(), "fixture should exercise stale metadata");
+    assert_eq!(report.unmatched, vec!["Mystery Trinket".to_string()]);
     assert_eq!(doc.innate_stats, derived_only);
-    assert_eq!(report.innate_morale, derived_only.get(&Stat::Morale).copied().unwrap_or(0));
-    assert_eq!(report.innate_power, derived_only.get(&Stat::Power).copied().unwrap_or(0));
+    assert_eq!(
+        report.innate_morale,
+        derived_only.get(&Stat::Morale).copied().unwrap_or(0)
+    );
+    assert_eq!(
+        report.innate_power,
+        derived_only.get(&Stat::Power).copied().unwrap_or(0)
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 /// `base-stats` reports the measurement and the baseline derived from it.

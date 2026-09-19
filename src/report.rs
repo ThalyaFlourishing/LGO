@@ -411,11 +411,9 @@ fn calibration_baseline_line(calibration: Option<&CalibrationReport>) -> String 
             "Innate Morale/Power baseline: measured ({} effects at export)",
             report.active_effects
         ),
-        Some(_) => {
-            "Innate Morale/Power baseline: derived from [InnateStats] only \
+        Some(_) => "Innate Morale/Power baseline: derived from [InnateStats] only \
              ([MeasuredStats] ignored: stale Equipped names)"
-                .to_string()
-        }
+            .to_string(),
         None => {
             "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
                 .to_string()
@@ -1410,8 +1408,16 @@ mod tests {
             &HashMap::new(),
             Some(&calibration),
         );
-        assert!(base_stats.contains("calibration was skipped"), "got:\n{}", base_stats);
-        assert!(base_stats.contains("ignored for calibration"), "got:\n{}", base_stats);
+        assert!(
+            base_stats.contains("calibration was skipped"),
+            "got:\n{}",
+            base_stats
+        );
+        assert!(
+            base_stats.contains("ignored for calibration"),
+            "got:\n{}",
+            base_stats
+        );
     }
 
     #[test]
