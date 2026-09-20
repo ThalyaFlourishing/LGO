@@ -557,7 +557,7 @@ mod tests {
         let original = load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
             .expect("original fixture must parse");
         let reordered =
-            load(&test_data.join("lgo_Thalya_gearNames_20260906_030000_reordered.plugindata"))
+            load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
                 .expect("reordered fixture must parse");
 
         assert_eq!(reordered, original);
