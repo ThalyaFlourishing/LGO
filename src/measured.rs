@@ -12,7 +12,10 @@
 //! stats (and the innate tracked stats already folded in from Virtues and
 //! Base-stat derivation), and folds the remainder back into the innate map.
 //! Whatever LGO cannot account for lands in that residual, which is exactly
-//! where the unmodelled contributors belong.
+//! where the unmodelled contributors belong. If any equipped name no longer
+//! has a matching `[[item]]` block, the measured block is treated as stale
+//! relative to the current gear file and calibration is skipped entirely so
+//! removed items do not inflate the baseline.
 //!
 //! Runs after Virtue folding and `BaseStatDerivations::derive_doc`, so every
 //! item and the innate map are already in final tracked-stat form, and before
@@ -39,12 +42,17 @@ pub struct CalibrationReport {
     pub measured_morale: i64,
     /// Max Power as measured in game at export time.
     pub measured_power: i64,
+    /// Whether `[MeasuredStats]` was actually used to recalibrate the innate
+    /// Morale/Power baseline. False means one or more equipped names no
+    /// longer matched the current `[[item]]` blocks, so the existing derived
+    /// baseline was left unchanged.
+    pub used_for_calibration: bool,
     /// Innate Morale after calibration.
     pub innate_morale: i64,
     /// Innate Power after calibration.
     pub innate_power: i64,
     /// Equipped item names with no matching `[[item]]` block, in export
-    /// order. Their stats are absorbed into the residual.
+    /// order.
     pub unmatched: Vec<String>,
 }
 
@@ -58,9 +66,36 @@ pub struct CalibrationReport {
 ///
 /// Returns `None` (leaving `doc` untouched) when the file carries no
 /// `[MeasuredStats]` block. Problems are reported as stderr warnings, never
-/// errors: a gear file whose measured block is stale still optimizes.
+/// errors: a gear file whose measured block is stale still optimizes, but a
+/// stale equipped list skips calibration instead of inflating the baseline.
 pub fn calibrate_innate(doc: &mut GearDoc) -> Option<CalibrationReport> {
     let measured = doc.measured.clone()?;
+
+    let (matched_items, unmatched) = match_equipped_items(&measured.equipped, doc);
+    if !unmatched.is_empty() {
+        for name in &unmatched {
+            eprintln!(
+                "Warning: equipped item \"{}\" has no matching [[item]] block in the gear file.",
+                name
+            );
+        }
+        eprintln!(
+            "Warning: [MeasuredStats].Equipped is stale relative to the current gear file, so \
+             innate Morale/Power calibration was skipped. Re-run /lgo export or restore the \
+             missing [[item]] block(s) to use measured calibration."
+        );
+
+        return Some(CalibrationReport {
+            level: doc.level,
+            active_effects: measured.active_effects,
+            measured_morale: measured.max_morale,
+            measured_power: measured.max_power,
+            used_for_calibration: false,
+            innate_morale: doc.innate_stats.get(&Stat::Morale).copied().unwrap_or(0),
+            innate_power: doc.innate_stats.get(&Stat::Power).copied().unwrap_or(0),
+            unmatched,
+        });
+    }
 
     if measured.active_effects > 0 {
         eprintln!(
@@ -68,15 +103,6 @@ pub fn calibrate_innate(doc: &mut GearDoc) -> Option<CalibrationReport> {
              the measured Max Morale/Power may include buffs, which LGO treats as permanent. \
              Re-export with no food/hope/fellowship buffs for a clean baseline.",
             measured.active_effects
-        );
-    }
-
-    let (matched_items, unmatched) = match_equipped_items(&measured.equipped, doc);
-    for name in &unmatched {
-        eprintln!(
-            "Warning: equipped item \"{}\" has no matching [[item]] block in the gear file; \
-             its stats are absorbed into the innate Morale/Power baseline.",
-            name
         );
     }
 
@@ -126,6 +152,7 @@ pub fn calibrate_innate(doc: &mut GearDoc) -> Option<CalibrationReport> {
         active_effects: measured.active_effects,
         measured_morale: measured.max_morale,
         measured_power: measured.max_power,
+        used_for_calibration: true,
         innate_morale: doc.innate_stats.get(&Stat::Morale).copied().unwrap_or(0),
         innate_power: doc.innate_stats.get(&Stat::Power).copied().unwrap_or(0),
         unmatched,
@@ -138,7 +165,7 @@ pub fn calibrate_innate(doc: &mut GearDoc) -> Option<CalibrationReport> {
 /// ring that is equipped twice consumes both, and owning one consumes one.
 ///
 /// Names with no unconsumed match are returned as unmatched rather than
-/// erroring — the residual absorbs whatever their stats would have been.
+/// erroring so callers can treat the measured metadata as stale.
 fn match_equipped_items(equipped: &[String], doc: &GearDoc) -> (Vec<usize>, Vec<String>) {
     let mut consumed = vec![false; doc.items.len()];
     let mut matched = Vec::with_capacity(equipped.len());
@@ -280,19 +307,24 @@ mod tests {
         assert_eq!(both.innate_stats.get(&Stat::Morale), Some(&48_000));
     }
 
-    /// An equipped name LGO owns no item for is reported, not fatal.
+    /// An equipped name LGO owns no item for makes `[MeasuredStats]` stale:
+    /// report it, skip calibration, and keep the current innate baseline.
     #[test]
-    fn unmatched_equipped_names_are_reported_and_absorbed() {
+    fn unmatched_equipped_names_skip_calibration() {
         let mut doc = gear_doc(
-            &[],
+            &[(Stat::Morale, 1_234), (Stat::Power, 56)],
             vec![doc_item("Helm", 5_000, 0)],
             Some(measured(100_000, 9_000, &["Helm", "Mystery Trinket"])),
         );
 
         let report = calibrate_innate(&mut doc).expect("measured block present");
 
+        assert!(!report.used_for_calibration);
         assert_eq!(report.unmatched, vec!["Mystery Trinket".to_string()]);
-        assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&95_000));
+        assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&1_234));
+        assert_eq!(doc.innate_stats.get(&Stat::Power), Some(&56));
+        assert_eq!(report.innate_morale, 1_234);
+        assert_eq!(report.innate_power, 56);
     }
 
     /// Names are matched NFC-normalised, so a decomposed export still pairs
@@ -309,6 +341,7 @@ mod tests {
 
         let report = calibrate_innate(&mut doc).expect("measured block present");
 
+        assert!(report.used_for_calibration);
         assert!(report.unmatched.is_empty());
         assert_eq!(doc.innate_stats.get(&Stat::Morale), Some(&98_000));
     }

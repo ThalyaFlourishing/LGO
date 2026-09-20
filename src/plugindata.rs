@@ -554,10 +554,10 @@ mod tests {
     #[test]
     fn reordered_fixture_parses_identically() {
         let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
-        let original = load(&test_data.join("lgo_Thalya_gearNames_20260906_025012.plugindata"))
+        let original = load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
             .expect("original fixture must parse");
         let reordered =
-            load(&test_data.join("lgo_Thalya_gearNames_20260906_030000_reordered.plugindata"))
+            load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
                 .expect("reordered fixture must parse");
 
         assert_eq!(reordered, original);

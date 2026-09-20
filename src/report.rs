@@ -407,10 +407,13 @@ pub fn format_scrap_gear_report(
 /// it because buffs active at export time are baked into the measurement.
 fn calibration_baseline_line(calibration: Option<&CalibrationReport>) -> String {
     match calibration {
-        Some(report) => format!(
+        Some(report) if report.used_for_calibration => format!(
             "Innate Morale/Power baseline: measured ({} effects at export)",
             report.active_effects
         ),
+        Some(_) => "Innate Morale/Power baseline: derived from [InnateStats] only \
+             ([MeasuredStats] ignored: stale Equipped names)"
+            .to_string(),
         None => {
             "Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])"
                 .to_string()
@@ -513,8 +516,9 @@ pub fn format_base_stats_report(
 }
 
 /// The measured/calibration section of the `base-stats` report: what the
-/// plugin measured in game, and the innate Morale/Power baseline LGO derived
-/// from it by subtracting the equipped set.
+/// plugin measured in game, and the innate Morale/Power baseline LGO either
+/// calibrated from it or kept from `[InnateStats]` when the equipped list is
+/// stale.
 fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport>) {
     let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
     let Some(calibration) = calibration else {
@@ -551,7 +555,7 @@ fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport
         )
         .unwrap();
     }
-    if calibration.active_effects > 0 {
+    if calibration.used_for_calibration && calibration.active_effects > 0 {
         writeln!(
             w,
             "  Effects were active at export; the measured maxima may include buffs."
@@ -560,11 +564,31 @@ fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport
     }
 
     writeln!(w).unwrap();
-    writeln!(
-        w,
-        "  Calibrated innate baseline (measured minus the equipped set):"
-    )
-    .unwrap();
+    if calibration.used_for_calibration {
+        writeln!(
+            w,
+            "  Calibrated innate baseline (measured minus the equipped set):"
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            w,
+            "  Innate Morale/Power calibration was skipped because [MeasuredStats]."
+        )
+        .unwrap();
+        writeln!(
+            w,
+            "  Equipped no longer matches this gear file. Removed items are ignored,"
+        )
+        .unwrap();
+        writeln!(
+            w,
+            "  so the baseline in use stays derived from [InnateStats] only."
+        )
+        .unwrap();
+        writeln!(w).unwrap();
+        writeln!(w, "  Innate Morale/Power baseline in use:").unwrap();
+    }
     writeln!(w).unwrap();
     for (stat, value) in [
         (Stat::Morale, calibration.innate_morale),
@@ -580,15 +604,23 @@ fn write_measured_section(w: &mut String, calibration: Option<&CalibrationReport
         )
         .unwrap();
     }
-    writeln!(
-        w,
-        "  These replace the derived Morale/Power above in optimize totals."
-    )
-    .unwrap();
+    if calibration.used_for_calibration {
+        writeln!(
+            w,
+            "  These replace the derived Morale/Power above in optimize totals."
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            w,
+            "  These are the Morale/Power values optimize will use for this run."
+        )
+        .unwrap();
+    }
     for name in &calibration.unmatched {
         writeln!(
             w,
-            "  Equipped item with no gear-file match (absorbed into the baseline): {}",
+            "  Equipped item with no gear-file match (ignored for calibration): {}",
             name
         )
         .unwrap();
@@ -1028,9 +1060,10 @@ mod tests {
             active_effects: 2,
             measured_morale: 187_342,
             measured_power: 21_005,
+            used_for_calibration: true,
             innate_morale: 96_278,
             innate_power: 8_640,
-            unmatched: vec!["Mystery Trinket".to_string()],
+            unmatched: Vec::new(),
         };
 
         let report = format_base_stats_report(
@@ -1051,7 +1084,6 @@ mod tests {
         assert!(report.contains("may include buffs"));
         assert!(report.contains("96,278"));
         assert!(report.contains("8,640"));
-        assert!(report.contains("Mystery Trinket"));
     }
 
     #[test]
@@ -1262,6 +1294,7 @@ mod tests {
             active_effects: 2,
             measured_morale: 187_342,
             measured_power: 21_005,
+            used_for_calibration: true,
             innate_morale: 96_278,
             innate_power: 8_640,
             unmatched: Vec::new(),
@@ -1319,6 +1352,72 @@ mod tests {
             Some(&calibration),
         );
         assert!(scrap.contains(expected), "scrap report:\n{}", scrap);
+    }
+
+    #[test]
+    fn reports_state_when_stale_measured_data_is_ignored() {
+        let calibration = CalibrationReport {
+            level: Some(160),
+            active_effects: 2,
+            measured_morale: 187_342,
+            measured_power: 21_005,
+            used_for_calibration: false,
+            innate_morale: 45_900,
+            innate_power: 0,
+            unmatched: vec!["Mystery Trinket".to_string()],
+        };
+        let expected = "Innate Morale/Power baseline: derived from [InnateStats] only ([MeasuredStats] ignored: stale Equipped names)";
+
+        let text = format_optimize_report(
+            &sample_optimize_result(),
+            &[StatGoal {
+                stat: Stat::Morale,
+                minimum: 1000,
+            }],
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &HashMap::new(),
+            Some(&calibration),
+        );
+        assert!(text.contains(expected), "text report:\n{}", text);
+
+        let scrap = format_scrap_gear_report(
+            "Thalya",
+            "Lore-master",
+            "gear.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &[(
+                "healer".to_string(),
+                vec![StatGoal {
+                    stat: Stat::OutgoingHealing,
+                    minimum: 200000,
+                }],
+            )],
+            &[],
+            Some(&calibration),
+        );
+        assert!(scrap.contains(expected), "scrap report:\n{}", scrap);
+
+        let base_stats = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &HashMap::new(),
+            &HashMap::new(),
+            Some(&calibration),
+        );
+        assert!(
+            base_stats.contains("calibration was skipped"),
+            "got:\n{}",
+            base_stats
+        );
+        assert!(
+            base_stats.contains("ignored for calibration"),
+            "got:\n{}",
+            base_stats
+        );
     }
 
     #[test]

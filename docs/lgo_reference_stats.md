@@ -106,7 +106,7 @@ Export with no food/hope/fellowship buffs active for a clean Morale/Power baseli
 |---|---|
 | Measured naked Max Morale | 143,695 |
 | Vitality 10,537 × 4.5 (10,200 base + 337 stat tomes) | −47,417 |
-| **Residual absorbed into the innate baseline** | **96,278** |
+| **Residual calibrated into the innate baseline** | **96,278** |
 
 The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) + 14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was 13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
 

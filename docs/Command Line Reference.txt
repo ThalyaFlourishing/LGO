@@ -168,11 +168,12 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     the innate Morale and Power baseline from it: the measured Max Morale/Power
     minus the stats of the items listed in Equipped. The remainder covers
     everything LGO does not model (class base, virtue passives, racials, stat
-    tomes), so Morale and Power goals land where the in-game panel says. Equipped
-    names with no matching item in the file are warned about on stderr and
-    absorbed into the baseline; nothing here is ever a hard error. Without a
-    [MeasuredStats] block no calibration happens. scrap-gear calibrates the same
-    way.
+    tomes), so Morale and Power goals land where the in-game panel says. If any
+    Equipped name no longer has a matching [[item]] block, [MeasuredStats] is
+    treated as stale relative to the current gear file: LGO warns on stderr and
+    ignores measured calibration for that run instead of inflating the baseline.
+    Nothing here is ever a hard error. Without a [MeasuredStats] block no
+    calibration happens. scrap-gear calibrates the same way.
     Under the projected totals, the terminal and HTML reports (and the scrap-gear
     report) state which baseline was used:
       Innate Morale/Power baseline: measured (0 effects at export)
@@ -271,7 +272,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     contributions computed from them (already included in optimize totals).
     Also prints the measured Max Morale and Max Power from [MeasuredStats]
     and the number of active effects at export time, or a note that no
-    [MeasuredStats] block is present.
+    [MeasuredStats] block is present. If [MeasuredStats].Equipped no longer
+    matches the current [[item]] blocks, base-stats reports that measured
+    calibration was skipped and keeps the derived [InnateStats]-only baseline.
     Does not run an optimization. Requires data\base_stat_derivations.json in
     the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
