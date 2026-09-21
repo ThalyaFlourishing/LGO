@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod common;
+
 fn make_test_dir(label: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
         "lgo_build_profiles_{label}_{}",
@@ -20,15 +22,11 @@ fn lgo_bin() -> PathBuf {
 
 /// Seed a temp install directory with the `data/` files the optimize and
 /// scrap-gear paths need (base-stat derivations), so tests are self-contained
-/// and route their output under the temp tree rather than the repo.
+/// and route their output under the temp tree rather than the repo. The
+/// derivation table is a minimal synthetic one — these tests exercise saved
+/// builds and scrap reporting, not the real per-class coefficients.
 fn seed_install(dir: &Path) {
-    let data_dir = dir.join("data");
-    fs::create_dir_all(&data_dir).expect("create data dir");
-    fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("data/base_stat_derivations.json"),
-        data_dir.join("base_stat_derivations.json"),
-    )
-    .expect("copy derivations");
+    common::write_derivations(&dir.join("data"));
 }
 
 fn run_lgo(args: &[&str], install_dir: &Path) -> std::process::Output {
