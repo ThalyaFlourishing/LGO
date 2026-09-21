@@ -16,6 +16,8 @@ use lgo::measured::calibrate_innate;
 use lgo::optimizer::optimize;
 use lgo::stat::{Stat, StatGoal};
 
+mod common;
+
 const LORE_MASTER: &str = "Lore-master";
 
 /// A gear file carrying a measured export: one equipped Head item plus a
@@ -70,11 +72,18 @@ fn write_doc(dir: &Path, name: &str, body: &str) -> PathBuf {
 }
 
 fn run_lgo(args: &[&str]) -> std::process::Output {
-    std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
+    // Seed a private temp install with a minimal synthetic derivation table and
+    // point `LGO_HOME` at it, so the shell-out never reads the real `data/`.
+    let install = make_test_dir("home");
+    common::write_derivations(&install.join("data"));
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
         .args(args)
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .current_dir(&install)
+        .env("LGO_HOME", &install)
         .output()
-        .expect("lgo must run")
+        .expect("lgo must run");
+    std::fs::remove_dir_all(&install).ok();
+    output
 }
 
 /// The calibrated baseline is the measurement minus the equipped set, and
@@ -84,8 +93,8 @@ fn calibrated_innate_reproduces_the_measured_maxima() {
     let dir = make_test_dir("roundtrip");
     let path = write_doc(&dir, "lgo_Thalya_gearReady.toml", MEASURED_DOC);
 
-    let derivations =
-        BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load");
+    let derivations = BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+        .expect("synthetic derivations must parse");
     let mut doc = read_stats_file(&path).expect("fixture must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)
@@ -143,8 +152,8 @@ fn parsed_doc_with_unmatched_equipped_names_skips_calibration() {
     );
     let path = write_doc(&dir, "lgo_Thalya_gearReady.toml", &body);
 
-    let derivations =
-        BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load");
+    let derivations = BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+        .expect("synthetic derivations must parse");
     let mut doc = read_stats_file(&path).expect("fixture must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)

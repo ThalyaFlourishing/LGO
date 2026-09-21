@@ -8,10 +8,13 @@ use lgo::optimizer::optimize;
 use lgo::stat::{Stat, StatGoal};
 use lgo::virtues::VirtuesDb;
 
+mod common;
+
 const LORE_MASTER: &str = "Lore-master";
 
 fn load_derivations() -> BaseStatDerivations {
-    BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load")
+    BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+        .expect("synthetic derivations must parse")
 }
 
 fn tm_goal() -> Vec<StatGoal> {
@@ -99,9 +102,17 @@ name = "Statless Helm"
     .expect("write toml");
 
     let total = optimize_tm_total(&path, r#"{ "Wisdom": { "Will": 100 } }"#);
-    // Lore-master Will → TacticalMastery uses the current 3.0 derivation
-    // coefficient, so 100 Will contributes 300 Tactical Mastery here.
-    assert_eq!(total, 300);
+    // The virtue's 100 Will must flow through the derivation path into
+    // Tactical Mastery. Derive the expected contribution from the same
+    // synthetic table this test supplies, rather than a real fixture number.
+    let expected = load_derivations()
+        .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Will, 100)]))
+        .expect("synthetic derivation must succeed")
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .expect("Will must derive Tactical Mastery in the synthetic table");
+    assert!(expected > 0, "synthetic table must map Will to TM");
+    assert_eq!(total, expected);
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
@@ -110,12 +121,7 @@ name = "Statless Helm"
 fn optimize_succeeds_with_empty_virtues_even_without_virtues_data_file() {
     let dir = make_test_dir();
     let data_dir = dir.join("data");
-    std::fs::create_dir_all(&data_dir).expect("create data dir");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("data/base_stat_derivations.json"),
-        data_dir.join("base_stat_derivations.json"),
-    )
-    .expect("copy derivations");
+    common::write_derivations(&data_dir);
 
     let gear = dir.join("gear.toml");
     std::fs::write(
@@ -164,12 +170,7 @@ name = "Statless Helm"
 fn optimize_reports_unknown_virtue_name_clearly() {
     let dir = make_test_dir();
     let data_dir = dir.join("data");
-    std::fs::create_dir_all(&data_dir).expect("create data dir");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("data/base_stat_derivations.json"),
-        data_dir.join("base_stat_derivations.json"),
-    )
-    .expect("copy derivations");
+    common::write_derivations(&data_dir);
     std::fs::write(
         data_dir.join("lgo_virtues.json"),
         r#"{ "Wisdom": { "Will": 100 } }"#,
@@ -218,12 +219,7 @@ name = "Statless Helm"
 fn optimize_reports_duplicate_virtue_name_clearly() {
     let dir = make_test_dir();
     let data_dir = dir.join("data");
-    std::fs::create_dir_all(&data_dir).expect("create data dir");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("data/base_stat_derivations.json"),
-        data_dir.join("base_stat_derivations.json"),
-    )
-    .expect("copy derivations");
+    common::write_derivations(&data_dir);
     std::fs::write(
         data_dir.join("lgo_virtues.json"),
         r#"{ "Wisdom": { "Will": 100 } }"#,
