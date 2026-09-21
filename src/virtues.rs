@@ -12,6 +12,15 @@ const DEFAULT_VIRTUES_FILE: &str = "lgo_virtues.json";
 pub const VIRTUE_TABLE_KEY: &str = "Virtues";
 pub const VIRTUE_FIELD_KEYS: [&str; 5] = ["Virtue1", "Virtue2", "Virtue3", "Virtue4", "Virtue5"];
 
+pub const VIRTUE_INNATE_TABLE_KEY: &str = "VirtueInnateStats";
+/// (Stat, TOML key) pairs, in the fixed emit order for the block
+/// (canonical TRACKED_STATS order: PhysicalMitigation before TacticalMitigation).
+pub const VIRTUE_INNATE_FIELDS: [(Stat, &str); 2] = [
+    (Stat::PhysicalMitigation, "PhysicalMitigation"),
+    (Stat::TacticalMitigation, "TacticalMitigation"),
+];
+pub const VIRTUE_INNATE_DEFAULT: i64 = 9275;
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SelectedVirtues {
     pub slots: [Option<String>; 5],
