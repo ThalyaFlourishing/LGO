@@ -38,6 +38,19 @@ fn make_test_dir() -> std::path::PathBuf {
     dir
 }
 
+fn item_signature(item: &lgo::gear::GearItem) -> String {
+    let mut stats: Vec<(String, i64)> = item
+        .stats
+        .iter()
+        .map(|(stat, value)| (stat.to_string(), *value))
+        .collect();
+    stats.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    format!(
+        "{}|{}|{}|{}|{:?}",
+        item.slot, item.name, item.two_handed, item.either_hand, stats
+    )
+}
+
 /// End-to-end over the Thalya fixture (Lore-master; innate Might 5300,
 /// Agility 2650, Vitality 10200, Will 7950, Fate 4000): derived
 /// contributions must be present in optimize totals, and the achieved
@@ -68,33 +81,6 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
     let underived = optimize(&raw_resolved, &raw_keys, &goals, &raw_doc.innate_stats);
     let tm_underived = underived.gear_set.total(&Stat::TacticalMastery);
 
-    // Per-item derived TM contributions and raw tracked TM, keyed by display
-    // name (the name the optimizer reports for chosen items). Duplicate
-    // names in the fixture are identical owned copies; the insert asserts
-    // that so name-based matching stays exact.
-    let mut raw_tm_by_name: HashMap<String, i64> = HashMap::new();
-    let mut derived_tm_by_name: HashMap<String, i64> = HashMap::new();
-    for doc_item in &raw_doc.items {
-        let raw_tm = doc_item.item.stat(&Stat::TacticalMastery);
-        let derived = derivations
-            .derive_stats(LORE_MASTER, &doc_item.base_stats)
-            .expect("item derivation must succeed");
-        let derived_tm = derived.get(&Stat::TacticalMastery).copied().unwrap_or(0);
-        if let Some(previous) = raw_tm_by_name.insert(doc_item.item.name.clone(), raw_tm) {
-            assert_eq!(
-                previous, raw_tm,
-                "duplicate-named fixture item '{}' must be an identical copy",
-                doc_item.item.name
-            );
-        }
-        if let Some(previous) = derived_tm_by_name.insert(doc_item.item.name.clone(), derived_tm) {
-            assert_eq!(
-                previous, derived_tm,
-                "duplicate-named fixture item '{}' must be an identical copy",
-                doc_item.item.name
-            );
-        }
-    }
     let innate_derived = derivations
         .derive_stats(LORE_MASTER, &raw_doc.innate_base_stats)
         .expect("innate derivation must succeed");
@@ -112,6 +98,28 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
     derivations
         .derive_doc(LORE_MASTER, &mut derived_doc)
         .expect("derivation pre-pass must succeed");
+    assert_eq!(
+        derived_doc.items.len(),
+        raw_doc.items.len(),
+        "derivation must preserve item count"
+    );
+    let mut tm_by_signature: HashMap<String, i64> = HashMap::new();
+    for (raw_doc_item, derived_doc_item) in raw_doc.items.iter().zip(&derived_doc.items) {
+        let raw_tm = raw_doc_item.item.stat(&Stat::TacticalMastery);
+        let derived = derivations
+            .derive_stats(LORE_MASTER, &raw_doc_item.base_stats)
+            .expect("item derivation must succeed");
+        let derived_tm = derived.get(&Stat::TacticalMastery).copied().unwrap_or(0);
+        let contribution = raw_tm + derived_tm;
+        if let Some(previous) =
+            tm_by_signature.insert(item_signature(&derived_doc_item.item), contribution)
+        {
+            assert_eq!(
+                previous, contribution,
+                "exact duplicate fixture items must stay equivalent after derivation"
+            );
+        }
+    }
     let resolved: HashMap<String, lgo::gear::GearItem> = derived_doc
         .items
         .into_iter()
@@ -137,8 +145,10 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
             .items
             .values()
             .map(|item| {
-                raw_tm_by_name.get(&item.name).copied().unwrap_or(0)
-                    + derived_tm_by_name.get(&item.name).copied().unwrap_or(0)
+                tm_by_signature
+                    .get(&item_signature(item))
+                    .copied()
+                    .expect("chosen item must map back to a derived fixture entry")
             })
             .sum::<i64>();
     assert_eq!(

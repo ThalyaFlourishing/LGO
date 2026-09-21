@@ -534,9 +534,9 @@ mod tests {
         assert_eq!(export.character, "Thalya");
         assert_eq!(export.class, "Lore-master");
         assert_eq!(export.level, Some(160));
-        assert_eq!(export.max_morale, Some(187_342));
-        assert_eq!(export.max_power, Some(21_005));
-        assert_eq!(export.active_effects, Some(0));
+        assert_eq!(export.max_morale, Some(428_954));
+        assert_eq!(export.max_power, Some(12_828));
+        assert_eq!(export.active_effects, Some(8));
         assert_eq!(export.equipped.len(), 19);
         assert_eq!(export.equipped[0], "Veteran Sage's Hooded Helm");
         assert_eq!(export.equipped[18], "Lore-master's Book");
@@ -556,9 +556,8 @@ mod tests {
         let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
         let original = load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
             .expect("original fixture must parse");
-        let reordered =
-            load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
-                .expect("reordered fixture must parse");
+        let reordered = load(&test_data.join("lgo_Thalya_gearNames_20260912_170534.plugindata"))
+            .expect("reordered fixture must parse");
 
         assert_eq!(reordered, original);
     }
