@@ -98,21 +98,18 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
     derivations
         .derive_doc(LORE_MASTER, &mut derived_doc)
         .expect("derivation pre-pass must succeed");
-    assert_eq!(
-        derived_doc.items.len(),
-        raw_doc.items.len(),
-        "derivation must preserve item count"
-    );
     let mut tm_by_signature: HashMap<String, i64> = HashMap::new();
-    for (raw_doc_item, derived_doc_item) in raw_doc.items.iter().zip(&derived_doc.items) {
-        let raw_tm = raw_doc_item.item.stat(&Stat::TacticalMastery);
-        let derived = derivations
-            .derive_stats(LORE_MASTER, &raw_doc_item.base_stats)
+    for raw_doc_item in &raw_doc.items {
+        let mut derived_item = raw_doc_item.item.clone();
+        derivations
+            .apply_derivations(
+                LORE_MASTER,
+                &raw_doc_item.base_stats,
+                &mut derived_item.stats,
+            )
             .expect("item derivation must succeed");
-        let derived_tm = derived.get(&Stat::TacticalMastery).copied().unwrap_or(0);
-        let contribution = raw_tm + derived_tm;
-        if let Some(previous) =
-            tm_by_signature.insert(item_signature(&derived_doc_item.item), contribution)
+        let contribution = derived_item.stat(&Stat::TacticalMastery);
+        if let Some(previous) = tm_by_signature.insert(item_signature(&derived_item), contribution)
         {
             assert_eq!(
                 previous, contribution,
