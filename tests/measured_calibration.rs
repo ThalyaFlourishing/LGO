@@ -93,8 +93,9 @@ fn calibrated_innate_reproduces_the_measured_maxima() {
     let dir = make_test_dir("roundtrip");
     let path = write_doc(&dir, "lgo_Thalya_gearReady.toml", MEASURED_DOC);
 
-    let derivations = BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
-        .expect("synthetic derivations must parse");
+    let derivations =
+        BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+            .expect("synthetic derivations must parse");
     let mut doc = read_stats_file(&path).expect("fixture must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)
@@ -152,8 +153,9 @@ fn parsed_doc_with_unmatched_equipped_names_skips_calibration() {
     );
     let path = write_doc(&dir, "lgo_Thalya_gearReady.toml", &body);
 
-    let derivations = BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
-        .expect("synthetic derivations must parse");
+    let derivations =
+        BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+            .expect("synthetic derivations must parse");
     let mut doc = read_stats_file(&path).expect("fixture must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)
