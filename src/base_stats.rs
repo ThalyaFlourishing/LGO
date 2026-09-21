@@ -351,6 +351,36 @@ fn stat_key(stat: Stat) -> Option<&'static str> {
 mod tests {
     use super::*;
 
+    /// Minimal synthetic derivation table for the rounding/apply logic tests,
+    /// so they own their coefficients instead of depending on the committed
+    /// `data/base_stat_derivations.json`. Every expected class is present; only
+    /// Lore-master carries the coefficient rows these tests exercise.
+    const SYNTHETIC_DERIVATIONS: &str = r#"{
+        "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Lore-master": {
+            "Might": { "CriticalRating": 1.5, "Finesse": 1.5, "TacticalMastery": 2.0, "Parry": 1.0 },
+            "Agility": {},
+            "Vitality": {},
+            "Will": {},
+            "Fate": {}
+        },
+        "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} }
+    }"#;
+
+    fn synthetic_derivations() -> BaseStatDerivations {
+        BaseStatDerivations::from_json_str(SYNTHETIC_DERIVATIONS, Path::new("<synthetic>"))
+            .expect("synthetic derivations parse")
+    }
+
     #[test]
     fn default_derivations_include_plugin_class_spellings() {
         let derivations = BaseStatDerivations::load_default().expect("default derivations load");
@@ -393,7 +423,7 @@ mod tests {
     fn fractional_products_round_up_per_product() {
         // A Lore-master +9 Might item contributes ceil(9 × 1.5) = 14
         // Critical Rating (empirically confirmed in-game).
-        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let derivations = synthetic_derivations();
         let base: HashMap<Stat, i64> = [(Stat::Might, 9)].into_iter().collect();
         let derived = derivations
             .derive_stats("Lore-master", &base)
@@ -407,7 +437,7 @@ mod tests {
     #[test]
     fn exact_products_stay_exact() {
         // ceil() must not disturb integral products: 10 × 1.5 = 15 exactly.
-        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let derivations = synthetic_derivations();
         let base: HashMap<Stat, i64> = [(Stat::Might, 10)].into_iter().collect();
         let derived = derivations
             .derive_stats("Lore-master", &base)
@@ -419,7 +449,7 @@ mod tests {
     #[test]
     fn negative_values_follow_plain_ceil_semantics() {
         // Pinned: ceil(-9 × 1.5) = ceil(-13.5) = -13 (rounds toward zero).
-        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let derivations = synthetic_derivations();
         let base: HashMap<Stat, i64> = [(Stat::Might, -9)].into_iter().collect();
         let derived = derivations
             .derive_stats("Lore-master", &base)
@@ -477,7 +507,7 @@ mod tests {
 
     #[test]
     fn apply_derivations_adds_into_existing_tracked_map() {
-        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let derivations = synthetic_derivations();
         let base: HashMap<Stat, i64> = [(Stat::Might, 1000)].into_iter().collect();
         let mut tracked: HashMap<Stat, i64> = [(Stat::CriticalRating, 100), (Stat::Morale, 50)]
             .into_iter()
@@ -494,7 +524,7 @@ mod tests {
     fn empty_base_stats_never_require_a_class_entry() {
         // Documents with no Base stats must keep working even when the class
         // is unknown to the derivations table.
-        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let derivations = synthetic_derivations();
         let mut tracked: HashMap<Stat, i64> = [(Stat::Morale, 50)].into_iter().collect();
         derivations
             .apply_derivations("Unknown", &HashMap::new(), &mut tracked)

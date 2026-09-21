@@ -5,28 +5,28 @@ use lgo::stat::{BASE_STATS, TRACKED_STATS};
 use lgo::virtues::VIRTUE_FIELD_KEYS;
 use std::path::{Path, PathBuf};
 
+mod common;
+
 fn data_json_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("data/lgo_items.json")
 }
 
 fn setup() -> (String, Vec<ResolutionOutcome>) {
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
-    let input_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-    let src = std::fs::read_to_string(&input_path).expect("fixture must read");
+    let db = common::items_db();
+    let src = common::SYNTH_GEARSTATS;
 
     let base_stats: std::collections::HashMap<lgo::stat::Stat, i64> = [
-        (lgo::stat::Stat::Might, 5300),
-        (lgo::stat::Stat::Agility, 2650),
-        (lgo::stat::Stat::Vitality, 10200),
-        (lgo::stat::Stat::Will, 7950),
-        (lgo::stat::Stat::Fate, 4000),
+        (lgo::stat::Stat::Might, common::PLUGIN_MIGHT),
+        (lgo::stat::Stat::Agility, common::PLUGIN_AGILITY),
+        (lgo::stat::Stat::Vitality, common::PLUGIN_VITALITY),
+        (lgo::stat::Stat::Will, common::PLUGIN_WILL),
+        (lgo::stat::Stat::Fate, common::PLUGIN_FATE),
     ]
     .into_iter()
     .collect();
 
     lgo::slot_resolver::resolve_toml_str_with_metadata(
-        &src,
+        src,
         &db,
         Some("Thalya"),
         "Lore-master",
@@ -552,25 +552,25 @@ fn no_item_name_maps_to_multiple_slots_in_lgo_items_json() {
 #[test]
 fn bookmarklet_typo_slot_strings_are_canonicalized_when_name_is_known() {
     let (out, outcomes) = setup();
+    // The synthetic export carries "Test Earring" under the bookmarklet typo
+    // slot string "Ears (1)". Because the name is known to the items DB, the
+    // resolver must rewrite the slot to its canonical Ear form.
     let earring_was_resolved = outcomes.iter().any(|o| {
         matches!(
             o,
             ResolutionOutcome::Resolved { name, to_slot, .. }
-                if name == "Keen Pristine Madáshi Earring"
-                    && *to_slot == lgo::gear::Slot::Ear1
+                if name == "Test Earring"
+                    && matches!(*to_slot, lgo::gear::Slot::Ear1 | lgo::gear::Slot::Ear2)
         )
     });
-
-    if earring_was_resolved {
-        assert!(
-            !out.contains("Ears (1)"),
-            "typo slot string must be replaced with canonical form"
-        );
-    } else {
-        println!(
-            "Keen Pristine Madáshi Earring was unresolved in this data snapshot; skipping typo-canonicalization assertion."
-        );
-    }
+    assert!(
+        earring_was_resolved,
+        "known Ear item must resolve to a canonical Ear slot:\n{out}"
+    );
+    assert!(
+        !out.contains("Ears (1)"),
+        "typo slot string must be replaced with canonical form:\n{out}"
+    );
 }
 
 // =============================================================================
@@ -598,14 +598,10 @@ fn file_level_merge_first_run_creates_canonical_file() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
-        &bookmarklet,
-    )
-    .expect("copy fixture");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
     assert!(!canonical.exists());
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -651,9 +647,8 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-    std::fs::copy(&fixture, &bookmarklet).expect("copy fixture");
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -672,7 +667,7 @@ fn file_level_merge_preserves_hand_edits_on_re_export() {
 
     // Re-export (same fixture; "no actual changes from the new export
     // POV"). Default mode should preserve everything.
-    std::fs::copy(&fixture, &bookmarklet).expect("re-copy fixture");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -698,26 +693,22 @@ fn file_level_repeat_run_preserves_parseable_canonical_output() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
-        &bookmarklet,
-    )
-    .expect("copy fixture");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
 
     // Copy the latest plugindata fixture in under the test character's name so
     // the canonical output reflects exported metadata rather than zero-default
     // Base stats. Matching is case-insensitive on the character segment, but
     // the `lgo_TestChar_` prefix itself must be present.
-    std::fs::copy(
-        current_plugindata_fixture_path(),
+    std::fs::write(
         dir.join(format!(
             "lgo_{}_gearNames_20260820_000000.plugindata",
             character
         )),
+        common::plugindata_body(character),
     )
-    .expect("copy plugindata fixture");
+    .expect("write synthetic plugindata");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
 
     let first_report = lgo::slot_resolver::resolve_stats_file(
         &dir,
@@ -1037,7 +1028,7 @@ fn file_level_merge_no_new_export_leaves_canonical_untouched() {
     let canon_text = "# canonical placeholder\n[[item]]\nslot = \"Head\"\nname = \"X\"\n";
     std::fs::write(&canonical, canon_text).expect("write canonical");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1057,7 +1048,7 @@ fn file_level_merge_no_new_export_leaves_canonical_untouched() {
 #[test]
 fn file_level_merge_no_files_at_all_is_an_error() {
     let dir = make_temp_dir("nothing");
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let err = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1092,13 +1083,10 @@ fn resolve_stats_file_finds_lowercase_bookmarklet_for_mixed_case_query() {
 
     // Write the fixture as `lgo_thalya_gearStats.toml` (all lowercase).
     let bookmarklet_lowercase = dir.join("lgo_thalya_gearStats.toml");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
-        &bookmarklet_lowercase,
-    )
-    .expect("copy fixture");
+    std::fs::write(&bookmarklet_lowercase, common::SYNTH_GEARSTATS)
+        .expect("write synthetic gearStats");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1138,11 +1126,10 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
     let character = "Thalya";
 
     // Create the canonical file first using the normal mixed-case path.
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
 
-    std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for first run");
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1163,7 +1150,7 @@ fn resolve_stats_file_reuses_existing_canonical_case_insensitively_on_windows() 
     );
 
     // Second pass: re-run with a fresh bookmarklet copy.
-    std::fs::copy(&fixture, &bookmarklet).expect("copy fixture for second run");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
     let report = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1223,7 +1210,7 @@ fn file_level_merge_first_run_canonical_contains_metadata() {
     )
     .expect("write bookmarklet");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1258,7 +1245,7 @@ fn file_level_merge_repeat_merge_keeps_metadata() {
     let bm_content = make_bookmarklet_with_meta("MetaChar", "Guardian");
     std::fs::write(&bookmarklet, &bm_content).expect("write bookmarklet first run");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1304,7 +1291,7 @@ fn file_level_merge_hand_edited_canonical_retains_metadata_on_re_export() {
     let bm_content = make_bookmarklet_with_meta("MetaChar", "Minstrel");
     std::fs::write(&bookmarklet, &bm_content).expect("write bookmarklet first run");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1395,26 +1382,24 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-
     // Copy the plugindata fixture in under the test character's name so the
     // canonical output reflects the exported raw Base stats.
-    std::fs::copy(
-        current_plugindata_fixture_path(),
+    std::fs::write(
         dir.join(format!(
             "lgo_{}_gearNames_20260820_000000.plugindata",
             character
         )),
+        common::plugindata_body(character),
     )
-    .expect("copy plugindata fixture");
+    .expect("write synthetic plugindata");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
 
     let mut outputs: Vec<String> = Vec::new();
     for run in 1..=3 {
         // Re-copy the bookmarklet output each iteration: resolve_stats_file
         // consumes it, and each run must exercise a fresh export → merge.
-        std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+        std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
@@ -1520,21 +1505,19 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-
-    std::fs::copy(
-        current_plugindata_fixture_path(),
+    std::fs::write(
         dir.join(format!(
             "lgo_{}_gearNames_20260820_000000.plugindata",
             character
         )),
+        common::plugindata_body(character),
     )
-    .expect("copy plugindata fixture");
+    .expect("write synthetic plugindata");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
 
     for run in 1..=3 {
-        std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+        std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
@@ -1563,11 +1546,11 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
             out
         );
         for (key, expected) in [
-            ("Might", 5300),
-            ("Agility", 2650),
-            ("Vitality", 10200),
-            ("Will", 7950),
-            ("Fate", 4000),
+            ("Might", common::PLUGIN_MIGHT),
+            ("Agility", common::PLUGIN_AGILITY),
+            ("Vitality", common::PLUGIN_VITALITY),
+            ("Will", common::PLUGIN_WILL),
+            ("Fate", common::PLUGIN_FATE),
         ] {
             assert_eq!(
                 innate.get(key).and_then(|value| value.as_integer()),
@@ -1620,11 +1603,7 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
         character
     ));
 
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml"),
-        &bookmarklet,
-    )
-    .expect("copy gearStats fixture");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
     std::fs::write(
         &plugindata,
         format!(
@@ -1633,7 +1612,7 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
     )
     .expect("write zero-base plugindata fixture");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1703,21 +1682,19 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-
-    std::fs::copy(
-        current_plugindata_fixture_path(),
+    std::fs::write(
         dir.join(format!(
             "lgo_{}_gearNames_20260820_000000.plugindata",
             character
         )),
+        common::plugindata_body(character),
     )
-    .expect("copy plugindata fixture");
+    .expect("write synthetic plugindata");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
 
     for run in 1..=3 {
-        std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+        std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
 
         let _ = lgo::slot_resolver::resolve_stats_file(
             &dir,
@@ -1776,19 +1753,17 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
 
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData/lgo_Thalya_gearStats.toml");
-
-    std::fs::copy(
-        current_plugindata_fixture_path(),
+    std::fs::write(
         dir.join(format!(
             "lgo_{}_gearNames_20260820_000000.plugindata",
             character
         )),
+        common::plugindata_body(character),
     )
-    .expect("copy plugindata fixture");
-    std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+    .expect("write synthetic plugindata");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
 
-    let db = lgo::slot_resolver::ItemsDb::load_default().expect("load DB");
+    let db = common::items_db();
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
@@ -1806,7 +1781,7 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     assert_ne!(hand_edited, first, "hand-edit must apply");
     std::fs::write(&canonical, hand_edited).expect("write edited canonical");
 
-    std::fs::copy(&fixture, &bookmarklet).expect("copy gearStats fixture");
+    std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
     let _ = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
