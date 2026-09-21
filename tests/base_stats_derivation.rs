@@ -13,13 +13,24 @@ use lgo::gearstats::read_stats_file;
 use lgo::optimizer::optimize;
 use lgo::stat::{Stat, StatGoal};
 
+mod common;
+
 const THALYA_FIXTURE: &str = "TestData/lgo_Thalya_gearReady.toml";
 const LORE_MASTER: &str = "Lore-master";
 
+/// Real committed derivation table — used ONLY by the Category-3 ground-truth
+/// test that verifies computed results against the real Thalya fixture.
 fn load_derivations() -> BaseStatDerivations {
     // Integration tests run with CWD = crate root, matching the
     // working-directory convention `lgo optimize` uses at runtime.
     BaseStatDerivations::load_default().expect("data/base_stat_derivations.json must load")
+}
+
+/// Minimal synthetic derivation table the behaviour/logic tests own, so
+/// updating the real coefficients never breaks them.
+fn synthetic_derivations() -> BaseStatDerivations {
+    BaseStatDerivations::from_json_str(common::DERIVATIONS_JSON, Path::new("synthetic"))
+        .expect("synthetic derivations must parse")
 }
 
 fn tm_goal() -> Vec<StatGoal> {
@@ -184,7 +195,7 @@ name = "Statless Helm"
 "#;
     std::fs::write(&path, toml).expect("write toml");
 
-    let derivations = load_derivations();
+    let derivations = synthetic_derivations();
     let mut doc = read_stats_file(&path).expect("must parse");
     derivations
         .derive_doc(LORE_MASTER, &mut doc)
@@ -200,10 +211,15 @@ name = "Statless Helm"
     let keys: Vec<String> = resolved.keys().cloned().collect();
     let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
 
-    // Real Lore-master coefficients: Will → TacticalMastery 3.0, so
-    // ceil(7950 × 3.0) = 23850, integral and exact.
-    let expected: i64 = (7950f64 * 3.0).ceil() as i64;
-    assert_eq!(expected, 23850);
+    // The innate Will must derive a TacticalMastery contribution. Compute the
+    // expectation from the same synthetic table this test supplies.
+    let expected = synthetic_derivations()
+        .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Will, 7950)]))
+        .expect("synthetic derivation must succeed")
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .expect("Will must derive TacticalMastery in the synthetic table");
+    assert!(expected > 0, "innate Will must derive TacticalMastery");
     assert_eq!(result.gear_set.total(&Stat::TacticalMastery), expected);
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
@@ -244,7 +260,7 @@ Vitality = 100
     )
     .expect("write toml");
 
-    let derivations = load_derivations();
+    let derivations = synthetic_derivations();
     let mut doc_item = read_stats_file(&on_item).expect("must parse");
     let mut doc_essence = read_stats_file(&in_essence).expect("must parse");
     derivations
@@ -254,8 +270,16 @@ Vitality = 100
         .derive_doc(LORE_MASTER, &mut doc_essence)
         .expect("derive essence variant");
 
-    // Lore-master Vitality → Morale 4.5: ceil(100 × 4.5) = 450 either way.
-    assert_eq!(doc_item.items[0].item.stat(&Stat::Morale), 450);
+    // Vitality derives a Morale contribution in the synthetic table; the exact
+    // value is derived from that table rather than a real fixture coefficient.
+    let expected_morale = synthetic_derivations()
+        .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Vitality, 100)]))
+        .expect("synthetic derivation must succeed")
+        .get(&Stat::Morale)
+        .copied()
+        .expect("Vitality must derive Morale in the synthetic table");
+    assert!(expected_morale > 0, "Vitality must derive Morale");
+    assert_eq!(doc_item.items[0].item.stat(&Stat::Morale), expected_morale);
     assert_eq!(
         doc_item.items[0].item.stats, doc_essence.items[0].item.stats,
         "essence base values must derive identically to item base values"
@@ -265,12 +289,53 @@ Vitality = 100
 }
 
 /// The `base-stats` verb: raw innate Base stats plus the derived tracked
-/// contributions, clearly labeled, without running an optimization.
+/// contributions, clearly labeled, without running an optimization. Uses a
+/// synthetic gear doc and synthetic derivation table (via `LGO_HOME`), and
+/// asserts shape/relational properties rather than real-fixture numbers.
 #[test]
 fn base_stats_verb_prints_raw_and_derived_sections() {
+    let dir = make_test_dir();
+    common::write_derivations(&dir.join("data"));
+
+    // Synthetic innate base stats this test owns.
+    let innate = [
+        (Stat::Might, common::PLUGIN_MIGHT),
+        (Stat::Agility, common::PLUGIN_AGILITY),
+        (Stat::Vitality, common::PLUGIN_VITALITY),
+        (Stat::Will, common::PLUGIN_WILL),
+        (Stat::Fate, common::PLUGIN_FATE),
+    ];
+    let gear = dir.join("lgo_Tester_gearReady.toml");
+    std::fs::write(
+        &gear,
+        format!(
+            r#"character = "Tester"
+class = "Lore-master"
+
+[InnateStats]
+Might              = {might}
+Agility            = {agility}
+Vitality           = {vitality}
+Will               = {will}
+Fate               = {fate}
+
+[[item]]
+slot = "Head"
+name = "Statless Helm"
+"#,
+            might = common::PLUGIN_MIGHT,
+            agility = common::PLUGIN_AGILITY,
+            vitality = common::PLUGIN_VITALITY,
+            will = common::PLUGIN_WILL,
+            fate = common::PLUGIN_FATE,
+        ),
+    )
+    .expect("write gear toml");
+
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
-        .args(["base-stats", "--file", THALYA_FIXTURE])
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .args(["base-stats", "--file", &gear.display().to_string()])
+        .current_dir(&dir)
+        .env("LGO_HOME", &dir)
         .output()
         .expect("lgo base-stats must run");
     assert!(
@@ -280,54 +345,53 @@ fn base_stats_verb_prints_raw_and_derived_sections() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    assert!(stdout.contains("Character : Thalya (Lore-master)"));
-    // Raw section: the five Base stats with the fixture's innate values.
-    assert!(stdout.contains("derivation inputs only"));
-    for (name, value) in [
-        ("Might", "5,300"),
-        ("Agility", "2,650"),
-        ("Vitality", "10,200"),
-        ("Will", "7,950"),
-        ("Fate", "4,000"),
-    ] {
-        assert!(
-            stdout.contains(name) && stdout.contains(value),
-            "raw section must list {} = {}; got:\n{}",
-            name,
-            value,
-            stdout
-        );
-    }
-    // Derived section: labeled as already included in optimize totals, with
-    // values matching an independent derivation of the fixture's innate
-    // base stats (all products integral for these inputs).
-    assert!(stdout.contains("already included in optimize totals"));
-    let derivations = load_derivations();
-    let doc = read_stats_file(Path::new(THALYA_FIXTURE)).expect("fixture must parse");
-    let derived = derivations
-        .derive_stats(LORE_MASTER, &doc.innate_base_stats)
-        .expect("innate derivation must succeed");
-    for (stat, expected) in [
-        (Stat::Morale, 45_900),
-        (Stat::TacticalMastery, 39_750),
-        (Stat::CriticalRating, 21_200),
-    ] {
-        assert_eq!(derived.get(&stat), Some(&expected));
-        let formatted = format!("{}", expected)
+    let with_commas = |value: i64| -> String {
+        format!("{}", value)
             .as_bytes()
             .rchunks(3)
             .rev()
             .map(|chunk| String::from_utf8_lossy(chunk).to_string())
             .collect::<Vec<_>>()
-            .join(",");
+            .join(",")
+    };
+
+    assert!(stdout.contains("Character : Tester (Lore-master)"));
+    // Raw section: the five Base stats with this test's own innate values.
+    assert!(stdout.contains("derivation inputs only"));
+    for (stat, value) in innate {
         assert!(
-            stdout.contains(&formatted),
+            stdout.contains(&stat.to_string()) && stdout.contains(&with_commas(value)),
+            "raw section must list {} = {}; got:\n{}",
+            stat,
+            with_commas(value),
+            stdout
+        );
+    }
+
+    // Derived section: labeled as already included in optimize totals, with
+    // values matching an independent derivation of this test's innate base
+    // stats through the same synthetic table.
+    assert!(stdout.contains("already included in optimize totals"));
+    let derivations = synthetic_derivations();
+    let innate_base: HashMap<Stat, i64> = innate.into_iter().collect();
+    let derived = derivations
+        .derive_stats(LORE_MASTER, &innate_base)
+        .expect("innate derivation must succeed");
+    assert!(
+        !derived.is_empty(),
+        "synthetic table must derive some tracked stats from the innate base stats"
+    );
+    for (stat, value) in &derived {
+        assert!(
+            stdout.contains(&with_commas(*value)),
             "derived section must list {} = {}; got:\n{}",
             stat,
-            formatted,
+            with_commas(*value),
             stdout
         );
     }
     // No optimization output.
     assert!(!stdout.contains("Recommended Item"));
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
