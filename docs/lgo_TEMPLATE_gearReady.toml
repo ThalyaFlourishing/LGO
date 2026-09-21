@@ -44,6 +44,11 @@ Virtue3            = ""
 Virtue4            = ""
 Virtue5            = ""
 
+[VirtueInnateStats]
+# Virtue-passive mitigations. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
+PhysicalMitigation = 9275
+TacticalMitigation = 9275
+
 # --- Head ---
 
 [[item]]

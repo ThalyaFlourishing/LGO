@@ -92,6 +92,29 @@ directly to the fixed baseline totals, and any raw Base stats they contain are
 merged into the same Base-stat pool as `[InnateStats]` before class derivation.
 Virtues are not optimizer goals, and the final report format is unchanged.
 
+## VirtueInnateStats
+
+`gearReady.toml` carries a top-level `[VirtueInnateStats]` block immediately
+after `[Virtues]` and before the first `[[item]]`:
+
+```toml
+[VirtueInnateStats]
+# Virtue-passive mitigations. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
+PhysicalMitigation = 9275
+TacticalMitigation = 9275
+```
+
+- Holds exactly two tracked stats, in canonical `TRACKED_STATS` order:
+  `PhysicalMitigation` then `TacticalMitigation`. Any other key is a hard error.
+- These represent virtue-passive mitigations the Turbine API cannot expose;
+  they are **not derived and not calculated**. Both default to `9275`.
+- Like `[Virtues]`, the block is **user-maintained / preserved**: once present,
+  existing values survive every `resolve-slots` re-run verbatim. Only missing
+  fields are added (seeded to `9275`) and alignment is normalized.
+- At optimize time the two values fold **directly** into the fixed tracked-stat
+  baseline, exactly like a Virtue's tracked stats — added directly, with no
+  Base-stat derivation. An absent block contributes nothing.
+
 ## Innate Morale and Power baseline
 
 ```

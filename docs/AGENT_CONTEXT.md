@@ -133,12 +133,14 @@ The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of tr
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
 
 The file begins with a top header containing `character`, `class`, `level`,
-`[InnateStats]`, `[MeasuredStats]`, and `[Virtues]` as the last pre-items blocks.
+`[InnateStats]`, `[MeasuredStats]`, `[Virtues]`, and `[VirtueInnateStats]` as the
+last pre-items blocks.
 
 - `level` is an integer, taken from the plugindata and regenerated on every `resolve-slots`.
 - `[InnateStats]` holds only the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`.
 - `[MeasuredStats]` is **generated, regenerated wholesale on every `resolve-slots`, never hand-edited**: `MaxMorale` (integer), `MaxPower` (integer), `ActiveEffects` (integer), `Equipped` (array of strings, equipped item names in slot order, duplicates preserved).
 - `[Virtues]` holds five user-maintained string slots (`Virtue1` … `Virtue5`) whose non-empty values are matched case-insensitively against the top-level keys in `data/lgo_virtues.json`.
+- `[VirtueInnateStats]` holds two user-maintained tracked-stat values (`PhysicalMitigation`, `TacticalMitigation`, in that canonical order), representing virtue-passive mitigations the API cannot expose. Both default to `9275`; the block is preserved like `[Virtues]` (missing fields seeded, existing values kept verbatim) and folds directly into the fixed tracked baseline at optimize time with no Base-stat derivation.
 
 Top-level structure:
 
@@ -169,6 +171,11 @@ Virtue2            = ""
 Virtue3            = ""
 Virtue4            = ""
 Virtue5            = ""
+
+[VirtueInnateStats]
+# Virtue-passive mitigations. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
+PhysicalMitigation = 9275
+TacticalMitigation = 9275
 ```
 
 After that, the format per item is:
@@ -206,7 +213,9 @@ tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
 `docs/lgo_reference_stats.md`). Selected Virtues behave like additional fixed
 stat sources before that derivation step: tracked Virtue stats add directly to
 the fixed tracked baseline, while Virtue Base stats join the `[InnateStats]`
-Base-stat pool first and are then derived normally.
+Base-stat pool first and are then derived normally. The two
+`[VirtueInnateStats]` values (`PhysicalMitigation`, `TacticalMitigation`) fold
+into the same fixed tracked baseline directly, with no Base-stat derivation.
 
 ### Multi-value stat entries
 
@@ -346,7 +355,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **`info.__implementation` is engine-private userdata:** no enumerable metatable methods, no addressable fields. Don't try to use it.
 - **`showSaveFilePicker()` requires a *fresh* user activation.** The bookmarklet's original click is consumed by the multi-second wiki fetch loop, so the Save TOML... button is necessary — calling the picker after `await` boundaries throws `SecurityError`. The Blob/`<a download>` fallback path has the same activation requirement. Verified empirically; don't try to "auto-save" without a button.
 - When the agent finds itself unsure what was previously decided, **ask the user** rather than reconstructing from inference. Reconstruction from inference is what produced the speculative "Cloakroom of Dol Amroth" episode in earlier sessions; the user's tolerance for it is low and rightly so.
-- **`toml_edit` serializes top-level tables by internal `position` index, not map insertion order.** `doc.remove(key)` + `doc.insert(key, ...)` does NOT move a table in the rendered output. To relocate a table you must call `set_position()` on it *and* renumber its sibling tables consistently (see `reorder_resolved_header_before_items` in `src/slot_resolver.rs`, and Bug 10 in `docs/BUG_HISTORY.md`). Note `push_group` renumbers every `[[item]]` table to `0..n` — any header table must be positioned relative to that. Root-level *values* (`character`, `class`, `level`) are unaffected; they always render before all tables. The generated header tables are pinned to fixed positions: `[InnateStats]` 0, `[MeasuredStats]` 1, `[Virtues]` 2, `[[item]]` tables from 3.
+- **`toml_edit` serializes top-level tables by internal `position` index, not map insertion order.** `doc.remove(key)` + `doc.insert(key, ...)` does NOT move a table in the rendered output. To relocate a table you must call `set_position()` on it *and* renumber its sibling tables consistently (see `reorder_resolved_header_before_items` in `src/slot_resolver.rs`, and Bug 10 in `docs/BUG_HISTORY.md`). Note `push_group` renumbers every `[[item]]` table to `0..n` — any header table must be positioned relative to that. Root-level *values* (`character`, `class`, `level`) are unaffected; they always render before all tables. The generated header tables are pinned to fixed positions: `[InnateStats]` 0, `[MeasuredStats]` 1, `[Virtues]` 2, `[VirtueInnateStats]` 3, `[[item]]` tables from 4.
 - **`gearReady.toml` is both output and next-run input.** Any layout/decor bug in the merge path compounds across runs (each run's output seeds the next run's parse positions), producing drift that convincingly masquerades as a race condition or nondeterminism. It never is — re-running from an identical file snapshot reproduces byte-identically. Diagnose by diffing consecutive outputs, and guard with bit-identical idempotency tests (modulo the `# gearReady.toml updated:` timestamp line).
 - **The Copilot coding agent cannot push to an existing PR's branch from a new task.** A new task always branches from `main` — a prompt instruction to "work on branch X" will be garbled into a fresh branch off `main`, silently producing code against the wrong base (this burned a full agent run as PR #54). To amend an existing agent PR, comment on that PR mentioning `@copilot` instead of starting a new task.
 - **CI now runs these gates automatically. A green check is expected and a red X on your own PR means to fix it.

@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 
 use crate::gear::{parse_slot_display, GearItem};
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
-use crate::virtues::{SelectedVirtues, VIRTUE_FIELD_KEYS, VIRTUE_TABLE_KEY};
+use crate::virtues::{
+    SelectedVirtues, VIRTUE_FIELD_KEYS, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY,
+    VIRTUE_TABLE_KEY,
+};
 
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 /// Top-level table holding the generated, never-hand-edited measurements the
@@ -213,7 +216,20 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             .ok_or_else(|| format!("`{}` must be a TOML table", VIRTUE_TABLE_KEY))?;
         validate_virtue_keys(virtues_table)?;
     }
-    let innate_stats = HashMap::new();
+    let mut innate_stats = HashMap::new();
+    if let Some(virtue_innate) = doc.get(VIRTUE_INNATE_TABLE_KEY) {
+        let virtue_innate_table = virtue_innate
+            .as_table()
+            .ok_or_else(|| format!("`{}` must be a TOML table", VIRTUE_INNATE_TABLE_KEY))?;
+        validate_virtue_innate_keys(virtue_innate_table)?;
+        // Virtue-passive mitigations fold into the fixed tracked baseline
+        // exactly like a Virtue's tracked stats — added directly, no Base-stat
+        // derivation. Integer-only, like `[InnateStats]`.
+        for (stat, value) in read_virtue_innate_stats(virtue_innate_table)? {
+            *innate_stats.entry(stat).or_insert(0) += value;
+        }
+        innate_stats.retain(|_, value| *value != 0);
+    }
     let innate_base_stats = read_innate_stats(&doc, BASE_STATS)?;
     let selected_virtues = read_selected_virtues(&doc)?;
     let level = read_level(&doc)?;
@@ -492,6 +508,30 @@ fn validate_virtue_keys(table: &toml::value::Table) -> Result<(), String> {
         return Err(format!("Unknown key `{}` in `{}`.", key, VIRTUE_TABLE_KEY));
     }
     Ok(())
+}
+
+fn validate_virtue_innate_keys(table: &toml::value::Table) -> Result<(), String> {
+    for key in table.keys() {
+        if VIRTUE_INNATE_FIELDS
+            .iter()
+            .any(|(_, field_key)| *field_key == key.as_str())
+        {
+            continue;
+        }
+        return Err(format!(
+            "Unknown key `{}` in `{}`.",
+            key, VIRTUE_INNATE_TABLE_KEY
+        ));
+    }
+    Ok(())
+}
+
+/// Read the two `[VirtueInnateStats]` values into a tracked-stat map. The block
+/// is user-maintained but integer-only, like `[InnateStats]`: arrays (or any
+/// other non-integer value) are hard errors rather than multi-value entries.
+fn read_virtue_innate_stats(table: &toml::value::Table) -> Result<HashMap<Stat, i64>, String> {
+    let label = format!("`{}`", VIRTUE_INNATE_TABLE_KEY);
+    read_stats_map(table, &VIRTUE_INNATE_FIELDS, &label, false)
 }
 
 fn read_selected_virtues(doc: &toml::Value) -> Result<SelectedVirtues, String> {
@@ -1131,6 +1171,71 @@ name = "Test Helm"
         let err = read_stats_file(&path).expect_err("non-string Virtue value must fail");
         assert!(err.contains("Virtues.Virtue1"));
         assert!(err.contains("string"));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_folds_virtue_innate_stats_into_innate_stats() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[VirtueInnateStats]
+PhysicalMitigation = 9275
+TacticalMitigation = 5000
+
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+
+        let doc = read_stats_file(&path).expect("must return Ok");
+        assert_eq!(doc.innate_stats.get(&Stat::PhysicalMitigation), Some(&9275));
+        assert_eq!(doc.innate_stats.get(&Stat::TacticalMitigation), Some(&5000));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_errors_on_unknown_virtue_innate_key() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[VirtueInnateStats]
+PhysicalMitigation = 9275
+Might = 100
+
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+
+        let err = read_stats_file(&path).expect_err("unknown VirtueInnateStats key must fail");
+        assert!(err.contains("Might"), "error must name the key: {err}");
+        assert!(
+            err.contains("VirtueInnateStats"),
+            "error must name the block: {err}"
+        );
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn read_stats_file_absent_virtue_innate_block_contributes_nothing() {
+        let dir = make_test_dir();
+        let path = dir.join("test.toml");
+        let toml = r#"
+[[item]]
+slot = "Head"
+name = "Test Helm"
+"#;
+        std::fs::write(&path, toml).expect("write toml");
+
+        let doc = read_stats_file(&path).expect("must return Ok");
+        assert!(!doc.innate_stats.contains_key(&Stat::PhysicalMitigation));
+        assert!(!doc.innate_stats.contains_key(&Stat::TacticalMitigation));
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
