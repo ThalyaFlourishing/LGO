@@ -14,10 +14,10 @@ pub const VIRTUE_FIELD_KEYS: [&str; 5] = ["Virtue1", "Virtue2", "Virtue3", "Virt
 
 pub const VIRTUE_INNATE_TABLE_KEY: &str = "VirtueInnateStats";
 /// (Stat, TOML key) pairs, in the fixed emit order for the block
-/// (canonical TRACKED_STATS order: PhysicalMitigation before TacticalMitigation).
+/// (canonical TRACKED_STATS order: PhysicalMastery before TacticalMastery).
 pub const VIRTUE_INNATE_FIELDS: [(Stat, &str); 2] = [
-    (Stat::PhysicalMitigation, "PhysicalMitigation"),
-    (Stat::TacticalMitigation, "TacticalMitigation"),
+    (Stat::PhysicalMastery, "PhysicalMastery"),
+    (Stat::TacticalMastery, "TacticalMastery"),
 ];
 pub const VIRTUE_INNATE_DEFAULT: i64 = 9275;
 

@@ -1181,8 +1181,8 @@ name = "Test Helm"
         let path = dir.join("test.toml");
         let toml = r#"
 [VirtueInnateStats]
-PhysicalMitigation = 9275
-TacticalMitigation = 5000
+PhysicalMastery    = 9275
+TacticalMastery    = 5000
 
 [[item]]
 slot = "Head"
@@ -1191,8 +1191,8 @@ name = "Test Helm"
         std::fs::write(&path, toml).expect("write toml");
 
         let doc = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(doc.innate_stats.get(&Stat::PhysicalMitigation), Some(&9275));
-        assert_eq!(doc.innate_stats.get(&Stat::TacticalMitigation), Some(&5000));
+        assert_eq!(doc.innate_stats.get(&Stat::PhysicalMastery), Some(&9275));
+        assert_eq!(doc.innate_stats.get(&Stat::TacticalMastery), Some(&5000));
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
@@ -1203,7 +1203,7 @@ name = "Test Helm"
         let path = dir.join("test.toml");
         let toml = r#"
 [VirtueInnateStats]
-PhysicalMitigation = 9275
+PhysicalMastery    = 9275
 Might = 100
 
 [[item]]
@@ -1234,8 +1234,8 @@ name = "Test Helm"
         std::fs::write(&path, toml).expect("write toml");
 
         let doc = read_stats_file(&path).expect("must return Ok");
-        assert!(!doc.innate_stats.contains_key(&Stat::PhysicalMitigation));
-        assert!(!doc.innate_stats.contains_key(&Stat::TacticalMitigation));
+        assert!(!doc.innate_stats.contains_key(&Stat::PhysicalMastery));
+        assert!(!doc.innate_stats.contains_key(&Stat::TacticalMastery));
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
