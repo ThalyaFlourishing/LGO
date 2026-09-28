@@ -221,6 +221,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     file use the same existing `<stat:min>` parser as the CLI: full names and
     two-letter abbreviations are both accepted.
 
+
+./lgo optimize --build MaxBurn -f "Thalya_Gear/lgo_Thalya_gearReady - Red.toml" --to-file
+
+
 3.5 scrap-gear
   lgo scrap-gear
     Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
