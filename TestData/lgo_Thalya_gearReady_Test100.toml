@@ -30,9 +30,9 @@ Virtue4            = ""
 Virtue5            = ""
 
 [VirtueInnateStats]
-# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
-PhysicalMitigation = 7953
-TacticalMitigation = 7953
+# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
+PhysicalMastery    = 7953
+TacticalMastery    = 7953
 
 # --- Head ---
 

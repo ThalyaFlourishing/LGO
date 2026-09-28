@@ -140,7 +140,7 @@ last pre-items blocks.
 - `[InnateStats]` holds only the five raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`.
 - `[MeasuredStats]` is **generated, regenerated wholesale on every `resolve-slots`, never hand-edited**: `MaxMorale` (integer), `MaxPower` (integer), `ActiveEffects` (integer), `Equipped` (array of strings, equipped item names in slot order, duplicates preserved).
 - `[Virtues]` holds five user-maintained string slots (`Virtue1` … `Virtue5`) whose non-empty values are matched case-insensitively against the top-level keys in `data/lgo_virtues.json`.
-- `[VirtueInnateStats]` holds two user-maintained tracked-stat values (`PhysicalMitigation`, `TacticalMitigation`, in that canonical order), representing virtue-passive mitigations the API cannot expose. Both default to `9275`; the block is preserved like `[Virtues]` (missing fields seeded, existing values kept verbatim) and folds directly into the fixed tracked baseline at optimize time with no Base-stat derivation.
+- `[VirtueInnateStats]` holds two user-maintained tracked-stat values (`PhysicalMastery`, `TacticalMastery`, in that canonical order), representing virtue-passive masteries the API cannot expose. Both default to `9275`; the block is preserved like `[Virtues]` (missing fields seeded, existing values kept verbatim) and folds directly into the fixed tracked baseline at optimize time with no Base-stat derivation.
 
 Top-level structure:
 
@@ -173,9 +173,9 @@ Virtue4            = ""
 Virtue5            = ""
 
 [VirtueInnateStats]
-# Virtue-passive mitigations. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
-PhysicalMitigation = 9275
-TacticalMitigation = 9275
+# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
+PhysicalMastery    = 9275
+TacticalMastery    = 9275
 ```
 
 After that, the format per item is:
@@ -214,7 +214,7 @@ tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
 stat sources before that derivation step: tracked Virtue stats add directly to
 the fixed tracked baseline, while Virtue Base stats join the `[InnateStats]`
 Base-stat pool first and are then derived normally. The two
-`[VirtueInnateStats]` values (`PhysicalMitigation`, `TacticalMitigation`) fold
+`[VirtueInnateStats]` values (`PhysicalMastery`, `TacticalMastery`) fold
 into the same fixed tracked baseline directly, with no Base-stat derivation.
 
 ### Multi-value stat entries

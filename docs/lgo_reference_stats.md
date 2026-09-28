@@ -99,14 +99,14 @@ after `[Virtues]` and before the first `[[item]]`:
 
 ```toml
 [VirtueInnateStats]
-# Virtue-passive mitigations. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
-PhysicalMitigation = 9275
-TacticalMitigation = 9275
+# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
+PhysicalMastery    = 9275
+TacticalMastery    = 9275
 ```
 
 - Holds exactly two tracked stats, in canonical `TRACKED_STATS` order:
-  `PhysicalMitigation` then `TacticalMitigation`. Any other key is a hard error.
-- These represent virtue-passive mitigations the Turbine API cannot expose;
+  `PhysicalMastery` then `TacticalMastery`. Any other key is a hard error.
+- These represent virtue-passive masteries the Turbine API cannot expose;
   they are **not derived and not calculated**. Both default to `9275`.
 - Like `[Virtues]`, the block is **user-maintained / preserved**: once present,
   existing values survive every `resolve-slots` re-run verbatim. Only missing
