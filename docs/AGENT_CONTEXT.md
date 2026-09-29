@@ -366,7 +366,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **After any edit to `bookmarklet/lgo_bookmarklet.html`, the user must reload the harness page and re-drag the link to the bookmarks bar.** The bookmarks-bar copy is a snapshot of the generated URL; editing the file does nothing to already-installed bookmarks. When debugging "my edit had no effect," check this first.
 - **Cloudflare challenges on lotro-wiki.com can return HTTP 200 with an HTML interstitial body, not a 403.** `resp.ok` checks do NOT detect them; only attempting `resp.json()` does. This produced the "first run speeds through and everything is a fetch-error" symptom (Bug 10). The bookmarklet's warm-up probe therefore verifies the body parses as JSON (`j && j.query`), not just the status code.
 - **`Actor:GetBaseMaxMorale()` returns the *current* max morale on this client, not an innate baseline.** It includes gear, buffs, and virtues. Do not use it. The innate Morale/Power baseline is **measured, not modelled**: measured Max (from the export) minus known equipped-gear stats, slotted-Virtue stats, and derived Base-stat contributions, but only when every exported equipped name still matches a current `[[item]]` block. If the equipped list is stale, `[MeasuredStats]` is ignored for calibration instead of inflating the baseline. Do not reintroduce a formula for it. Implemented in `src/measured.rs::calibrate_innate`; see Bug 14.
-- **Virtue *passives* (all earned virtues, slotted or not) add Morale / PhysMit / TacMit and are not exposed by the Turbine API.** They are not modelled; they remain part of the measured innate baseline along with racials and stat tomes.
+- **Virtue *passives* (all earned virtues, slotted or not) add Morale / Physical Mastery / Tactical Mastery and are not exposed by the Turbine API.** They are not modelled; they remain part of the measured innate baseline along with racials and stat tomes.
 - **CalcStat was research input only; LGO does not implement or import it.** Its `ClassBaseMorale(L)` is class-independent (every `<CLASS>CDBASEMORALE` row points at the same `@ClassBaseMorale`), and `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported `[InnateStats]` Vitality exactly. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
 - **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.
 
@@ -385,7 +385,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- **Extend measured calibration to Physical/Tactical Mitigation.** Virtue passives also add PhysMit/TacMit (see §7), so the same residual method applies. The plugin would need to export the panel's mitigation values; `measured.rs::CALIBRATED_STATS` is the single place to widen.
+- **Extend measured calibration to Physical/Tactical Mastery.** Virtue passives also add mastery (see §7), so the same residual method applies. The plugin would need to export the panel's mastery values; `measured.rs::CALIBRATED_STATS` is the single place to widen.
 - Improve text input and output.
 
 ---
