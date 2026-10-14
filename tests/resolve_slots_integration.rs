@@ -2376,6 +2376,134 @@ CriticalRating = 200
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Migration: a previous `gearReady.toml` written in the OLD layout — where
+/// `Armour` was a tracked stat sitting between `Power` and `CriticalRating` —
+/// must merge into the NEW canonical layout (Armour as the last Base line,
+/// after `Fate`) with its hand-entered values preserved, and be idempotent on
+/// every subsequent run. Covers both the item base block and its
+/// `[item.EssenceTotals]` block.
+#[test]
+fn file_level_old_position_armour_migrates_to_base_layout_and_is_idempotent() {
+    let dir = make_temp_dir("armour_migration");
+    let character = "TestChar";
+    let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
+    let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
+
+    let db = lgo::slot_resolver::ItemsDb::from_json_str(
+        r#"{
+            "Test Helm": {
+                "name": "Test Helm",
+                "slot": "Head",
+                "stats": {}
+            }
+        }"#,
+        Path::new("<test-fixture>"),
+    )
+    .expect("synthetic DB must parse");
+
+    let export = "\
+[[item]]
+slot = \"Unknown\"
+name = \"Test Helm\"
+CriticalRating = 200
+";
+    std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+    let _ = lgo::slot_resolver::resolve_stats_file(
+        &dir,
+        Some(&dir),
+        character,
+        &db,
+        lgo::slot_resolver::ForceMode::NoForce,
+    )
+    .expect("first resolve must succeed");
+
+    // Rewrite the canonical into the OLD layout: drop the new-position Armour
+    // lines (both sit at `Fate\nArmour = 0`) and reinsert Armour between Power
+    // and CriticalRating, with distinct hand-entered values for the item base
+    // block (5555) and the essence block (100).
+    let first = std::fs::read_to_string(&canonical).expect("read canonical");
+    let old_layout = first
+        .replace("Fate               = 0\nArmour             = 0\n", "Fate               = 0\n")
+        .replacen(
+            "Power              = 0\nCriticalRating     = 200",
+            "Power              = 0\nArmour             = 5555\nCriticalRating     = 200",
+            1,
+        )
+        .replacen(
+            "Power              = 0\nCriticalRating     = 0",
+            "Power              = 0\nArmour             = 100\nCriticalRating     = 0",
+            1,
+        );
+    assert!(
+        old_layout.contains("Power              = 0\nArmour             = 5555\nCriticalRating     = 200"),
+        "test setup: item Armour must be placed in the OLD tracked position:\n{old_layout}"
+    );
+    assert!(
+        !old_layout.contains("Fate               = 0\nArmour"),
+        "test setup: no Armour may remain in the new position:\n{old_layout}"
+    );
+    std::fs::write(&canonical, &old_layout).expect("write old-layout canonical");
+
+    let mut previous = String::new();
+    for run in 2..=3 {
+        std::fs::write(&bookmarklet, export).expect("write bookmarklet export");
+        let _ = lgo::slot_resolver::resolve_stats_file(
+            &dir,
+            Some(&dir),
+            character,
+            &db,
+            lgo::slot_resolver::ForceMode::NoForce,
+        )
+        .unwrap_or_else(|e| panic!("run {} must succeed: {}", run, e));
+
+        let out = std::fs::read_to_string(&canonical).expect("read canonical");
+
+        // Values preserved and read back through the parser.
+        with_item_table_named(&out, "Test Helm", |table| {
+            assert_eq!(
+                table.get("Armour").and_then(|value| value.as_integer()),
+                Some(5555),
+                "run {run}: migrated item Armour value must survive:\n{out}"
+            );
+            let essence = table
+                .get("EssenceTotals")
+                .and_then(|value| value.as_table())
+                .expect("EssenceTotals table");
+            assert_eq!(
+                essence.get("Armour").and_then(|value| value.as_integer()),
+                Some(100),
+                "run {run}: migrated essence Armour value must survive:\n{out}"
+            );
+        });
+
+        // Position migrated: Armour now follows Fate (new Base layout) and no
+        // longer sits in the old tracked slot after Power.
+        assert!(
+            out.contains("Fate               = 0\nArmour             = 5555"),
+            "run {run}: item Armour must migrate to the Base position after Fate:\n{out}"
+        );
+        assert!(
+            out.contains("Fate               = 0\nArmour             = 100"),
+            "run {run}: essence Armour must migrate to the Base position after Fate:\n{out}"
+        );
+        assert!(
+            !out.contains("Armour             = 5555\nCriticalRating"),
+            "run {run}: Armour must not remain in the old tracked position:\n{out}"
+        );
+
+        if run > 2 {
+            assert_eq!(
+                strip_generated_timestamp_line(&previous),
+                strip_generated_timestamp_line(&out),
+                "run {run}: output must be idempotent modulo timestamp"
+            );
+        }
+        previous = out;
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Smoke test: the shipped template must always parse through the optimize
 /// path's reader (it documents the array syntax users are told to use).
 #[test]
