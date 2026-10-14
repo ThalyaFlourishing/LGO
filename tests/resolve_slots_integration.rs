@@ -1970,8 +1970,8 @@ Armour = 40
     let first = std::fs::read_to_string(&canonical).expect("read canonical");
     let comment = "# TODO: re-check after next essence swap";
     let edited = first.replacen(
-        "Fate               = 0\n\n# --- Main-hand ---",
-        &format!("Fate               = 77\n{comment}\n\n# --- Main-hand ---"),
+        "Armour             = 0\n\n# --- Main-hand ---",
+        &format!("Armour             = 77\n{comment}\n\n# --- Main-hand ---"),
         1,
     );
     assert_ne!(edited, first, "hand-edit must apply");
@@ -2019,7 +2019,7 @@ Armour = 40
             out
         );
         assert!(
-            out.contains(&format!("Fate               = 77\n{comment}")),
+            out.contains(&format!("Armour             = 77\n{comment}")),
             "run {}: comment must stay attached below the helm's essence block:\n{}",
             run,
             out

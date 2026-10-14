@@ -439,7 +439,7 @@ mod tests {
                 slot: Slot::Head,
                 two_handed: false,
                 either_hand: false,
-                stats: [(Stat::Morale, 250), (Stat::Armor, 300)]
+                stats: [(Stat::Morale, 250), (Stat::CriticalRating, 300)]
                     .into_iter()
                     .collect(),
             },

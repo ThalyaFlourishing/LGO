@@ -36,7 +36,6 @@ slot = "Head"
 name               = "Veteran Sage's Hooded Helm"
 Morale             = 0
 Power              = 0
-Armour             = 6181
 CriticalRating     = 26090
 Finesse            = 0
 PhysicalMastery    = 0
@@ -55,10 +54,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 1386
 Fate               = 0
+Armour             = 6181
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 0
 PhysicalMastery    = 0
@@ -77,13 +76,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Head"
 name               = "Tournament Sage's Band"
 Morale             = 0
 Power              = 0
-Armour             = 2537
 CriticalRating     = 7674
 Finesse            = 0
 PhysicalMastery    = 0
@@ -102,10 +101,10 @@ Agility            = 0
 Vitality           = 1019
 Will               = 0
 Fate               = 0
+Armour             = 2537
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -124,13 +123,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Head"
 name               = "Forgotten Elvish Healer's Hood"
 Morale             = 0
 Power              = 0
-Armour             = 6181
 CriticalRating     = 22335
 Finesse            = 0
 PhysicalMastery    = 0
@@ -149,10 +148,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 1155
+Armour             = 6181
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -171,13 +170,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Head"
 name               = "Umbari Veteran's Circlet"
 Morale             = 0
 Power              = 0
-Armour             = 6181
 CriticalRating     = 14890
 Finesse            = 24686
 PhysicalMastery    = 0
@@ -196,10 +195,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 1155
+Armour             = 6181
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -218,13 +217,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Head"
 name               = "Blighted Mask of the Herbalist"
 Morale             = 0
 Power              = 0
-Armour             = 6295
 CriticalRating     = 0
 Finesse            = 12571
 PhysicalMastery    = 0
@@ -243,10 +242,10 @@ Agility            = 0
 Vitality           = 3874
 Will               = 2116
 Fate               = 0
+Armour             = 6295
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -265,6 +264,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Chest ---
 
@@ -273,7 +273,6 @@ slot = "Chest"
 name               = "Blighted Shirt of the Tempest"
 Morale             = 0
 Power              = 0
-Armour             = 20608
 CriticalRating     = 21931
 Finesse            = 0
 PhysicalMastery    = 0
@@ -292,10 +291,10 @@ Agility            = 0
 Vitality           = 4026
 Will               = 1358
 Fate               = 0
+Armour             = 20608
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 0
 PhysicalMastery    = 0
@@ -314,13 +313,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Chest"
 name               = "Tournament Sage's Robe"
 Morale             = 0
 Power              = 0
-Armour             = 8763
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -339,10 +338,10 @@ Agility            = 0
 Vitality           = 1019
 Will               = 1359
 Fate               = 0
+Armour             = 8763
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -361,6 +360,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Chest"
@@ -368,7 +368,6 @@ slot = "Chest"
 name               = "Grove-tender's Robe"
 Morale             = 0
 Power              = 0
-Armour             = 19371
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -387,10 +386,10 @@ Agility            = 0
 Vitality           = 2982
 Will               = 3352
 Fate               = 0
+Armour             = 19371
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -409,13 +408,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Chest"
 name               = "Ordâkhai Merchant's Coat"
 Morale             = 0
 Power              = 0
-Armour             = 19922
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -434,10 +433,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 2076
 Fate               = 0
+Armour             = 19922
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 10048  # 5024 + 5024
 Finesse            = 0
 PhysicalMastery    = 0
@@ -456,13 +455,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Chest"
 name               = "Veteran Sage's Coat"
 Morale             = 0
 Power              = 0
-Armour             = 20995
 CriticalRating     = 18645
 Finesse            = 0
 PhysicalMastery    = 0
@@ -481,10 +480,10 @@ Agility            = 0
 Vitality           = 3783
 Will               = 0
 Fate               = 0
+Armour             = 20995
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = [5277, 5277]
 Finesse            = 0
 PhysicalMastery    = 0
@@ -503,13 +502,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Chest"
 name               = "Blighted Shirt of the Herbalist"
 Morale             = 0
 Power              = 0
-Armour             = 21383
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -528,10 +527,10 @@ Agility            = 0
 Vitality           = 4226
 Will               = 2116
 Fate               = 0
+Armour             = 21383
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 7337
 PhysicalMastery    = 0
@@ -550,6 +549,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Legs ---
 
@@ -558,7 +558,6 @@ slot = "Legs"
 name               = "Blighted Leggings of the Tempest"
 Morale             = 0
 Power              = 0
-Armour             = 17118
 CriticalRating     = 7310
 Finesse            = 0
 PhysicalMastery    = 0
@@ -577,10 +576,10 @@ Agility            = 0
 Vitality           = 3692
 Will               = 3053
 Fate               = 0
+Armour             = 17118
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 10554
 Finesse            = 0
 PhysicalMastery    = 0
@@ -599,13 +598,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Legs"
 name               = "Umbari Veteran's Cloth Leggings"
 Morale             = 0
 Power              = 0
-Armour             = 17440
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -624,10 +623,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 4143
 Fate               = 0
+Armour             = 17440
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -646,13 +645,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Legs"
 name               = "Forgotten Elvish Healer's Leggings"
 Morale             = 0
 Power              = 0
-Armour             = 17440
 CriticalRating     = 16767
 Finesse            = 0
 PhysicalMastery    = 0
@@ -671,10 +670,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 1155
+Armour             = 17440
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -693,13 +692,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Legs"
 name               = "Veteran Sage's Leggings"
 Morale             = 0
 Power              = 0
-Armour             = 17440
 CriticalRating     = 14890
 Finesse            = 0
 PhysicalMastery    = 0
@@ -718,10 +717,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 0
+Armour             = 17440
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -740,6 +739,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Hands ---
 
@@ -748,7 +748,6 @@ slot = "Hands"
 name               = "Blighted Gloves of the Tempest"
 Morale             = 0
 Power              = 0
-Armour             = 10197
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -767,10 +766,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 3385
 Fate               = 0
+Armour             = 10197
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 0
 PhysicalMastery    = 0
@@ -789,13 +788,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Faded Watcher's Bracers"
 Morale             = 0
 Power              = 0
-Armour             = 8631
 CriticalRating     = 0
 Finesse            = 6583
 PhysicalMastery    = 0
@@ -814,10 +813,10 @@ Agility            = 0
 Vitality           = 1764
 Will               = 3055
 Fate               = 0
+Armour             = 8631
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -836,13 +835,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Forgotten Elvish Healer's Cuffs"
 Morale             = 0
 Power              = 0
-Armour             = 10391
 CriticalRating     = 3722
 Finesse            = 0
 PhysicalMastery    = 0
@@ -861,10 +860,10 @@ Agility            = 0
 Vitality           = 2752
 Will               = 2767
 Fate               = 1733
+Armour             = 10391
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -883,13 +882,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Umbari Veteran's Bracers"
 Morale             = 0
 Power              = 0
-Armour             = 10391
 CriticalRating     = 0
 Finesse            = 17465
 PhysicalMastery    = 0
@@ -908,10 +907,10 @@ Agility            = 0
 Vitality           = 2785
 Will               = 3485
 Fate               = 877
+Armour             = 10391
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -930,13 +929,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Blighted Gloves of the Keeper"
 Morale             = 0
 Power              = 0
-Armour             = 10197
 CriticalRating     = 18310
 Finesse            = 0
 PhysicalMastery    = 0
@@ -955,10 +954,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 3053
 Fate               = 0
+Armour             = 10197
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -977,13 +976,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Veteran Sage's Bracers"
 Morale             = 0
 Power              = 0
-Armour             = 10391
 CriticalRating     = 22335
 Finesse            = 9874
 PhysicalMastery    = 0
@@ -1002,10 +1001,10 @@ Agility            = 0
 Vitality           = 2752
 Will               = 0
 Fate               = 0
+Armour             = 10391
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1024,13 +1023,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Hands"
 name               = "Blighted Gloves of the Herbalist"
 Morale             = 0
 Power              = 0
-Armour             = 10197
 CriticalRating     = 0
 Finesse            = 21861
 PhysicalMastery    = 0
@@ -1049,10 +1048,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 2714
 Fate               = 564
+Armour             = 10197
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6994
 PhysicalMastery    = 0
@@ -1071,6 +1070,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Feet ---
 
@@ -1079,7 +1079,6 @@ slot = "Feet"
 name               = "Blighted Shoes of the Tempest"
 Morale             = 0
 Power              = 0
-Armour             = 8242
 CriticalRating     = 0
 Finesse            = 29102
 PhysicalMastery    = 0
@@ -1098,10 +1097,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 2036
 Fate               = 0
+Armour             = 8242
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1120,13 +1119,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Forgotten Elvish Healer's Shoes"
 Morale             = 0
 Power              = 0
-Armour             = 8398
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1145,10 +1144,10 @@ Agility            = 0
 Vitality           = 2752
 Will               = 4143
 Fate               = 0
+Armour             = 8398
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1167,13 +1166,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Blighted Shoes of the Keeper"
 Morale             = 0
 Power              = 0
-Armour             = 8242
 CriticalRating     = 12845
 Finesse            = 16988
 PhysicalMastery    = 0
@@ -1192,10 +1191,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 3053
 Fate               = 0
+Armour             = 8242
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1214,13 +1213,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Ordâkhai Merchant's Boots"
 Morale             = 0
 Power              = 0
-Armour             = 7948
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1239,10 +1238,10 @@ Agility            = 0
 Vitality           = 2412
 Will               = 3113
 Fate               = 866
+Armour             = 7948
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5024
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1261,13 +1260,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Ordâkhai Explorer's Boots"
 Morale             = 0
 Power              = 0
-Armour             = 7948
 CriticalRating     = 14890
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1286,10 +1285,10 @@ Agility            = 0
 Vitality           = 2412
 Will               = 0
 Fate               = 0
+Armour             = 7948
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1308,13 +1307,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Umbari Veteran's Shoes"
 Morale             = 0
 Power              = 0
-Armour             = 8938
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1333,10 +1332,10 @@ Agility            = 0
 Vitality           = 2752
 Will               = 0
 Fate               = 2889
+Armour             = 8938
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1355,13 +1354,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Shoes of the Adventurer"
 Morale             = 0
 Power              = 0
-Armour             = 7581
 CriticalRating     = 10655
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1380,10 +1379,10 @@ Agility            = 0
 Vitality           = 3227
 Will               = 2635
 Fate               = 0
+Armour             = 7581
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5024
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1402,13 +1401,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Veteran Sage's Shoes"
 Morale             = 0
 Power              = 0
-Armour             = 8476
 CriticalRating     = 0
 Finesse            = 7474
 PhysicalMastery    = 0
@@ -1427,10 +1426,10 @@ Agility            = 0
 Vitality           = 2785
 Will               = 3142
 Fate               = 0
+Armour             = 8476
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1449,13 +1448,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Feet"
 name               = "Blighted Shoes of the Herbalist"
 Morale             = 0
 Power              = 0
-Armour             = 8242
 CriticalRating     = 0
 Finesse            = 4846
 PhysicalMastery    = 0
@@ -1474,10 +1473,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 2375
 Fate               = 0
+Armour             = 8242
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1496,6 +1495,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Shoulders ---
 
@@ -1504,7 +1504,6 @@ slot = "Shoulders"
 name               = "Blighted Shoulder-guards of the Tempest"
 Morale             = 0
 Power              = 0
-Armour             = 6067
 CriticalRating     = 14620
 Finesse            = 4846
 PhysicalMastery    = 0
@@ -1523,10 +1522,10 @@ Agility            = 0
 Vitality           = 3351
 Will               = 2714
 Fate               = 0
+Armour             = 6067
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1545,13 +1544,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Kinta Sage's Shoulder-guards"
 Morale             = 0
 Power              = 0
-Armour             = 4893
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1570,10 +1569,10 @@ Agility            = 0
 Vitality           = 1948
 Will               = 3509
 Fate               = 0
+Armour             = 4893
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1592,13 +1591,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Ordâkhai Wanderer's Threadbare Shoulder-guard"
 Morale             = 0
 Power              = 0
-Armour             = 4856
 CriticalRating     = 0
 Finesse            = 12343
 PhysicalMastery    = 0
@@ -1617,10 +1616,10 @@ Agility            = 0
 Vitality           = 2412
 Will               = 3452
 Fate               = 0
+Armour             = 4856
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1639,13 +1638,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Forgotten Elvish Healer's Shoulder-pads"
 Morale             = 0
 Power              = 0
-Armour             = 6181
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1664,10 +1663,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 3452
 Fate               = 0
+Armour             = 6181
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1686,13 +1685,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Blighted Shoulder-guards of the Keeper"
 Morale             = 0
 Power              = 0
-Armour             = 6295
 CriticalRating     = 0
 Finesse            = 5029
 PhysicalMastery    = 0
@@ -1711,10 +1710,10 @@ Agility            = 0
 Vitality           = 3517
 Will               = 3518
 Fate               = 0
+Armour             = 6295
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1733,13 +1732,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Umbari Veteran's Cops"
 Morale             = 0
 Power              = 0
-Armour             = 6067
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1758,10 +1757,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 0
 Fate               = 0
+Armour             = 6067
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 6994
 PhysicalMastery    = 0
@@ -1780,13 +1779,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Veteran Sage's Shoulder-guard"
 Morale             = 0
 Power              = 0
-Armour             = 6181
 CriticalRating     = 16767
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1805,10 +1804,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 4143
 Fate               = 577
+Armour             = 6181
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1827,13 +1826,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Shoulders"
 name               = "Blighted Shoulder-guards of the Herbalist"
 Morale             = 0
 Power              = 0
-Armour             = 6067
 CriticalRating     = 7310
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1852,10 +1851,10 @@ Agility            = 0
 Vitality           = 3351
 Will               = 2714
 Fate               = 0
+Armour             = 6067
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6651
 PhysicalMastery    = 0
@@ -1874,6 +1873,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Back ---
 
@@ -1882,7 +1882,6 @@ slot = "Back"
 name               = "Merchant's Thick Cloak"
 Morale             = 0
 Power              = 0
-Armour             = 16785
 CriticalRating     = 7580
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1901,10 +1900,10 @@ Agility            = 0
 Vitality           = 3169
 Will               = 0
 Fate               = 0
+Armour             = 16785
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1923,13 +1922,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Back"
 name               = "Game Hunter's Cloak"
 Morale             = 0
 Power              = 0
-Armour             = 16157
 CriticalRating     = 9134
 Finesse            = 9691
 PhysicalMastery    = 0
@@ -1948,10 +1947,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 0
 Fate               = 564
+Armour             = 16157
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1970,13 +1969,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Back"
 name               = "Zajâni Scholar's Cloak"
 Morale             = 0
 Power              = 0
-Armour             = 16471
 CriticalRating     = 9303
 Finesse            = 0
 PhysicalMastery    = 0
@@ -1995,10 +1994,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 16471
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2017,6 +2016,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 # --- Wrist ---
 
@@ -2025,7 +2025,6 @@ slot = "Wrist"
 name               = "Strong Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 18644
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2044,10 +2043,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5024
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2066,13 +2065,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Ensorceled Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 19147
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2091,10 +2090,10 @@ Agility            = 0
 Vitality           = 3558
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2113,13 +2112,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 19787
 PhysicalMastery    = 0
@@ -2138,10 +2137,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 2767
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2160,13 +2159,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Wilful Bracer of the Bear in Winter"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 8713
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2185,10 +2184,10 @@ Agility            = 0
 Vitality           = 1888
 Will               = 3220
 Fate               = 794
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2207,13 +2206,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Ornate Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 9387
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2232,10 +2231,10 @@ Agility            = 0
 Vitality           = 3132
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2254,6 +2253,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
@@ -2261,7 +2261,6 @@ slot = "Wrist"
 name               = "Delicate Gold Armlet of the Traveller"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 14759
 PhysicalMastery    = 0
@@ -2280,10 +2279,10 @@ Agility            = 0
 Vitality           = 1948
 Will               = 2923
 Fate               = 933
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2302,13 +2301,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Subtle Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 19787
 PhysicalMastery    = 0
@@ -2327,10 +2326,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 2767
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2349,13 +2348,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Keen Ordâkhai Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 18310
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2374,10 +2373,10 @@ Agility            = 1697
 Vitality           = 3020
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2396,13 +2395,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Delicate Gold Armlet of the Adventurer"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 9600
 PhysicalMastery    = 0
@@ -2421,10 +2420,10 @@ Agility            = 0
 Vitality           = 3310
 Will               = 2688
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2443,13 +2442,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Wrist"
 name               = "Brass Alchemist's Bracelet"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2468,10 +2467,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2490,6 +2489,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Neck ---
 
@@ -2498,7 +2498,6 @@ slot = "Neck"
 name               = "Hunter's Necklace of Lamentation"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 18310
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2517,10 +2516,10 @@ Agility            = 0
 Vitality           = 4026
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 6637
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2539,13 +2538,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Neck"
 name               = "Ornate Ordâkhai Necklace"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2564,10 +2563,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2586,13 +2585,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Neck"
 name               = "Keen Flame-licked Necklace"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 12707
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2611,10 +2610,10 @@ Agility            = 0
 Vitality           = 2234
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2633,13 +2632,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Neck"
 name               = "Hunter's Spare Herb Pouch"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 9134
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2658,10 +2657,10 @@ Agility            = 0
 Vitality           = 4026
 Will               = 0
 Fate               = 1692
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 6637
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2680,6 +2679,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Finger ---
 
@@ -2689,7 +2689,6 @@ slot = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14351
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2708,10 +2707,10 @@ Agility            = 2662
 Vitality           = 2619
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2730,13 +2729,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Tri-colour Gemstone Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 11161
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2755,10 +2754,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 2767
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2777,13 +2776,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Heavy Ordâkhai Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2802,10 +2801,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2824,13 +2823,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Subtle Conscript's Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 12343
 PhysicalMastery    = 0
@@ -2849,10 +2848,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 2767
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2871,13 +2870,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Subtle Ordâkhai Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 12114
 PhysicalMastery    = 0
@@ -2896,10 +2895,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 2714
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6651
 PhysicalMastery    = 0
@@ -2918,13 +2917,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Ornate Ordâkhai Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 3722
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2943,10 +2942,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 2767
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2965,6 +2964,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
@@ -2972,7 +2972,6 @@ slot = "Finger"
 name               = "Keen Pristine Madáshi Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14351
 Finesse            = 0
 PhysicalMastery    = 0
@@ -2991,10 +2990,10 @@ Agility            = 2662
 Vitality           = 2619
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3013,13 +3012,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Resonant Brilliant Elvish Ring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3038,10 +3037,10 @@ Agility            = 0
 Vitality           = 3558
 Will               = 0
 Fate               = 1796
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3060,13 +3059,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Finger"
 name               = "Candinglos Reforged"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3085,10 +3084,10 @@ Agility            = 0
 Vitality           = 2586
 Will               = 3615
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3107,6 +3106,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Ear ---
 
@@ -3116,7 +3116,6 @@ slot = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14351
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3135,10 +3134,10 @@ Agility            = 0
 Vitality           = 2619
 Will               = 2662
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3157,6 +3156,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
@@ -3164,7 +3164,6 @@ slot = "Ear"
 name               = "Keen Pristine Madáshi Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14351
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3183,10 +3182,10 @@ Agility            = 0
 Vitality           = 2619
 Will               = 2662
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3205,13 +3204,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
 name               = "Subtle Conscript's Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 24686
 PhysicalMastery    = 0
@@ -3230,10 +3229,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3252,13 +3251,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
 name               = "Ornate Conscript's Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 9303
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3277,10 +3276,10 @@ Agility            = 0
 Vitality           = 3094
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3299,13 +3298,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
 name               = "Gold Teardrop Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3324,10 +3323,10 @@ Agility            = 0
 Vitality           = 2854
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3346,6 +3345,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
@@ -3353,7 +3353,6 @@ slot = "Ear"
 name               = "Topaz Gold Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 14759
 PhysicalMastery    = 0
@@ -3372,10 +3371,10 @@ Agility            = 0
 Vitality           = 1948
 Will               = 2923
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3394,6 +3393,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
@@ -3401,7 +3401,6 @@ slot = "Ear"
 name               = "Lapis Silver Ear Cuff of the Traveller"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 11333
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3420,10 +3419,10 @@ Agility            = 0
 Vitality           = 1977
 Will               = 2956
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3442,13 +3441,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
 name               = "Blighted Brass Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 24229
 PhysicalMastery    = 0
@@ -3467,10 +3466,10 @@ Agility            = 0
 Vitality           = 3351
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6994
 PhysicalMastery    = 0
@@ -3489,13 +3488,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 2477
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ear"
 name               = "Blighted Brass Earring"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 24686
 PhysicalMastery    = 0
@@ -3514,10 +3513,10 @@ Agility            = 0
 Vitality           = 3434
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6651
 PhysicalMastery    = 0
@@ -3536,6 +3535,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 # --- Pocket ---
 
@@ -3544,7 +3544,6 @@ slot = "Pocket"
 name               = "Golden Scroll Case"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14620
 Finesse            = 7269
 PhysicalMastery    = 0
@@ -3563,10 +3562,10 @@ Agility            = 0
 Vitality           = 3692
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3585,13 +3584,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Pocket"
 name               = "Strong Ordâkhai Bauble"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3610,10 +3609,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3632,13 +3631,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Pocket"
 name               = "Keen Ordâkhai Bauble"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 12114
 PhysicalMastery    = 0
@@ -3657,10 +3656,10 @@ Agility            = 3385
 Vitality           = 3020
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6651
 PhysicalMastery    = 0
@@ -3679,13 +3678,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Pocket"
 name               = "Token of the Emerald Wood"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 21931
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3704,10 +3703,10 @@ Agility            = 0
 Vitality           = 3692
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3726,13 +3725,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Pocket"
 name               = "Lash Fragment Reforged"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3751,10 +3750,10 @@ Agility            = 0
 Vitality           = 3877
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3773,6 +3772,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Main-hand ---
 
@@ -3782,7 +3782,6 @@ name               = "Legendary Lore-keeper's Staff"
 #                     Charlatan's Staff
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14620  # 7310 + 7310
 Finesse            = 9691
 PhysicalMastery    = 6059
@@ -3801,10 +3800,10 @@ Agility            = 0
 Vitality           = 3020
 Will               = 5082  # 3724 + 1358
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3823,6 +3822,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Main-hand"
@@ -3830,7 +3830,6 @@ name               = "Lore-master's Staff of Legends"
 #                     Rod of Control
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 7310
 Finesse            = 31297  # 9691 + 10803 + 10803
 PhysicalMastery    = 6059
@@ -3849,10 +3848,10 @@ Agility            = 0
 Vitality           = 3691  # 2685 + 1006
 Will               = 6101  # 3385 + 1358 + 1358
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3871,6 +3870,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Main-hand"
@@ -3878,7 +3878,6 @@ name               = "Lore-master's Staff of Legends"
 #                     Beast-Tamer's Whip
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14620  # 7310 + 7310
 Finesse            = 19382  # 9691 + 9691
 PhysicalMastery    = 0
@@ -3897,10 +3896,10 @@ Agility            = 0
 Vitality           = 3691  # 2685 + 1006
 Will               = 4743  # 3385 + 1358
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3919,6 +3918,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Off-hand ---
 
@@ -3929,7 +3929,6 @@ name               = "Kinta Sword of the Herbalist"
 either_hand = true
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3948,10 +3947,10 @@ Agility            = 0
 Vitality           = 2619
 Will               = 3319
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -3970,6 +3969,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Off-hand"
@@ -3977,7 +3977,6 @@ name               = "Resolute Sword of Old Eregion"
 either_hand = true
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 4210
 PhysicalMastery    = 0
@@ -3996,10 +3995,10 @@ Agility            = 0
 Vitality           = 886
 Will               = 0
 Fate               = 661
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4018,6 +4017,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Off-hand"
@@ -4025,7 +4025,6 @@ name               = "Elegant Blade of the Traveller"
 either_hand = true
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 8320
 PhysicalMastery    = 0
@@ -4044,10 +4043,10 @@ Agility            = 0
 Vitality           = 2730
 Will               = 2320
 Fate               = 460
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4066,6 +4065,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Off-hand"
@@ -4074,7 +4074,6 @@ name               = "Elegant Blade of the Adventurer"
 either_hand = true
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 10655
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4093,10 +4092,10 @@ Agility            = 0
 Vitality           = 3227
 Will               = 2635
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4115,6 +4114,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Ranged ---
 
@@ -4124,7 +4124,6 @@ slot = "Ranged"
 name               = "Pristine Mûrai Stickpin of Bestial Strength"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 4800
 PhysicalMastery    = 0
@@ -4143,10 +4142,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 6651
 PhysicalMastery    = 0
@@ -4165,6 +4164,7 @@ Agility            = 0
 Vitality           = 2978
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ranged"
@@ -4172,7 +4172,6 @@ slot = "Ranged"
 name               = "Pristine Mûrai Stickpin of Ancient Wisdom"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4191,10 +4190,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 557
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4213,13 +4212,13 @@ Agility            = 0
 Vitality           = 2978
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Ranged"
 name               = "Pristine Mûrai Stickpin of Nature's Glory"
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4238,10 +4237,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 5277
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4260,6 +4259,7 @@ Agility            = 0
 Vitality           = 3185
 Will               = 2609
 Fate               = 0
+Armour             = 0
 
 # --- Class Item ---
 
@@ -4269,7 +4269,6 @@ name               = "Lore-master's Book"
 #                     Tome of Chicanery
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 31058  # 7310 + 7310 + 8219 + 8219
 Finesse            = 0
 PhysicalMastery    = 12118  # 6059 + 6059
@@ -4288,10 +4287,10 @@ Agility            = 0
 Vitality           = 4026  # 3020 + 1006
 Will               = 5082  # 3724 + 1358
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4310,6 +4309,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Class Item"
@@ -4317,7 +4317,6 @@ name               = "Lore-master's Book"
 #                     Codex of Control
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 14620  # 7310 + 7310
 Finesse            = 19382  # 9691 + 9691
 PhysicalMastery    = 0
@@ -4336,10 +4335,10 @@ Agility            = 0
 Vitality           = 4357  # 3351 + 1006
 Will               = 3053
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4358,6 +4357,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 [[item]]
 slot = "Class Item"
@@ -4365,7 +4365,6 @@ name               = "Lore-master's Book"
 #                     Encyclopedia of Fauna
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 9691
 PhysicalMastery    = 12118  # 6059 + 6059
@@ -4384,10 +4383,10 @@ Agility            = 0
 Vitality           = 4357  # 3351 + 1006
 Will               = 4411  # 3053 + 1358
 Fate               = 0
+Armour             = 0
 [item.EssenceTotals]
 Morale             = 0
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -4406,3 +4405,4 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
