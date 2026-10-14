@@ -1,6 +1,6 @@
 # LGO Stat Reference
 
-## Tracked Stats (16 total, in canonical order)
+## Tracked Stats (15 total, in canonical order)
 
 These are the only stats used by the optimizer and stats file.
 The JSON key column remains relevant for serialized stat maps,
@@ -12,7 +12,6 @@ The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 |--------------|----------------------|-----------------------|----------------------|---------------------|
 | `ml`         | `Morale`             | `morale`              | `Morale`             | Morale              |
 | `pw`         | `Power`              | `power`               | `Power`              | Power               |
-| `am`         | `Armor`              | `armor`               | `Armour`             | Armour              |
 | `cr`         | `CriticalRating`     | `critical_rating`     | `CriticalRating`     | Critical Rating     |
 | `fn`         | `Finesse`            | `finesse`             | `Finesse`            | Finesse             |
 | `pm`         | `PhysicalMastery`    | `physical_mastery`    | `PhysicalMastery`    | Physical Mastery    |
@@ -35,13 +34,17 @@ generated from the plugin export and stays integer-only. Any other value type
 (float, string, bool, empty/mixed/nested array, ...) is a hard error naming
 the item and key.
 
-## Base Stats (5 total, derivation inputs only)
+## Base Stats (6 total, derivation inputs only)
 
-The five raw Base stats appear in `gearReady.toml` after the 16 tracked
+The six raw Base stats appear in `gearReady.toml` after the 15 tracked
 stats: in top-level `[InnateStats]`, in each `[[item]]` block, and in
-`[item.EssenceTotals]`. Top-level `[InnateStats]` is **Base-stats-only**:
-`Might`, `Agility`, `Vitality`, `Will`, and `Fate` belong there, while tracked
-stats such as `Morale` or `CriticalRating` do not.
+`[item.EssenceTotals]`. Top-level `[InnateStats]` is **Base-stats-only** and
+holds exactly the five plugin-exported Base stats: `Might`, `Agility`,
+`Vitality`, `Will`, and `Fate` belong there, while tracked stats such as
+`Morale` or `CriticalRating` do not. `Armour` is **omitted** from
+`[InnateStats]` (innate/character Armour is always zero), but it is still a
+Base stat everywhere else — on items, in `[item.EssenceTotals]`, and from the
+three Armour Virtues.
 
 These Base stats are **derivation inputs only** — they are never added raw to
 any tracked total, are never valid as optimizer goals, and have no CLI
@@ -49,13 +52,28 @@ abbreviations. At optimize time, `lgo` converts them into tracked-stat
 contributions using the per-class coefficients in
 `data/base_stat_derivations.json` (`src/base_stats.rs`).
 
-| Enum variant | TOML key   | Display name |
-|--------------|------------|--------------|
-| `Might`      | `Might`    | Might        |
-| `Agility`    | `Agility`  | Agility      |
-| `Vitality`   | `Vitality` | Vitality     |
-| `Will`       | `Will`     | Will         |
-| `Fate`       | `Fate`     | Fate         |
+| Enum variant | TOML key   | Display name | Derives (all classes)                             |
+|--------------|------------|--------------|---------------------------------------------------|
+| `Might`      | `Might`    | Might        | class-dependent                                   |
+| `Agility`    | `Agility`  | Agility      | class-dependent                                   |
+| `Vitality`   | `Vitality` | Vitality     | class-dependent                                   |
+| `Will`       | `Will`     | Will         | class-dependent                                   |
+| `Fate`       | `Fate`     | Fate         | class-dependent                                   |
+| `Armor`      | `Armour`   | Armour       | PhysicalMitigation × 1.0, TacticalMitigation × 0.2 |
+
+`Armour` comes only from gear items and from the three Armour Virtues
+(Compassion, Empathy, Loyalty); innate/character Armour is always zero and
+Essences never carry it. Its PhysicalMitigation (1.0) and TacticalMitigation
+(0.2) coefficients are **class-independent** — every class row is identical.
+Each per-item product still rounds up via `f64::ceil()` (see below), so a
+±1 drift versus a whole-total computation is acceptable.
+
+**Double-count caveat:** the PhysicalMitigation / TacticalMitigation values the
+bookmarklet scrapes from lotro-wiki tooltips are the item's *explicit*
+mitigation lines only and do **not** include the Armour-derived portion; LGO
+adds that at optimize time. If you hand-enter mitigation, enter only the
+explicit tooltip values, never the Armour-derived ones — otherwise Armour's
+mitigation is counted twice.
 
 ### Rounding rule
 

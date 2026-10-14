@@ -455,7 +455,9 @@ fn is_base_stat_key(key: &str) -> bool {
 /// Armour is a Base stat but is never innate (omitted = zero), so it is NOT
 /// allowed here even though it is a valid Base stat elsewhere.
 fn is_innate_base_stat_key(key: &str) -> bool {
-    INNATE_BASE_STATS.iter().any(|(_, stat_key)| *stat_key == key)
+    INNATE_BASE_STATS
+        .iter()
+        .any(|(_, stat_key)| *stat_key == key)
 }
 
 /// A key allowed in `[[item]]` and `[item.EssenceTotals]`: the 15 tracked

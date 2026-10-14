@@ -69,7 +69,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       -----------------  ------------------
           ml             Morale
           pw             Power
-          am             Armour
           cr             CriticalRating
           fn             Finesse
           pm             PhysicalMastery
@@ -153,7 +152,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     effective item totals before optimization.
 
     optimize also derives the raw Base stats (Might, Agility, Vitality, Will,
-    Fate) carried in gearReady.toml — innate, per-item, and essence values —
+    Fate, Armour) carried in gearReady.toml — innate, per-item, and essence values —
     plus any raw Base stats granted by selected Virtues — into tracked-stat
     contributions using the per-class coefficients in
     data\base_stat_derivations.json. Selected Virtue tracked stats contribute
@@ -162,7 +161,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     be run from anywhere. optimize errors clearly if the class
     entry, derivation file, or needed virtue data file is missing.
     The report content includes the chosen gear, goal summary, the full projected
-    16 tracked stats (zero rows included), and the combined raw Base-stat pool.
+    15 tracked stats (zero rows included), and the combined raw Base-stat pool.
 
     If gearReady.toml carries a [MeasuredStats] block, optimize also calibrates
     the innate Morale and Power baseline from it: the measured Max Morale/Power
@@ -272,7 +271,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 3.6 base-stats
   lgo base-stats
     Print the five raw innate Base stats from [InnateStats] in
-    lgo_<character>_gearReady.toml, and the 16 derived tracked-stat
+    lgo_<character>_gearReady.toml, and the 15 derived tracked-stat
     contributions computed from them (already included in optimize totals).
     Also prints the measured Max Morale and Max Power from [MeasuredStats]
     and the number of active effects at export time, or a note that no
@@ -297,7 +296,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   Goal format: <stat>:<minimum>
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
-    Armour             am
     Morale             ml
     Power              pw
     CriticalRating     cr
@@ -316,6 +314,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
   Note: pt and tt are the parser's canonical two-letter abbreviations for
   PhysicalMitigation and TacticalMitigation.
+
+  The six Base stats (Might, Agility, Vitality, Will, Fate, Armour) are
+  derivation inputs, not goals: `lgo optimize Armour:1` (and the retired `am`
+  token) fail with "not an optimizer goal stat".
 
   Examples:
     lgo optimize tm:450000 cr:350000 fn:0

@@ -2423,7 +2423,10 @@ CriticalRating = 200
     // block (5555) and the essence block (100).
     let first = std::fs::read_to_string(&canonical).expect("read canonical");
     let old_layout = first
-        .replace("Fate               = 0\nArmour             = 0\n", "Fate               = 0\n")
+        .replace(
+            "Fate               = 0\nArmour             = 0\n",
+            "Fate               = 0\n",
+        )
         .replacen(
             "Power              = 0\nCriticalRating     = 200",
             "Power              = 0\nArmour             = 5555\nCriticalRating     = 200",
@@ -2435,7 +2438,9 @@ CriticalRating = 200
             1,
         );
     assert!(
-        old_layout.contains("Power              = 0\nArmour             = 5555\nCriticalRating     = 200"),
+        old_layout.contains(
+            "Power              = 0\nArmour             = 5555\nCriticalRating     = 200"
+        ),
         "test setup: item Armour must be placed in the OLD tracked position:\n{old_layout}"
     );
     assert!(

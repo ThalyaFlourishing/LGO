@@ -140,11 +140,9 @@ name = "Statless Helm"
     .expect("write toml");
 
     let mut doc = read_stats_file(&path).expect("gear toml must parse");
-    let virtues = VirtuesDb::from_json_str(
-        r#"{ "Loyalty": { "Armour": 500 } }"#,
-        Path::new("<test>"),
-    )
-    .expect("virtue db must parse");
+    let virtues =
+        VirtuesDb::from_json_str(r#"{ "Loyalty": { "Armour": 500 } }"#, Path::new("<test>"))
+            .expect("virtue db must parse");
     virtues
         .apply_selected_virtues(&mut doc)
         .expect("virtues must apply");
