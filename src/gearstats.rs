@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::gear::{parse_slot_display, GearItem};
-use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
+use crate::stat::{Stat, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
 use crate::virtues::{
     SelectedVirtues, VIRTUE_FIELD_KEYS, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY,
     VIRTUE_TABLE_KEY,
@@ -230,7 +230,10 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         }
         innate_stats.retain(|_, value| *value != 0);
     }
-    let innate_base_stats = read_innate_stats(&doc, BASE_STATS)?;
+    // `[InnateStats]` holds only the five plugin-exported Base stats. Armour is
+    // a Base stat too, but it never appears innately (omitted = zero), so the
+    // innate base-stat map is read against `INNATE_BASE_STATS`, not `BASE_STATS`.
+    let innate_base_stats = read_innate_stats(&doc, INNATE_BASE_STATS)?;
     let selected_virtues = read_selected_virtues(&doc)?;
     let level = read_level(&doc)?;
     let measured = read_measured_stats(&doc)?;
@@ -448,9 +451,17 @@ fn is_base_stat_key(key: &str) -> bool {
     BASE_STATS.iter().any(|(_, stat_key)| *stat_key == key)
 }
 
-/// A key allowed in `[[item]]` and `[item.EssenceTotals]`: the 16 tracked
-/// stats plus the five raw Base stats the resolver passes through. Anything
-/// else is a typo and must hard-error rather than silently dropping user data.
+/// A key allowed in `[InnateStats]`: only the five plugin-exported Base stats.
+/// Armour is a Base stat but is never innate (omitted = zero), so it is NOT
+/// allowed here even though it is a valid Base stat elsewhere.
+fn is_innate_base_stat_key(key: &str) -> bool {
+    INNATE_BASE_STATS.iter().any(|(_, stat_key)| *stat_key == key)
+}
+
+/// A key allowed in `[[item]]` and `[item.EssenceTotals]`: the 15 tracked
+/// stats plus the six raw Base stats the resolver passes through (Armour
+/// included). Anything else is a typo and must hard-error rather than silently
+/// dropping user data.
 fn is_allowed_stat_key(key: &str) -> bool {
     is_tracked_stat_key(key) || is_base_stat_key(key)
 }
@@ -489,7 +500,7 @@ fn validate_essence_keys(table: &toml::value::Table, item_name: &str) -> Result<
 
 fn validate_innate_keys(table: &toml::value::Table) -> Result<(), String> {
     for key in table.keys() {
-        if is_base_stat_key(key) {
+        if is_innate_base_stat_key(key) {
             continue;
         }
         return Err(format!(
