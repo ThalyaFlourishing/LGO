@@ -47,14 +47,18 @@ lgo optimize --character Thalya tm:450000 oh:100000
 
 | Abbrev | Stat key | Abbrev | Stat key |
 |---|---|---|---|
-| `am` | `Armour` | `cd` | `CriticalDefense` |
-| `ml` | `Morale` | `pw` | `Power` |
-| `cr` | `CriticalRating` | `ih` | `IncomingHealing` |
-| `fn` | `Finesse` | `bl` | `Block` |
-| `pm` | `PhysicalMastery` | `pa` | `Parry` |
-| `tm` | `TacticalMastery` | `ev` | `Evade` |
-| `oh` | `OutgoingHealing` | `pt` | `PhysicalMitigation` |
-| `rs` | `Resistance` | `tt` | `TacticalMitigation` |
+| `ml` | `Morale` | `cd` | `CriticalDefense` |
+| `pw` | `Power` | `ih` | `IncomingHealing` |
+| `cr` | `CriticalRating` | `bl` | `Block` |
+| `fn` | `Finesse` | `pa` | `Parry` |
+| `pm` | `PhysicalMastery` | `ev` | `Evade` |
+| `tm` | `TacticalMastery` | `pt` | `PhysicalMitigation` |
+| `oh` | `OutgoingHealing` | `tt` | `TacticalMitigation` |
+| `rs` | `Resistance` | | |
+
+Armour is not a tracked goal stat: it is the sixth Base stat (alongside Might,
+Agility, Vitality, Will, Fate) and is derived into PhysicalMitigation and
+TacticalMitigation at optimize time.
 
 ## Optimization logic
 

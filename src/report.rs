@@ -443,8 +443,8 @@ pub fn print_base_stats_report(
     );
 }
 
-/// Build the `lgo base-stats` report: the five raw innate Base stats from
-/// `[InnateStats]`, then the 16 tracked-stat contributions derived from them.
+/// Build the `lgo base-stats` report: the raw Base stats (Armour is always
+/// zero innately), then the 15 tracked-stat contributions derived from them.
 /// Base stats are derivation inputs only — they are never added raw to any
 /// tracked total, and the derived contributions shown here are already
 /// included in `lgo optimize` totals.
@@ -1631,7 +1631,7 @@ mod tests {
                 slot: Slot::Head,
                 two_handed: false,
                 either_hand: false,
-                stats: [(Stat::Morale, 250), (Stat::Armor, 300)]
+                stats: [(Stat::Morale, 250), (Stat::CriticalRating, 300)]
                     .into_iter()
                     .collect(),
             },

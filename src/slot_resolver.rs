@@ -32,7 +32,7 @@ use crate::gearstats::{
     MeasuredStats, MEASURED_ACTIVE_EFFECTS_KEY, MEASURED_EQUIPPED_KEY, MEASURED_FIELD_KEYS,
     MEASURED_MAX_MORALE_KEY, MEASURED_MAX_POWER_KEY, MEASURED_TABLE_KEY,
 };
-use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
+use crate::stat::{Stat, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
 use crate::virtues::{
     VIRTUE_FIELD_KEYS, VIRTUE_INNATE_DEFAULT, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY,
     VIRTUE_TABLE_KEY,
@@ -674,7 +674,10 @@ fn build_virtue_innate_stats_table() -> Table {
 
 fn build_innate_stats_table(base_stats: &HashMap<Stat, i64>) -> Table {
     let mut table = Table::new();
-    for (stat, key) in BASE_STATS {
+    // Only the five plugin-exported Base stats live in `[InnateStats]`.
+    // Armour is a Base stat too, but innate Armour is always zero and the
+    // plugin never exports it, so it is omitted here (omitted = zero).
+    for (stat, key) in INNATE_BASE_STATS {
         table.insert(key, value(base_stats.get(stat).copied().unwrap_or(0)));
         normalize_assignment_decor(&mut table, key);
     }
@@ -710,7 +713,7 @@ fn build_measured_stats_table(measured: &MeasuredStats) -> Table {
 /// rather than multi-value entries.
 fn read_innate_base_stats(table: &Table) -> Result<HashMap<Stat, i64>, ResolveError> {
     let mut stats = HashMap::new();
-    for (stat, key) in BASE_STATS {
+    for (stat, key) in INNATE_BASE_STATS {
         let Some(item) = table.get(key) else {
             continue;
         };
@@ -893,10 +896,10 @@ fn set_either_hand_flag(table: &mut Table, either_hand: bool) {
     }
 }
 
-/// The canonical per-item stat key layout: the 16 tracked stats in canonical
-/// order, then the five raw Base stats (Might, Agility, Vitality, Will,
-/// Fate). Base-stat lines pass through the resolver verbatim — they are never
-/// derived into (or added to) tracked totals here.
+/// The canonical per-item stat key layout: the 15 tracked stats in canonical
+/// order, then the six raw Base stats (Might, Agility, Vitality, Will, Fate,
+/// Armour). Base-stat lines pass through the resolver verbatim — they are
+/// never derived into (or added to) tracked totals here.
 fn canonical_stat_entries() -> impl Iterator<Item = &'static (Stat, &'static str)> {
     TRACKED_STATS.iter().chain(BASE_STATS.iter())
 }
@@ -2309,7 +2312,7 @@ fn plugin_base_stats_to_stats(
     raw: &HashMap<String, i64>,
 ) -> Result<HashMap<Stat, i64>, ResolveError> {
     let mut stats = HashMap::new();
-    for (_, key) in BASE_STATS {
+    for (_, key) in INNATE_BASE_STATS {
         if let Some(value) = raw.get(*key).copied().filter(|value| *value != 0) {
             let stat = key.parse::<Stat>().map_err(|_| ResolveError::Derivation {
                 source: DerivationError::UnknownStat {
@@ -2342,8 +2345,8 @@ fn innate_table_matches_canonical(table: &Table, expected: &Table) -> bool {
     table
         .iter()
         .map(|(key, _)| key)
-        .eq(BASE_STATS.iter().map(|(_, key)| *key))
-        && BASE_STATS.iter().all(|(_, key)| {
+        .eq(INNATE_BASE_STATS.iter().map(|(_, key)| *key))
+        && INNATE_BASE_STATS.iter().all(|(_, key)| {
             table.get(key).and_then(|item| item.as_integer())
                 == expected.get(key).and_then(|item| item.as_integer())
         })

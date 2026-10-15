@@ -56,7 +56,6 @@ slot = "Head"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -75,13 +74,13 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 # A stat may also be a list of values in square brackets, separated by
 # commas -- one per socket -- and LGO adds them up for you. For example:
 # CriticalRating   = [4917, 3222]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -100,6 +99,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # To add another piece of head armour, copy the entire block of this first item
 # and paste it here:
@@ -115,7 +115,6 @@ slot = "Chest"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -134,10 +133,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -156,6 +155,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Legs ---
 
@@ -164,7 +164,6 @@ slot = "Legs"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -183,10 +182,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -205,6 +204,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Hands ---
 
@@ -213,7 +213,6 @@ slot = "Hands"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -232,10 +231,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -254,6 +253,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Feet ---
 
@@ -262,7 +262,6 @@ slot = "Feet"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -281,10 +280,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -303,6 +302,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Shoulders ---
 
@@ -311,7 +311,6 @@ slot = "Shoulders"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -330,10 +329,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -352,6 +351,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Back ---
 
@@ -360,7 +360,6 @@ slot = "Back"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -379,10 +378,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -401,6 +400,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Wrist ---
 
@@ -409,7 +409,6 @@ slot = "Wrist"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -428,10 +427,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -450,6 +449,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Neck ---
 
@@ -458,7 +458,6 @@ slot = "Neck"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -477,10 +476,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -499,6 +498,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Finger ---
 
@@ -507,7 +507,6 @@ slot = "Finger"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -526,10 +525,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -548,6 +547,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Ear ---
 
@@ -556,7 +556,6 @@ slot = "Ear"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -575,10 +574,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -597,6 +596,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Pocket ---
 
@@ -605,7 +605,6 @@ slot = "Pocket"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -624,10 +623,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -646,6 +645,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Main-hand ---
 
@@ -654,7 +654,6 @@ slot = "Main-hand"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -673,10 +672,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -695,6 +694,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Off-hand ---
 
@@ -704,7 +704,6 @@ slot = "Off-hand"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -723,10 +722,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -745,6 +744,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Ranged ---
 
@@ -753,7 +753,6 @@ slot = "Ranged"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -772,10 +771,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -794,6 +793,7 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
 
 # --- Class Item ---
 
@@ -802,7 +802,6 @@ slot = "Class Item"
 name               = "<YOUR ITEM NAME HERE>"
 Morale             = 0 # Item's stats go in this section
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -821,10 +820,10 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0
     [item.EssenceTotals]
 Morale             = 0 # Item's essences' stats go here
 Power              = 0
-Armour             = 0
 CriticalRating     = 0
 Finesse            = 0
 PhysicalMastery    = 0
@@ -843,3 +842,4 @@ Agility            = 0
 Vitality           = 0
 Will               = 0
 Fate               = 0
+Armour             = 0

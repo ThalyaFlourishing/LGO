@@ -142,7 +142,7 @@
   
     Goals are checked in priority order. The optimizer first prefers builds that meet higher-priority minima, then gets still-unmet goals as close to target as possible, and only then uses extra raw totals as a polish/tiebreak. A minimum of 0 means 'no floor, but maximise this stat in the later polish stage'. Two-letter abbreviations and full stat names are both accepted; see the Command Line Reference for the full list.
       
-    NOTE: optimize needs the class coefficient table in data\base_stat_derivations.json to derive your raw Base stats (Might, Agility, Vitality, Will, Fate) into tracked stats. LGO always looks for the 'data' folder beside lgo.exe (the install directory), so you can run the command from anywhere.
+    NOTE: optimize needs the class coefficient table in data\base_stat_derivations.json to derive your raw Base stats (Might, Agility, Vitality, Will, Fate, Armour) into tracked stats. LGO always looks for the 'data' folder beside lgo.exe (the install directory), so you can run the command from anywhere.
   
     By default, optimize prints the report only to the terminal. If you add `--to-file`, it also writes two copies of the report — one .txt and one self-contained .html file with matching lgo_GearReport_### names — into the character's reports folder, <install>\<CharacterName>_Gear\<CharacterName>_Reports\ (created if needed).
   

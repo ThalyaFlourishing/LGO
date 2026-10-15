@@ -356,24 +356,25 @@ mod tests {
     /// `data/base_stat_derivations.json`. Every expected class is present; only
     /// Lore-master carries the coefficient rows these tests exercise.
     const SYNTHETIC_DERIVATIONS: &str = r#"{
-        "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+        "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
         "Lore-master": {
             "Might": { "CriticalRating": 1.5, "Finesse": 1.5, "TacticalMastery": 2.0, "Parry": 1.0 },
             "Agility": {},
             "Vitality": {},
             "Will": {},
-            "Fate": {}
+            "Fate": {},
+            "Armour": { "PhysicalMitigation": 1.0, "TacticalMitigation": 0.2 }
         },
-        "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-        "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} }
+        "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} }
     }"#;
 
     fn synthetic_derivations() -> BaseStatDerivations {
@@ -392,18 +393,18 @@ mod tests {
     #[test]
     fn unknown_stat_name_is_reported() {
         let src = r#"{
-            "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Lore-master": { "Might": { "Bogus": 1.0 }, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-            "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} }
+            "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Lore-master": { "Might": { "Bogus": 1.0 }, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+            "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} }
         }"#;
         let err = BaseStatDerivations::from_json_str(src, Path::new("<test>"))
             .expect_err("unknown stat should fail");
@@ -518,6 +519,49 @@ mod tests {
         assert_eq!(tracked.get(&Stat::CriticalRating), Some(&1600));
         assert_eq!(tracked.get(&Stat::Morale), Some(&50));
         assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&2000));
+    }
+
+    #[test]
+    fn armour_derives_real_coefficients() {
+        // Real data/base_stat_derivations.json: every class's Armour row is
+        // PhysicalMitigation 1.0, TacticalMitigation 0.2 (class-independent).
+        // 1000 Armour → +1000 PhysicalMitigation, +200 TacticalMitigation.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Armor, 1000)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        let expected: HashMap<Stat, i64> = [
+            (Stat::PhysicalMitigation, 1000),
+            (Stat::TacticalMitigation, 200),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(derived, expected);
+    }
+
+    #[test]
+    fn armour_tactical_mitigation_rounds_up_per_product() {
+        // 1001 Armour → PhysicalMitigation 1001 (exact) and
+        // TacticalMitigation ceil(0.2 × 1001) = ceil(200.2) = 201.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Armor, 1001)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        assert_eq!(derived.get(&Stat::PhysicalMitigation), Some(&1001));
+        assert_eq!(derived.get(&Stat::TacticalMitigation), Some(&201));
+    }
+
+    #[test]
+    fn armour_is_never_a_key_in_derived_output() {
+        // Armour is a derivation INPUT, never a derived (tracked) output key.
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base: HashMap<Stat, i64> = [(Stat::Armor, 1000)].into_iter().collect();
+        let derived = derivations
+            .derive_stats("Lore-master", &base)
+            .expect("derive");
+        assert!(!derived.contains_key(&Stat::Armor));
     }
 
     #[test]

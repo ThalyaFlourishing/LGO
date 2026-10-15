@@ -13,6 +13,10 @@ pub enum Stat {
     Vitality,
     Will,
     Fate,
+    // Sixth Base stat: derivation input only, never a tracked goal. Unlike the
+    // five above it is not plugin-exported (innate Armour is always zero); it
+    // comes from gear and the three Armour Virtues and derives into mitigations.
+    Armor,
     Morale,
     Power,
     DevRating,
@@ -20,7 +24,6 @@ pub enum Stat {
     IncMitigations,
 
     // Tracked stats (appear in stats file and optimizer)
-    Armor,
     CriticalRating,
     Finesse,
     PhysicalMastery,
@@ -36,12 +39,30 @@ pub enum Stat {
     TacticalMitigation,
 }
 
-/// The five raw Base stats, in canonical order, keyed by PascalCase TOML key.
-/// The resolver passes them through untouched (`[InnateStats]` and per-item
-/// lines); the optimize path derives them into tracked stats via the
-/// per-class coefficients in `data/base_stat_derivations.json`. Never
-/// tracked, never abbreviated, never valid as optimize goals.
+/// The six raw Base stats, in canonical order, keyed by PascalCase TOML key.
+/// The resolver passes them through untouched (per-item lines); the optimize
+/// path derives them into tracked stats via the per-class coefficients in
+/// `data/base_stat_derivations.json`. Never tracked, never abbreviated, never
+/// valid as optimize goals.
+///
+/// Armour is the sixth and last entry. Unlike the first five it is never
+/// plugin-exported (innate Armour is always zero) and so is omitted from
+/// `[InnateStats]`; see [`INNATE_BASE_STATS`].
 pub const BASE_STATS: &[(Stat, &str)] = &[
+    (Stat::Might, "Might"),
+    (Stat::Agility, "Agility"),
+    (Stat::Vitality, "Vitality"),
+    (Stat::Will, "Will"),
+    (Stat::Fate, "Fate"),
+    (Stat::Armor, "Armour"),
+];
+
+/// The five plugin-exported Base stats, in canonical order. These are the only
+/// Base stats that appear in `[InnateStats]` — the plugin exports Might,
+/// Agility, Vitality, Will, and Fate, but never Armour (innate Armour is always
+/// zero). Used by the `[InnateStats]` generation/validation paths so Armour,
+/// though a Base stat, is omitted there (omitted = zero).
+pub const INNATE_BASE_STATS: &[(Stat, &str)] = &[
     (Stat::Might, "Might"),
     (Stat::Agility, "Agility"),
     (Stat::Vitality, "Vitality"),
@@ -54,7 +75,6 @@ pub const BASE_STATS: &[(Stat, &str)] = &[
 pub const TRACKED_STATS: &[(Stat, &str)] = &[
     (Stat::Morale, "Morale"),
     (Stat::Power, "Power"),
-    (Stat::Armor, "Armour"),
     (Stat::CriticalRating, "CriticalRating"),
     (Stat::Finesse, "Finesse"),
     (Stat::PhysicalMastery, "PhysicalMastery"),
@@ -78,7 +98,6 @@ pub fn abbreviation_for(stat: Stat) -> Option<&'static str> {
     match stat {
         Stat::Morale => Some("ml"),
         Stat::Power => Some("pw"),
-        Stat::Armor => Some("am"),
         Stat::CriticalRating => Some("cr"),
         Stat::Finesse => Some("fn"),
         Stat::PhysicalMastery => Some("pm"),
@@ -105,13 +124,13 @@ impl fmt::Display for Stat {
             Stat::Vitality => "Vitality",
             Stat::Will => "Will",
             Stat::Fate => "Fate",
+            Stat::Armor => "Armour",
             Stat::Morale => "Morale",
             Stat::Power => "Power",
             Stat::DevRating => "Dev Rating",
             Stat::OffensiveOverpower => "Offensive Overpower",
             Stat::IncMitigations => "Inc. Mitigations",
             // Tracked stats
-            Stat::Armor => "Armour",
             Stat::CriticalRating => "Critical Rating",
             Stat::Finesse => "Finesse",
             Stat::PhysicalMastery => "Physical Mastery",
@@ -136,7 +155,6 @@ impl FromStr for Stat {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().replace([' ', '_', '-'], "").as_str() {
             // Two-letter abbreviations
-            "am" => Ok(Stat::Armor),
             "ml" => Ok(Stat::Morale),
             "pw" => Ok(Stat::Power),
             "cr" => Ok(Stat::CriticalRating),
@@ -154,7 +172,6 @@ impl FromStr for Stat {
             "tt" => Ok(Stat::TacticalMitigation),
 
             // Tracked stats — full and legacy names
-            "armor" | "armour" => Ok(Stat::Armor),
             "criticalrating" | "critrating" => Ok(Stat::CriticalRating),
             "finesse" | "finesserating" => Ok(Stat::Finesse),
             "physicalmastery" | "physmastery" | "physmast" => Ok(Stat::PhysicalMastery),
@@ -171,7 +188,10 @@ impl FromStr for Stat {
             "physicalmitigation" | "physmitigation" | "physmit" => Ok(Stat::PhysicalMitigation),
             "tacticalmitigation" | "tactmitigation" | "tactmit" => Ok(Stat::TacticalMitigation),
 
-            // Internal stats (wiki parsing / future use)
+            // Internal / Base stats (wiki parsing, plugindata, derivation input).
+            // Armour keeps its full/legacy spellings so the bookmarklet and
+            // wiki path still parse it, but it has no two-letter abbreviation.
+            "armor" | "armour" => Ok(Stat::Armor),
             "might" => Ok(Stat::Might),
             "agility" => Ok(Stat::Agility),
             "vitality" => Ok(Stat::Vitality),
@@ -217,7 +237,7 @@ impl FromStr for StatGoal {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parse_goal_stat = |stat_str: &str| -> Result<Stat, String> {
             let stat = stat_str.parse::<Stat>()?;
-            // Only the 16 tracked stats are valid optimizer goals. Base and
+            // Only the 15 tracked stats are valid optimizer goals. Base and
             // other internal stats parse (wiki/plugindata handling) but must
             // be rejected here rather than silently optimizing nothing.
             if !TRACKED_STATS.iter().any(|(tracked, _)| *tracked == stat) {
@@ -264,14 +284,13 @@ mod tests {
     }
 
     #[test]
-    fn tracked_stats_are_the_canonical_sixteen_in_order() {
+    fn tracked_stats_are_the_canonical_fifteen_in_order() {
         let actual: Vec<&str> = TRACKED_STATS.iter().map(|(_, key)| *key).collect();
         assert_eq!(
             actual,
             vec![
                 "Morale",
                 "Power",
-                "Armour",
                 "CriticalRating",
                 "Finesse",
                 "PhysicalMastery",
@@ -299,8 +318,8 @@ mod tests {
         assert_eq!(
             actual,
             vec![
-                "ml", "pw", "am", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev",
-                "pt", "tt",
+                "ml", "pw", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev", "pt",
+                "tt",
             ]
         );
     }
@@ -312,6 +331,7 @@ mod tests {
         assert_eq!(abbreviation_for(Stat::Vitality), None);
         assert_eq!(abbreviation_for(Stat::Will), None);
         assert_eq!(abbreviation_for(Stat::Fate), None);
+        assert_eq!(abbreviation_for(Stat::Armor), None);
         assert_eq!(abbreviation_for(Stat::DevRating), None);
         assert_eq!(abbreviation_for(Stat::OffensiveOverpower), None);
         assert_eq!(abbreviation_for(Stat::IncMitigations), None);
@@ -344,6 +364,20 @@ mod tests {
                 .parse::<StatGoal>()
                 .expect_err("base stats must not be optimize goals without minimum either");
             assert!(err.contains("not an optimizer goal stat"));
+        }
+
+        // Armour is now a Base stat: `Armour:100`, the former `am:100`
+        // abbreviation, and the bare `Armour` name must all be rejected.
+        for name in ["Armour", "am", "Armour:100", "am:100"] {
+            let err = name
+                .parse::<StatGoal>()
+                .expect_err("Armour must not be an optimize goal");
+            assert!(
+                err.contains("not an optimizer goal stat") || err.contains("Unknown stat"),
+                "unexpected error for {}: {}",
+                name,
+                err
+            );
         }
     }
 

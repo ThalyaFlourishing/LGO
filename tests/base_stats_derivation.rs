@@ -225,6 +225,56 @@ name = "Statless Helm"
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
+/// An item carrying a raw `Armour` Base stat must derive into mitigation
+/// tracked stats at optimize time: `Armour = N` yields `+N` PhysicalMitigation
+/// and `+ceil(0.2 × N)` TacticalMitigation in the gear-set totals, with no raw
+/// Armour key surviving in the tracked totals. Mirrors the innate-base test
+/// but exercises the per-item derivation path. Uses N = 1001 to also pin the
+/// per-product `ceil()` rule (ceil(200.2) = 201).
+#[test]
+fn item_armour_derives_mitigations_into_optimize_totals() {
+    let dir = make_test_dir();
+    let path = dir.join("test.toml");
+    let toml = r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Armoured Helm"
+Armour = 1001
+"#;
+    std::fs::write(&path, toml).expect("write toml");
+
+    // Real committed coefficients: every class's Armour row is
+    // PhysicalMitigation 1.0, TacticalMitigation 0.2.
+    let derivations = load_derivations();
+    let mut doc = read_stats_file(&path).expect("must parse");
+    derivations
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+
+    let resolved: HashMap<String, lgo::gear::GearItem> = doc
+        .items
+        .into_iter()
+        .map(|doc_item| doc_item.item)
+        .enumerate()
+        .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
+        .collect();
+    let keys: Vec<String> = resolved.keys().cloned().collect();
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
+
+    assert_eq!(result.gear_set.total(&Stat::PhysicalMitigation), 1001);
+    assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 201);
+    assert_eq!(
+        result.gear_set.total(&Stat::Armor),
+        0,
+        "Armour is a derivation input and must never appear in tracked totals"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
 /// Base values entered in `[item.EssenceTotals]` (e.g. Vitality/Will
 /// essences) must derive identically to the same value on the item itself.
 #[test]

@@ -228,6 +228,12 @@ the original `"Armor"` typo in the JSON and this table/JSON mismatch — run
 `cargo test` before trusting a hand-edit to a data file that's validated by
 exact-string matching elsewhere in the codebase.
 
+**Later update:** `Armour` has since been reclassified from a tracked/goal stat
+into the sixth Base (derivation-input) stat. It is now the last entry in
+`BASE_STATS`, has no CLI abbreviation (the `am` token is retired), is not a
+valid optimizer goal, and derives into PhysicalMitigation (×1.0) and
+TacticalMitigation (×0.2) at optimize time like any other Base stat.
+
 
 ---
 

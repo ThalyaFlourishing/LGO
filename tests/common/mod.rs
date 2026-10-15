@@ -20,24 +20,25 @@ use std::path::Path;
 /// insists on is present, but only Lore-master carries non-empty coefficient
 /// rows — the only class the logic tests exercise. Tests own these numbers.
 pub const DERIVATIONS_JSON: &str = r#"{
-  "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
+  "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
   "Lore-master": {
     "Might": { "CriticalRating": 1.5, "Finesse": 1.5, "TacticalMastery": 2.0, "Parry": 1.0 },
     "Agility": { "CriticalRating": 2.0, "Finesse": 1.0, "TacticalMastery": 2.0, "Evade": 1.0 },
     "Vitality": { "Morale": 4.5 },
     "Will": { "CriticalRating": 1.0, "TacticalMastery": 3.0, "Resistance": 1.0, "Evade": 2.0, "PhysicalMitigation": 1.0, "TacticalMitigation": 1.0 },
-    "Fate": { "Power": 1.5 }
+    "Fate": { "Power": 1.5 },
+    "Armour": { "PhysicalMitigation": 1.0, "TacticalMitigation": 0.2 }
   },
-  "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} },
-  "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {} }
+  "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+  "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} }
 }"#;
 
 /// Minimal synthetic items DB. It maps only the handful of `Test *` item names
@@ -130,20 +131,20 @@ class              = "Lore-master"
 [[item]]
 slot               = "Unknown"
 name               = "Test Helm"
-Armour                = 6000
 CriticalRating        = 26000
+Armour                = 6000
 
 [[item]]
 slot               = "Unknown"
 name               = "Test Robe"
-Armour                = 20000
 CriticalRating        = 22000
+Armour                = 20000
 
 [[item]]
 slot               = "Unknown"
 name               = "Test Leggings"
-Armour                = 15000
 Finesse               = 12000
+Armour                = 15000
 
 [[item]]
 slot               = "Ears (1)"
@@ -155,8 +156,8 @@ TacticalMastery       = 8000
 slot               = "Unknown"
 name               = "Mystery Relic"
 # UNRESOLVED: legendary item — you should hand-edit stats
-Armour                = 0
 CriticalRating        = 0
+Armour                = 0
 "#;
 
 /// The shared synthetic items DB, parsed from [`ITEMS_JSON`].

@@ -118,6 +118,60 @@ name = "Statless Helm"
 }
 
 #[test]
+fn selected_virtue_armour_derives_mitigations_and_leaves_no_tracked_armour() {
+    // Armour is a Base stat: a Virtue granting Armour = 500 must derive
+    // +500 PhysicalMitigation and +ceil(0.2 × 500) = +100 TacticalMitigation
+    // into the fixed baseline, with no raw Armour in the tracked totals.
+    let dir = make_test_dir();
+    let path = dir.join("gear.toml");
+    std::fs::write(
+        &path,
+        r#"
+class = "Lore-master"
+
+[Virtues]
+Virtue1 = "Loyalty"
+
+[[item]]
+slot = "Head"
+name = "Statless Helm"
+"#,
+    )
+    .expect("write toml");
+
+    let mut doc = read_stats_file(&path).expect("gear toml must parse");
+    let virtues =
+        VirtuesDb::from_json_str(r#"{ "Loyalty": { "Armour": 500 } }"#, Path::new("<test>"))
+            .expect("virtue db must parse");
+    virtues
+        .apply_selected_virtues(&mut doc)
+        .expect("virtues must apply");
+    load_derivations()
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+
+    let resolved: HashMap<String, lgo::gear::GearItem> = doc
+        .items
+        .into_iter()
+        .map(|doc_item| doc_item.item)
+        .enumerate()
+        .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
+        .collect();
+    let keys: Vec<String> = resolved.keys().cloned().collect();
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
+
+    assert_eq!(result.gear_set.total(&Stat::PhysicalMitigation), 500);
+    assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 100);
+    assert_eq!(
+        result.gear_set.total(&Stat::Armor),
+        0,
+        "Armour is a derivation input and must never appear in tracked totals"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
 fn optimize_succeeds_with_empty_virtues_even_without_virtues_data_file() {
     let dir = make_test_dir();
     let data_dir = dir.join("data");
