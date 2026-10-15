@@ -152,7 +152,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     effective item totals before optimization.
 
     optimize also derives the raw Base stats (Might, Agility, Vitality, Will,
-    Fate Armour) carried in gearReady.toml — innate, per-item, and essence values —
+    Fate, Armour) carried in gearReady.toml — innate, per-item, and essence values —
     plus any raw Base stats granted by selected Virtues — into tracked-stat
     contributions using the per-class coefficients in
     data\base_stat_derivations.json. Selected Virtue tracked stats contribute
