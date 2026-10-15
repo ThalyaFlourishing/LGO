@@ -1,0 +1,149 @@
+# LGO saved build profiles. Hand-editing is fine.
+# Goals are priority-ordered: first entry = highest priority.
+
+# 01
+[builds.PurifyingBlaze]
+goals = ["tm:442200", "cr:400000"]
+# ./lgo optimize --build PurifyingBlaze -f "Thalya_Gear/lgo_Thalya_gearReady - Purifying Blaze.toml"
+# TM 443, CR 314
+
+
+# 02
+[builds.BlightedBlaze]
+goals = ["tm:400000", "cr:400000"]
+# ./lgo optimize --build BlightedBlaze -f "Thalya_Gear/lgo_Thalya_gearReady - Blighted Blaze.toml"
+# TM 401, CR 309
+
+
+# 03
+[builds.DiscerningFlame]
+goals = ["tt:155000", "fn:140000", "tm:360000", "cr:330000"]
+# ./lgo optimize --build DiscerningFlame -f "Thalya_Gear/lgo_Thalya_gearReady - Discerning Flame.toml"
+# TT 155, FN 140, TM 364, CR 229
+
+
+# 04
+[builds.BlightedFlame]
+goals = ["tt:140000", "fn:140000", "tm:353000", "cr:325000"]
+# ./lgo optimize --build BlightedFlame -f "Thalya_Gear/lgo_Thalya_gearReady - Blighted Flame.toml"
+# TT 142, FN 140, TM 364, CR 222
+
+
+# 05
+[builds.CommandAndControl]
+goals = ["tt:180000", "fn:185000", "tm:300000", "cr:280000"]
+# ./lgo optimize --build CommandAndControl -f "Thalya_Gear/lgo_Thalya_gearReady - Command And Control.toml"
+# TT 180, FI 187, TM 302, CR 173
+
+
+# 06
+[builds.BlightedControl]
+goals = ["tt:160000", "fn:160000", "tm:310000", "cr:270000"]
+# ./lgo optimize --build BlightedControl -f "Thalya_Gear/lgo_Thalya_gearReady - Blighted Control.toml"
+# TM 163, FI 178, TM 299, CR 141
+
+
+# 07
+[builds.SubtleAnimaWeaver]
+goals = ["tm:360000", "oh:350000", "tt:130000", "pt:79000"]
+# ./lgo optimize --build SubtleAnimaWeaver -f "Thalya_Gear/lgo_Thalya_gearReady - Subtle Anima Weaver.toml"
+# TM 360, OH 276, TT 86, PT 59
+
+
+# 08
+[builds.Beastlord]
+goals = ["tm:360000", "oh:350000", "tt:130000", "pt:79000"]
+# ./lgo optimize --build Beastlord -f "Thalya_Gear/lgo_Thalya_gearReady - Beastlord.toml"
+# TM 360, OH 276, TT 86, PT 59
+
+
+# 09
+[builds.IorethsApprentice]
+goals = ["tm:349000", "oh:345000", "tt:193000", "pt:93000"]
+# ./lgo optimize --build IorethsApprentice -f "Thalya_Gear/lgo_Thalya_gearReady - Ioreth's Apprentice.toml"
+# TM 349, OH 350, TT 139, PT 55
+
+
+# 10
+[builds.IorethsBlightedApprentice]
+goals = ["tm:349000", "oh:345000", "tt:193000", "pt:93000"]
+# ./lgo optimize --build IorethsBlightedApprentice -f "Thalya_Gear/lgo_Thalya_gearReady - Ioreth's Blighted Apprentice.toml"
+# TM 291, OH 345, TM 102, PT 67
+
+
+# 11
+[builds.Finesse]
+goals = ["fn:300000", "tm:330000", "cr:314000"]
+# ./lgo optimize --build Finesse -f "Thalya_Gear/lgo_Thalya_gearReady - Finesse.toml"
+# FN 300, TM 330, CR 147
+
+
+# -----------------------------------------
+# NAKED STATS:
+# cr:  74085 with virtues, 28045 without
+# tm: 111676 with virtues, 66545 without
+# fn:  54264 with virtues, 22868 without
+# pt:  18497 with virtues, 13860 without
+# tt:  18497 with virtues, 13860 without
+
+
+
+
+
+
+
+# -----------------------------------------
+# optimizer says:          TM 442, CR 390
+# Actual observed in-game: TM 422, CR 386
+
+#       From direct CR:
+# 26090
+#  5277
+#  7580
+# 15159
+#  5277
+#  9219
+# 19147
+#  8713
+# 18310
+#  6637
+# 14351
+# 14351
+# 12000
+# 14620
+#  5277
+#  7310
+#  7310
+#  5277
+#  7310
+#  7310
+#  9134
+#  8219
+
+#       From base stats: 38857
+#  8350 (MI)
+# 12010 (AG)
+# 18497 (WL)
+
+#       From base stats on gear
+#  1386
+#  2116
+#  3385
+#  3142
+#  3518
+#  2609
+#  2609
+#  3220
+#  3615
+#  2662
+#  3390
+#  4520
+#  2260
+#  3724
+#  1358
+#  3319
+#  2609
+#  3724
+#  1358
+
+# 327259 TOTAL (---- more than report)

@@ -5,6 +5,7 @@ class              = "Lore-master"
 [[item]]
 slot               = "Unknown"
 name               = "Veteran Sage's Hooded Helm"
+Armour                = 6181
 CriticalRating        = 26090
 Finesse               = 0
 PhysicalMastery       = 0
@@ -20,922 +21,12 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 Vitality              = 3434
 Will                  = 1386
-Armour                = 6181
 
 [[item]]
 slot               = "Unknown"
-name               = "Blighted Shirt of the Tempest"
-CriticalRating        = 21931
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 4026
-Will                  = 1358
-Armour                = 20608
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Leggings of the Tempest"
-CriticalRating        = 7310
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3692
-Will                  = 3053
-Armour                = 17118
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Gloves of the Tempest"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 13698
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3020
-Will                  = 3385
-Armour                = 10197
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Shoes of the Tempest"
-CriticalRating        = 0
-Finesse               = 29102
-PhysicalMastery       = 0
-TacticalMastery       = 7570
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3020
-Will                  = 2036
-Armour                = 8242
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Shoulder-guards of the Tempest"
-CriticalRating        = 14620
-Finesse               = 4846
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3351
-Will                  = 2714
-Armour                = 6067
-
-[[item]]
-slot               = "Unknown"
-name               = "Merchant's Thick Cloak"
-CriticalRating        = 7445
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 10461
-Vitality              = 3094
-Armour                = 16471
-
-[[item]]
-slot               = "Unknown"
-name               = "Strong Ordâkhai Bracelet"
-CriticalRating        = 18644
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 7457
-TacticalMitigation    = 0
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ensorceled Bracelet"
+name               = "Veteran Sage's Coat"
+Armour                = 20995
 CriticalRating        = 18645
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 13447
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Hunter's Necklace of Lamentation"
-CriticalRating        = 18310
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 4548
-OutgoingHealing       = 0
-Resistance            = 6579
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 4026
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Pristine Madáshi Ring"
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
-CriticalRating        = 14351
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Agility               = 2662
-Vitality              = 2619
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Tri-colour Gemstone Ring"
-CriticalRating        = 11161
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 17071
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Pristine Madáshi Earring"
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
-CriticalRating        = 14351
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2619
-Will                  = 2662
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Pristine Madáshi Earring"
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
-CriticalRating        = 14351
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2619
-Will                  = 2662
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Golden Scroll Case"
-CriticalRating        = 14620
-Finesse               = 7269
-PhysicalMastery       = 0
-TacticalMastery       = 9107
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3692
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Legendary Lore-keeper's Staff"
-# UNRESOLVED: legendary item — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Kinta Sword of the Herbalist"
-# AUTO-PICKED highest-item-level variant: Item:Kinta Sword of the Herbalist (Item Level 563)
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 10422
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 4307
-Vitality              = 2619
-Will                  = 3319
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Pristine Mûrai Stickpin of Nature's Glory"
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Nature's Glory (Item Level 564)
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Lore-master's Book"
-# UNRESOLVED: legendary item — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Kinta Sage's Shoulder-guards"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 7915
-OutgoingHealing       = 0
-Resistance            = 8592
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 1948
-Will                  = 3509
-Armour                = 4893
-
-[[item]]
-slot               = "Unknown"
-name               = "Ordâkhai Merchant's Boots"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7458
-Vitality              = 2412
-Will                  = 3113
-Fate                  = 866
-Armour                = 7948
-
-[[item]]
-slot               = "Unknown"
-name               = "Subtle Conscript's Earring"
-CriticalRating        = 0
-Finesse               = 24686
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7458
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Faded Watcher's Bracers"
-CriticalRating        = 0
-Finesse               = 6583
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 34165
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 1764
-Will                  = 3055
-Armour                = 8631
-
-[[item]]
-slot               = "Unknown"
-name               = "Pristine Mûrai Stickpin of Ancient Wisdom"
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Ancient Wisdom (Item Level 564)
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 16600
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Fate                  = 557
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ornate Conscript's Earring"
-CriticalRating        = 9303
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 42661
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Tournament Sage's Band"
-CriticalRating        = 7674
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 3974
-Vitality              = 1019
-Armour                = 2537
-
-[[item]]
-slot               = "Unknown"
-name               = "Tournament Sage's Robe"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 3974
-Vitality              = 1019
-Will                  = 1359
-Armour                = 8763
-
-[[item]]
-slot               = "Unknown"
-name               = "Subtle Ordâkhai Bracelet"
-CriticalRating        = 0
-Finesse               = 19787
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 4478
-Vitality              = 3094
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Strong Ordâkhai Bauble"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 7457
-TacticalMitigation    = 14928
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Wilful Bracer of the Bear in Winter"
-CriticalRating        = 8713
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 4338
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 1888
-Will                  = 3220
-Fate                  = 794
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ordâkhai Explorer's Boots"
-CriticalRating        = 14890
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 15459
-OutgoingHealing       = 0
-Resistance            = 10061
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2412
-Armour                = 7948
-
-[[item]]
-slot               = "Unknown"
-name               = "Resolute Sword of Old Eregion"
-CriticalRating        = 0
-Finesse               = 4210
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 3506
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 886
-Fate                  = 661
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Grove-tender's Robe"
-# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 2900
-TacticalMitigation    = 10157
-Vitality              = 2982
-Will                  = 3352
-Armour                = 19371
-
-[[item]]
-slot               = "Unknown"
-name               = "Gold Teardrop Earring"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7748
-Vitality              = 2854
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Elegant Blade of the Traveller"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ornate Ordâkhai Bracelet"
-CriticalRating        = 9302
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 21330
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7457
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Heavy Ordâkhai Ring"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 6700
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7457
-Might                 = 2767
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Cuffs"
-CriticalRating        = 3722
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2752
-Will                  = 2767
-Fate                  = 1733
-Armour                = 10391
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Shoes"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 6700
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 14929
-Vitality              = 2752
-Will                  = 4143
-Armour                = 8398
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Hood"
-CriticalRating        = 22335
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 8553
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Fate                  = 1155
-Armour                = 6181
-
-[[item]]
-slot               = "Unknown"
-name               = "Topaz Gold Ear Cuff of the Traveller"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Delicate Gold Armlet of the Traveller"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Lapis Silver Ear Cuff of the Traveller"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Umbari Veteran's Bracers"
-CriticalRating        = 0
-Finesse               = 17306
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2752
-Will                  = 3452
-Fate                  = 866
-Armour                = 10391
-
-[[item]]
-slot               = "Unknown"
-name               = "Umbari Veteran's Shoes"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 15459
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 10391
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2752
-Fate                  = 2889
-Armour                = 8938
-
-[[item]]
-slot               = "Unknown"
-name               = "Subtle Ordâkhai Bracelet"
-CriticalRating        = 0
-Finesse               = 19787
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 4478
-Vitality              = 3094
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Subtle Conscript's Ring"
-CriticalRating        = 0
-Finesse               = 12343
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 2986
-Vitality              = 3094
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Umbari Veteran's Cloth Leggings"
-CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 4631
@@ -947,580 +38,13 @@ Block                 = 0
 Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
-TacticalMitigation    = 10461
-Vitality              = 3434
-Will                  = 4143
-Armour                = 17440
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Leggings"
-CriticalRating        = 16767
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 21331
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
 TacticalMitigation    = 0
-Vitality              = 3434
-Fate                  = 1155
-Armour                = 17440
-
-[[item]]
-slot               = "Unknown"
-name               = "Ordâkhai Merchant's Coat"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 5971
-Vitality              = 3434
-Will                  = 2076
-Armour                = 19922
-
-[[item]]
-slot               = "Unknown"
-name               = "Game Hunter's Cloak"
-CriticalRating        = 9303
-Finesse               = 9874
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3094
-Fate                  = 578
-Armour                = 16471
-
-[[item]]
-slot               = "Unknown"
-name               = "Umbari Veteran's Circlet"
-CriticalRating        = 14890
-Finesse               = 24686
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Fate                  = 1155
-Armour                = 6181
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Ordâkhai Bracelet"
-CriticalRating        = 18644
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Agility               = 1731
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Subtle Ordâkhai Ring"
-CriticalRating        = 0
-Finesse               = 12342
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 2985
-Vitality              = 3094
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ordâkhai Wanderer's Threadbare Shoulder-guard"
-CriticalRating        = 0
-Finesse               = 12343
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 6700
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2412
-Will                  = 3452
-Armour                = 4856
-
-[[item]]
-slot               = "Unknown"
-name               = "Delicate Gold Armlet of the Adventurer"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Forgotten Elvish Healer's Shoulder-pads"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 7458
-TacticalMitigation    = 11936
-Vitality              = 3094
-Will                  = 3452
-Armour                = 6181
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Shoes of the Keeper"
-CriticalRating        = 12845
-Finesse               = 16988
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3020
-Will                  = 3053
-Armour                = 8242
-
-[[item]]
-slot               = "Unknown"
-name               = "Ornate Ordâkhai Necklace"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 29883
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Ornate Ordâkhai Ring"
-CriticalRating        = 3722
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 21330
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3094
-Will                  = 2767
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Gloves of the Keeper"
-CriticalRating        = 18310
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3020
-Will                  = 3053
-Armour                = 10197
-
-[[item]]
-slot               = "Unknown"
-name               = "Zajâni Scholar's Cloak"
-CriticalRating        = 9303
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 9277
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3094
-Armour                = 16471
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Pristine Madáshi Ring"
-# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
-CriticalRating        = 14351
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Agility               = 2662
-Vitality              = 2619
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Elegant Blade of the Adventurer"
-# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Flame-licked Necklace"
-CriticalRating        = 8516
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 1464
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Resonant Brilliant Elvish Ring"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 6143
-TacticalMitigation    = 6143
-Vitality              = 3558
-Fate                  = 1796
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Shoulder-guards of the Keeper"
-CriticalRating        = 0
-Finesse               = 4846
-PhysicalMastery       = 0
-TacticalMastery       = 9107
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3351
-Will                  = 3385
-Armour                = 6067
-
-[[item]]
-slot               = "Unknown"
-name               = "Shoes of the Adventurer"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 3280
-
-[[item]]
-slot               = "Unknown"
-name               = "Keen Ordâkhai Bauble"
-CriticalRating        = 0
-Finesse               = 12342
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Agility               = 3452
-Vitality              = 3094
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Token of the Emerald Wood"
-CriticalRating        = 21931
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 12576
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 2929
-Vitality              = 3692
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Lash Fragment Reforged"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 9955
-TacticalMitigation    = 11364
-Vitality              = 3877
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Brass Alchemist's Bracelet"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 42661
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 11936
-Vitality              = 3434
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Candinglos Reforged"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 11847
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 7100
-Vitality              = 2586
-Will                  = 3615
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Pristine Mûrai Stickpin of Bestial Strength"
-# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Bestial Strength (Item Level 564)
-CriticalRating        = 0
-Finesse               = 4800
-PhysicalMastery       = 0
-TacticalMastery       = 6003
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Brass Earring"
-CriticalRating        = 0
-Finesse               = 24685
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Blighted Brass Earring"
-CriticalRating        = 0
-Finesse               = 24685
-PhysicalMastery       = 0
-TacticalMastery       = 0
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3434
-Armour                = 0
-
-[[item]]
-slot               = "Unknown"
-name               = "Umbari Veteran's Cops"
-CriticalRating        = 0
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 10820
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 8951
-TacticalMitigation    = 2986
-Vitality              = 3094
-Armour                = 6181
+Vitality              = 3783
 
 [[item]]
 slot               = "Unknown"
 name               = "Veteran Sage's Leggings"
+Armour                = 17440
 CriticalRating        = 14890
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1535,11 +59,30 @@ Evade                 = 0
 PhysicalMitigation    = 0
 TacticalMitigation    = 0
 Vitality              = 3434
-Armour                = 17440
+
+[[item]]
+slot               = "Unknown"
+name               = "Veteran Sage's Bracers"
+Armour                = 10391
+CriticalRating        = 22335
+Finesse               = 9874
+PhysicalMastery       = 0
+TacticalMastery       = 12408
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 2752
 
 [[item]]
 slot               = "Unknown"
 name               = "Veteran Sage's Shoes"
+Armour                = 8398
 CriticalRating        = 0
 Finesse               = 7406
 PhysicalMastery       = 0
@@ -1555,49 +98,11 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 0
 Vitality              = 2752
 Will                  = 3113
-Armour                = 8398
-
-[[item]]
-slot               = "Unknown"
-name               = "Veteran Sage's Coat"
-CriticalRating        = 18645
-Finesse               = 0
-PhysicalMastery       = 0
-TacticalMastery       = 4631
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 3783
-Armour                = 20995
-
-[[item]]
-slot               = "Unknown"
-name               = "Veteran Sage's Bracers"
-CriticalRating        = 22335
-Finesse               = 9874
-PhysicalMastery       = 0
-TacticalMastery       = 12408
-OutgoingHealing       = 0
-Resistance            = 0
-CriticalDefense       = 0
-IncomingHealing       = 0
-Block                 = 0
-Parry                 = 0
-Evade                 = 0
-PhysicalMitigation    = 0
-TacticalMitigation    = 0
-Vitality              = 2752
-Armour                = 10391
 
 [[item]]
 slot               = "Unknown"
 name               = "Veteran Sage's Shoulder-guard"
+Armour                = 6181
 CriticalRating        = 16767
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1614,11 +119,387 @@ TacticalMitigation    = 0
 Vitality              = 3094
 Will                  = 4143
 Fate                  = 577
-Armour                = 6181
+
+[[item]]
+slot               = "Unknown"
+name               = "Zajâni Scholar's Cloak"
+Armour                = 16471
+CriticalRating        = 9303
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 9277
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Ensorceled Bracelet"
+Armour                = 0
+CriticalRating        = 18645
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 13447
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Ordâkhai Bracelet"
+Armour                = 0
+CriticalRating        = 18644
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Agility               = 1731
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Hunter's Necklace of Lamentation"
+Armour                = 0
+CriticalRating        = 18310
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 4548
+OutgoingHealing       = 0
+Resistance            = 6579
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 4026
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Pristine Madáshi Ring"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
+Armour                = 0
+CriticalRating        = 14351
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Agility               = 2662
+Vitality              = 2619
+
+[[item]]
+slot               = "Unknown"
+name               = "Candinglos Reforged"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 11847
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 7100
+Vitality              = 2586
+Will                  = 3615
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Pristine Madáshi Earring"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
+Armour                = 0
+CriticalRating        = 14351
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 2619
+Will                  = 2662
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Pristine Madáshi Earring"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Earring (Item Level 563)
+Armour                = 0
+CriticalRating        = 14351
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 2619
+Will                  = 2662
+
+[[item]]
+slot               = "Unknown"
+name               = "Golden Scroll Case"
+Armour                = 0
+CriticalRating        = 14620
+Finesse               = 7269
+PhysicalMastery       = 0
+TacticalMastery       = 9107
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3692
+
+[[item]]
+slot               = "Unknown"
+name               = "Legendary Lore-keeper's Staff"
+# UNRESOLVED: legendary item — you should hand-edit stats
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot               = "Unknown"
+name               = "Kinta Sword of the Herbalist"
+# AUTO-PICKED highest-item-level variant: Item:Kinta Sword of the Herbalist (Item Level 563)
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 10422
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 4307
+Vitality              = 2619
+Will                  = 3319
+
+[[item]]
+slot               = "Unknown"
+name               = "Pristine Mûrai Stickpin of Bestial Strength"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Bestial Strength (Item Level 564)
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 4800
+PhysicalMastery       = 0
+TacticalMastery       = 6003
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot               = "Unknown"
+name               = "Lore-master's Book"
+# UNRESOLVED: legendary item — you should hand-edit stats
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+
+[[item]]
+slot               = "Unknown"
+name               = "Hunter's Spare Herb Pouch"
+Armour                = 0
+CriticalRating        = 9134
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 16757
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 4026
+Fate                  = 1692
+
+[[item]]
+slot               = "Unknown"
+name               = "Forgotten Elvish Healer's Robe"
+Armour                = 20995
+CriticalRating        = 9303
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 17071
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3783
+Will                  = 4143
+
+[[item]]
+slot               = "Unknown"
+name               = "Forgotten Elvish Healer's Leggings"
+Armour                = 17440
+CriticalRating        = 16767
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 21331
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+Fate                  = 1155
+
+[[item]]
+slot               = "Unknown"
+name               = "Umbari Veteran's Cloth Leggings"
+Armour                = 17440
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 4631
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 10461
+Vitality              = 3434
+Will                  = 4143
+
+[[item]]
+slot               = "Unknown"
+name               = "Tri-colour Gemstone Ring"
+Armour                = 0
+CriticalRating        = 11161
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 17071
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+Will                  = 2767
+
+[[item]]
+slot               = "Unknown"
+name               = "Elegant Blade of the Adventurer"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
 
 [[item]]
 slot               = "Unknown"
 name               = "Blighted Shirt of the Herbalist"
+Armour                = 20608
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1634,11 +515,11 @@ PhysicalMitigation    = 2929
 TacticalMitigation    = 11707
 Vitality              = 4026
 Will                  = 2036
-Armour                = 20608
 
 [[item]]
 slot               = "Unknown"
 name               = "Blighted Shoes of the Herbalist"
+Armour                = 8242
 CriticalRating        = 0
 Finesse               = 4846
 PhysicalMastery       = 0
@@ -1654,13 +535,52 @@ PhysicalMitigation    = 10258
 TacticalMitigation    = 0
 Vitality              = 3020
 Will                  = 2375
-Armour                = 8242
 
 [[item]]
 slot               = "Unknown"
-name               = "Blighted Mask of the Herbalist"
-CriticalRating        = 0
-Finesse               = 12114
+name               = "Token of the Emerald Wood"
+Armour                = 0
+CriticalRating        = 21931
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 12576
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 2929
+Vitality              = 3692
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Shirt of the Keeper"
+Armour                = 20608
+CriticalRating        = 7310
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 9107
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 4026
+Will                  = 2036
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Boots of the Keeper"
+Armour                = 8242
+CriticalRating        = 12845
+Finesse               = 16988
 PhysicalMastery       = 0
 TacticalMastery       = 0
 OutgoingHealing       = 0
@@ -1671,14 +591,14 @@ Block                 = 0
 Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
-TacticalMitigation    = 2929
-Vitality              = 3692
-Will                  = 2036
-Armour                = 6067
+TacticalMitigation    = 0
+Vitality              = 3020
+Will                  = 3053
 
 [[item]]
 slot               = "Unknown"
 name               = "Blighted Gloves of the Herbalist"
+Armour                = 10197
 CriticalRating        = 0
 Finesse               = 21861
 PhysicalMastery       = 0
@@ -1695,11 +615,11 @@ TacticalMitigation    = 0
 Vitality              = 3020
 Will                  = 2714
 Fate                  = 564
-Armour                = 10197
 
 [[item]]
 slot               = "Unknown"
 name               = "Blighted Shoulder-guards of the Herbalist"
+Armour                = 6067
 CriticalRating        = 7310
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1715,16 +635,36 @@ PhysicalMitigation    = 0
 TacticalMitigation    = 8779
 Vitality              = 3351
 Will                  = 2714
-Armour                = 6067
 
 [[item]]
 slot               = "Unknown"
-name               = "Hunter's Spare Herb Pouch"
-CriticalRating        = 9134
+name               = "Blighted Shoulder-guards of the Keeper"
+Armour                = 6067
+CriticalRating        = 0
+Finesse               = 4846
+PhysicalMastery       = 0
+TacticalMastery       = 9107
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3351
+Will                  = 3385
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Shirt of the Tempest"
+Armour                = 20608
+CriticalRating        = 21931
 Finesse               = 0
 PhysicalMastery       = 0
 TacticalMastery       = 0
-OutgoingHealing       = 16757
+OutgoingHealing       = 0
 Resistance            = 0
 CriticalDefense       = 0
 IncomingHealing       = 0
@@ -1734,13 +674,288 @@ Evade                 = 0
 PhysicalMitigation    = 0
 TacticalMitigation    = 0
 Vitality              = 4026
-Fate                  = 1692
-Armour                = 0
+Will                  = 1358
 
 [[item]]
 slot               = "Unknown"
-name               = "Lore-master's Staff of Legends"
-# UNRESOLVED: legendary item — you should hand-edit stats
+name               = "Blighted Mask of the Keeper"
+Armour                = 6067
+CriticalRating        = 12845
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3692
+Will                  = 2036
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Leggings of the Tempest"
+Armour                = 17118
+CriticalRating        = 7310
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3692
+Will                  = 3053
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Flame-licked Necklace"
+Armour                = 0
+CriticalRating        = 8516
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 1464
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Shoes of the Tempest"
+Armour                = 8242
+CriticalRating        = 0
+Finesse               = 29102
+PhysicalMastery       = 0
+TacticalMastery       = 7570
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3020
+Will                  = 2036
+
+[[item]]
+slot               = "Unknown"
+name               = "Wilful Bracer of the Bear in Winter"
+Armour                = 0
+CriticalRating        = 8713
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 4338
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 1888
+Will                  = 3220
+Fate                  = 794
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Shoulder-guards of the Tempest"
+Armour                = 6067
+CriticalRating        = 14620
+Finesse               = 4846
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3351
+Will                  = 2714
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Mask of the Herbalist"
+Armour                = 6067
+CriticalRating        = 0
+Finesse               = 12114
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 2929
+Vitality              = 3692
+Will                  = 2036
+
+[[item]]
+slot               = "Unknown"
+name               = "Lash Fragment Reforged"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 9955
+TacticalMitigation    = 11364
+Vitality              = 3877
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Brass Earring"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 24685
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Gloves of the Keeper"
+Armour                = 10197
+CriticalRating        = 18310
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3020
+Will                  = 3053
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Gloves of the Tempest"
+Armour                = 10197
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 13698
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3020
+Will                  = 3385
+
+[[item]]
+slot               = "Unknown"
+name               = "Umbari Veteran's Circlet"
+Armour                = 6181
+CriticalRating        = 14890
+Finesse               = 24686
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+Fate                  = 1155
+
+[[item]]
+slot               = "Unknown"
+name               = "Blighted Brass Earring"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 24685
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3434
+
+[[item]]
+slot               = "Unknown"
+name               = "Brass Alchemist's Bracelet"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 42661
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 11936
+Vitality              = 3434
+
+[[item]]
+slot               = "Unknown"
+name               = "Delicate Gold Armlet of the Adventurer"
+Armour                = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1754,12 +969,53 @@ Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
 TacticalMitigation    = 0
-Armour                = 0
 
 [[item]]
 slot               = "Unknown"
-name               = "Lore-master's Book"
-# UNRESOLVED: legendary item — you should hand-edit stats
+name               = "Grove-tender's Robe"
+# AUTO-PICKED highest-item-level variant: Item:Grove-tender's Robe (Item Level 564)
+Armour                = 19371
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 2900
+TacticalMitigation    = 10157
+Vitality              = 2982
+Will                  = 3352
+
+[[item]]
+slot               = "Unknown"
+name               = "Pristine Mûrai Stickpin of Ancient Wisdom"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Ancient Wisdom (Item Level 564)
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 16600
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Fate                  = 557
+
+[[item]]
+slot               = "Unknown"
+name               = "Lapis Silver Ear Cuff of the Traveller"
+# UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
+Armour                = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1773,12 +1029,112 @@ Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
 TacticalMitigation    = 0
-Armour                = 0
 
 [[item]]
 slot               = "Unknown"
-name               = "Lore-master's Staff of Legends"
-# UNRESOLVED: legendary item — you should hand-edit stats
+name               = "Keen Pristine Madáshi Ring"
+# AUTO-PICKED highest-item-level variant: Item:Keen Pristine Madáshi Ring (Item Level 563)
+Armour                = 0
+CriticalRating        = 14351
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Agility               = 2662
+Vitality              = 2619
+
+[[item]]
+slot               = "Unknown"
+name               = "Ornate Ordâkhai Bracelet"
+Armour                = 0
+CriticalRating        = 9302
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 21330
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 7457
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Faded Watcher's Bracers"
+Armour                = 8631
+CriticalRating        = 0
+Finesse               = 6583
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 34165
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 1764
+Will                  = 3055
+
+[[item]]
+slot               = "Unknown"
+name               = "Game Hunter's Cloak"
+Armour                = 16471
+CriticalRating        = 9303
+Finesse               = 9874
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3094
+Fate                  = 578
+
+[[item]]
+slot               = "Unknown"
+name               = "Subtle Ordâkhai Bracelet"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 19787
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 4478
+Vitality              = 3094
+Will                  = 2767
+
+[[item]]
+slot               = "Unknown"
+name               = "Pristine Mûrai Stickpin of Nature's Glory"
+# AUTO-PICKED highest-item-level variant: Item:Pristine Mûrai Stickpin of Nature's Glory (Item Level 564)
+Armour                = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1792,12 +1148,11 @@ Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
 TacticalMitigation    = 0
-Armour                = 0
 
 [[item]]
 slot               = "Unknown"
-name               = "Lore-master's Book"
-# UNRESOLVED: legendary item — you should hand-edit stats
+name               = "Gold Teardrop Earring"
+Armour                = 0
 CriticalRating        = 0
 Finesse               = 0
 PhysicalMastery       = 0
@@ -1810,6 +1165,220 @@ Block                 = 0
 Parry                 = 0
 Evade                 = 0
 PhysicalMitigation    = 0
-TacticalMitigation    = 0
+TacticalMitigation    = 7748
+Vitality              = 2854
+
+[[item]]
+slot               = "Unknown"
+name               = "Subtle Ordâkhai Bracelet"
 Armour                = 0
+CriticalRating        = 0
+Finesse               = 19787
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 4478
+Vitality              = 3094
+Will                  = 2767
+
+[[item]]
+slot               = "Unknown"
+name               = "Heavy Ordâkhai Ring"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 6700
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 7457
+Might                 = 2767
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Keen Ordâkhai Bauble"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 12342
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Agility               = 3452
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Ornate Ordâkhai Ring"
+Armour                = 0
+CriticalRating        = 3722
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 21330
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3094
+Will                  = 2767
+
+[[item]]
+slot               = "Unknown"
+name               = "Merchant's Thick Cloak"
+Armour                = 16471
+CriticalRating        = 7445
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 10461
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Ornate Ordâkhai Necklace"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 29883
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Ordâkhai Explorer's Boots"
+Armour                = 7948
+CriticalRating        = 14890
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 15459
+OutgoingHealing       = 0
+Resistance            = 10061
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 2412
+
+[[item]]
+slot               = "Unknown"
+name               = "Strong Ordâkhai Bauble"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 7457
+TacticalMitigation    = 14928
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Subtle Ordâkhai Ring"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 12342
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 2985
+Vitality              = 3094
+Will                  = 2767
+
+[[item]]
+slot               = "Unknown"
+name               = "Subtle Conscript's Earring"
+Armour                = 0
+CriticalRating        = 0
+Finesse               = 24686
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 0
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 7458
+Vitality              = 3094
+
+[[item]]
+slot               = "Unknown"
+name               = "Ornate Conscript's Earring"
+Armour                = 0
+CriticalRating        = 9303
+Finesse               = 0
+PhysicalMastery       = 0
+TacticalMastery       = 0
+OutgoingHealing       = 42661
+Resistance            = 0
+CriticalDefense       = 0
+IncomingHealing       = 0
+Block                 = 0
+Parry                 = 0
+Evade                 = 0
+PhysicalMitigation    = 0
+TacticalMitigation    = 0
+Vitality              = 3094
 

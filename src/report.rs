@@ -12,7 +12,7 @@
 use crate::gear::{GearSet, Slot};
 use crate::measured::CalibrationReport;
 use crate::optimizer::OptimizeResult;
-use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
+use crate::stat::{Stat, StatGoal, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
@@ -476,7 +476,7 @@ pub fn format_base_stats_report(
     )
     .unwrap();
     writeln!(w).unwrap();
-    for (stat, _) in BASE_STATS {
+    for (stat, _) in INNATE_BASE_STATS {
         let value = innate_base.get(stat).copied().unwrap_or(0);
         writeln!(
             w,
