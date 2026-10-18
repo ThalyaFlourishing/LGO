@@ -132,6 +132,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Auto-discovers lgo_<character>_gearReady.toml from the selected character's
     <install>\<CharacterName>_Gear folder (see the selection rules in 3.3).
     By default optimize prints the report only to the terminal.
+    Every point of Tactical Mastery automatically adds one point of Outgoing
+    Healing to the totals; do not enter that portion by hand.
 
   lgo optimize --character <name> <stat:min> ...
   lgo optimize -c <name> <stat:min> ...
@@ -273,6 +275,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Print the five raw innate Base stats from [InnateStats] in
     lgo_<character>_gearReady.toml, and the 15 derived tracked-stat
     contributions computed from them (already included in optimize totals).
+    The Outgoing Healing row includes the Tactical Mastery -> Outgoing Healing
+    link (1 for 1), matching what optimize uses.
     Also prints the measured Max Morale and Max Power from [MeasuredStats]
     and the number of active effects at export time, or a note that no
     [MeasuredStats] block is present. If [MeasuredStats].Equipped no longer

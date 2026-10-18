@@ -60,10 +60,12 @@ fn read_gear_doc_or_exit(stats_file: &Path) -> gearstats::GearDoc {
     }
 }
 
-/// Fold Virtues in, derive Base-stat contributions, then calibrate the innate
-/// Morale/Power baseline against the measured export. Calibration runs last so
-/// that every item and the innate map are already in final tracked-stat form,
-/// and before any optimization consumes `innate_stats`.
+/// Fold Virtues in, derive Base-stat contributions, apply the tracked-stat
+/// links (Tactical Mastery → Outgoing Healing), then calibrate the innate
+/// Morale/Power baseline against the measured export. Links run after
+/// derivation so every source total is final; calibration runs last so that
+/// every item and the innate map are already in final tracked-stat form, and
+/// before any optimization consumes `innate_stats`.
 fn prepare_gear_doc_for_optimization(
     gear_doc: &mut gearstats::GearDoc,
     class: &str,
@@ -81,6 +83,8 @@ fn prepare_gear_doc_for_optimization(
         eprintln!("Error deriving Base stats for class '{}': {}", class, e);
         process::exit(1);
     }
+
+    base_stats::link_doc(gear_doc);
 
     measured::calibrate_innate(gear_doc)
 }
@@ -684,13 +688,15 @@ fn run_base_stats(cli: &BaseStatsCli) {
         .unwrap_or_else(|| UNKNOWN.to_string());
 
     let derivations = load_derivations_or_exit();
-    let derived = match derivations.derive_stats(&class, &gear_doc.innate_base_stats) {
+    let mut derived = match derivations.derive_stats(&class, &gear_doc.innate_base_stats) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("Error deriving Base stats for class '{}': {}", class, e);
             process::exit(1);
         }
     };
+
+    base_stats::apply_tracked_links(&mut derived);
 
     // The raw section reports the file's own `[InnateStats]` values, so keep a
     // copy before the optimize pre-pass folds Virtue Base stats into them.

@@ -82,6 +82,33 @@ Each product `coefficient × base_stat_value` rounds **up** via
 Lore-master +9 Might item contributes ceil(9 × 1.5) = 14 Critical Rating.
 Negative values follow plain `ceil()` semantics (round toward zero).
 
+## Tracked-stat links
+
+Some tracked stats feed other tracked stats. Currently there is one rule:
+
+| Source | Target | Coefficient |
+|---|---|---|
+| `TacticalMastery` | `OutgoingHealing` | × 1 |
+
+Every point of Tactical Mastery adds exactly one point of Outgoing Healing.
+The rule is **class-independent** and lives in `base_stats::TRACKED_LINKS`
+(not in `data/base_stat_derivations.json`). It is applied after Base
+derivation, once to the innate tracked-stat map and once to each item's map,
+so the Tactical Mastery it reads already includes explicit tooltip values,
+essences, Base-derived Tactical Mastery and Virtue contributions. Because the
+coefficient is an integer, applying it per map is exactly equal to applying it
+to the final total — no rounding applies. The optimizer never sees this as a
+rule; it only sees ordinary tracked-stat maps with the Outgoing Healing
+already folded in. `lgo base-stats` shows the same Outgoing Healing row that
+`lgo optimize` uses.
+
+**Double-count caveat:** the Outgoing Healing the bookmarklet scrapes from
+lotro-wiki tooltips is the item's *explicit* Outgoing Healing line only; LGO
+adds the Tactical Mastery-derived portion at optimize time. Never hand-enter
+the TM-derived portion. Note that `[VirtueInnateStats].TacticalMastery`
+(default 9275) therefore also contributes 9275 Outgoing Healing — this is
+intended, not a bug.
+
 ## Virtues
 
 `gearReady.toml` also carries a top-level `[Virtues]` block after generated

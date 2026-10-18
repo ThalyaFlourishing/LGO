@@ -444,10 +444,11 @@ pub fn print_base_stats_report(
 }
 
 /// Build the `lgo base-stats` report: the raw Base stats (Armour is always
-/// zero innately), then the 15 tracked-stat contributions derived from them.
-/// Base stats are derivation inputs only — they are never added raw to any
-/// tracked total, and the derived contributions shown here are already
-/// included in `lgo optimize` totals.
+/// zero innately), then the 15 tracked-stat contributions derived from them
+/// (including the Tactical Mastery → Outgoing Healing link). Base stats are
+/// derivation inputs only — they are never added raw to any tracked total,
+/// and the derived contributions shown here are already included in
+/// `lgo optimize` totals.
 ///
 /// When the gear file carries a `[MeasuredStats]` block, a final section
 /// reports the in-game measurement and the innate Morale/Power baseline
@@ -492,7 +493,7 @@ pub fn format_base_stats_report(
     writeln!(w).unwrap();
     writeln!(
         w,
-        "  Derived tracked-stat contributions (already included in optimize totals):"
+        "  Derived tracked-stat contributions from Base stats, incl. Tactical Mastery → Outgoing Healing\n  (already included in optimize totals):"
     )
     .unwrap();
     writeln!(w).unwrap();
