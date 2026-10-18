@@ -445,3 +445,102 @@ name = "Statless Helm"
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
+
+/// End-to-end tracked-stat link over the Thalya fixture: after Base
+/// derivation, `link_doc` must raise Outgoing Healing by exactly the final
+/// Tactical Mastery in the innate map and in every item map.
+#[test]
+fn thalya_fixture_link_pass_adds_tm_to_oh_for_innate_and_items() {
+    let fixture = Path::new(THALYA_FIXTURE);
+    let derivations = load_derivations();
+
+    let mut doc = read_stats_file(fixture).expect("fixture must parse");
+    derivations
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+    let before_innate = doc.innate_stats.clone();
+    let before_items: Vec<HashMap<Stat, i64>> = doc
+        .items
+        .iter()
+        .map(|doc_item| doc_item.item.stats.clone())
+        .collect();
+
+    lgo::base_stats::link_doc(&mut doc);
+
+    let oh = |m: &HashMap<Stat, i64>| m.get(&Stat::OutgoingHealing).copied().unwrap_or(0);
+    let tm = |m: &HashMap<Stat, i64>| m.get(&Stat::TacticalMastery).copied().unwrap_or(0);
+
+    assert!(tm(&doc.innate_stats) > 0, "innate TM must be positive");
+    assert_eq!(tm(&doc.innate_stats), tm(&before_innate));
+    assert_eq!(
+        oh(&doc.innate_stats),
+        oh(&before_innate) + tm(&doc.innate_stats)
+    );
+
+    let mut items_with_tm = 0;
+    for (doc_item, before) in doc.items.iter().zip(&before_items) {
+        let after = &doc_item.item.stats;
+        assert_eq!(oh(after), oh(before) + tm(after), "{}", doc_item.item.name);
+        if tm(after) != 0 {
+            items_with_tm += 1;
+        }
+    }
+    assert!(items_with_tm > 0, "fixture must have an item with TM");
+}
+
+/// The fixed baseline `lgo base-stats` prints is `innate_stats` after the
+/// pre-pass. It must carry the `[VirtueInnateStats]` Tactical Mastery (which
+/// the Base-only derived table never has) and the matching Outgoing Healing.
+#[test]
+fn thalya_fixture_fixed_baseline_includes_virtue_innate_tm_and_linked_oh() {
+    let derivations = load_derivations();
+    let mut doc = read_stats_file(Path::new(THALYA_FIXTURE)).expect("fixture must parse");
+    // Before any derivation, `innate_stats` holds only the fixed
+    // `[VirtueInnateStats]` values (the fixture carries its own, not the
+    // 9275 default).
+    let virtue_innate_tm = doc
+        .innate_stats
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .unwrap_or(0);
+    assert!(
+        virtue_innate_tm > 0,
+        "fixture must set VirtueInnateStats TM"
+    );
+    derivations
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+    let pre_link_oh = doc
+        .innate_stats
+        .get(&Stat::OutgoingHealing)
+        .copied()
+        .unwrap_or(0);
+
+    lgo::base_stats::link_doc(&mut doc);
+
+    let tm = doc
+        .innate_stats
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .unwrap_or(0);
+    let oh = doc
+        .innate_stats
+        .get(&Stat::OutgoingHealing)
+        .copied()
+        .unwrap_or(0);
+    assert!(
+        tm >= virtue_innate_tm,
+        "baseline TM must include [VirtueInnateStats] TM {}, got {}",
+        virtue_innate_tm,
+        tm
+    );
+    assert_eq!(oh, pre_link_oh + tm);
+
+    let base_only = derivations
+        .derive_stats(LORE_MASTER, &doc.innate_base_stats)
+        .expect("innate derivation must succeed");
+    assert!(
+        tm > base_only.get(&Stat::TacticalMastery).copied().unwrap_or(0),
+        "baseline TM must exceed the Base-only derived TM"
+    );
+}

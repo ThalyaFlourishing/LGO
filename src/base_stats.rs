@@ -347,6 +347,52 @@ fn stat_key(stat: Stat) -> Option<&'static str> {
         .find_map(|(candidate, key)| (*candidate == stat).then_some(*key))
 }
 
+/// Tracked-stat links: `(source, target, coefficient)`. Applied after Base
+/// derivation so every source total (explicit + essence + Base-derived +
+/// Virtue) is already final. Class-independent. Coefficients are integers
+/// deliberately: with a non-integer coefficient the per-source vs.
+/// whole-total rounding question becomes real and must be decided
+/// explicitly before adding such an entry.
+pub const TRACKED_LINKS: &[(Stat, Stat, i64)] = &[
+    // Every point of Tactical Mastery adds one point of Outgoing Healing.
+    (Stat::TacticalMastery, Stat::OutgoingHealing, 1),
+];
+
+/// Apply [`TRACKED_LINKS`] to one tracked-stat map in place. Reads all
+/// source values before writing any target so a future link chain cannot
+/// double-apply within a single call. Zero-valued entries are dropped
+/// afterwards (absence means zero).
+pub fn apply_tracked_links(tracked: &mut HashMap<Stat, i64>) {
+    let additions: Vec<(Stat, i64)> = TRACKED_LINKS
+        .iter()
+        .filter_map(|(source, target, coefficient)| {
+            let value = tracked
+                .get(source)
+                .copied()
+                .unwrap_or(0)
+                .checked_mul(*coefficient)
+                .expect("tracked-stat link overflow");
+            (value != 0).then_some((*target, value))
+        })
+        .collect();
+    for (target, value) in additions {
+        let entry = tracked.entry(target).or_insert(0);
+        *entry = entry
+            .checked_add(value)
+            .expect("tracked-stat link overflow");
+    }
+    tracked.retain(|_, value| *value != 0);
+}
+
+/// Apply the link pass to a whole gear document: once to `innate_stats`
+/// and once per item. Must run **after** `derive_doc`.
+pub fn link_doc(doc: &mut crate::gearstats::GearDoc) {
+    apply_tracked_links(&mut doc.innate_stats);
+    for doc_item in &mut doc.items {
+        apply_tracked_links(&mut doc_item.item.stats);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -574,5 +620,99 @@ mod tests {
             .apply_derivations("Unknown", &HashMap::new(), &mut tracked)
             .expect("empty base stats must not error");
         assert_eq!(tracked.get(&Stat::Morale), Some(&50));
+    }
+
+    fn map(entries: &[(Stat, i64)]) -> HashMap<Stat, i64> {
+        entries.iter().copied().collect()
+    }
+
+    #[test]
+    fn tracked_link_adds_tm_to_oh() {
+        let mut tracked = map(&[(Stat::TacticalMastery, 1000), (Stat::OutgoingHealing, 50)]);
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&1050));
+        assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&1000));
+    }
+
+    #[test]
+    fn tracked_link_with_no_tm_adds_no_oh_key() {
+        let mut tracked = map(&[(Stat::CriticalRating, 10)]);
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked, map(&[(Stat::CriticalRating, 10)]));
+        assert!(!tracked.contains_key(&Stat::OutgoingHealing));
+    }
+
+    #[test]
+    fn tracked_link_zero_tm_is_dropped_not_created() {
+        let mut tracked = map(&[(Stat::TacticalMastery, 0)]);
+        apply_tracked_links(&mut tracked);
+        assert!(!tracked.contains_key(&Stat::OutgoingHealing));
+        assert!(!tracked.contains_key(&Stat::TacticalMastery));
+    }
+
+    #[test]
+    fn tracked_link_negative_tm_subtracts() {
+        let mut tracked = map(&[(Stat::TacticalMastery, -30), (Stat::OutgoingHealing, 100)]);
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&70));
+    }
+
+    #[test]
+    fn tracked_link_handles_large_but_safe_values() {
+        let big = i64::MAX / 4;
+        let mut tracked = map(&[(Stat::TacticalMastery, big), (Stat::OutgoingHealing, big)]);
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&(big * 2)));
+        assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&big));
+    }
+
+    #[test]
+    fn link_after_derivation_captures_base_derived_tm() {
+        let derivations = synthetic_derivations();
+        let base = map(&[(Stat::Might, 10)]);
+        let mut tracked: HashMap<Stat, i64> = HashMap::new();
+        derivations
+            .apply_derivations("Lore-master", &base, &mut tracked)
+            .expect("derive");
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&20));
+        assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&20));
+    }
+
+    #[test]
+    fn link_doc_applies_to_innate_and_every_item() {
+        use crate::gear::{GearItem, Slot};
+        use crate::gearstats::{DocItem, GearDoc};
+
+        let make_item = |name: &str, tm: i64| DocItem {
+            item: GearItem {
+                name: name.to_string(),
+                slot: Slot::Head,
+                two_handed: false,
+                either_hand: false,
+                stats: map(&[(Stat::TacticalMastery, tm), (Stat::OutgoingHealing, 5)]),
+            },
+            base_stats: HashMap::new(),
+        };
+        let mut doc = GearDoc {
+            character: None,
+            class: None,
+            level: None,
+            measured: None,
+            innate_stats: map(&[(Stat::TacticalMastery, 9275)]),
+            innate_base_stats: HashMap::new(),
+            selected_virtues: Default::default(),
+            items: vec![make_item("A", 100), make_item("B", 0)],
+        };
+        link_doc(&mut doc);
+        assert_eq!(doc.innate_stats.get(&Stat::OutgoingHealing), Some(&9275));
+        assert_eq!(
+            doc.items[0].item.stats.get(&Stat::OutgoingHealing),
+            Some(&105)
+        );
+        assert_eq!(
+            doc.items[1].item.stats.get(&Stat::OutgoingHealing),
+            Some(&5)
+        );
     }
 }

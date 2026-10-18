@@ -428,6 +428,7 @@ pub fn print_base_stats_report(
     input_file: &str,
     innate_base: &HashMap<Stat, i64>,
     derived: &HashMap<Stat, i64>,
+    fixed_baseline: &HashMap<Stat, i64>,
     calibration: Option<&CalibrationReport>,
 ) {
     print!(
@@ -438,6 +439,7 @@ pub fn print_base_stats_report(
             input_file,
             innate_base,
             derived,
+            fixed_baseline,
             calibration
         )
     );
@@ -449,6 +451,10 @@ pub fn print_base_stats_report(
 /// tracked total, and the derived contributions shown here are already
 /// included in `lgo optimize` totals.
 ///
+/// `fixed_baseline` is the pre-optimize innate tracked-stat map exactly as
+/// `lgo optimize` consumes it; it is printed as its own section after the
+/// derived table.
+///
 /// When the gear file carries a `[MeasuredStats]` block, a final section
 /// reports the in-game measurement and the innate Morale/Power baseline
 /// calibrated from it; otherwise it says the block is missing.
@@ -458,6 +464,7 @@ pub fn format_base_stats_report(
     input_file: &str,
     innate_base: &HashMap<Stat, i64>,
     derived: &HashMap<Stat, i64>,
+    fixed_baseline: &HashMap<Stat, i64>,
     calibration: Option<&CalibrationReport>,
 ) -> String {
     let divider = "─".repeat(COL_STAT + COL_VALUE + 2);
@@ -498,6 +505,32 @@ pub fn format_base_stats_report(
     writeln!(w).unwrap();
     for (stat, _) in TRACKED_STATS {
         let value = derived.get(stat).copied().unwrap_or(0);
+        writeln!(
+            w,
+            "  {:<COL_STAT$}  {:>COL_VALUE$}",
+            format!("{}", stat),
+            format_number(value),
+            COL_STAT = COL_STAT,
+            COL_VALUE = COL_VALUE,
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
+
+    writeln!(w).unwrap();
+    writeln!(
+        w,
+        "  Fixed tracked-stat baseline before gear — what optimize starts from"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  (Virtues, VirtueInnateStats, Base derivation incl. Virtue Armour, TM → OH link, measured Morale/Power calibration):"
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    for (stat, _) in TRACKED_STATS {
+        let value = fixed_baseline.get(stat).copied().unwrap_or(0);
         writeln!(
             w,
             "  {:<COL_STAT$}  {:>COL_VALUE$}",
@@ -1011,6 +1044,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             &innate_base,
             &derived,
+            &HashMap::new(),
             None,
         );
 
@@ -1072,6 +1106,7 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             &innate_base,
             &derived,
+            &HashMap::new(),
             Some(&calibration),
         );
 
@@ -1084,6 +1119,51 @@ mod tests {
         assert!(report.contains("may include buffs"));
         assert!(report.contains("96,278"));
         assert!(report.contains("8,640"));
+    }
+
+    #[test]
+    fn base_stats_report_prints_fixed_baseline_section_separately_from_derived() {
+        let derived: HashMap<Stat, i64> = [(Stat::TacticalMastery, 39750)].into_iter().collect();
+        let fixed_baseline: HashMap<Stat, i64> = [
+            (Stat::TacticalMastery, 33125),
+            (Stat::OutgoingHealing, 33125),
+        ]
+        .into_iter()
+        .collect();
+
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &HashMap::new(),
+            &derived,
+            &fixed_baseline,
+            None,
+        );
+
+        let derived_header =
+            "Derived tracked-stat contributions (already included in optimize totals):";
+        let baseline_header = "Fixed tracked-stat baseline before gear";
+        let derived_at = report.find(derived_header).expect("derived header");
+        let baseline_at = report.find(baseline_header).expect("baseline header");
+        assert!(derived_at < baseline_at);
+
+        let row_value = |section: &str, stat: Stat| -> String {
+            let prefix = format!("  {:<COL_STAT$}", format!("{}", stat), COL_STAT = COL_STAT);
+            section
+                .lines()
+                .find(|line| line.starts_with(&prefix))
+                .unwrap_or_else(|| panic!("row for {} missing", stat))
+                .trim_start_matches(&prefix)
+                .trim()
+                .to_string()
+        };
+        let derived_section = &report[derived_at..baseline_at];
+        let baseline_section = &report[baseline_at..];
+        assert_eq!(row_value(derived_section, Stat::TacticalMastery), "39,750");
+        assert_eq!(row_value(derived_section, Stat::OutgoingHealing), "0");
+        assert_eq!(row_value(baseline_section, Stat::TacticalMastery), "33,125");
+        assert_eq!(row_value(baseline_section, Stat::OutgoingHealing), "33,125");
     }
 
     #[test]
@@ -1404,6 +1484,7 @@ mod tests {
             "Thalya",
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
             Some(&calibration),
