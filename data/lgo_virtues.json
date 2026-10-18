@@ -36,7 +36,7 @@
   },
   "Fortitude": {
     "CriticalDefense": 11086,
-    "Morale": 14543,
+    "Morale": 12765,
     "Resistance": 9051
   },
   "Honesty": {
@@ -46,7 +46,7 @@
   },
   "Honour": {
     "CriticalDefense": 6651,
-    "Morale": 14543,
+    "Morale": 12765,
     "TacticalMitigation": 6670
   },
   "Idealism": {
@@ -59,7 +59,7 @@
     "TacticalMitigation": 4007
   },
   "Justice": {
-    "Morale": 8261,
+    "Morale": 6383,
     "TacticalMitigation": 4007
   },
   "Loyalty": {
