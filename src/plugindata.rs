@@ -530,13 +530,18 @@ mod tests {
 
     #[test]
     fn loads_measured_fields_from_committed_fixture() {
+        // Pinned to TestData/lgo_Thalya_gearNames_20261007_223125.plugindata.
+        // When the fixture is refreshed from a new /lgo export, update these
+        // three measured values (and the equipped-list checks if gear changed).
+        // The plugin writes maxMorale as a non-integral float
+        // (417522.093750); the parser truncates it to 417522.
         let export = load(&current_plugindata_fixture_path()).expect("fixture must parse");
         assert_eq!(export.character, "Thalya");
         assert_eq!(export.class, "Lore-master");
         assert_eq!(export.level, Some(160));
-        assert_eq!(export.max_morale, Some(428_954));
-        assert_eq!(export.max_power, Some(12_828));
-        assert_eq!(export.active_effects, Some(8));
+        assert_eq!(export.max_morale, Some(417_522));
+        assert_eq!(export.max_power, Some(13_736));
+        assert_eq!(export.active_effects, Some(3));
         assert_eq!(export.equipped.len(), 19);
         assert_eq!(export.equipped[0], "Veteran Sage's Hooded Helm");
         assert_eq!(export.equipped[18], "Lore-master's Book");
@@ -551,14 +556,60 @@ mod tests {
         );
     }
 
+    /// Bug 15 regression: Turbine `Save()` emits keys in unspecified `pairs()`
+    /// order, so the parser must be order-independent. Rather than keep a
+    /// second committed fixture in sync, reorder the real one in memory and
+    /// check that the parsed result is identical.
     #[test]
     fn reordered_fixture_parses_identically() {
-        let test_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("TestData");
-        let original = load(&test_data.join("lgo_Thalya_gearNames_20261007_223125.plugindata"))
-            .expect("original fixture must parse");
-        let reordered = load(&test_data.join("lgo_Thalya_gearNames_20261007_223125.plugindata"))
-            .expect("reordered fixture must parse");
+        let path = current_plugindata_fixture_path();
+        let original = load(&path).expect("original fixture must parse");
+
+        // Parse the fixture, reverse the top-level entry order, and
+        // re-serialize it in the same Lua-literal style the plugin writes.
+        let src = fs::read_to_string(&path).expect("fixture readable");
+        let src = src.trim();
+        let src = src.strip_prefix("return").unwrap_or(src).trim_start();
+        let (root, _) = parse_value(src, 0).expect("fixture parses");
+        let LuaVal::Table(mut entries) = root else {
+            panic!("fixture root must be a table");
+        };
+        entries.reverse();
+        let reordered_src = format!("return {}", serialize(&LuaVal::Table(entries)));
+
+        let dir = std::env::temp_dir().join(format!("lgo_reordered_{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let reordered_path = dir.join("lgo_Thalya_gearNames_reordered.plugindata");
+        fs::write(&reordered_path, reordered_src).expect("write reordered fixture");
+        let reordered = load(&reordered_path).expect("reordered fixture must parse");
+        let _ = fs::remove_dir_all(&dir);
 
         assert_eq!(reordered, original);
+    }
+
+    /// Test-only Lua serializer: just enough to round-trip what the plugin
+    /// writes (strings, numbers, nested tables). `{:?}` on a `String` yields a
+    /// double-quoted, escaped literal that `parse_quoted_string` accepts;
+    /// `{:.6}` reproduces the plugin's `417522.093750` number style.
+    fn serialize(val: &LuaVal) -> String {
+        match val {
+            LuaVal::Str(s) => format!("{:?}", s),
+            LuaVal::Num(n) => format!("{:.6}", n),
+            LuaVal::Bool(b) => b.to_string(),
+            LuaVal::Nil => "nil".to_string(),
+            LuaVal::Table(entries) => {
+                let body: Vec<String> = entries
+                    .iter()
+                    .map(|(k, v)| {
+                        let key = match k {
+                            LuaKey::Str(s) => format!("[{:?}]", s),
+                            LuaKey::Num(n) => format!("[{:.6}]", n),
+                        };
+                        format!("{} = {}", key, serialize(v))
+                    })
+                    .collect();
+                format!("{{ {} }}", body.join(", "))
+            }
+        }
     }
 }
