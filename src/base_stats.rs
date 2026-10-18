@@ -366,12 +366,20 @@ pub fn apply_tracked_links(tracked: &mut HashMap<Stat, i64>) {
     let additions: Vec<(Stat, i64)> = TRACKED_LINKS
         .iter()
         .filter_map(|(source, target, coefficient)| {
-            let value = tracked.get(source).copied().unwrap_or(0) * coefficient;
+            let value = tracked
+                .get(source)
+                .copied()
+                .unwrap_or(0)
+                .checked_mul(*coefficient)
+                .expect("tracked-stat link overflow");
             (value != 0).then_some((*target, value))
         })
         .collect();
     for (target, value) in additions {
-        *tracked.entry(target).or_insert(0) += value;
+        let entry = tracked.entry(target).or_insert(0);
+        *entry = entry
+            .checked_add(value)
+            .expect("tracked-stat link overflow");
     }
     tracked.retain(|_, value| *value != 0);
 }
@@ -647,6 +655,15 @@ mod tests {
         let mut tracked = map(&[(Stat::TacticalMastery, -30), (Stat::OutgoingHealing, 100)]);
         apply_tracked_links(&mut tracked);
         assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&70));
+    }
+
+    #[test]
+    fn tracked_link_handles_large_but_safe_values() {
+        let big = i64::MAX / 4;
+        let mut tracked = map(&[(Stat::TacticalMastery, big), (Stat::OutgoingHealing, big)]);
+        apply_tracked_links(&mut tracked);
+        assert_eq!(tracked.get(&Stat::OutgoingHealing), Some(&(big * 2)));
+        assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&big));
     }
 
     #[test]

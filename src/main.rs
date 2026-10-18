@@ -688,15 +688,13 @@ fn run_base_stats(cli: &BaseStatsCli) {
         .unwrap_or_else(|| UNKNOWN.to_string());
 
     let derivations = load_derivations_or_exit();
-    let mut derived = match derivations.derive_stats(&class, &gear_doc.innate_base_stats) {
+    let derived = match derivations.derive_stats(&class, &gear_doc.innate_base_stats) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("Error deriving Base stats for class '{}': {}", class, e);
             process::exit(1);
         }
     };
-
-    base_stats::apply_tracked_links(&mut derived);
 
     // The raw section reports the file's own `[InnateStats]` values, so keep a
     // copy before the optimize pre-pass folds Virtue Base stats into them.
@@ -710,6 +708,7 @@ fn run_base_stats(cli: &BaseStatsCli) {
         &stats_file.display().to_string(),
         &innate_base,
         &derived,
+        &gear_doc.innate_stats,
         calibration.as_ref(),
     );
 }
@@ -1181,7 +1180,9 @@ fn print_usage() {
     println!();
     println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
     println!("  tracked-stat contributions derived from them (already included in optimize");
-    println!("  totals). It does not run an optimization.");
+    println!("  totals), then the fixed tracked-stat baseline optimize starts from (Virtues,");
+    println!("  Base derivation, Tactical Mastery -> Outgoing Healing link, calibration).");
+    println!("  It does not run an optimization.");
     println!();
     println!("Options (resolve-slots):");
     println!("  --character <name>  Character name; selects or creates the <name>_Gear folder");

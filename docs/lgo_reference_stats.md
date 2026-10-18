@@ -99,8 +99,10 @@ essences, Base-derived Tactical Mastery and Virtue contributions. Because the
 coefficient is an integer, applying it per map is exactly equal to applying it
 to the final total — no rounding applies. The optimizer never sees this as a
 rule; it only sees ordinary tracked-stat maps with the Outgoing Healing
-already folded in. `lgo base-stats` shows the same Outgoing Healing row that
-`lgo optimize` uses.
+already folded in. `lgo base-stats` prints a *Fixed tracked-stat baseline*
+section taken from the same pre-optimize map `optimize` consumes, so its
+Outgoing Healing row already includes the link; the *Derived tracked-stat
+contributions* table above it is Base-stats-only and excludes the link.
 
 **Double-count caveat:** the Outgoing Healing the bookmarklet scrapes from
 lotro-wiki tooltips is the item's *explicit* Outgoing Healing line only; LGO

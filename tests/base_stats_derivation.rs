@@ -487,3 +487,60 @@ fn thalya_fixture_link_pass_adds_tm_to_oh_for_innate_and_items() {
     }
     assert!(items_with_tm > 0, "fixture must have an item with TM");
 }
+
+/// The fixed baseline `lgo base-stats` prints is `innate_stats` after the
+/// pre-pass. It must carry the `[VirtueInnateStats]` Tactical Mastery (which
+/// the Base-only derived table never has) and the matching Outgoing Healing.
+#[test]
+fn thalya_fixture_fixed_baseline_includes_virtue_innate_tm_and_linked_oh() {
+    let derivations = load_derivations();
+    let mut doc = read_stats_file(Path::new(THALYA_FIXTURE)).expect("fixture must parse");
+    // Before any derivation, `innate_stats` holds only the fixed
+    // `[VirtueInnateStats]` values (the fixture carries its own, not the
+    // 9275 default).
+    let virtue_innate_tm = doc
+        .innate_stats
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .unwrap_or(0);
+    assert!(
+        virtue_innate_tm > 0,
+        "fixture must set VirtueInnateStats TM"
+    );
+    derivations
+        .derive_doc(LORE_MASTER, &mut doc)
+        .expect("derivation pre-pass must succeed");
+    let pre_link_oh = doc
+        .innate_stats
+        .get(&Stat::OutgoingHealing)
+        .copied()
+        .unwrap_or(0);
+
+    lgo::base_stats::link_doc(&mut doc);
+
+    let tm = doc
+        .innate_stats
+        .get(&Stat::TacticalMastery)
+        .copied()
+        .unwrap_or(0);
+    let oh = doc
+        .innate_stats
+        .get(&Stat::OutgoingHealing)
+        .copied()
+        .unwrap_or(0);
+    assert!(
+        tm >= virtue_innate_tm,
+        "baseline TM must include [VirtueInnateStats] TM {}, got {}",
+        virtue_innate_tm,
+        tm
+    );
+    assert_eq!(oh, pre_link_oh + tm);
+
+    let base_only = derivations
+        .derive_stats(LORE_MASTER, &doc.innate_base_stats)
+        .expect("innate derivation must succeed");
+    assert!(
+        tm > base_only.get(&Stat::TacticalMastery).copied().unwrap_or(0),
+        "baseline TM must exceed the Base-only derived TM"
+    );
+}

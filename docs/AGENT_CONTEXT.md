@@ -75,7 +75,7 @@ folder containing the executable — never the current working directory.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, and paired-slot super-candidates for Wrist/Finger/Ear. Verified against a brute-force oracle by a differential fuzzer.
 - `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (15, canonical order), `BASE_STATS` (6, Armour last), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
-- `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter.
+- `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter (the base-stats report prints the Base-only derived table, then a "Fixed tracked-stat baseline before gear" section from the post-pre-pass `innate_stats`, then the measured section).
 - `src/report.rs` also formats the `scrap-gear` text report that is printed to
   the terminal and written into the character's `<CharacterName>_Reports`
   folder.
@@ -214,16 +214,17 @@ base item block or `EssenceTotals` are hard errors; omitted stats are treated as
 zero. Raw Base stats are carried separately from tracked stats and are never
 added raw to any tracked total; at optimize time they are derived into
 tracked-stat contributions per class (per-product `f64::ceil()` rounding — see
-`docs/lgo_reference_stats.md`). After derivation, a tracked-stat link pass
-(`base_stats::link_doc`) adds each map's Tactical Mastery into its Outgoing
-Healing (×1, class-independent; see "Tracked-stat links" in
-`docs/lgo_reference_stats.md`) — never hand-enter the TM-derived Outgoing
-Healing. Selected Virtues behave like additional fixed
+`docs/lgo_reference_stats.md`). Selected Virtues behave like additional fixed
 stat sources before that derivation step: tracked Virtue stats add directly to
 the fixed tracked baseline, while Virtue Base stats join the `[InnateStats]`
 Base-stat pool first and are then derived normally. The two
 `[VirtueInnateStats]` values (`PhysicalMastery`, `TacticalMastery`) fold
 into the same fixed tracked baseline directly, with no Base-stat derivation.
+After Virtue folding and Base derivation, a tracked-stat link pass
+(`base_stats::link_doc`) adds each map's Tactical Mastery into its Outgoing
+Healing (×1, class-independent; see "Tracked-stat links" in
+`docs/lgo_reference_stats.md`) — never hand-enter the TM-derived Outgoing
+Healing. Measured Morale/Power calibration runs last.
 
 ### Multi-value stat entries
 
@@ -375,6 +376,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **Cloudflare challenges on lotro-wiki.com can return HTTP 200 with an HTML interstitial body, not a 403.** `resp.ok` checks do NOT detect them; only attempting `resp.json()` does. This produced the "first run speeds through and everything is a fetch-error" symptom (Bug 10). The bookmarklet's warm-up probe therefore verifies the body parses as JSON (`j && j.query`), not just the status code.
 - **`Actor:GetBaseMaxMorale()` returns the *current* max morale on this client, not an innate baseline.** It includes gear, buffs, and virtues. Do not use it. The innate Morale/Power baseline is **measured, not modelled**: measured Max (from the export) minus known equipped-gear stats, slotted-Virtue stats, and derived Base-stat contributions, but only when every exported equipped name still matches a current `[[item]]` block. If the equipped list is stale, `[MeasuredStats]` is ignored for calibration instead of inflating the baseline. Do not reintroduce a formula for it. Implemented in `src/measured.rs::calibrate_innate`; see Bug 14.
 - **Virtue *passives* (all earned virtues, slotted or not) add Morale / Physical Mastery / Tactical Mastery and are not exposed by the Turbine API.** They are not modelled; they remain part of the measured innate baseline along with racials and stat tomes.
+- **`base_stats::TRACKED_LINKS` entries must use tracked stats (`TRACKED_STATS`) for both source and target, and integer coefficients only.** A non-integer coefficient re-opens the per-source vs. whole-total rounding question and must be decided explicitly (and documented in `lgo_reference_stats.md`) before being added.
 - **CalcStat was research input only; LGO does not implement or import it.** Its `ClassBaseMorale(L)` is class-independent (every `<CLASS>CDBASEMORALE` row points at the same `@ClassBaseMorale`), and `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported `[InnateStats]` Vitality exactly. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
 - **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.
 

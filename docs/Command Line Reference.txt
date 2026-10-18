@@ -275,8 +275,12 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Print the five raw innate Base stats from [InnateStats] in
     lgo_<character>_gearReady.toml, and the 15 derived tracked-stat
     contributions computed from them (already included in optimize totals).
-    The Outgoing Healing row includes the Tactical Mastery -> Outgoing Healing
-    link (1 for 1), matching what optimize uses.
+    That derived table is Base-stats-only and excludes the Tactical Mastery ->
+    Outgoing Healing link. A second section, "Fixed tracked-stat baseline before
+    gear", then prints the exact innate tracked-stat map optimize starts from
+    (Virtues, [VirtueInnateStats], Base derivation, the Tactical Mastery ->
+    Outgoing Healing link, and measured Morale/Power calibration), so its
+    Outgoing Healing row includes the link.
     Also prints the measured Max Morale and Max Power from [MeasuredStats]
     and the number of active effects at export time, or a note that no
     [MeasuredStats] block is present. If [MeasuredStats].Equipped no longer
