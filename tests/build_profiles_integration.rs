@@ -27,7 +27,6 @@ fn lgo_bin() -> PathBuf {
 /// builds and scrap reporting, not the real per-class coefficients.
 fn seed_install(dir: &Path) {
     common::write_derivations(&dir.join("data"));
-    common::write_virtues(&dir.join("data"));
 }
 
 fn run_lgo(args: &[&str], install_dir: &Path) -> std::process::Output {

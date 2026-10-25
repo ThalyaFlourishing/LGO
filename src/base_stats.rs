@@ -722,6 +722,7 @@ mod tests {
             level: None,
             innate_stats: map(&[(Stat::TacticalMastery, 9275)]),
             innate_base_stats: HashMap::new(),
+            selected_virtues: Default::default(),
             items: vec![make_item("A", 100), make_item("B", 0)],
         };
         link_doc(&mut doc);

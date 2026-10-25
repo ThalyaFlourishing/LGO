@@ -89,7 +89,7 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
         })
         .collect();
     let raw_keys: Vec<String> = raw_resolved.keys().cloned().collect();
-    let underived = optimize(&raw_resolved, &raw_keys, &goals, &raw_doc.innate_stats, &[]);
+    let underived = optimize(&raw_resolved, &raw_keys, &goals, &raw_doc.innate_stats);
     let tm_underived = underived.gear_set.total(&Stat::TacticalMastery);
 
     let innate_derived = derivations
@@ -136,7 +136,7 @@ fn thalya_fixture_optimize_totals_include_derived_contributions() {
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimize(&resolved, &keys, &goals, &derived_doc.innate_stats, &[]);
+    let result = optimize(&resolved, &keys, &goals, &derived_doc.innate_stats);
     let tm_derived = result.gear_set.total(&Stat::TacticalMastery);
 
     // Recompute the expected total independently from the raw fixture: each
@@ -209,7 +209,7 @@ name = "Statless Helm"
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats, &[]);
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
 
     // The innate Will must derive a TacticalMastery contribution. Compute the
     // expectation from the same synthetic table this test supplies.
@@ -262,7 +262,7 @@ Armour = 1001
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats, &[]);
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
 
     assert_eq!(result.gear_set.total(&Stat::PhysicalMitigation), 1001);
     assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 201);
@@ -349,7 +349,6 @@ Will = 100
 fn base_stats_verb_prints_raw_and_derived_sections() {
     let dir = make_test_dir();
     common::write_derivations(&dir.join("data"));
-    common::write_virtues(&dir.join("data"));
 
     // Synthetic innate base stats this test owns.
     let innate = [

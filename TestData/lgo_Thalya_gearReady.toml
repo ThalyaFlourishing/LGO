@@ -14,6 +14,14 @@ Vitality           = 10537
 Will               = 11600
 Fate               = 3219
 
+[Virtues]
+# Not extracted, you must add these yourself.
+Virtue1            = "Compassion"
+Virtue2            = "Confidence"
+Virtue3            = "Fidelity"  
+Virtue4            = "Loyalty"   
+Virtue5            = "Valour"
+
 [VirtueInnateStats]
 # Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
 PhysicalMastery    = 7997

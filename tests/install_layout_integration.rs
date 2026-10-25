@@ -40,7 +40,6 @@ fn seed_install(tag: &str) -> PathBuf {
     let install = unique_dir(tag);
     let data = install.join("data");
     common::write_derivations(&data);
-    common::write_virtues(&data);
     common::write_items(&data);
     install
 }

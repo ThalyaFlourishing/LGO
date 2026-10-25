@@ -3,22 +3,17 @@
 //! Model guidance: high borrow-checker/algorithmic friction — see `docs/MODEL_GUIDANCE.md` before non-trivial edits.
 //!
 //! Implements the clamped-satisfaction objective from
-//! `docs/07 - Locked Semantics and Rewrite Plan.md` §1.
+//! `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md` §1.
 //! The search is exact: candidates are first dominance-filtered within each
 //! slot/family, then a branch-and-bound DFS returns the comparator-maximal
 //! complete build. Only goal stats participate in search; all selected item
 //! stats are retained for display.
-//!
-//! Virtues are a sixth kind of family: five slots sharing one candidate pool
-//! (the whole `data/lgo_virtues.json`), chosen jointly with gear in the same
-//! exact search. See [`build_virtue_pool`].
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-use crate::gear::{GearItem, GearSet, Slot, SlottedVirtue};
+use crate::gear::{GearItem, GearSet, Slot};
 use crate::stat::{Stat, StatGoal};
-use crate::virtues::{VirtueCandidate, VIRTUE_SLOT_COUNT};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -126,40 +121,6 @@ impl HandsCandidate {
     }
 }
 
-/// A "super-candidate" for the Virtue family: one set of exactly
-/// [`VIRTUE_SLOT_COUNT`] distinct Virtues and its combined tracked stats.
-/// Distinctness is structural — sets are only ever generated as
-/// strictly-increasing index combinations (see [`build_virtue_sets`]), the
-/// same way [`build_pairs`] never generates a self-pair.
-#[derive(Debug, Clone)]
-struct VirtueSetCandidate {
-    picks: Vec<VirtueCandidate>,
-    combined: HashMap<Stat, i64>,
-}
-
-impl VirtueSetCandidate {
-    fn new(picks: Vec<VirtueCandidate>) -> Self {
-        debug_assert_eq!(picks.len(), VIRTUE_SLOT_COUNT);
-        let mut combined: HashMap<Stat, i64> = HashMap::new();
-        for pick in &picks {
-            for (s, v) in &pick.tracked {
-                *combined.entry(*s).or_insert(0) += v;
-            }
-        }
-        VirtueSetCandidate { picks, combined }
-    }
-
-    fn stat(&self, s: &Stat) -> i64 {
-        self.combined.get(s).copied().unwrap_or(0)
-    }
-}
-
-/// Instance key for a Virtue in the deterministic final tiebreak. Virtue
-/// names are unique within the data file, so the name alone identifies one.
-fn virtue_key(name: &str) -> String {
-    format!("virtue::{name}")
-}
-
 #[derive(Debug, Clone)]
 enum Choice {
     Single {
@@ -175,10 +136,6 @@ enum Choice {
     Hands {
         hands: HandsCandidate,
     },
-    /// One set of five distinct Virtues; there are no slots to name.
-    Virtues {
-        set: VirtueSetCandidate,
-    },
 }
 
 impl Choice {
@@ -187,7 +144,6 @@ impl Choice {
             Choice::Single { candidate, .. } => candidate.stat(stat),
             Choice::Pair { pair, .. } => pair.stat(stat),
             Choice::Hands { hands } => hands.stat(stat),
-            Choice::Virtues { set } => set.stat(stat),
         }
     }
 
@@ -205,15 +161,6 @@ impl Choice {
             }
             Choice::Hands { hands } => {
                 let mut keys = vec![hands.main.key.clone(), hands.off.key.clone()];
-                keys.sort();
-                keys
-            }
-            Choice::Virtues { set } => {
-                let mut keys: Vec<String> = set
-                    .picks
-                    .iter()
-                    .map(|pick| virtue_key(&pick.name))
-                    .collect();
                 keys.sort();
                 keys
             }
@@ -262,17 +209,6 @@ impl Choice {
                     candidate_to_gear_item(&hands.off, Slot::OffHand),
                 );
             }
-            Choice::Virtues { set } => {
-                gear_set.virtues = set
-                    .picks
-                    .iter()
-                    .map(|pick| SlottedVirtue {
-                        name: pick.name.clone(),
-                        stats: pick.tracked.clone(),
-                        base_stats: pick.base.clone(),
-                    })
-                    .collect();
-            }
         }
     }
 }
@@ -291,28 +227,13 @@ struct SearchBuild {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-/// Run the exact search over gear candidates plus the Virtue family.
-///
-/// `virtues` is the whole Virtue candidate pool (already class-derived and
-/// linked by `VirtuesDb::candidates`). A non-empty pool must hold at least
-/// [`VIRTUE_SLOT_COUNT`] entries — the `main.rs` layer enforces that with a
-/// clear error before calling here, so the optimizer never substitutes a
-/// placeholder. An **empty** slice means "no Virtue family" and is used only
-/// by gear-only unit tests and the benchmark harness.
 pub fn optimize(
     resolved: &HashMap<String, GearItem>,
     candidates: &[String],
     goals: &[StatGoal],
     innate_stats: &HashMap<Stat, i64>,
-    virtues: &[VirtueCandidate],
 ) -> OptimizeResult {
-    let (mut pools, warnings) = build_search_pools(resolved, candidates, goals, true);
-    if !virtues.is_empty() {
-        // Appended last so every gear pool's branch-and-bound bound already
-        // includes the best possible Virtue contribution via
-        // `suffix_goal_maxima`.
-        pools.push(build_virtue_pool(virtues, goals, true));
-    }
+    let (pools, warnings) = build_search_pools(resolved, candidates, goals, true);
     let innate_goal_totals = innate_goal_totals(innate_stats, goals);
     let best = exact_search(&pools, goals, &innate_goal_totals).unwrap_or_else(|| SearchBuild {
         totals: innate_goal_totals.clone(),
@@ -548,127 +469,6 @@ fn dominance_filter(choices: Vec<Choice>, goals: &[StatGoal]) -> Vec<Choice> {
         .enumerate()
         .filter_map(|(idx, choice)| keep[idx].then_some(choice))
         .collect()
-}
-
-// ── Virtue family ────────────────────────────────────────────────────────────
-
-/// Build the Virtue family's search pool: every legal set of five distinct
-/// Virtues as a super-candidate, dominance-filtered like pair super-candidates.
-///
-/// The Virtue pool is the whole data file (21 Virtues → C(21, 5) = 20 349
-/// raw sets), so a sound pre-filter runs first when `apply_dominance` is set.
-/// Filtering *individual* Virtues by ordinary single-candidate dominance is
-/// **unsound** for k-subsets: a Virtue dominated by one other Virtue may still
-/// be needed when that dominator is already in the set. The sound rule is:
-///
-/// > A Virtue V may be dropped iff at least five *other* Virtues each weakly
-/// > dominate V on every goal stat (ties broken by index so that of two
-/// > identical Virtues exactly one survives).
-///
-/// Soundness: take any optimal 5-set S containing such a V. V has ≥ 5
-/// dominators and S has only 4 other members, so by pigeonhole some dominator
-/// D ∉ S. Replacing V with D keeps the set distinct and weakly improves every
-/// goal total, so S′ is also optimal. "D dominates V" (weakly ≥ on all goals
-/// and either strictly > somewhere or earlier index) is a strict partial
-/// order, so repeating the swap terminates in an optimal set made only of
-/// survivors. The search over survivor sets therefore still contains an
-/// optimal build.
-///
-/// `apply_dominance = false` (the brute-force oracle) skips both the
-/// pre-filter and the set-level dominance filter.
-fn build_virtue_pool(
-    virtues: &[VirtueCandidate],
-    goals: &[StatGoal],
-    apply_dominance: bool,
-) -> SearchPool {
-    assert!(
-        virtues.len() >= VIRTUE_SLOT_COUNT,
-        "optimizer requires at least {VIRTUE_SLOT_COUNT} Virtue candidates; got {}",
-        virtues.len()
-    );
-    let survivors: Vec<&VirtueCandidate> = if apply_dominance {
-        virtue_prefilter_survivors(virtues, goals)
-            .into_iter()
-            .map(|idx| &virtues[idx])
-            .collect()
-    } else {
-        virtues.iter().collect()
-    };
-
-    let mut choices: Vec<Choice> = build_virtue_sets(&survivors)
-        .into_iter()
-        .map(|set| Choice::Virtues { set })
-        .collect();
-    choices.sort_by_key(Choice::sort_key);
-    if apply_dominance {
-        choices = dominance_filter(choices, goals);
-    }
-    SearchPool { choices }
-}
-
-/// Indices of the Virtues that survive the ≥ 5-dominators pre-filter, in
-/// increasing order. See [`build_virtue_pool`] for the soundness argument.
-fn virtue_prefilter_survivors(virtues: &[VirtueCandidate], goals: &[StatGoal]) -> Vec<usize> {
-    let goal_vectors: Vec<Vec<i64>> = virtues
-        .iter()
-        .map(|virtue| {
-            goals
-                .iter()
-                .map(|goal| virtue.tracked.get(&goal.stat).copied().unwrap_or(0))
-                .collect()
-        })
-        .collect();
-
-    (0..virtues.len())
-        .filter(|&i| {
-            let dominators = (0..virtues.len())
-                .filter(|&j| j != i)
-                .filter(|&j| {
-                    let j_ge_i = goal_vectors[i]
-                        .iter()
-                        .zip(&goal_vectors[j])
-                        .all(|(i_value, j_value)| j_value >= i_value);
-                    let j_gt_i = goal_vectors[i]
-                        .iter()
-                        .zip(&goal_vectors[j])
-                        .any(|(i_value, j_value)| j_value > i_value);
-                    j_ge_i && (j_gt_i || j < i)
-                })
-                .count();
-            dominators < VIRTUE_SLOT_COUNT
-        })
-        .collect()
-}
-
-/// Enumerate every [`VIRTUE_SLOT_COUNT`]-combination of `pool` in strictly
-/// increasing index order. This is what makes distinctness structural: no
-/// generated set can contain the same Virtue twice.
-fn build_virtue_sets(pool: &[&VirtueCandidate]) -> Vec<VirtueSetCandidate> {
-    let mut sets = Vec::new();
-    if pool.len() < VIRTUE_SLOT_COUNT {
-        return sets;
-    }
-    let mut indices: Vec<usize> = (0..VIRTUE_SLOT_COUNT).collect();
-    loop {
-        sets.push(VirtueSetCandidate::new(
-            indices.iter().map(|&idx| pool[idx].clone()).collect(),
-        ));
-        // Advance to the next combination in lexicographic order.
-        let mut pos = VIRTUE_SLOT_COUNT;
-        while pos > 0 {
-            pos -= 1;
-            if indices[pos] < pool.len() - VIRTUE_SLOT_COUNT + pos {
-                indices[pos] += 1;
-                for later in (pos + 1)..VIRTUE_SLOT_COUNT {
-                    indices[later] = indices[later - 1] + 1;
-                }
-                break;
-            }
-            if pos == 0 {
-                return sets;
-            }
-        }
-    }
 }
 
 fn exact_search_counting(
@@ -1081,9 +881,6 @@ mod tests {
         post_pool_sizes: Vec<(String, usize)>,
         pair_super_counts: Vec<(String, usize)>,
         hand_configuration_count: usize,
-        /// Size of the Virtue family's pool after the ≥5-dominators pre-filter,
-        /// 5-combination enumeration and the combo dominance filter.
-        virtue_super_count: usize,
         wall_time: BenchmarkWallTime,
         nodes: Option<u64>,
     }
@@ -1199,35 +996,7 @@ mod tests {
         candidates: &[String],
         goals: &[StatGoal],
     ) -> OptimizeResult {
-        optimize(resolved, candidates, goals, &HashMap::new(), &[])
-    }
-
-    fn optimize_with_virtues(
-        resolved: &HashMap<String, GearItem>,
-        candidates: &[String],
-        goals: &[StatGoal],
-        virtues: &[VirtueCandidate],
-    ) -> OptimizeResult {
-        optimize(resolved, candidates, goals, &HashMap::new(), virtues)
-    }
-
-    /// A synthetic Virtue candidate with already-final tracked stats and no
-    /// Base stats (derivation is `VirtuesDb::candidates`' job, tested there).
-    fn virtue(name: &str, stats: &[(Stat, i64)]) -> VirtueCandidate {
-        VirtueCandidate {
-            name: name.to_string(),
-            tracked: stats.iter().copied().collect(),
-            base: HashMap::new(),
-        }
-    }
-
-    fn chosen_virtue_names(result: &OptimizeResult) -> Vec<String> {
-        result
-            .gear_set
-            .virtues
-            .iter()
-            .map(|v| v.name.clone())
-            .collect()
+        optimize(resolved, candidates, goals, &HashMap::new())
     }
 
     fn single_slot_result(
@@ -1253,18 +1022,12 @@ mod tests {
             .collect()
     }
 
-    /// Brute-force oracle: every gear combination × every 5-subset of
-    /// `virtues` (no pre-filter, no dominance filtering anywhere).
     fn oracle_optimize(
         resolved: &HashMap<String, GearItem>,
         candidates: &[String],
         goals: &[StatGoal],
-        virtues: &[VirtueCandidate],
     ) -> OptimizeResult {
-        let (mut pools, warnings) = build_search_pools(resolved, candidates, goals, false);
-        if !virtues.is_empty() {
-            pools.push(build_virtue_pool(virtues, goals, false));
-        }
+        let (pools, warnings) = build_search_pools(resolved, candidates, goals, false);
         let best = oracle_best_build(&pools, goals).expect("oracle pools should not be empty");
         let mut gear_set = GearSet::new(HashMap::new());
         for choice in &best.choices {
@@ -1542,7 +1305,6 @@ mod tests {
             &["A".to_string(), "B".to_string()],
             &goals,
             &innate_stats,
-            &[],
         );
 
         assert_eq!(
@@ -1631,7 +1393,7 @@ mod tests {
             goal(Stat::TacticalMastery, 10),
         ];
         let production = optimize_ok(&resolved, &names, &goals);
-        let oracle = oracle_optimize(&resolved, &names, &goals, &[]);
+        let oracle = oracle_optimize(&resolved, &names, &goals);
         assert_eq!(production.gear_set.items[&Slot::Head].name, "Balanced");
         assert_eq!(
             compare_builds(
@@ -1915,7 +1677,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         assert_eq!(
             result.gear_set.items[&Slot::Head].name,
@@ -1946,7 +1707,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         assert_eq!(
             result.gear_set.total(&Stat::CriticalRating),
@@ -1972,7 +1732,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         assert_eq!(result.gear_set.items[&Slot::Head].name, "Head8");
     }
@@ -1999,7 +1758,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 150);
     }
@@ -2304,7 +2062,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         // Best: Main6 (60, two-handed) beats Main5 (50, 1H) + Off6 (6) = 56.
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 60);
@@ -2335,7 +2092,6 @@ mod tests {
             &names,
             &[goal(Stat::CriticalRating, 0)],
             &HashMap::new(),
-            &[],
         );
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 13);
     }
@@ -2506,307 +2262,6 @@ mod tests {
         );
         assert_eq!(result.gear_set.items[&Slot::OffHand].name, "Shield");
         assert_eq!(result.gear_set.total(&Stat::CriticalRating), 40);
-    }
-
-    // ── Virtue family ────────────────────────────────────────────────────────
-
-    #[test]
-    fn build_virtue_sets_enumerates_all_distinct_five_combinations() {
-        let pool: Vec<VirtueCandidate> = (0..7)
-            .map(|idx| virtue(&format!("V{idx}"), &[(Stat::CriticalRating, idx)]))
-            .collect();
-        let refs: Vec<&VirtueCandidate> = pool.iter().collect();
-        let sets = build_virtue_sets(&refs);
-        // C(7, 5) = 21
-        assert_eq!(sets.len(), 21);
-        let mut seen = HashSet::new();
-        for set in &sets {
-            assert_eq!(set.picks.len(), VIRTUE_SLOT_COUNT);
-            let mut names: Vec<&str> = set.picks.iter().map(|p| p.name.as_str()).collect();
-            let before = names.len();
-            names.sort_unstable();
-            names.dedup();
-            assert_eq!(
-                names.len(),
-                before,
-                "a set contained a Virtue twice: {set:?}"
-            );
-            assert!(seen.insert(names), "duplicate set generated: {set:?}");
-        }
-        assert!(build_virtue_sets(&refs[..4]).is_empty());
-    }
-
-    #[test]
-    fn virtue_prefilter_drops_only_virtues_with_at_least_five_dominators() {
-        let goals = vec![goal(Stat::CriticalRating, 0)];
-        // Five strong Virtues dominate "Weak"; "Weak" has exactly five
-        // dominators and must go. "Mid" is dominated by the five strong ones
-        // too, so it also goes. The strong five themselves are mutually
-        // non-dominated.
-        let mut pool: Vec<VirtueCandidate> = (0..5)
-            .map(|idx| virtue(&format!("Strong{idx}"), &[(Stat::CriticalRating, 100)]))
-            .collect();
-        pool.push(virtue("Mid", &[(Stat::CriticalRating, 50)]));
-        pool.push(virtue("Weak", &[(Stat::CriticalRating, 1)]));
-        // Identical Strong Virtues: each is weakly dominated by the other
-        // four on ties, giving 4 dominators — fewer than five — so all survive.
-        let survivors = virtue_prefilter_survivors(&pool, &goals);
-        assert_eq!(survivors, vec![0, 1, 2, 3, 4]);
-
-        // With six identical Virtues, the index tie-break gives the last one
-        // five earlier dominators: exactly one of the ties is dropped.
-        let six: Vec<VirtueCandidate> = (0..6)
-            .map(|idx| virtue(&format!("Same{idx}"), &[(Stat::CriticalRating, 7)]))
-            .collect();
-        assert_eq!(
-            virtue_prefilter_survivors(&six, &goals),
-            vec![0, 1, 2, 3, 4]
-        );
-    }
-
-    #[test]
-    fn exactly_five_virtues_are_always_chosen() {
-        // (a) Even with a single statless item and seven Virtues, the result
-        // slots exactly five, all distinct.
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
-        let names = vec!["Helm".to_string()];
-        let goals = vec![goal(Stat::TacticalMastery, 0)];
-        let virtues: Vec<VirtueCandidate> = (0..7)
-            .map(|idx| virtue(&format!("V{idx}"), &[(Stat::TacticalMastery, 10 + idx)]))
-            .collect();
-
-        let result = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-        let chosen = chosen_virtue_names(&result);
-        assert_eq!(chosen.len(), VIRTUE_SLOT_COUNT);
-        let mut distinct = chosen.clone();
-        distinct.sort();
-        distinct.dedup();
-        assert_eq!(distinct.len(), VIRTUE_SLOT_COUNT);
-        // The five highest-TM Virtues.
-        assert_eq!(chosen, vec!["V2", "V3", "V4", "V5", "V6"]);
-        assert_eq!(
-            result.gear_set.total(&Stat::TacticalMastery),
-            12 + 13 + 14 + 15 + 16
-        );
-    }
-
-    #[test]
-    fn a_strictly_dominant_virtue_is_never_slotted_twice() {
-        // (b) "Titan" beats every other Virtue on every goal by a mile; the
-        // optimizer must still pick five *distinct* Virtues, i.e. Titan plus
-        // the best four others — never Titan five times.
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
-        let names = vec!["Helm".to_string()];
-        let goals = vec![
-            goal(Stat::CriticalRating, 0),
-            goal(Stat::TacticalMastery, 0),
-        ];
-        let mut virtues = vec![virtue(
-            "Titan",
-            &[
-                (Stat::CriticalRating, 1_000),
-                (Stat::TacticalMastery, 1_000),
-            ],
-        )];
-        for idx in 0..6 {
-            virtues.push(virtue(
-                &format!("Minor{idx}"),
-                &[
-                    (Stat::CriticalRating, idx),
-                    (Stat::TacticalMastery, 6 - idx),
-                ],
-            ));
-        }
-
-        let result = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-        let chosen = chosen_virtue_names(&result);
-        assert_eq!(chosen.len(), VIRTUE_SLOT_COUNT);
-        assert_eq!(
-            chosen.iter().filter(|name| *name == "Titan").count(),
-            1,
-            "Titan must appear exactly once: {chosen:?}"
-        );
-        assert_eq!(
-            result.gear_set.total(&Stat::CriticalRating),
-            1_000 + 2 + 3 + 4 + 5
-        );
-
-        let oracle = oracle_optimize(&resolved, &names, &goals, &virtues);
-        assert_eq!(chosen_virtue_names(&oracle), chosen);
-    }
-
-    #[test]
-    fn prefilter_keeps_virtue_dominated_by_exactly_four_others() {
-        // (c) "Fifth" is dominated by exactly four Virtues (the four
-        // "Big" ones) and by nothing else, so it must survive the pre-filter;
-        // the oracle picks it as the fifth member alongside the four Big ones.
-        // The two "Dud" Virtues are each dominated by everything else and are
-        // dropped — but that is irrelevant to the optimum.
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
-        let names = vec!["Helm".to_string()];
-        let goals = vec![goal(Stat::Finesse, 0)];
-        let mut virtues: Vec<VirtueCandidate> = (0..4)
-            .map(|idx| virtue(&format!("Big{idx}"), &[(Stat::Finesse, 100)]))
-            .collect();
-        virtues.push(virtue("Fifth", &[(Stat::Finesse, 10)]));
-        virtues.push(virtue("Dud0", &[(Stat::Finesse, 1)]));
-        virtues.push(virtue("Dud1", &[(Stat::Finesse, 1)]));
-
-        let survivors = virtue_prefilter_survivors(&virtues, &goals);
-        assert!(
-            survivors.contains(&4),
-            "Fifth (index 4) must survive the pre-filter: {survivors:?}"
-        );
-
-        let production = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-        let oracle = oracle_optimize(&resolved, &names, &goals, &virtues);
-        let mut expected = vec!["Big0", "Big1", "Big2", "Big3", "Fifth"];
-        expected.sort();
-        let mut chosen = chosen_virtue_names(&production);
-        chosen.sort();
-        assert_eq!(chosen, expected);
-        assert_eq!(
-            result_goal_totals(&production, &goals),
-            result_goal_totals(&oracle, &goals)
-        );
-    }
-
-    #[test]
-    fn virtue_base_stats_derive_into_tracked_totals_and_link_to_outgoing_healing() {
-        // (d) Through `VirtuesDb::candidates`, Wisdom's Will derives into
-        // Lore-master Tactical Mastery and the TM → OH link raises Outgoing
-        // Healing; the optimizer then sees those as ordinary tracked totals.
-        use crate::base_stats::BaseStatDerivations;
-        use crate::virtues::VirtuesDb;
-        use std::path::Path;
-
-        const DERIVATIONS: &str = r#"{
-            "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Lore-master": {
-                "Might": {}, "Agility": {}, "Vitality": {},
-                "Will": { "TacticalMastery": 3.0 },
-                "Fate": {},
-                "Armour": { "PhysicalMitigation": 1.0, "TacticalMitigation": 0.2 }
-            },
-            "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
-            "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} }
-        }"#;
-        let derivations = BaseStatDerivations::from_json_str(DERIVATIONS, Path::new("<synthetic>"))
-            .expect("derivations parse");
-        let db = VirtuesDb::from_json_str(
-            r#"{
-                "Wisdom": { "Will": 100, "TacticalMastery": 50 },
-                "A": { "Evade": 1 }, "B": { "Evade": 1 }, "C": { "Evade": 1 },
-                "D": { "Evade": 1 }, "E": { "Evade": 1 }
-            }"#,
-            Path::new("<test>"),
-        )
-        .expect("virtue db parses");
-        let virtues = db
-            .candidates("Lore-master", &derivations)
-            .expect("candidates build");
-
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
-        let names = vec!["Helm".to_string()];
-        let goals = vec![goal(Stat::OutgoingHealing, 0)];
-
-        let result = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-        assert!(chosen_virtue_names(&result).contains(&"Wisdom".to_string()));
-        // 50 JSON TM + ceil(3.0 × 100) derived TM = 350; the link mirrors it.
-        assert_eq!(result.gear_set.total(&Stat::TacticalMastery), 350);
-        assert_eq!(result.gear_set.total(&Stat::OutgoingHealing), 350);
-        assert_eq!(
-            result.gear_set.total(&Stat::Will),
-            0,
-            "Base stats never appear in tracked totals"
-        );
-        let wisdom = result
-            .gear_set
-            .virtues
-            .iter()
-            .find(|v| v.name == "Wisdom")
-            .expect("Wisdom slotted");
-        assert_eq!(wisdom.base_stats.get(&Stat::Will), Some(&100));
-    }
-
-    #[test]
-    fn virtue_supplying_a_goal_stat_flips_the_optimal_item_choice() {
-        // (e) Joint choice. Goals: maximize TM subject to CR ≥ 100 (TM is
-        // listed first so stage 3 of the comparator prefers TM over surplus
-        // CR). Head options: "CritHelm" (CR 100, TM 0) and "TacHelm" (CR 0,
-        // TM 60). Without Virtues the only way to meet CR 100 is CritHelm.
-        // With a Virtue table containing "Confidence" (CR 100), the search
-        // must notice that the Virtue can carry the CR minimum and swap the
-        // Head to TacHelm.
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert(
-            "CritHelm".into(),
-            make_cached("CritHelm", Slot::Head, &[(Stat::CriticalRating, 100)]),
-        );
-        resolved.insert(
-            "TacHelm".into(),
-            make_cached("TacHelm", Slot::Head, &[(Stat::TacticalMastery, 60)]),
-        );
-        let names = vec!["CritHelm".to_string(), "TacHelm".to_string()];
-        let goals = vec![
-            goal(Stat::TacticalMastery, 0),
-            goal(Stat::CriticalRating, 100),
-        ];
-
-        let without = optimize_ok(&resolved, &names, &goals);
-        assert_eq!(without.gear_set.items[&Slot::Head].name, "CritHelm");
-
-        let mut virtues = vec![virtue("Confidence", &[(Stat::CriticalRating, 100)])];
-        for idx in 0..5 {
-            virtues.push(virtue(&format!("Filler{idx}"), &[(Stat::Evade, 1)]));
-        }
-        let with = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-        assert_eq!(with.gear_set.items[&Slot::Head].name, "TacHelm");
-        assert!(chosen_virtue_names(&with).contains(&"Confidence".to_string()));
-        assert!(with.feasible);
-        assert_eq!(with.gear_set.total(&Stat::CriticalRating), 100);
-        assert_eq!(with.gear_set.total(&Stat::TacticalMastery), 60);
-
-        let oracle = oracle_optimize(&resolved, &names, &goals, &virtues);
-        assert_eq!(oracle.gear_set.items[&Slot::Head].name, "TacHelm");
-    }
-
-    #[test]
-    fn virtue_pool_is_appended_after_every_gear_pool() {
-        // Bounds on gear pools must include the Virtue family's best
-        // contribution, which `suffix_goal_maxima` only guarantees when the
-        // Virtue pool sits last.
-        let mut resolved: HashMap<String, GearItem> = HashMap::new();
-        resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
-        let names = vec!["Helm".to_string()];
-        let goals = vec![goal(Stat::CriticalRating, 0)];
-        let (mut pools, _) = build_search_pools(&resolved, &names, &goals, true);
-        let gear_pool_count = pools.len();
-        let virtues: Vec<VirtueCandidate> = (0..5)
-            .map(|idx| virtue(&format!("V{idx}"), &[(Stat::CriticalRating, idx)]))
-            .collect();
-        pools.push(build_virtue_pool(&virtues, &goals, true));
-        assert_eq!(pools.len(), gear_pool_count + 1);
-        assert!(matches!(
-            pools.last().unwrap().choices[0],
-            Choice::Virtues { .. }
-        ));
-        let maxima = suffix_goal_maxima(&pools, &goals);
-        // The bound at pool 0 (before any gear is placed) already includes
-        // the Virtue set's 0+1+2+3+4 = 10 CR.
-        assert_eq!(maxima[0][0], 10);
     }
 
     fn benchmark_goal_set() -> Vec<StatGoal> {
@@ -3047,23 +2502,9 @@ mod tests {
         }
     }
 
-    /// The real 21-Virtue pool from `data/lgo_virtues.json`, derived for a
-    /// Lore-master with the committed derivation table. The benchmark uses the
-    /// real pool (not a synthetic one) so `docs/Benchmark Testing.txt` numbers
-    /// reflect what production actually searches.
-    fn benchmark_virtue_candidates() -> Vec<VirtueCandidate> {
-        let derivations = crate::base_stats::BaseStatDerivations::load_default()
-            .expect("benchmark needs data/base_stat_derivations.json");
-        crate::virtues::VirtuesDb::load_default()
-            .expect("benchmark needs data/lgo_virtues.json")
-            .candidates("Lore-master", &derivations)
-            .expect("real Virtue data must derive for Lore-master")
-    }
-
     fn run_benchmark_profile(profile: BenchmarkProfile, n: usize) -> BenchmarkRun {
         let goals = benchmark_goal_set();
         let pools = benchmark_raw_pools(profile, n);
-        let virtues = benchmark_virtue_candidates();
 
         for slot in BENCHMARK_SINGLETON_SLOTS {
             let label = benchmark_pool_label(slot);
@@ -3165,12 +2606,6 @@ mod tests {
             });
         }
 
-        // The Virtue family goes last, exactly as in production, so the gear
-        // pools are bounded with the Virtue contribution already included.
-        let virtue_pool = build_virtue_pool(&virtues, &goals, true);
-        let virtue_super_count = virtue_pool.choices.len();
-        search_pools.push(virtue_pool);
-
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
             let started = Instant::now();
@@ -3215,7 +2650,6 @@ mod tests {
             post_pool_sizes,
             pair_super_counts,
             hand_configuration_count,
-            virtue_super_count,
             wall_time,
             nodes,
         }
@@ -3244,10 +2678,7 @@ mod tests {
         profiles are contaminated and should be re-run individually with
         LGO_BENCH_PROFILE. The pre column is the raw real-item pool size before
         pair/hand expansion; the post column is the search-pool size after the
-        optimizer's dominance filter. The virtue supers column is the size of
-        the Virtue family's pool (the real 21-Virtue data, Lore-master
-        derivation) after the ≥5-dominators pre-filter, 5-combination
-        enumeration and combo dominance filter; it does not vary with N.
+        optimizer's dominance filter.
         */
         let mut should_return = false;
         if cfg!(debug_assertions) {
@@ -3278,7 +2709,7 @@ mod tests {
         if profiles.len() == 1 {
             println!("profile filter: {}", profiles[0].env_label());
         }
-        println!("| profile | N | pre pools | post pools | pair supers | hand cfgs | virtue supers | wall time | nodes | nodes/s |");
+        println!("| profile | N | pre pools | post pools | pair supers | hand cfgs | wall time | nodes | nodes/s |");
 
         let mut summaries = Vec::new();
         let mut warned_contamination = false;
@@ -3289,14 +2720,13 @@ mod tests {
             for n in 8usize..=MAX_N {
                 let run = run_benchmark_profile(profile, n);
                 println!(
-                    "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+                    "| {} | {} | {} | {} | {} | {} | {} | {} | {} |",
                     profile.label(),
                     n,
                     format_benchmark_counts(&run.raw_pool_sizes),
                     format_benchmark_counts(&run.post_pool_sizes),
                     format_benchmark_counts(&run.pair_super_counts),
                     run.hand_configuration_count,
-                    run.virtue_super_count,
                     run.wall_time.display(),
                     run.nodes.map_or("-".to_string(), |n| n.to_string()),
                     match (&run.wall_time, run.nodes) {
@@ -3407,29 +2837,6 @@ mod tests {
                 }
             }
 
-            // Every case carries a synthetic Virtue table (5–8 Virtues, small
-            // random stats on the same fuzz stats, with a fair share of zeros
-            // and exact duplicates so the ≥5-dominators pre-filter and its
-            // index tie-break are exercised) so production vs. oracle
-            // agreement covers the Virtue family jointly with gear.
-            let virtue_count = rng.range_usize(5, 8);
-            let virtues: Vec<VirtueCandidate> = (0..virtue_count)
-                .map(|virtue_idx| {
-                    let virtue_stats: Vec<(Stat, i64)> = stats
-                        .iter()
-                        .map(|stat| {
-                            let value = if rng.chance(1, 3) {
-                                0
-                            } else {
-                                rng.range_i64(0, 6)
-                            };
-                            (*stat, value)
-                        })
-                        .collect();
-                    virtue(&format!("case{case_idx}_virtue{virtue_idx}"), &virtue_stats)
-                })
-                .collect();
-
             let goal_count = rng.range_usize(1, 3);
             let mut goals = Vec::new();
             while goals.len() < goal_count {
@@ -3440,42 +2847,23 @@ mod tests {
                 let minimum = if rng.chance(1, 5) {
                     0
                 } else {
-                    rng.range_i64(1, 30)
+                    rng.range_i64(1, 20)
                 };
                 goals.push(goal(stat, minimum));
             }
 
-            let production = optimize_with_virtues(&resolved, &names, &goals, &virtues);
-            let oracle = oracle_optimize(&resolved, &names, &goals, &virtues);
-            assert_eq!(
-                production.gear_set.virtues.len(),
-                VIRTUE_SLOT_COUNT,
-                "fuzzer case {case_idx}: production must slot exactly five Virtues"
-            );
-            let mut distinct: Vec<&str> = production
-                .gear_set
-                .virtues
-                .iter()
-                .map(|v| v.name.as_str())
-                .collect();
-            distinct.sort_unstable();
-            distinct.dedup();
-            assert_eq!(
-                distinct.len(),
-                VIRTUE_SLOT_COUNT,
-                "fuzzer case {case_idx}: production slotted a Virtue twice"
-            );
+            let production = optimize_ok(&resolved, &names, &goals);
+            let oracle = oracle_optimize(&resolved, &names, &goals);
             let production_totals = result_goal_totals(&production, &goals);
             let oracle_totals = result_goal_totals(&oracle, &goals);
             if production.feasible != oracle.feasible
                 || compare_builds(&production_totals, &oracle_totals, &goals) != Ordering::Equal
             {
                 panic!(
-                    "fuzzer mismatch case {case_idx}\ngoals: {:?}\nnames: {:?}\nresolved: {:#?}\nvirtues: {:#?}\nproduction feasible/totals: {:?} {:?}\noracle feasible/totals: {:?} {:?}",
+                    "fuzzer mismatch case {case_idx}\ngoals: {:?}\nnames: {:?}\nresolved: {:#?}\nproduction feasible/totals: {:?} {:?}\noracle feasible/totals: {:?} {:?}",
                     goals,
                     names,
                     resolved,
-                    virtues,
                     production.feasible,
                     production_totals,
                     oracle.feasible,
