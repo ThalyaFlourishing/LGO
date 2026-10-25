@@ -86,9 +86,11 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     containing lgo.exe), resolve slot names via data\lgo_items.json, and merge the
     result into lgo_<character>_gearReady.toml in that same folder.
     gearReady.toml is the canonical file for persistent manual corrections,
-    including top-level [Virtues] plus each item's [item.EssenceTotals] block.
-    resolve-slots keeps character, class, level, [InnateStats], [Virtues],
-    and [VirtueInnateStats] in that order before items. The bookmarklet-produced gearStats.toml should be
+    including [VirtueInnateStats] plus each item's [item.EssenceTotals] block.
+    resolve-slots keeps character, class, level, [InnateStats], and
+    [VirtueInnateStats] in that order before items. There is no [Virtues]
+    block: Virtues are chosen by optimize, and a file containing [Virtues] is
+    rejected as an unknown top-level key. The bookmarklet-produced gearStats.toml should be
     treated as disposable input to resolve-slots.
 
     resolve-slots creates the <CharacterName>_Gear folder if it does not exist.
@@ -142,24 +144,28 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     or any of the folders in the path have spaces, you'll need to put quote
     marks around it.
     Character and class are read from the TOML's top-level fields if present.
-    Top-level [Virtues] values are matched case-insensitively, after trimming
-    surrounding whitespace, against the top-level keys in data/lgo_virtues.json.
-    Empty values are ignored. Unknown or duplicate non-empty Virtue names are
-    hard errors.
     Per-item [item.EssenceTotals] values in gearReady.toml are merged into the
     effective item totals before optimization.
 
     optimize also derives the raw Base stats (Might, Agility, Vitality, Will,
     Fate, Armour) carried in gearReady.toml — innate, per-item, and essence values —
-    plus any raw Base stats granted by selected Virtues — into tracked-stat
-    contributions using the per-class coefficients in
-    data\base_stat_derivations.json. Selected Virtue tracked stats contribute
-    directly as fixed baseline totals. Both data files are resolved from the
-    install directory's data\ folder (the folder beside lgo.exe), so optimize can
-    be run from anywhere. optimize errors clearly if the class
-    entry, derivation file, or needed virtue data file is missing.
-    The report content includes the chosen gear, goal summary, the full projected
-    13 tracked stats (zero rows included), and the combined raw Base-stat pool.
+    into tracked-stat contributions using the per-class coefficients in
+    data\base_stat_derivations.json.
+
+    Virtues are chosen for you. optimize reads every Virtue in
+    data\lgo_virtues.json, derives each one's Base stats the same way, and then
+    picks the best five distinct Virtues jointly with the gear in the same
+    exact search — the five Virtue slots share one candidate pool, exactly as
+    the two Finger slots share one ring pool. There is no way to force a
+    particular Virtue. Both data files are resolved from the install
+    directory's data\ folder (the folder beside lgo.exe), so optimize can be
+    run from anywhere. optimize errors clearly if the class entry or the
+    derivation file is missing, if data\lgo_virtues.json is missing, or if it
+    defines fewer than five Virtues.
+    The report content includes the chosen gear, goal summary, the five chosen
+    Virtues with their contributed stats, the full projected 13 tracked stats
+    (zero rows included), and the combined raw Base-stat pool (which includes
+    the chosen Virtues' Base stats).
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
@@ -258,11 +264,11 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     That derived table is Base-stats-only and excludes the Tactical Mastery ->
     Outgoing Healing link. A second section, "Fixed tracked-stat baseline before
     gear", then prints the exact innate tracked-stat map optimize starts from
-    (Virtues, [VirtueInnateStats], Base derivation, the Tactical Mastery ->
-    Outgoing Healing link), so its
-    Outgoing Healing row includes the link.
-    Does not run an optimization. Requires data\base_stat_derivations.json in
-    the install directory's data\ folder, like optimize.
+    ([VirtueInnateStats], Base derivation, the Tactical Mastery -> Outgoing
+    Healing link), so its Outgoing Healing row includes the link. Virtues are
+    not part of this baseline: optimize chooses them as part of the search.
+    Does not run an optimization. Requires data\base_stat_derivations.json and
+    data\lgo_virtues.json in the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
 
   lgo base-stats --character <name>

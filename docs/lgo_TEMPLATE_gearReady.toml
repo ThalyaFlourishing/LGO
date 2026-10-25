@@ -24,14 +24,6 @@ Vitality           = 0
 Will               = 0
 Fate               = 0
 
-[Virtues]
-# These you must enter by hand. Write the name of each virtue between the quotes.
-Virtue1            = ""
-Virtue2            = ""
-Virtue3            = ""
-Virtue4            = ""
-Virtue5            = ""
-
 [VirtueInnateStats]
 # Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
 PhysicalMastery    = 9275
