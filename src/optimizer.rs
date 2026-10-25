@@ -680,26 +680,28 @@ fn exact_search_counting(
         return (None, 0);
     }
 
-    let suffix_maxima = suffix_goal_maxima(pools, goals);
-    let mut best: Option<SearchBuild> = None;
-    let mut running_totals = initial_totals.to_vec();
-    let mut current_choices: Vec<Choice> = Vec::with_capacity(pools.len());
-    let mut current_keys: Vec<String> = Vec::new();
-    let mut nodes: u64 = 0;
-
-    dfs_search(
-        0,
+    let mut state = DfsState {
         pools,
         goals,
-        &suffix_maxima,
-        &mut running_totals,
-        &mut current_choices,
-        &mut current_keys,
-        &mut best,
-        &mut nodes,
-    );
-
-    (best, nodes)
+        pool_vectors: pools
+            .iter()
+            .map(|pool| {
+                pool.choices
+                    .iter()
+                    .map(|choice| choice.goal_totals(goals))
+                    .collect()
+            })
+            .collect(),
+        suffix_maxima: suffix_goal_maxima(pools, goals),
+        running_totals: initial_totals.to_vec(),
+        optimistic: vec![0; goals.len()],
+        chosen: Vec::with_capacity(pools.len()),
+        best: None,
+        bound_hint: 0,
+        nodes: 0,
+    };
+    state.dfs(0);
+    (state.best, state.nodes)
 }
 
 fn exact_search(
@@ -717,9 +719,22 @@ fn innate_goal_totals(innate_stats: &HashMap<Stat, i64>, goals: &[StatGoal]) -> 
         .collect()
 }
 
+/// Per-goal maxima summed over `pools[idx..]` **excluding the last pool**,
+/// indexed by `idx` in `0..pools.len()`. The last pool is bounded
+/// per-candidate instead (see [`DfsState::completion_can_beat`]), so it does
+/// not take part in the component-wise sum.
+///
+/// The component-wise maximum of a pool is an admissible bound, but it is a
+/// "fantasy" candidate: no single choice has every goal's maximum at once.
+/// Over a small pool of single items the fantasy is close to a real item; over
+/// a large pool of super-candidates (the Virtue family's ~74 five-sets, or a
+/// paired family's `C(n, 2)` pairs) it can be far better than any real
+/// candidate, and every DFS level above it inherits that slack. See Bug 16 in
+/// `docs/BUG_HISTORY.md`.
 fn suffix_goal_maxima(pools: &[SearchPool], goals: &[StatGoal]) -> Vec<Vec<i64>> {
-    let mut suffix = vec![vec![0; goals.len()]; pools.len() + 1];
-    for idx in (0..pools.len()).rev() {
+    let bounded_pools = pools.len().saturating_sub(1);
+    let mut suffix = vec![vec![0; goals.len()]; bounded_pools + 1];
+    for idx in (0..bounded_pools).rev() {
         suffix[idx] = suffix[idx + 1].clone();
         for (goal_idx, goal) in goals.iter().enumerate() {
             let pool_max = pools[idx]
@@ -734,72 +749,140 @@ fn suffix_goal_maxima(pools: &[SearchPool], goals: &[StatGoal]) -> Vec<Vec<i64>>
     suffix
 }
 
-#[allow(clippy::too_many_arguments)]
-fn dfs_search(
-    pool_idx: usize,
-    pools: &[SearchPool],
-    goals: &[StatGoal],
-    suffix_maxima: &[Vec<i64>],
-    running_totals: &mut [i64],
-    current_choices: &mut Vec<Choice>,
-    current_keys: &mut Vec<String>,
-    best: &mut Option<SearchBuild>,
-    nodes: &mut u64,
-) {
-    *nodes += 1;
-    if let Some(best_build) = best.as_ref() {
-        let optimistic: Vec<i64> = running_totals
-            .iter()
-            .zip(&suffix_maxima[pool_idx])
-            .map(|(running, remaining_max)| running + remaining_max)
-            .collect();
-        if compare_builds(&optimistic, &best_build.totals, goals) == Ordering::Less {
+/// Mutable state of one branch-and-bound DFS over `pools`.
+///
+/// The partial build is tracked as choice *indices* (`chosen`), not cloned
+/// `Choice` values; a `SearchBuild` is only materialised when a leaf actually
+/// replaces the incumbent.
+struct DfsState<'a> {
+    pools: &'a [SearchPool],
+    goals: &'a [StatGoal],
+    /// `pool_vectors[pool][choice]` = that choice's goal totals.
+    pool_vectors: Vec<Vec<Vec<i64>>>,
+    /// See [`suffix_goal_maxima`]: component-wise maxima over every pool
+    /// *after* `pool_idx` except the last.
+    suffix_maxima: Vec<Vec<i64>>,
+    running_totals: Vec<i64>,
+    /// Scratch buffer for the optimistic completion under test.
+    optimistic: Vec<i64>,
+    chosen: Vec<usize>,
+    best: Option<SearchBuild>,
+    /// Index into the last pool of the candidate that most recently kept a
+    /// node alive; checked first next time, since consecutive nodes tend to
+    /// be rescued by the same completion.
+    bound_hint: usize,
+    nodes: u64,
+}
+
+impl DfsState<'_> {
+    fn dfs(&mut self, pool_idx: usize) {
+        self.nodes += 1;
+
+        if pool_idx == self.pools.len() {
+            self.consider_leaf();
             return;
         }
+
+        if self.best.is_some() && !self.completion_can_beat(pool_idx) {
+            return;
+        }
+
+        for choice_idx in 0..self.pools[pool_idx].choices.len() {
+            for goal_idx in 0..self.goals.len() {
+                self.running_totals[goal_idx] += self.pool_vectors[pool_idx][choice_idx][goal_idx];
+            }
+            self.chosen.push(choice_idx);
+
+            self.dfs(pool_idx + 1);
+
+            self.chosen.pop();
+            for goal_idx in 0..self.goals.len() {
+                self.running_totals[goal_idx] -= self.pool_vectors[pool_idx][choice_idx][goal_idx];
+            }
+        }
     }
 
-    if pool_idx == pools.len() {
-        let mut tiebreak_key = current_keys.clone();
-        tiebreak_key.sort();
-        let candidate = SearchBuild {
-            totals: running_totals.to_vec(),
-            tiebreak_key,
-            choices: current_choices.clone(),
+    /// Admissible pruning test for the partial build at `pool_idx`.
+    ///
+    /// Every completion adds, to the running totals, one choice from each
+    /// remaining pool. The pools before the last are bounded by their summed
+    /// component-wise maxima (`suffix_maxima`); the last pool is bounded
+    /// **per candidate**: a completion exists only if, for *some* last-pool
+    /// choice `v`, `running + suffix_maxima + v` is not worse than the
+    /// incumbent. Soundness: any completion is component-wise `<=` to
+    /// `running + suffix_maxima + v` for the `v` it actually uses, and
+    /// `compare_builds` is monotone in every component (met-vector, clamped
+    /// scores and raw values all only increase), so if every `v` loses so does
+    /// every completion. Since the last pool is already dominance-filtered in
+    /// production, iterating it is exactly iterating its Pareto frontier; the
+    /// test stays admissible for an unfiltered pool too, only slower.
+    ///
+    /// For a pool of single items this tightens little over the component-wise
+    /// maximum. For the Virtue family it is the difference between a bound that
+    /// credits a fantasy five-set (max CR from one set, max TT from another) and
+    /// one that credits only sets that can actually be chosen.
+    fn completion_can_beat(&mut self, pool_idx: usize) -> bool {
+        let Some(best) = self.best.as_ref() else {
+            return true;
         };
-        if should_replace_best(&candidate, best.as_ref(), goals) {
-            *best = Some(candidate);
+        let last = self.pools.len() - 1;
+        let suffix = &self.suffix_maxima[pool_idx];
+        let last_vectors = &self.pool_vectors[last];
+        let count = last_vectors.len();
+
+        for step in 0..count {
+            let candidate_idx = (self.bound_hint + step) % count;
+            let vector = &last_vectors[candidate_idx];
+            for goal_idx in 0..self.goals.len() {
+                self.optimistic[goal_idx] =
+                    self.running_totals[goal_idx] + suffix[goal_idx] + vector[goal_idx];
+            }
+            if compare_builds(&self.optimistic, &best.totals, self.goals) != Ordering::Less {
+                self.bound_hint = candidate_idx;
+                return true;
+            }
         }
-        return;
+        false
     }
 
-    for choice in &pools[pool_idx].choices {
-        let choice_totals = choice.goal_totals(goals);
-        let choice_keys = choice.instance_keys();
-
-        for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
-            *running += add;
+    fn consider_leaf(&mut self) {
+        let ordering = match self.best.as_ref() {
+            None => Ordering::Greater,
+            Some(best) => compare_builds(&self.running_totals, &best.totals, self.goals),
+        };
+        if ordering == Ordering::Less {
+            return;
         }
-        current_keys.extend(choice_keys.iter().cloned());
-        current_choices.push(choice.clone());
 
-        dfs_search(
-            pool_idx + 1,
-            pools,
-            goals,
-            suffix_maxima,
-            running_totals,
-            current_choices,
-            current_keys,
-            best,
-            nodes,
-        );
+        // Instance keys are only needed to break an exact tie on totals, so
+        // they are built here rather than on every DFS step.
+        let mut tiebreak_key: Vec<String> = self
+            .chosen
+            .iter()
+            .enumerate()
+            .flat_map(|(pool_idx, &choice_idx)| {
+                self.pools[pool_idx].choices[choice_idx].instance_keys()
+            })
+            .collect();
+        tiebreak_key.sort();
 
-        current_choices.pop();
-        for _ in 0..choice_keys.len() {
-            current_keys.pop();
-        }
-        for (running, add) in running_totals.iter_mut().zip(&choice_totals) {
-            *running -= add;
+        // Earlier sorted instance keys win final ties (see
+        // `compare_search_builds`).
+        let replace = match (ordering, self.best.as_ref()) {
+            (Ordering::Equal, Some(best)) => tiebreak_key < best.tiebreak_key,
+            _ => true,
+        };
+        if replace {
+            self.best = Some(SearchBuild {
+                totals: self.running_totals.clone(),
+                tiebreak_key,
+                choices: self
+                    .chosen
+                    .iter()
+                    .enumerate()
+                    .map(|(pool_idx, &choice_idx)| self.pools[pool_idx].choices[choice_idx].clone())
+                    .collect(),
+            });
         }
     }
 }
@@ -2785,9 +2868,10 @@ mod tests {
 
     #[test]
     fn virtue_pool_is_appended_after_every_gear_pool() {
-        // Bounds on gear pools must include the Virtue family's best
-        // contribution, which `suffix_goal_maxima` only guarantees when the
-        // Virtue pool sits last.
+        // The Virtue pool must sit last: the last pool is the one bounded
+        // per candidate rather than by component-wise maxima, and the Virtue
+        // family's five-set super-candidates are where that distinction
+        // matters most (Bug 16).
         let mut resolved: HashMap<String, GearItem> = HashMap::new();
         resolved.insert("Helm".into(), make_cached("Helm", Slot::Head, &[]));
         let names = vec!["Helm".to_string()];
@@ -2803,10 +2887,68 @@ mod tests {
             pools.last().unwrap().choices[0],
             Choice::Virtues { .. }
         ));
+        // The component-wise suffix covers only the gear pools (all zero CR
+        // here); the Virtue set's 0+1+2+3+4 = 10 CR is credited per
+        // candidate inside `DfsState::completion_can_beat`, never summed in.
         let maxima = suffix_goal_maxima(&pools, &goals);
-        // The bound at pool 0 (before any gear is placed) already includes
-        // the Virtue set's 0+1+2+3+4 = 10 CR.
-        assert_eq!(maxima[0][0], 10);
+        assert_eq!(maxima.len(), pools.len());
+        assert_eq!(maxima[0][0], 0);
+        assert_eq!(maxima[gear_pool_count][0], 0);
+    }
+
+    fn bare_candidate(name: &str, slot: Slot, stats: &[(Stat, i64)]) -> Choice {
+        Choice::Single {
+            slot,
+            candidate: Candidate {
+                key: name.to_string(),
+                name: name.to_string(),
+                stats: stats.iter().copied().collect(),
+                original_slot: slot,
+                two_handed: false,
+                either_hand: false,
+            },
+        }
+    }
+
+    #[test]
+    fn last_pool_bound_is_per_candidate_not_component_wise_max() {
+        // Bug 16 regression. Goals: maximise Block (priority 1, no floor),
+        // then meet Parry >= 12. Head pool: H0 (Pa 5) then H1 (Pa 4). Last
+        // pool: L0 (Pa 10) and L1 (Bl 100, Pa 5), both Pareto-maximal.
+        //
+        // The best build is H0+L0 (Bl 0, Pa 15): every build using L1 leaves
+        // Parry unmet. After H0's subtree, the DFS reaches H1. The old
+        // component-wise bound credited the fantasy completion
+        // (Bl 100 from L1, Pa 10 from L0) = (100, 14): all met and Stage 3
+        // Block 100 > 0, so H1 was *not* pruned and both of its leaves were
+        // visited (7 nodes). Checking each real last-pool candidate instead:
+        // H1+L0 = (0, 14) loses on Stage 3 Parry, H1+L1 = (100, 9) leaves
+        // Parry unmet, so H1 is pruned (5 nodes). The answer is unchanged.
+        let goals = vec![goal(Stat::Block, 0), goal(Stat::Parry, 12)];
+        let pools = vec![
+            SearchPool {
+                choices: vec![
+                    bare_candidate("H0", Slot::Head, &[(Stat::Parry, 5)]),
+                    bare_candidate("H1", Slot::Head, &[(Stat::Parry, 4)]),
+                ],
+            },
+            SearchPool {
+                choices: vec![
+                    bare_candidate("L0", Slot::Chest, &[(Stat::Parry, 10)]),
+                    bare_candidate("L1", Slot::Chest, &[(Stat::Block, 100), (Stat::Parry, 5)]),
+                ],
+            },
+        ];
+
+        let (best, nodes) = exact_search_counting(&pools, &goals, &[0, 0]);
+        let best = best.expect("search must find a build");
+        assert_eq!(best.totals, vec![0, 15]);
+        assert_eq!(best.tiebreak_key, vec!["H0".to_string(), "L0".to_string()]);
+        assert_eq!(nodes, 5, "H1 must be pruned by the per-candidate bound");
+
+        let oracle = oracle_best_build(&pools, &goals).expect("oracle must find a build");
+        assert_eq!(oracle.totals, best.totals);
+        assert_eq!(oracle.tiebreak_key, best.tiebreak_key);
     }
 
     fn benchmark_goal_set() -> Vec<StatGoal> {
