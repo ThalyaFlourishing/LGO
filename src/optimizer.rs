@@ -308,9 +308,10 @@ pub fn optimize(
 ) -> OptimizeResult {
     let (mut pools, warnings) = build_search_pools(resolved, candidates, goals, true);
     if !virtues.is_empty() {
-        // Appended last so every gear pool's branch-and-bound bound already
-        // includes the best possible Virtue contribution via
-        // `suffix_goal_maxima`.
+        // Appended last: the last pool is bounded per candidate in the
+        // branch-and-bound (`DfsState::completion_can_beat`), which is what
+        // keeps a pool of ~74 five-set super-candidates from inflating every
+        // gear level's bound with a fantasy set (Bug 16).
         pools.push(build_virtue_pool(virtues, goals, true));
     }
     let innate_goal_totals = innate_goal_totals(innate_stats, goals);

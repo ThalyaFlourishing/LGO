@@ -145,9 +145,12 @@ Two implementations that must agree:
      is one `SearchPool` of `Choice::Virtues` super-candidates, each a
      5-combination enumerated in **strictly increasing index order** — that is
      what makes distinctness structural, exactly as `build_pairs` never
-     generates a self-pair. The pool is appended **last** so
-     `suffix_goal_maxima` folds the best possible Virtue contribution into the
-     bound of every gear pool.
+     generates a self-pair. The pool is appended **last**, and the last pool is bounded *per
+     candidate* in the branch-and-bound (a partial build is pruned only if
+     every real Virtue set loses to the best so far). Bounding it by
+     per-goal maxima is unsafe for performance: the component-wise max over
+     ~74 five-sets is a fantasy set no real set approaches, and it made the
+     Uniform benchmark fail to finish at N = 8 (Bug 16).
      *Pre-filter soundness.* Single-candidate dominance is **unsound** for
      k-subsets: a dominated Virtue may still be needed when all of its
      dominators are already in the set. The sound rule is: *a Virtue V may be

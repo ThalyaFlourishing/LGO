@@ -31,7 +31,34 @@ Editable parameters:
 
 (Do not edit BENCHMARK_SINGLETON_SLOTS / BENCHMARK_PAIRED_FAMILIES. These are structural constants)
 
-Virtues: every run also appends the real Virtue family (all 21 Virtues from `data/lgo_virtues.json`, derived for a Lore-master with the committed `data/base_stat_derivations.json`) as the last search pool, exactly as production does. The `virtue supers` column reports the size of that pool after the >=5-dominators pre-filter, the 5-combination enumeration and the combo dominance filter. It does not depend on N or the profile; under the fixed BENCHMARK_GOALS it is 74 (21 Virtues -> 12 pre-filter survivors -> C(12,5) = 792 combinations -> 74 super-candidates). Because the Virtue pool is last, every gear pool is bounded with the best possible Virtue contribution already included.
+Virtues: every run also appends the real Virtue family (all 21 Virtues from `data/lgo_virtues.json`, derived for a Lore-master with the committed `data/base_stat_derivations.json`) as the last search pool, exactly as production does. The `virtue supers` column reports the size of that pool after the >=5-dominators pre-filter, the 5-combination enumeration and the combo dominance filter. It does not depend on N or the profile; under the fixed BENCHMARK_GOALS it is measured at 74 (21 Virtues -> 12 pre-filter survivors -> C(12,5) = 792 combinations -> 74 super-candidates).
+
+  How the last pool is bounded (Bug 16 in `docs/BUG_HISTORY.md`): the branch-and-bound sums each remaining pool's per-goal maxima, EXCEPT for the last pool, which is bounded by iterating its real candidates (prune only if every one of them loses to the best so far). A per-goal-max over 74 five-sets is a fantasy set (max CR from one set, max TT from another) far better than any real set; with that bound the Uniform profile did not complete at N = 8 at all. With the per-candidate bound the Virtue pool costs essentially nothing, which is why the pool goes last.
+
+  Note on comparability: adding the Virtue pool changed the REGIME the benchmark runs in, even though BENCHMARK_GOALS are unchanged. Without Virtues the synthetic gear could never reach TacticalMitigation 11,000 (TT per item is 0..4 until the first TT-primary item at index 12), so N <= 12 ran in Stage 2 (maximise the unmet TT) and cost 85k..8.8M nodes. With Virtues, TT and PhysicalMastery are met by the Virtue set alone, so N <= 12 runs in Stage 3 (raw lexicographic polish) where the synthetic CR frontier collapses to a few hundred nodes. N = 13 breaches on both: that is where the index-12 item (TT 8,002 at -2,400 CR) appears and the component-wise GEAR bound starts crediting its TT alongside index 0's CR in the same slot. Node counts before and after PR #92 are therefore not comparable for N <= 12; the breach point is.
+
+Measured results (release build, 100 s limit, 4-core dev container, 2026-10-25). `main` = before the Virtue family; `fix` = Virtue pool last with the per-candidate bound. Pre/post pool columns are omitted; they are the N-driven counts described above.
+
+  Uniform
+  | N  | pair supers | hand cfgs | virtue supers | main: wall / nodes      | fix: wall / nodes |
+  |----|-------------|-----------|---------------|-------------------------|-------------------|
+  | 8  | 28 28 28    | 27        | 74            | 0.027s / 84,545         | 0.000s / 240      |
+  | 9  | 36 36 36    | 38        | 74            | 0.101s / 336,496        | 0.000s / 266      |
+  | 10 | 45 45 45    | 51        | 74            | 2.295s / 7,320,336      | 0.000s / 292      |
+  | 11 | 55 55 55    | 66        | 74            | 2.661s / 8,477,563      | 0.001s / 322      |
+  | 12 | 66 66 66    | 59        | 74            | 2.789s / 8,789,855      | 0.000s / 341      |
+  | 13 | 78 78 78    | 75        | 74            | >100s                   | >100s             |
+  Uniform summary, both: last N within 100s = 12; breached at N = 13.
+  For reference, the merged-and-reverted PR #92 code (Virtue pool last, component-wise bound) had visited ~78.5M nodes after 60 s at N = 8 without finishing.
+
+  Singles-at-N, Pairs-at-N, Hands-at-N
+  With the committed baseline constants (BENCHMARK_BASELINE_SLOT_CANDIDATES / BENCHMARK_BASELINE_HAND_CANDIDATES) the non-varied pools are large enough (pair supers 780, hand cfgs 1643) that none of these three profiles completes N = 8 within 100 s, identically on `main` and on the fix:
+  | profile      | N | pair supers   | hand cfgs | virtue supers | main   | fix    |
+  |--------------|---|---------------|-----------|---------------|--------|--------|
+  | Singles-at-N | 8 | 780 780 780   | 1643      | 74            | >100s  | >100s  |
+  | Pairs-at-N   | 8 | 28 28 28      | 1643      | 74            | >100s  | >100s  |
+  | Hands-at-N   | 8 | 780 780 780   | 27        | 74            | >100s  | >100s  |
+  Lower the baseline constants if you want these profiles to produce a curve; the Virtue pool is not what stops them.
 
 The test can run any of four separate 'Profiles', named in enum 'BenchmarkProfile' :
   . Uniform
