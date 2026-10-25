@@ -292,7 +292,7 @@ mod tests {
         let text_report = format_optimize_report(
             &result,
             &[StatGoal {
-                stat: Stat::Morale,
+                stat: Stat::Finesse,
                 minimum: 1000,
             }],
             "Thalya",
@@ -300,12 +300,11 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
-            None,
         );
         let html_report = format_optimize_report_html(
             &result,
             &[StatGoal {
-                stat: Stat::Morale,
+                stat: Stat::Finesse,
                 minimum: 1000,
             }],
             "Thalya",
@@ -313,7 +312,6 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
-            None,
         );
 
         let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
@@ -346,7 +344,7 @@ mod tests {
         let text_report = format_optimize_report(
             &result,
             &[StatGoal {
-                stat: Stat::Morale,
+                stat: Stat::Finesse,
                 minimum: 1000,
             }],
             "Thalya",
@@ -354,12 +352,11 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
-            None,
         );
         let html_report = format_optimize_report_html(
             &result,
             &[StatGoal {
-                stat: Stat::Morale,
+                stat: Stat::Finesse,
                 minimum: 1000,
             }],
             "Thalya",
@@ -367,7 +364,6 @@ mod tests {
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
             &sample_base_stats(),
-            None,
         );
 
         let paths = write_optimize_report_files(&reports_dir, &text_report, &html_report)
@@ -430,7 +426,7 @@ mod tests {
 
     fn sample_optimize_result(name: &str) -> OptimizeResult {
         let mut innate_stats = HashMap::new();
-        innate_stats.insert(Stat::Morale, 1000);
+        innate_stats.insert(Stat::Finesse, 1000);
         let mut gear_set = GearSet::new(innate_stats);
         gear_set.items.insert(
             Slot::Head,
@@ -439,7 +435,7 @@ mod tests {
                 slot: Slot::Head,
                 two_handed: false,
                 either_hand: false,
-                stats: [(Stat::Morale, 250), (Stat::CriticalRating, 300)]
+                stats: [(Stat::Finesse, 250), (Stat::CriticalRating, 300)]
                     .into_iter()
                     .collect(),
             },

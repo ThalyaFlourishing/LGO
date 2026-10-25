@@ -275,7 +275,7 @@ Armour = 1001
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
-/// Base values entered in `[item.EssenceTotals]` (e.g. Vitality/Will
+/// Base values entered in `[item.EssenceTotals]` (e.g. Might/Will
 /// essences) must derive identically to the same value on the item itself.
 #[test]
 fn essence_base_values_derive_identically_to_item_base_values() {
@@ -289,8 +289,8 @@ class = "Lore-master"
 
 [[item]]
 slot = "Head"
-name = "Vitality Helm"
-Vitality = 100
+name = "Will Helm"
+Will = 100
 "#,
     )
     .expect("write toml");
@@ -303,9 +303,9 @@ class = "Lore-master"
 
 [[item]]
 slot = "Head"
-name = "Vitality Helm"
+name = "Will Helm"
 [item.EssenceTotals]
-Vitality = 100
+Will = 100
 "#,
     )
     .expect("write toml");
@@ -320,16 +320,19 @@ Vitality = 100
         .derive_doc(LORE_MASTER, &mut doc_essence)
         .expect("derive essence variant");
 
-    // Vitality derives a Morale contribution in the synthetic table; the exact
+    // Will derives a CriticalRating contribution in the synthetic table; the exact
     // value is derived from that table rather than a real fixture coefficient.
-    let expected_morale = synthetic_derivations()
-        .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Vitality, 100)]))
+    let expected_crit = synthetic_derivations()
+        .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Will, 100)]))
         .expect("synthetic derivation must succeed")
-        .get(&Stat::Morale)
+        .get(&Stat::CriticalRating)
         .copied()
-        .expect("Vitality must derive Morale in the synthetic table");
-    assert!(expected_morale > 0, "Vitality must derive Morale");
-    assert_eq!(doc_item.items[0].item.stat(&Stat::Morale), expected_morale);
+        .expect("Will must derive CriticalRating in the synthetic table");
+    assert!(expected_crit > 0, "Will must derive CriticalRating");
+    assert_eq!(
+        doc_item.items[0].item.stat(&Stat::CriticalRating),
+        expected_crit
+    );
     assert_eq!(
         doc_item.items[0].item.stats, doc_essence.items[0].item.stats,
         "essence base values must derive identically to item base values"

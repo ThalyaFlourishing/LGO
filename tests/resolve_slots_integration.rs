@@ -32,7 +32,6 @@ fn setup() -> (String, Vec<ResolutionOutcome>) {
         "Lore-master",
         &base_stats,
         None,
-        None,
     )
     .expect("must resolve")
 }
@@ -71,7 +70,7 @@ fn with_item_tables<R>(src: &str, f: impl FnOnce(&toml_edit::ArrayOfTables) -> R
     f(tables)
 }
 
-/// Canonical per-item key layout: the 16 tracked stats then the 5 Base stats.
+/// Canonical per-item key layout: tracked stats followed by Base stats.
 fn canonical_stat_keys() -> Vec<&'static str> {
     TRACKED_STATS
         .iter()
@@ -934,8 +933,6 @@ fn file_level_unresolved_comment_stays_in_item_header_across_repeated_resolution
 [[item]]
 slot = \"Unknown\"
 name = \"Test Greatsword\"
-Morale = 0
-Power = 0
 Armour = 0
 # UNRESOLVED: multiple wiki variants exist — you should hand-edit stats
 CriticalRating = 7
@@ -943,8 +940,6 @@ CriticalRating = 7
 [[item]]
 slot = \"Unknown\"
 name = \"Test Helm\"
-Morale = 0
-Power = 0
 Armour = 0
 # AUTO-PICKED highest-item-level variant: Item:Test_Helm_(Item_Level_999)
 CriticalRating = 3
@@ -1421,17 +1416,17 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
         let innate_pos = out
             .find("[InnateStats]")
             .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
-        let measured_pos = out
-            .find("[MeasuredStats]")
-            .unwrap_or_else(|| panic!("run {}: [MeasuredStats] missing:\n{}", run, out));
         let virtues_pos = out
             .find("[Virtues]")
             .unwrap_or_else(|| panic!("run {}: [Virtues] missing:\n{}", run, out));
+        let virtue_innate_pos = out
+            .find("[VirtueInnateStats]")
+            .unwrap_or_else(|| panic!("run {}: [VirtueInnateStats] missing:\n{}", run, out));
         let divider_pos = out
             .find("# --- Head ---")
             .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
 
-        for header in ["[InnateStats]", "[MeasuredStats]", "[Virtues]"] {
+        for header in ["[InnateStats]", "[Virtues]", "[VirtueInnateStats]"] {
             assert_eq!(
                 out.matches(header).count(),
                 1,
@@ -1454,19 +1449,19 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
             out
         );
         assert!(
-            innate_pos < measured_pos,
-            "run {}: [MeasuredStats] must follow [InnateStats]:\n{}",
+            innate_pos < virtues_pos,
+            "run {}: [Virtues] must follow [InnateStats]:\n{}",
             run,
             out
         );
         assert!(
-            measured_pos < virtues_pos,
-            "run {}: [Virtues] must follow [MeasuredStats]:\n{}",
+            virtues_pos < virtue_innate_pos,
+            "run {}: [VirtueInnateStats] must follow [Virtues]:\n{}",
             run,
             out
         );
         assert!(
-            virtues_pos < divider_pos,
+            virtue_innate_pos < divider_pos,
             "run {}: the header blocks must come before the first slot divider (drift regression):\n{}",
             run,
             out
@@ -2377,7 +2372,7 @@ CriticalRating = 200
 }
 
 /// Migration: a previous `gearReady.toml` written in the OLD layout — where
-/// `Armour` was a tracked stat sitting between `Power` and `CriticalRating` —
+/// `Armour` in a hand-reordered stat block before `CriticalRating` —
 /// must merge into the NEW canonical layout (Armour as the last Base line,
 /// after `Fate`) with its hand-entered values preserved, and be idempotent on
 /// every subsequent run. Covers both the item base block and its
@@ -2418,8 +2413,8 @@ CriticalRating = 200
     .expect("first resolve must succeed");
 
     // Rewrite the canonical into the OLD layout: drop the new-position Armour
-    // lines (both sit at `Fate\nArmour = 0`) and reinsert Armour between Power
-    // and CriticalRating, with distinct hand-entered values for the item base
+    // lines (both sit at `Fate\nArmour = 0`) and reinsert Armour before
+    // CriticalRating, with distinct hand-entered values for the item base
     // block (5555) and the essence block (100).
     let first = std::fs::read_to_string(&canonical).expect("read canonical");
     let old_layout = first
@@ -2428,19 +2423,17 @@ CriticalRating = 200
             "Fate               = 0\n",
         )
         .replacen(
-            "Power              = 0\nCriticalRating     = 200",
-            "Power              = 0\nArmour             = 5555\nCriticalRating     = 200",
+            "CriticalRating     = 200",
+            "Armour             = 5555\nCriticalRating     = 200",
             1,
         )
         .replacen(
-            "Power              = 0\nCriticalRating     = 0",
-            "Power              = 0\nArmour             = 100\nCriticalRating     = 0",
+            "CriticalRating     = 0",
+            "Armour             = 100\nCriticalRating     = 0",
             1,
         );
     assert!(
-        old_layout.contains(
-            "Power              = 0\nArmour             = 5555\nCriticalRating     = 200"
-        ),
+        old_layout.contains("Armour             = 5555\nCriticalRating     = 200"),
         "test setup: item Armour must be placed in the OLD tracked position:\n{old_layout}"
     );
     assert!(
@@ -2482,7 +2475,7 @@ CriticalRating = 200
         });
 
         // Position migrated: Armour now follows Fate (new Base layout) and no
-        // longer sits in the old tracked slot after Power.
+        // longer sits before CriticalRating.
         assert!(
             out.contains("Fate               = 0\nArmour             = 5555"),
             "run {run}: item Armour must migrate to the Base position after Fate:\n{out}"
@@ -2520,7 +2513,7 @@ fn template_gear_ready_file_parses_via_read_stats_file() {
         "template must contain at least one item"
     );
 
-    // Every [item.EssenceTotals] block must keep its 21 canonical stat lines
+    // Every [item.EssenceTotals] block must keep its canonical stat lines
     // consecutive: comments may sit between the header and the first stat
     // line, but nothing (comment-only or blank line) may split the stat run.
     let text = std::fs::read_to_string(&template).expect("read template");
@@ -2547,11 +2540,12 @@ fn template_gear_ready_file_parses_via_read_stats_file() {
             .position(|l| is_stat_line(l))
             .map(|offset| idx + 1 + offset)
             .unwrap_or_else(|| panic!("no stat line after [item.EssenceTotals] at line {idx}"));
-        let run = &lines[first_stat..first_stat + 21];
+        let stat_count = TRACKED_STATS.len() + BASE_STATS.len();
+        let run = &lines[first_stat..first_stat + stat_count];
         for (offset, stat_line) in run.iter().enumerate() {
             assert!(
                 is_stat_line(stat_line),
-                "line {} must be a canonical stat line — the 21-line stat run \
+                "line {} must be a canonical stat line — the {stat_count}-line stat run \
                  after [item.EssenceTotals] (line {}) must be consecutive:\n{}",
                 first_stat + offset + 1,
                 idx + 1,

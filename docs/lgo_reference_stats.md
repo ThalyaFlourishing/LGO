@@ -1,6 +1,6 @@
 # LGO Stat Reference
 
-## Tracked Stats (15 total, in canonical order)
+## Tracked Stats (13 total, in canonical order)
 
 These are the only stats used by the optimizer and stats file.
 The JSON key column remains relevant for serialized stat maps,
@@ -10,8 +10,6 @@ The `Stat` enum uses `#[serde(rename_all = "snake_case")]`.
 
 | Abbreviation | Enum variant         | JSON key              | TOML key             | Display name        |
 |--------------|----------------------|-----------------------|----------------------|---------------------|
-| `ml`         | `Morale`             | `morale`              | `Morale`             | Morale              |
-| `pw`         | `Power`              | `power`               | `Power`              | Power               |
 | `cr`         | `CriticalRating`     | `critical_rating`     | `CriticalRating`     | Critical Rating     |
 | `fn`         | `Finesse`            | `finesse`             | `Finesse`            | Finesse             |
 | `pm`         | `PhysicalMastery`    | `physical_mastery`    | `PhysicalMastery`    | Physical Mastery    |
@@ -36,12 +34,12 @@ the item and key.
 
 ## Base Stats (6 total, derivation inputs only)
 
-The six raw Base stats appear in `gearReady.toml` after the 15 tracked
+The six raw Base stats appear in `gearReady.toml` after the 13 tracked
 stats: in top-level `[InnateStats]`, in each `[[item]]` block, and in
 `[item.EssenceTotals]`. Top-level `[InnateStats]` is **Base-stats-only** and
 holds exactly the five plugin-exported Base stats: `Might`, `Agility`,
 `Vitality`, `Will`, and `Fate` belong there, while tracked stats such as
-`Morale` or `CriticalRating` do not. `Armour` is **omitted** from
+`CriticalRating` do not. `Armour` is **omitted** from
 `[InnateStats]` (innate/character Armour is always zero), but it is still a
 Base stat everywhere else — on items, in `[item.EssenceTotals]`, and from the
 three Armour Virtues.
@@ -56,9 +54,9 @@ contributions using the per-class coefficients in
 |--------------|------------|--------------|---------------------------------------------------|
 | `Might`      | `Might`    | Might        | class-dependent                                   |
 | `Agility`    | `Agility`  | Agility      | class-dependent                                   |
-| `Vitality`   | `Vitality` | Vitality     | class-dependent                                   |
+| `Vitality`   | `Vitality` | Vitality     | none                                              |
 | `Will`       | `Will`     | Will         | class-dependent                                   |
-| `Fate`       | `Fate`     | Fate         | class-dependent                                   |
+| `Fate`       | `Fate`     | Fate         | none                                              |
 | `Armor`      | `Armour`   | Armour       | PhysicalMitigation × 1.0, TacticalMitigation × 0.2 |
 
 `Armour` comes only from gear items and from the three Armour Virtues
@@ -114,7 +112,7 @@ intended, not a bug.
 ## Virtues
 
 `gearReady.toml` also carries a top-level `[Virtues]` block after generated
-`[MeasuredStats]`:
+`[InnateStats]`:
 
 ```toml
 [Virtues]
@@ -131,8 +129,8 @@ Virtue5            = ""
 - Non-empty values are matched case-insensitively against the top-level keys in
   `data/lgo_virtues.json`.
 - Unknown names and duplicate non-empty names are hard errors at optimize time.
-- `data/lgo_virtues.json` uses LGO's current tracked stat vocabulary, so
-  unsupported Virtue-only stats such as In-Combat Morale Regen are omitted.
+- `data/lgo_virtues.json` uses only LGO's tracked and Base stat vocabulary;
+  unsupported stats are omitted. Justice contributes only Tactical Mitigation.
 
 Selected Virtues are fixed stat sources. Their tracked stats contribute
 directly to the fixed baseline totals, and any raw Base stats they contain are
@@ -161,25 +159,3 @@ TacticalMastery    = 9275
 - At optimize time the two values fold **directly** into the fixed tracked-stat
   baseline, exactly like a Virtue's tracked stats — added directly, with no
   Base-stat derivation. An absent block contributes nothing.
-
-## Innate Morale and Power baseline
-
-```
-innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats[s] − derived Base-stat contributions[s]
-```
-
-Export with no food/hope/fellowship buffs active for a clean Morale/Power baseline.
-
-**Evidence (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
-
-| Component | Morale |
-|---|---|
-| Measured naked Max Morale | 143,695 |
-| Vitality 10,537 × 4.5 (10,200 base + 337 stat tomes) | −47,417 |
-| **Residual calibrated into the innate baseline** | **96,278** |
-
-The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) + 14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was 13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
-
-**Research note:** CalcStat was research input only; LGO does not implement or import its formulas. `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported Vitality exactly, which is what made the class-base figure trustworthy. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
-
-- **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.

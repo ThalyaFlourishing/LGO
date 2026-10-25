@@ -13,10 +13,8 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
   /lgo export
     Export a unified gearlist from equipped items plus Shared Storage chest "LGO".
     Writes lgo_<character-name>_gearNames_<timestamp>.plugindata.
-    The export also records the character's level, measured Max Morale and
-    Max Power (as shown in game, including equipped gear and any active
-    buffs), the number of active effects, and the list of equipped item names.
-    TIP: export with no food/hope/fellowship buffs active for a clean baseline.
+    The export also records its version and the character's name, class,
+    five raw Base stats, and level.
     Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
     there is no need to unequip them before exporting.
 
@@ -67,8 +65,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Example output:
       Stat Abbreviation  Stat Name
       -----------------  ------------------
-          ml             Morale
-          pw             Power
           cr             CriticalRating
           fn             Finesse
           pm             PhysicalMastery
@@ -91,8 +87,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     result into lgo_<character>_gearReady.toml in that same folder.
     gearReady.toml is the canonical file for persistent manual corrections,
     including top-level [Virtues] plus each item's [item.EssenceTotals] block.
-    resolve-slots keeps level, [InnateStats], [MeasuredStats], and [Virtues]
-    near the top of the file. The bookmarklet-produced gearStats.toml should be
+    resolve-slots keeps character, class, level, [InnateStats], [Virtues],
+    and [VirtueInnateStats] in that order before items. The bookmarklet-produced gearStats.toml should be
     treated as disposable input to resolve-slots.
 
     resolve-slots creates the <CharacterName>_Gear folder if it does not exist.
@@ -163,23 +159,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     be run from anywhere. optimize errors clearly if the class
     entry, derivation file, or needed virtue data file is missing.
     The report content includes the chosen gear, goal summary, the full projected
-    15 tracked stats (zero rows included), and the combined raw Base-stat pool.
-
-    If gearReady.toml carries a [MeasuredStats] block, optimize also calibrates
-    the innate Morale and Power baseline from it: the measured Max Morale/Power
-    minus the stats of the items listed in Equipped. The remainder covers
-    everything LGO does not model (class base, virtue passives, racials, stat
-    tomes), so Morale and Power goals land where the in-game panel says. If any
-    Equipped name no longer has a matching [[item]] block, [MeasuredStats] is
-    treated as stale relative to the current gear file: LGO warns on stderr and
-    ignores measured calibration for that run instead of inflating the baseline.
-    Nothing here is ever a hard error. Without a [MeasuredStats] block no
-    calibration happens. scrap-gear calibrates the same way.
-    Under the projected totals, the terminal and HTML reports (and the scrap-gear
-    report) state which baseline was used:
-      Innate Morale/Power baseline: measured (0 effects at export)
-      Innate Morale/Power baseline: derived from [InnateStats] only (no [MeasuredStats])
-    A non-zero effect count means buffs may be baked into the measurement.
+    13 tracked stats (zero rows included), and the combined raw Base-stat pool.
 
     Combined example:
       lgo optimize --file path\to\lgo_Thalya_gearReady.toml tm:450000 cr:350000 fn:0
@@ -273,19 +253,14 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 3.6 base-stats
   lgo base-stats
     Print the five raw innate Base stats from [InnateStats] in
-    lgo_<character>_gearReady.toml, and the 15 derived tracked-stat
+    lgo_<character>_gearReady.toml, and the 13 derived tracked-stat
     contributions computed from them (already included in optimize totals).
     That derived table is Base-stats-only and excludes the Tactical Mastery ->
     Outgoing Healing link. A second section, "Fixed tracked-stat baseline before
     gear", then prints the exact innate tracked-stat map optimize starts from
     (Virtues, [VirtueInnateStats], Base derivation, the Tactical Mastery ->
-    Outgoing Healing link, and measured Morale/Power calibration), so its
+    Outgoing Healing link), so its
     Outgoing Healing row includes the link.
-    Also prints the measured Max Morale and Max Power from [MeasuredStats]
-    and the number of active effects at export time, or a note that no
-    [MeasuredStats] block is present. If [MeasuredStats].Equipped no longer
-    matches the current [[item]] blocks, base-stats reports that measured
-    calibration was skipped and keeps the derived [InnateStats]-only baseline.
     Does not run an optimization. Requires data\base_stat_derivations.json in
     the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
@@ -304,8 +279,6 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   Goal format: <stat>:<minimum>
   Stat token may be the full canonical stat name or its two-letter abbreviation.
 
-    Morale             ml
-    Power              pw
     CriticalRating     cr
     Finesse            fn
     PhysicalMastery    pm

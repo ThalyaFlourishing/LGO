@@ -30,9 +30,9 @@ pub const DERIVATIONS_JSON: &str = r#"{
   "Lore-master": {
     "Might": { "CriticalRating": 1.5, "Finesse": 1.5, "TacticalMastery": 2.0, "Parry": 1.0 },
     "Agility": { "CriticalRating": 2.0, "Finesse": 1.0, "TacticalMastery": 2.0, "Evade": 1.0 },
-    "Vitality": { "Morale": 4.5 },
+    "Vitality": {},
     "Will": { "CriticalRating": 1.0, "TacticalMastery": 3.0, "Resistance": 1.0, "Evade": 2.0, "PhysicalMitigation": 1.0, "TacticalMitigation": 1.0 },
-    "Fate": { "Power": 1.5 },
+    "Fate": {},
     "Armour": { "PhysicalMitigation": 1.0, "TacticalMitigation": 0.2 }
   },
   "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
@@ -91,18 +91,15 @@ pub fn write_items(data_dir: &Path) {
 }
 
 /// A synthetic plugindata (`.plugindata`) export body for `character`. Carries
-/// the five raw Base stats plus the `lgo-gearlist-2` measured fields, so that
-/// `resolve-slots` writes both `[InnateStats]` and `[MeasuredStats]`.
+/// the five raw Base stats and level, so that `resolve-slots` writes
+/// `[InnateStats]` and preserves the character's level.
 pub fn plugindata_body(character: &str) -> String {
     format!(
         "return \n{{\n\
 \t[\"class\"] = \"Lore-master\",\n\
 \t[\"character\"] = \"{character}\",\n\
 \t[\"level\"] = 160.000000,\n\
-\t[\"maxMorale\"] = 100000.000000,\n\
-\t[\"maxPower\"] = 20000.000000,\n\
-\t[\"activeEffects\"] = 0.000000,\n\
-\t[\"equipped\"] = \n\t{{\n\t\t[1.000000] = \"Test Helm\"\n\t}},\n\
+\t[\"version\"] = \"lgo-gearlist-2\",\n\
 \t[\"baseStats\"] = \n\t{{\n\
 \t\t[\"GetBaseMight\"] = {might}.000000,\n\
 \t\t[\"GetBaseAgility\"] = {agility}.000000,\n\

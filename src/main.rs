@@ -2,7 +2,7 @@
 
 use chrono::Local;
 use lgo::{
-    base_stats, build_db, build_profiles, gear, gearstats, install, measured, optimizer, report,
+    base_stats, build_db, build_profiles, gear, gearstats, install, optimizer, report,
     report_files, slot_resolver, stat, virtues,
 };
 
@@ -61,32 +61,27 @@ fn read_gear_doc_or_exit(stats_file: &Path) -> gearstats::GearDoc {
 }
 
 /// Fold Virtues in, derive Base-stat contributions, apply the tracked-stat
-/// links (Tactical Mastery → Outgoing Healing), then calibrate the innate
-/// Morale/Power baseline against the measured export. Links run after
-/// derivation so every source total is final; calibration runs last so that
-/// every item and the innate map are already in final tracked-stat form, and
-/// before any optimization consumes `innate_stats`.
+/// links (Tactical Mastery → Outgoing Healing). Links run after derivation so
+/// every source total is final before optimization consumes `innate_stats`.
 fn prepare_gear_doc_for_optimization(
     gear_doc: &mut gearstats::GearDoc,
     class: &str,
-) -> Option<measured::CalibrationReport> {
+) -> Result<(), String> {
     if !gear_doc.selected_virtues.is_empty() {
         let virtues = load_virtues_or_exit();
-        if let Err(e) = virtues.apply_selected_virtues(gear_doc) {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
+        virtues
+            .apply_selected_virtues(gear_doc)
+            .map_err(|e| e.to_string())?;
     }
 
     let derivations = load_derivations_or_exit();
-    if let Err(e) = derivations.derive_doc(class, gear_doc) {
-        eprintln!("Error deriving Base stats for class '{}': {}", class, e);
-        process::exit(1);
-    }
+    derivations
+        .derive_doc(class, gear_doc)
+        .map_err(|e| format!("deriving Base stats for class '{}': {}", class, e))?;
 
     base_stats::link_doc(gear_doc);
 
-    measured::calibrate_innate(gear_doc)
+    Ok(())
 }
 
 fn build_resolved_candidates(
@@ -373,7 +368,10 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
-    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
 
     let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
@@ -427,7 +425,6 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         &timestamp,
         &evaluated_builds,
         &unused_items,
-        calibration.as_ref(),
     );
     print!("{}", text_report);
 
@@ -523,7 +520,10 @@ fn run_optimize(cli: &OptimizeCli) {
         )
     });
 
-    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
 
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
     let result = optimizer::optimize(&resolved, &candidate_names, &goals, &gear_doc.innate_stats);
@@ -543,7 +543,6 @@ fn run_optimize(cli: &OptimizeCli) {
         &stats_file_display,
         &timestamp,
         &projected_base_stats,
-        calibration.as_ref(),
     );
     print!("{}", report::colorize_terminal_status_markers(&text_report));
 
@@ -579,7 +578,6 @@ fn run_optimize(cli: &OptimizeCli) {
             &stats_file_display,
             &timestamp,
             &projected_base_stats,
-            calibration.as_ref(),
         );
 
         match report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report) {
@@ -700,7 +698,10 @@ fn run_base_stats(cli: &BaseStatsCli) {
     // copy before the optimize pre-pass folds Virtue Base stats into them.
     let innate_base = gear_doc.innate_base_stats.clone();
     let mut gear_doc = gear_doc;
-    let calibration = prepare_gear_doc_for_optimization(&mut gear_doc, &class);
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
 
     report::print_base_stats_report(
         &character,
@@ -709,7 +710,6 @@ fn run_base_stats(cli: &BaseStatsCli) {
         &innate_base,
         &derived,
         &gear_doc.innate_stats,
-        calibration.as_ref(),
     );
 }
 
@@ -1181,7 +1181,7 @@ fn print_usage() {
     println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
     println!("  tracked-stat contributions derived from them (already included in optimize");
     println!("  totals), then the fixed tracked-stat baseline optimize starts from (Virtues,");
-    println!("  Base derivation, Tactical Mastery -> Outgoing Healing link, calibration).");
+    println!("  Base derivation, Tactical Mastery -> Outgoing Healing link).");
     println!("  It does not run an optimization.");
     println!();
     println!("Options (resolve-slots):");
@@ -1226,7 +1226,7 @@ fn print_usage() {
     println!("    lgo optimize TacticalMastery:450000 CriticalRating:350000 Finesse:0");
     println!("    lgo optimize tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --character Thalya tm:450000 oh:100000");
-    println!("    lgo optimize --save-build healer oh:200000 cr:350000 ml:0");
+    println!("    lgo optimize --save-build healer oh:200000 cr:350000 fn:0");
     println!("    lgo optimize --to-file tm:450000 cr:350000 fn:0");
     println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
@@ -1294,12 +1294,28 @@ mod tests {
         let output = format_stat_list();
         assert!(output.contains("Stat Abbreviation"));
         assert!(output.contains("Stat Name"));
-        assert!(output.contains("ml"));
-        assert!(output.contains("Morale"));
+        assert!(!output.contains("Morale"));
+        assert!(!output.contains("Power"));
+        assert!(output.contains("cr"));
+        assert!(output.contains("Critical Rating"));
         assert!(output.contains("tm"));
         assert!(output.contains("Tactical Mastery"));
         assert!(output.contains("tt"));
         assert!(output.contains("Tactical Mitigation"));
+    }
+
+    #[test]
+    fn optimize_rejects_removed_stat_names_and_abbreviations() {
+        for stat in ["Morale", "Power", "ml", "pw"] {
+            for goal in [stat.to_string(), format!("{}:100", stat)] {
+                let err = parse_command(&s(&["optimize", &goal])).unwrap_err();
+                assert!(
+                    matches!(err, CliParseError::Message(message) if message.contains("Unknown stat")),
+                    "{} must be rejected as an unknown stat",
+                    goal
+                );
+            }
+        }
     }
 
     #[test]
