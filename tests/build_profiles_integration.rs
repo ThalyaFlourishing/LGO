@@ -321,7 +321,7 @@ TacticalMitigation = 5
 [[item]]
 slot = "Off-hand"
 name = "Unused Focus"
-Morale = 1
+CriticalRating = 1
 "#,
     )
     .expect("write gear file");

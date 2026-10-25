@@ -437,6 +437,28 @@ mod tests {
     }
 
     #[test]
+    fn default_derivations_keep_all_base_rows_with_empty_vitality_and_fate() {
+        let derivations = BaseStatDerivations::load_default().expect("default derivations load");
+        let base = HashMap::from([(Stat::Vitality, 1000), (Stat::Fate, 1000)]);
+        for class_name in EXPECTED_CLASSES {
+            let rows = &derivations.by_class[*class_name];
+            assert_eq!(rows.len(), BASE_STATS.len(), "{class_name}");
+            for (stat, _) in BASE_STATS {
+                assert!(rows.contains_key(stat), "{class_name}: {stat}");
+            }
+            assert!(rows[&Stat::Vitality].is_empty(), "{class_name}");
+            assert!(rows[&Stat::Fate].is_empty(), "{class_name}");
+            assert!(
+                derivations
+                    .derive_stats(class_name, &base)
+                    .expect("empty derivation rows must remain valid")
+                    .is_empty(),
+                "{class_name}"
+            );
+        }
+    }
+
+    #[test]
     fn unknown_stat_name_is_reported() {
         let src = r#"{
             "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
@@ -556,14 +578,14 @@ mod tests {
     fn apply_derivations_adds_into_existing_tracked_map() {
         let derivations = synthetic_derivations();
         let base: HashMap<Stat, i64> = [(Stat::Might, 1000)].into_iter().collect();
-        let mut tracked: HashMap<Stat, i64> = [(Stat::CriticalRating, 100), (Stat::Morale, 50)]
+        let mut tracked: HashMap<Stat, i64> = [(Stat::CriticalRating, 100), (Stat::Block, 50)]
             .into_iter()
             .collect();
         derivations
             .apply_derivations("Lore-master", &base, &mut tracked)
             .expect("apply");
         assert_eq!(tracked.get(&Stat::CriticalRating), Some(&1600));
-        assert_eq!(tracked.get(&Stat::Morale), Some(&50));
+        assert_eq!(tracked.get(&Stat::Block), Some(&50));
         assert_eq!(tracked.get(&Stat::TacticalMastery), Some(&2000));
     }
 
@@ -615,11 +637,11 @@ mod tests {
         // Documents with no Base stats must keep working even when the class
         // is unknown to the derivations table.
         let derivations = synthetic_derivations();
-        let mut tracked: HashMap<Stat, i64> = [(Stat::Morale, 50)].into_iter().collect();
+        let mut tracked: HashMap<Stat, i64> = [(Stat::CriticalRating, 50)].into_iter().collect();
         derivations
             .apply_derivations("Unknown", &HashMap::new(), &mut tracked)
             .expect("empty base stats must not error");
-        assert_eq!(tracked.get(&Stat::Morale), Some(&50));
+        assert_eq!(tracked.get(&Stat::CriticalRating), Some(&50));
     }
 
     fn map(entries: &[(Stat, i64)]) -> HashMap<Stat, i64> {
@@ -698,7 +720,6 @@ mod tests {
             character: None,
             class: None,
             level: None,
-            measured: None,
             innate_stats: map(&[(Stat::TacticalMastery, 9275)]),
             innate_base_stats: HashMap::new(),
             selected_virtues: Default::default(),

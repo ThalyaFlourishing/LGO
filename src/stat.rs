@@ -17,8 +17,6 @@ pub enum Stat {
     // five above it is not plugin-exported (innate Armour is always zero); it
     // comes from gear and the three Armour Virtues and derives into mitigations.
     Armor,
-    Morale,
-    Power,
     DevRating,
     OffensiveOverpower,
     IncMitigations,
@@ -73,8 +71,6 @@ pub const INNATE_BASE_STATS: &[(Stat, &str)] = &[
 /// Optimizer-facing stats that may appear in the canonical stats file, in
 /// canonical display order. Each entry is (Stat, PascalCase TOML key).
 pub const TRACKED_STATS: &[(Stat, &str)] = &[
-    (Stat::Morale, "Morale"),
-    (Stat::Power, "Power"),
     (Stat::CriticalRating, "CriticalRating"),
     (Stat::Finesse, "Finesse"),
     (Stat::PhysicalMastery, "PhysicalMastery"),
@@ -96,8 +92,6 @@ pub const TRACKED_STATS: &[(Stat, &str)] = &[
 /// `pm`/`tm`.
 pub fn abbreviation_for(stat: Stat) -> Option<&'static str> {
     match stat {
-        Stat::Morale => Some("ml"),
-        Stat::Power => Some("pw"),
         Stat::CriticalRating => Some("cr"),
         Stat::Finesse => Some("fn"),
         Stat::PhysicalMastery => Some("pm"),
@@ -125,8 +119,6 @@ impl fmt::Display for Stat {
             Stat::Will => "Will",
             Stat::Fate => "Fate",
             Stat::Armor => "Armour",
-            Stat::Morale => "Morale",
-            Stat::Power => "Power",
             Stat::DevRating => "Dev Rating",
             Stat::OffensiveOverpower => "Offensive Overpower",
             Stat::IncMitigations => "Inc. Mitigations",
@@ -155,8 +147,6 @@ impl FromStr for Stat {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().replace([' ', '_', '-'], "").as_str() {
             // Two-letter abbreviations
-            "ml" => Ok(Stat::Morale),
-            "pw" => Ok(Stat::Power),
             "cr" => Ok(Stat::CriticalRating),
             "fn" => Ok(Stat::Finesse),
             "pm" => Ok(Stat::PhysicalMastery),
@@ -197,8 +187,6 @@ impl FromStr for Stat {
             "vitality" => Ok(Stat::Vitality),
             "will" => Ok(Stat::Will),
             "fate" => Ok(Stat::Fate),
-            "morale" => Ok(Stat::Morale),
-            "power" => Ok(Stat::Power),
             "devrating" | "devastatingcriticalrating" => Ok(Stat::DevRating),
             "offensiveoverpower" | "overpower" => Ok(Stat::OffensiveOverpower),
             "incmitigations" | "incmit" => Ok(Stat::IncMitigations),
@@ -237,7 +225,7 @@ impl FromStr for StatGoal {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parse_goal_stat = |stat_str: &str| -> Result<Stat, String> {
             let stat = stat_str.parse::<Stat>()?;
-            // Only the 15 tracked stats are valid optimizer goals. Base and
+            // Only the 13 tracked stats are valid optimizer goals. Base and
             // other internal stats parse (wiki/plugindata handling) but must
             // be rejected here rather than silently optimizing nothing.
             if !TRACKED_STATS.iter().any(|(tracked, _)| *tracked == stat) {
@@ -272,25 +260,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_morale_and_power_abbreviations() {
-        assert_eq!("ml".parse::<Stat>().unwrap(), Stat::Morale);
-        assert_eq!("pw".parse::<Stat>().unwrap(), Stat::Power);
+    fn removed_stats_are_unknown() {
+        for name in ["ml", "pw", "Morale", "Power", "morale", "power"] {
+            assert!(name.parse::<Stat>().unwrap_err().contains("Unknown stat"));
+            for goal in [name.to_string(), format!("{}:100", name)] {
+                assert!(goal
+                    .parse::<StatGoal>()
+                    .unwrap_err()
+                    .contains("Unknown stat"));
+            }
+        }
     }
 
     #[test]
-    fn parses_morale_and_power_full_names() {
-        assert_eq!("Morale".parse::<Stat>().unwrap(), Stat::Morale);
-        assert_eq!("Power".parse::<Stat>().unwrap(), Stat::Power);
-    }
-
-    #[test]
-    fn tracked_stats_are_the_canonical_fifteen_in_order() {
+    fn tracked_stats_are_the_canonical_thirteen_in_order() {
         let actual: Vec<&str> = TRACKED_STATS.iter().map(|(_, key)| *key).collect();
         assert_eq!(
             actual,
             vec![
-                "Morale",
-                "Power",
                 "CriticalRating",
                 "Finesse",
                 "PhysicalMastery",
@@ -317,10 +304,7 @@ mod tests {
 
         assert_eq!(
             actual,
-            vec![
-                "ml", "pw", "cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev", "pt",
-                "tt",
-            ]
+            vec!["cr", "fn", "pm", "tm", "oh", "rs", "cd", "ih", "bl", "pa", "ev", "pt", "tt",]
         );
     }
 
@@ -388,10 +372,4 @@ mod tests {
             .expect_err("internal stats must not be optimize goals");
         assert!(err.contains("not an optimizer goal stat"));
     }
-}
-
-#[test]
-fn parses_morale_and_power_normalized_spellings() {
-    assert_eq!("morale".parse::<Stat>().unwrap(), Stat::Morale);
-    assert_eq!("power".parse::<Stat>().unwrap(), Stat::Power);
 }

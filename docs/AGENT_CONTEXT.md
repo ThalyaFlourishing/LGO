@@ -13,7 +13,7 @@
 LGO (LOTRO Gear Optimizer) is a two-part personal tool for the MMO *Lord of the Rings Online*. The target user base is a small group of personal acquaintances of the author of this project. There will be no general public release, and there are no commercial needs or long-term engineering best-practices needs. It has not yet been released at all, in fact, so there are currently no concerns about backwards compatibility. Also, it is meant to function exclusively in the Windows OS. No concerns regarding other OS's is warranted.
 
 1. A **Lua in-game plugin** (`src/lgo.lua`) that exports the player's equipped gear plus the contents of a Shared Storage chest named `lgo`, writing one file to `Documents\The Lord of the Rings Online\PluginData\<account>\AllServers\`:
-   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the character's class, base stats, level, measured Max Morale/Power, active-effect count, and equipped-item list (input for the bookmarklet).
+   - `lgo_<character-name>_gearNames_<timestamp>.plugindata` — a flat list of equipped + chest item names, plus the export version, character name, class, base stats, and level (input for the bookmarklet).
 2. A **Rust CLI optimizer** (`src/main.rs` etc.) that reads the plugindata-derived canonical gear `.toml` file and finds the best gear combination for a set of priority-ordered stat goals using the clamped-satisfaction objective in `docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`.
 
 Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare blocks the Rust binary. The workaround is a **bookmarklet** (`bookmarklet/lgo_bookmarklet.html`): the user opens lotro-wiki.com, clicks the bookmarklet, pastes the plugindata, and the bookmarklet either opens a Save As dialog (Chromium browsers, via `showSaveFilePicker`) or saves to the browser's Downloads folder (other browsers).
@@ -24,23 +24,24 @@ Item stats cannot be fetched programmatically from lotro-wiki.com — Cloudflare
 
 See 'docs/User Workflow.txt' for the full step-by-step.
 The short form:
-- User exports a file from the in-game plug-in: `lgo_<character-name>_gearNames_<timestamp>.plugindata`.plugindata (export with no food/hope/fellowship buffs active for a clean Morale/Power baseline).
+- User exports a file from the in-game plug-in: `lgo_<character-name>_gearNames_<timestamp>.plugindata`.
 - User uses the bookmarklet, pasting in the .plugindata contents, which
 then fetches each item's stats from lotro-wiki.com to create a a TOML
 file containing each item's name, slot, and stats.
 - User clicks **Save TOML...** to save the bookmarklet's output as: lgo_`<character>`_gearStats.toml, into the character's `<install>\<CharacterName>_Gear\` folder (the install directory is the folder containing `lgo.exe`), or into the install root on the first run — a root-saved file is moved into the character folder by `resolve-slots`.
 - User invokes 'lgo resolve-slots' to merge that list into a file named: lgo_`<character>`_gearReady.toml, in the same `<CharacterName>_Gear\` folder (created if missing).
-- This step generates/regenerates `level` and `[MeasuredStats]` from the plugindata; do not hand-edit them.
+- This step generates/regenerates `level` from the plugindata; do not hand-edit it.
 - User hand-edits persistent corrections, including top-level `[Virtues]` and
   per-item essence totals, in `gearReady.toml` only.
 - User may optionally save named build-goal profiles in the sibling file
   `lgo_<character>_builds.toml` via `lgo optimize --save-build <name> ...`,
   then re-run them later with `lgo optimize --build <name>`.
-- User invokes 'lgo optimize' which reads the canonical file, derives the raw
-Base stats (Might/Agility/Vitality/Will/Fate/Armour) into tracked-stat contributions
-via the per-class coefficients in `data/base_stat_derivations.json`, folds in
+- User invokes 'lgo optimize' which reads the canonical file, folds in
 the fixed stats from any selected Virtues in `[Virtues]` via
-`data/lgo_virtues.json`, and provides a final optimization report according to
+`data/lgo_virtues.json`, then derives the raw
+Base stats (Might/Agility/Vitality/Will/Fate/Armour) into tracked-stat contributions
+via the per-class coefficients in `data/base_stat_derivations.json`,
+and provides a final optimization report according to
 user's specified stats of interest. Derivation happens at optimize time, before
 candidates enter the optimizer; a tracked-stat link pass (Tactical Mastery →
 Outgoing Healing, ×1) then runs after derivation. All inputs (`data/` and the `<CharacterName>_Gear`
@@ -66,16 +67,15 @@ folder containing the executable — never the current working directory.
 - `src/install.rs` — install-directory anchoring and character-folder discovery: `install_dir()` (the executable's directory, or `LGO_HOME` for dev/test), the `<CharacterName>_Gear` / `<CharacterName>_Reports` path helpers, character selection (single / most-recently-updated / `-c` override / errors), the resolve-slots stray-file relocation and folder creation, the name-mismatch warning, and report-character resolution for out-of-tree `--file` TOMLs.
 - `src/build_profiles.rs` — saved-build profile reader/writer for
   `lgo_<character>_builds.toml`; pure user-data TOML, strict validation on read.
-- `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats, level, max_morale, max_power, active_effects, equipped }`. The `lgo-gearlist-2` measured fields are optional: an older export simply yields `None`/empty.
-- `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
+- `src/plugindata.rs` — hand-written recursive-descent Lua parser; produces `PluginExport { character, class, base_stats, level }` from the plugin export.
+- `src/gearstats.rs` — TOML reader (`read_stats_file`) + `find_latest_stats_file`; reads Base stats, 13 tracked stats, selected Virtues and virtue-passive masteries, and rejects unknown keys. `gear::parse_slot_display` enforces the canonical 19-string slot allow-list. `read_stats_file` **skips** items with non-canonical slots rather than erroring: silently for `slot = "Unknown"`, with a stderr warning for any other unrecognised value (Bridle, tool, Tool, hand-edited typos, etc.). See Bug 2 / Bug 10 in `BUG_HISTORY.md`.
 - `src/virtues.rs` — top-level `[Virtues]` parsing plus `data/lgo_virtues.json`
   loading/validation and fixed-stat application before optimization.
-- `src/base_stats.rs` — Base-stat derivation loading/conversion (`BaseStatDerivations`, `derive_doc`) plus the tracked-stat link pass: `TRACKED_LINKS` (currently Tactical Mastery → Outgoing Healing ×1), `apply_tracked_links`, `link_doc`. Links run after `derive_doc`, before calibration.
-- `src/measured.rs` — the innate Morale/Power calibration pass: `calibrate_innate` folds `measured − Σ equipped item stats` back into the innate map and returns a `CalibrationReport` when every equipped name still matches a current `[[item]]` block. If any exported equipped name is missing, `[MeasuredStats]` is treated as stale relative to the current gear file and calibration is skipped for that run instead of inflating the baseline. Runs in `optimize`, `scrap-gear` and `base-stats` after Virtue folding and Base-stat derivation, and before the optimizer. The baseline is measured, never modelled (Bug 14).
+- `src/base_stats.rs` — Base-stat derivation loading/conversion (`BaseStatDerivations`, `derive_doc`) plus the tracked-stat link pass: `TRACKED_LINKS` (currently Tactical Mastery → Outgoing Healing ×1), `apply_tracked_links`, `link_doc`. Links run after `derive_doc`.
 - `src/optimizer.rs` — exact optimizer: clamped-satisfaction comparator, per-pool dominance filtering, branch-and-bound search, and paired-slot super-candidates for Wrist/Finger/Ear. Verified against a brute-force oracle by a differential fuzzer.
-- `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (15, canonical order), `BASE_STATS` (6, Armour last), CLI abbrev parsing, `StatGoal`.
+- `src/stat.rs` — `Stat` enum, `TRACKED_STATS` (13, canonical order), `BASE_STATS` (6, Armour last), CLI abbrev parsing, `StatGoal`.
 - `src/gear.rs` — `Slot` enum (19 variants; `CraftItem`/`Bridle` excluded), the single canonical slot string table, `parse_slot_display`, `Display` impl, `GearItem`, `GearSet`.
-- `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter (the base-stats report prints the Base-only derived table, then a "Fixed tracked-stat baseline before gear" section from the post-pre-pass `innate_stats`, then the measured section).
+- `src/report.rs` — terminal + HTML optimize report formatter and base-stats formatter (the base-stats report prints the Base-only derived table, then a "Fixed tracked-stat baseline before gear" section from the post-pre-pass `innate_stats`).
 - `src/report.rs` also formats the `scrap-gear` text report that is printed to
   the terminal and written into the character's `<CharacterName>_Reports`
   folder.
@@ -114,13 +114,14 @@ Back
 
 The TOML loader exact-matches against this list. Items with any other slot string are **skipped** by `read_stats_file` (silently for `"Unknown"`, with a stderr warning otherwise). The optimizer continues with the items that did match. The internal `Slot` enum still has 19 variants, including `Wrist1`/`Wrist2`, `Finger1`/`Finger2`, and `Ear1`/`Ear2`; the external strings for those pooled families are intentionally unnumbered.
 
-### 4.2 The 15 tracked stats (canonical order)
+### 4.2 The 13 tracked stats (canonical order)
 
-`Morale`, `Power`, `CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
+`CriticalRating`, `Finesse`, `PhysicalMastery`, `TacticalMastery`, `OutgoingHealing`, `Resistance`, `CriticalDefense`, `IncomingHealing`, `Block`, `Parry`, `Evade`, `PhysicalMitigation`, `TacticalMitigation`.
 
-Two-letter CLI abbreviations: `ml pw cr fn pm tm oh rs cd ih bl pa ev pt tt`.
+Two-letter CLI abbreviations: `cr fn pm tm oh rs cd ih bl pa ev pt tt`.
 
 `Armour` is **not** a tracked stat and has no CLI abbreviation — it is the sixth Base stat (see §5).
+Vitality and Fate remain Base stats but derive no tracked stats.
 
 ### 4.3 Slot vocabularies (important — easy to confuse)
 
@@ -137,12 +138,11 @@ The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of tr
 ## 5. `.toml` format expected by `gearstats::read_stats_file`
 
 The file begins with a top header containing `character`, `class`, `level`,
-`[InnateStats]`, `[MeasuredStats]`, `[Virtues]`, and `[VirtueInnateStats]` as the
+`[InnateStats]`, `[Virtues]`, and `[VirtueInnateStats]` as the
 last pre-items blocks.
 
 - `level` is an integer, taken from the plugindata and regenerated on every `resolve-slots`.
 - `[InnateStats]` holds only the five plugin-exported raw Base stats (`Might`, `Agility`, `Vitality`, `Will`, `Fate`), passed through verbatim from the plugindata by `resolve-slots`. `Armour` — the sixth Base stat — is **omitted** here (innate/character Armour is always zero; omitted means zero).
-- `[MeasuredStats]` is **generated, regenerated wholesale on every `resolve-slots`, never hand-edited**: `MaxMorale` (integer), `MaxPower` (integer), `ActiveEffects` (integer), `Equipped` (array of strings, equipped item names in slot order, duplicates preserved).
 - `[Virtues]` holds five user-maintained string slots (`Virtue1` … `Virtue5`) whose non-empty values are matched case-insensitively against the top-level keys in `data/lgo_virtues.json`.
 - `[VirtueInnateStats]` holds two user-maintained tracked-stat values (`PhysicalMastery`, `TacticalMastery`, in that canonical order), representing virtue-passive masteries the API cannot expose. Both default to `9275`; the block is preserved like `[Virtues]` (missing fields seeded, existing values kept verbatim) and folds directly into the fixed tracked baseline at optimize time with no Base-stat derivation.
 
@@ -160,13 +160,6 @@ Agility            = 2650
 Vitality           = 10200
 Will               = 7950
 Fate               = 4000
-
-[MeasuredStats]
-# Generated by resolve-slots; do not hand-edit. Re-run /lgo export instead.
-MaxMorale          = 187342
-MaxPower           = 21005
-ActiveEffects      = 0
-Equipped           = ["Veteran Sage's Hooded Helm", "Blighted Shirt of the Tempest"]
 
 [Virtues]
 # Not extracted, you must add these yourself.
@@ -188,10 +181,8 @@ After that, the format per item is:
 [[item]]
 slot               = "Head"
 name               = "Forgotten Elvish Healer's Hood"
-Morale             = 0
-Power              = 0
 CriticalRating     = 12345
-# ...all 15 tracked stats, canonical order...
+# ...all 13 tracked stats, canonical order...
 TacticalMitigation = 0
 # ...then the 6 raw Base stats (Armour last)...
 Might              = 0
@@ -201,8 +192,8 @@ Will               = 0
 Fate               = 0
 Armour             = 0
 [item.EssenceTotals]
-Morale             = 0
-# ...same 21 keys: 15 tracked stats then 6 Base stats (Armour last)...
+CriticalRating     = 0
+# ...same 19 keys: 13 tracked stats then 6 Base stats (Armour last)...
 Armour             = 0
 ```
 
@@ -224,7 +215,7 @@ After Virtue folding and Base derivation, a tracked-stat link pass
 (`base_stats::link_doc`) adds each map's Tactical Mastery into its Outgoing
 Healing (×1, class-independent; see "Tracked-stat links" in
 `docs/lgo_reference_stats.md`) — never hand-enter the TM-derived Outgoing
-Healing. Measured Morale/Power calibration runs last.
+Healing. The complete pre-optimization pipeline is Virtues → derive → link.
 
 ### Multi-value stat entries
 
@@ -249,7 +240,7 @@ who typed such a value.
 
 ### Stat-line alignment (canonical, enforced)
 
-Every stat assignment line in `gearReady.toml` — the 15 tracked stats and the
+Every stat assignment line in `gearReady.toml` — the 13 tracked stats and the
 6 Base stats, in `[[item]]` blocks, `[item.EssenceTotals]`, and
 `[InnateStats]` (five Base stats there; Armour omitted) — plus the five `Virtue1` ... `Virtue5` lines in `[Virtues]`,
 is written with its `=` at column 20 (key padded to width 19). This is
@@ -356,7 +347,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
 - `data/lgo_items.json` (~5 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
 - `SSG_U25_LuaDocumentation/*.html` files are UTF-16 with BOM. Pulling several into chat blows past the model's context window and causes mid-session amnesia. **Do not ingest them in chat — hard rule.**
-- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_display` and the canonical 15-tracked / 6-Base stat lists. Do not invent or paraphrase.
+- Slot strings, stat names, and TOML field formatting must round-trip exactly through `parse_slot_display` and the canonical 13-tracked / 6-Base stat lists. Do not invent or paraphrase.
 - Filename discovery for `lgo_<character>_gearStats.toml` and `lgo_<character>_gearReady.toml` is case-insensitive on the character segment, and directory discovery of `<CharacterName>_Gear` folders is likewise case-insensitive on both the character segment and the `_Gear` suffix. On Windows, names differing only by case are the same file/folder, so case-only "collisions" are not a real runtime condition in LGO's target environment.
 - The bookmarklet does **not** trust or parse the wiki's free-text `slot=` / slot-bearing `type=` vocabulary. It always writes `slot = "Unknown"` and leaves slot resolution to `resolve-slots` and `data/lgo_items.json`.
 - **The in-game Turbine plugin API cannot distinguish player-crafted items from non-crafted items.** Verified empirically via a temporary `/lgo probe` subcommand (since removed) that dumped every callable on `Item` and `ItemInfo`. Don't waste a session re-investigating this — crafted-item handling lives in the bookmarklet (see Bug 9).
@@ -364,7 +355,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **`info.__implementation` is engine-private userdata:** no enumerable metatable methods, no addressable fields. Don't try to use it.
 - **`showSaveFilePicker()` requires a *fresh* user activation.** The bookmarklet's original click is consumed by the multi-second wiki fetch loop, so the Save TOML... button is necessary — calling the picker after `await` boundaries throws `SecurityError`. The Blob/`<a download>` fallback path has the same activation requirement. Verified empirically; don't try to "auto-save" without a button.
 - When the agent finds itself unsure what was previously decided, **ask the user** rather than reconstructing from inference. Reconstruction from inference is what produced the speculative "Cloakroom of Dol Amroth" episode in earlier sessions; the user's tolerance for it is low and rightly so.
-- **`toml_edit` serializes top-level tables by internal `position` index, not map insertion order.** `doc.remove(key)` + `doc.insert(key, ...)` does NOT move a table in the rendered output. To relocate a table you must call `set_position()` on it *and* renumber its sibling tables consistently (see `reorder_resolved_header_before_items` in `src/slot_resolver.rs`, and Bug 10 in `docs/BUG_HISTORY.md`). Note `push_group` renumbers every `[[item]]` table to `0..n` — any header table must be positioned relative to that. Root-level *values* (`character`, `class`, `level`) are unaffected; they always render before all tables. The generated header tables are pinned to fixed positions: `[InnateStats]` 0, `[MeasuredStats]` 1, `[Virtues]` 2, `[VirtueInnateStats]` 3, `[[item]]` tables from 4.
+- **`toml_edit` serializes top-level tables by internal `position` index, not map insertion order.** `doc.remove(key)` + `doc.insert(key, ...)` does NOT move a table in the rendered output. To relocate a table you must call `set_position()` on it *and* renumber its sibling tables consistently (see `reorder_resolved_header_before_items` in `src/slot_resolver.rs`, and Bug 10 in `docs/BUG_HISTORY.md`). Note `push_group` renumbers every `[[item]]` table to `0..n` — any header table must be positioned relative to that. Root-level *values* (`character`, `class`, `level`) are unaffected; they always render before all tables. The generated header tables are pinned to fixed positions: `[InnateStats]` 0, `[Virtues]` 1, `[VirtueInnateStats]` 2, `[[item]]` tables from 3.
 - **`gearReady.toml` is both output and next-run input.** Any layout/decor bug in the merge path compounds across runs (each run's output seeds the next run's parse positions), producing drift that convincingly masquerades as a race condition or nondeterminism. It never is — re-running from an identical file snapshot reproduces byte-identically. Diagnose by diffing consecutive outputs, and guard with bit-identical idempotency tests (modulo the `# gearReady.toml updated:` timestamp line).
 - **The Copilot coding agent cannot push to an existing PR's branch from a new task.** A new task always branches from `main` — a prompt instruction to "work on branch X" will be garbled into a fresh branch off `main`, silently producing code against the wrong base (this burned a full agent run as PR #54). To amend an existing agent PR, comment on that PR mentioning `@copilot` instead of starting a new task.
 - **CI now runs these gates automatically. A green check is expected and a red X on your own PR means to fix it.
@@ -374,11 +365,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 - **`data/lgo_virtues.json` stat keys must exactly match a `TRACKED_STATS` or `BASE_STATS` key** (see `src/stat.rs`); `src/virtues.rs::parse_canonical_stat_key` matches JSON keys exactly with no aliasing, and a dedicated test (`virtues::tests::default_virtue_data_stat_keys_are_all_canonical`) enforces this against the real file.
 - **After any edit to `bookmarklet/lgo_bookmarklet.html`, the user must reload the harness page and re-drag the link to the bookmarks bar.** The bookmarks-bar copy is a snapshot of the generated URL; editing the file does nothing to already-installed bookmarks. When debugging "my edit had no effect," check this first.
 - **Cloudflare challenges on lotro-wiki.com can return HTTP 200 with an HTML interstitial body, not a 403.** `resp.ok` checks do NOT detect them; only attempting `resp.json()` does. This produced the "first run speeds through and everything is a fetch-error" symptom (Bug 10). The bookmarklet's warm-up probe therefore verifies the body parses as JSON (`j && j.query`), not just the status code.
-- **`Actor:GetBaseMaxMorale()` returns the *current* max morale on this client, not an innate baseline.** It includes gear, buffs, and virtues. Do not use it. The innate Morale/Power baseline is **measured, not modelled**: measured Max (from the export) minus known equipped-gear stats, slotted-Virtue stats, and derived Base-stat contributions, but only when every exported equipped name still matches a current `[[item]]` block. If the equipped list is stale, `[MeasuredStats]` is ignored for calibration instead of inflating the baseline. Do not reintroduce a formula for it. Implemented in `src/measured.rs::calibrate_innate`; see Bug 14.
-- **Virtue *passives* (all earned virtues, slotted or not) add Morale / Physical Mastery / Tactical Mastery and are not exposed by the Turbine API.** They are not modelled; they remain part of the measured innate baseline along with racials and stat tomes.
 - **`base_stats::TRACKED_LINKS` entries must use tracked stats (`TRACKED_STATS`) for both source and target, and integer coefficients only.** A non-integer coefficient re-opens the per-source vs. whole-total rounding question and must be decided explicitly (and documented in `lgo_reference_stats.md`) before being added.
-- **CalcStat was research input only; LGO does not implement or import it.** Its `ClassBaseMorale(L)` is class-independent (every `<CLASS>CDBASEMORALE` row points at the same `@ClassBaseMorale`), and `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported `[InnateStats]` Vitality exactly. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
-- **The character panel rounds Fate × 1.5 half-down** (3,219 × 1.5 → 4,828), whereas LGO's per-item rule is `ceil`. Known ±1 discrepancy on Fate-derived stats (e.g. Power); not a bug.
 
 ---
 
@@ -395,7 +382,6 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- **Extend measured calibration to Physical/Tactical Mastery.** Virtue passives also add mastery (see §7), so the same residual method applies. The plugin would need to export the panel's mastery values; `measured.rs::CALIBRATED_STATS` is the single place to widen.
 - Improve text input and output.
 
 ---
@@ -404,6 +390,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 These are known, decided-but-not-urgent items. Do **not** silently fold them into other PRs; track and address explicitly.
 
+- Per-item `ceil()` on derived stats may over-count versus the game's single rounding of a fractional total; unverified, low priority.
 - **Bookmarklet test harness.** The bookmarklet currently has no automated tests. Adding one would mean introducing a JS test runner and mocking `fetch()` of the wiki API. Decision: don't bother unless a regression slips through manual testing badly enough to make it worth the setup cost.
 - **Hand-edit preservation across re-runs:** implemented via preserve-by-default merge in `resolve-slots`. The `[__user_edits__]` design from `docs/Merge Coding Prompt.txt` and `docs/User Story & Hand-Edit-Tracking Approach.txt` was rejected in favour of the simpler preserve-by-default model. Those two design docs are now historical.
 - **Rename detection.** The merge step matches items by NFC-normalized name. If the wiki renames an item between exports, the merge will treat the renamed item as a removal-and-add pair rather than the same item, silently dropping the user's hand-edits. Accepted risk; revisit if it becomes a real problem.

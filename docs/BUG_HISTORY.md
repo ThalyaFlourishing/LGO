@@ -312,6 +312,10 @@ The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, 
 **Follow-up:** Bug 15 documents a bookmarklet parsing regression exposed by the
 additional `lgo-gearlist-2` keys shipped with this fix.
 
+**Feature removed:** This PR removes measured calibration and its plugin export
+fields because Morale and Power are no longer tracked stats. The history above
+is retained for context.
+
 ---
 
 ### Bug 15 — Bookmarklet leaks other plugindata keys into item names ✅ FIXED

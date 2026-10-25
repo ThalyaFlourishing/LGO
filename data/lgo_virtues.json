@@ -36,7 +36,6 @@
   },
   "Fortitude": {
     "CriticalDefense": 11086,
-    "Morale": 12765,
     "Resistance": 9051
   },
   "Honesty": {
@@ -46,7 +45,6 @@
   },
   "Honour": {
     "CriticalDefense": 6651,
-    "Morale": 12765,
     "TacticalMitigation": 6670
   },
   "Idealism": {
@@ -59,7 +57,6 @@
     "TacticalMitigation": 4007
   },
   "Justice": {
-    "Morale": 6383,
     "TacticalMitigation": 4007
   },
   "Loyalty": {
@@ -74,8 +71,7 @@
   },
   "Patience": {
     "CriticalRating": 5024,
-    "Evade": 11710,
-    "Power": 2006
+    "Evade": 11710
   },
   "Tolerance": {
     "PhysicalMitigation": 4007,

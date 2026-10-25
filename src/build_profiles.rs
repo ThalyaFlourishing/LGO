@@ -226,10 +226,10 @@ mod tests {
         let builds = SavedBuilds::from_toml_str(
             r#"
 [builds.healer]
-goals = ["oh:200000", "cr:350000", "ml:0"]
+goals = ["oh:200000", "cr:350000", "fn:0"]
 
 [builds.tank]
-goals = ["tt:450000", "ml:300000", "pt:0"]
+goals = ["tt:450000", "cr:300000", "pt:0"]
 "#,
             &fake_path(),
         )
@@ -322,7 +322,7 @@ goals = ["oh:1"]
                         minimum: 200000,
                     },
                     StatGoal {
-                        stat: Stat::Morale,
+                        stat: Stat::CriticalRating,
                         minimum: 0,
                     },
                 ],
@@ -331,7 +331,7 @@ goals = ["oh:1"]
 
         let written = builds.to_toml_string();
         assert!(written.contains(r#"[builds."Healer Build"]"#));
-        assert!(written.contains(r#"goals = ["oh:200000", "ml:0"]"#));
+        assert!(written.contains(r#"goals = ["oh:200000", "cr:0"]"#));
     }
 
     #[test]

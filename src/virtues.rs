@@ -350,21 +350,20 @@ mod tests {
         assert_eq!(wisdom.tracked_stats.get(&Stat::Finesse), Some(&6651));
         assert_eq!(
             wisdom.tracked_stats.get(&Stat::TacticalMastery),
-            Some(&8265)
+            Some(&6940)
         );
         let justice = db
             .by_name
             .get("Justice")
             .expect("default virtue data should contain Justice");
-        assert_eq!(justice.tracked_stats.get(&Stat::Morale), Some(&8261));
         assert_eq!(
             justice.tracked_stats.get(&Stat::TacticalMitigation),
             Some(&4007)
         );
         assert_eq!(
             justice.tracked_stats.len(),
-            2,
-            "unsupported virtue-only stats such as ICMR must be omitted"
+            1,
+            "Justice must contain only its maintained TacticalMitigation value"
         );
     }
 

@@ -16,9 +16,7 @@
       "OutgoingHealing": 2.0,
       "Evade": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -27,9 +25,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Morale": 1.0
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -52,9 +48,7 @@
       "OutgoingHealing": 2.0,
       "Evade": 2.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -63,9 +57,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -88,9 +80,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 0.5,
       "Finesse": 1.5,
@@ -99,9 +89,7 @@
       "Resistance": 1.0,
       "PhysicalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -124,9 +112,7 @@
       "TacticalMastery": 2.0,
       "Parry": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -135,9 +121,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -159,9 +143,7 @@
       "OutgoingHealing": 2.0,
       "Parry": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -170,9 +152,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -195,9 +175,7 @@
       "OutgoingHealing": 2.0,
       "Parry": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -206,9 +184,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -230,9 +206,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 0.5,
       "Finesse": 1.5,
@@ -241,9 +215,7 @@
       "Resistance": 1.0,
       "PhysicalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -262,9 +234,7 @@
       "TacticalMastery": 2.0,
       "Evade": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 1.0,
       "TacticalMastery": 3.0,
@@ -273,9 +243,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -296,9 +264,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 0.5,
       "Finesse": 1.5,
@@ -307,9 +273,7 @@
       "Resistance": 1.0,
       "PhysicalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -328,9 +292,7 @@
       "TacticalMastery": 2.0,
       "Evade": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 1.0,
       "Block": 1.0,
@@ -339,9 +301,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -360,9 +320,7 @@
       "TacticalMastery": 2.0,
       "Evade": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "CriticalRating": 1.0,
       "TacticalMastery": 3.0,
@@ -370,9 +328,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
@@ -394,9 +350,7 @@
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 1.0
     },
-    "Vitality": {
-      "Morale": 4.5
-    },
+    "Vitality": {},
     "Will": {
       "Finesse": 1.0,
       "PhysicalMastery": 1.0,
@@ -405,9 +359,7 @@
       "PhysicalMitigation": 1.5,
       "TacticalMitigation": 1.5
     },
-    "Fate": {
-      "Power": 1.5
-    },
+    "Fate": {},
     "Armour": {
       "PhysicalMitigation": 1.0,
       "TacticalMitigation": 0.2
