@@ -91,9 +91,10 @@ Some tracked stats feed other tracked stats. Currently there is one rule:
 Every point of Tactical Mastery adds exactly one point of Outgoing Healing.
 The rule is **class-independent** and lives in `base_stats::TRACKED_LINKS`
 (not in `data/base_stat_derivations.json`). It is applied after Base
-derivation, once to the innate tracked-stat map and once to each item's map,
-so the Tactical Mastery it reads already includes explicit tooltip values,
-essences, Base-derived Tactical Mastery and Virtue contributions. Because the
+derivation, once to the innate tracked-stat map, once to each item's map, and
+once to each Virtue candidate's map, so the Tactical Mastery it reads already
+includes explicit tooltip values, essences and Base-derived Tactical Mastery.
+Because the
 coefficient is an integer, applying it per map is exactly equal to applying it
 to the final total — no rounding applies. The optimizer never sees this as a
 rule; it only sees ordinary tracked-stat maps with the Outgoing Healing
@@ -111,36 +112,35 @@ intended, not a bug.
 
 ## Virtues
 
-`gearReady.toml` also carries a top-level `[Virtues]` block after generated
-`[InnateStats]`:
+Virtues are **chosen by the optimizer**, not by the user. There is no
+`[Virtues]` block in `gearReady.toml`; a file that contains one fails the
+unknown-top-level-key check. There is deliberately no way to pin or force a
+particular Virtue.
 
-```toml
-[Virtues]
-Virtue1            = ""
-Virtue2            = ""
-Virtue3            = ""
-Virtue4            = ""
-Virtue5            = ""
-```
-
-- Users hand-edit these five string values.
-- Empty strings, or strings containing only whitespace, mean "no Virtue
-  selected" for that slot.
-- Non-empty values are matched case-insensitively against the top-level keys in
-  `data/lgo_virtues.json`.
-- Unknown names and duplicate non-empty names are hard errors at optimize time.
-- `data/lgo_virtues.json` uses only LGO's tracked and Base stat vocabulary;
-  unsupported stats are omitted. Justice contributes only Tactical Mitigation.
-
-Selected Virtues are fixed stat sources. Their tracked stats contribute
-directly to the fixed baseline totals, and any raw Base stats they contain are
-merged into the same Base-stat pool as `[InnateStats]` before class derivation.
-Virtues are not optimizer goals, and the final report format is unchanged.
+- `data/lgo_virtues.json` lists every Virtue (21 today) with its fixed stats,
+  using only LGO's tracked and Base stat vocabulary (unsupported stats are
+  omitted — Justice contributes only Tactical Mitigation). Keys are matched
+  exactly against `TRACKED_STATS` / `BASE_STATS`; names differing only by case
+  are duplicates. The file is **required** by `optimize`, `scrap-gear` and
+  `base-stats`, and must define at least five Virtues.
+- Before the search, every Virtue becomes a candidate whose tracked-stat map is
+  the JSON tracked stats, plus its Base stats derived through the character's
+  class coefficients (per-product `ceil()`, like gear), plus the Tactical
+  Mastery → Outgoing Healing link. The raw Base stats are kept alongside so
+  the report can show them in the projected Base-stat pool.
+- The optimizer then fills **exactly five** Virtue slots with **five distinct**
+  Virtues, chosen **jointly with the gear** in the same exact search: the five
+  Virtue slots form one candidate pool, exactly as the two Finger slots share
+  one ring pool. If a Virtue supplies the stat an item was being picked for,
+  the search is free to swap that item for a different one.
+- Virtues are never optimizer goals. The optimize report lists the five chosen
+  Virtues (sorted by name) with their contributed tracked stats in a "Virtues"
+  section between the gear table and the projected totals.
 
 ## VirtueInnateStats
 
 `gearReady.toml` carries a top-level `[VirtueInnateStats]` block immediately
-after `[Virtues]` and before the first `[[item]]`:
+after `[InnateStats]` and before the first `[[item]]`:
 
 ```toml
 [VirtueInnateStats]
@@ -153,9 +153,9 @@ TacticalMastery    = 9275
   `PhysicalMastery` then `TacticalMastery`. Any other key is a hard error.
 - These represent virtue-passive masteries the Turbine API cannot expose;
   they are **not derived and not calculated**. Both default to `9275`.
-- Like `[Virtues]`, the block is **user-maintained / preserved**: once present,
+- The block is **user-maintained / preserved**: once present,
   existing values survive every `resolve-slots` re-run verbatim. Only missing
   fields are added (seeded to `9275`) and alignment is normalized.
 - At optimize time the two values fold **directly** into the fixed tracked-stat
-  baseline, exactly like a Virtue's tracked stats — added directly, with no
-  Base-stat derivation. An absent block contributes nothing.
+  baseline, with no Base-stat derivation. An absent block contributes nothing.
+  This is a different concept from the optimizer-chosen Virtues above.

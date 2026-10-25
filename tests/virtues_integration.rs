@@ -1,3 +1,13 @@
+//! Integration coverage for optimizer-chosen Virtues.
+//!
+//! Virtues are no longer picked by the user: `optimize` selects the best five
+//! distinct Virtues from `data/lgo_virtues.json` jointly with the gear. These
+//! tests pin the data-file contract at the binary boundary (the file is
+//! required; fewer than five Virtues is a hard error; the removed `[Virtues]`
+//! block is rejected) and that `VirtuesDb::candidates` folds each Virtue's
+//! Base stats through the class derivation table before the optimizer sees
+//! them.
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -33,16 +43,44 @@ fn make_test_dir() -> PathBuf {
     dir
 }
 
-fn optimize_tm_total(path: &Path, virtues_json: &str) -> i64 {
-    let mut doc = read_stats_file(path).expect("gear toml must parse");
-    let virtues =
-        VirtuesDb::from_json_str(virtues_json, Path::new("<test>")).expect("virtue db must parse");
-    virtues
-        .apply_selected_virtues(&mut doc)
-        .expect("virtues must apply");
-    load_derivations()
+const STATLESS_GEAR: &str = r#"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Statless Helm"
+"#;
+
+fn run_optimize(dir: &Path, gear: &Path) -> std::process::Output {
+    std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
+        .args([
+            "optimize",
+            "--file",
+            gear.to_str().expect("utf-8 path"),
+            "tm:0",
+        ])
+        .current_dir(dir)
+        .env("LGO_HOME", dir)
+        .output()
+        .expect("lgo optimize must run")
+}
+
+/// Optimize a statless gear doc against `virtues_json` so every tracked total
+/// comes from the five chosen Virtues alone.
+fn optimize_statless_with_virtues(virtues_json: &str) -> lgo::gear::GearSet {
+    let dir = make_test_dir();
+    let path = dir.join("gear.toml");
+    std::fs::write(&path, STATLESS_GEAR).expect("write toml");
+
+    let mut doc = read_stats_file(&path).expect("gear toml must parse");
+    let derivations = load_derivations();
+    derivations
         .derive_doc(LORE_MASTER, &mut doc)
         .expect("derivation pre-pass must succeed");
+    let virtues = VirtuesDb::from_json_str(virtues_json, Path::new("<test>"))
+        .expect("virtue db must parse")
+        .candidates(LORE_MASTER, &derivations)
+        .expect("virtue candidates must derive");
 
     let resolved: HashMap<String, lgo::gear::GearItem> = doc
         .items
@@ -52,59 +90,44 @@ fn optimize_tm_total(path: &Path, virtues_json: &str) -> i64 {
         .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
         .collect();
     let keys: Vec<String> = resolved.keys().cloned().collect();
-    optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats)
-        .gear_set
-        .total(&Stat::TacticalMastery)
-}
-
-#[test]
-fn selected_virtue_tracked_stats_contribute_directly() {
-    let dir = make_test_dir();
-    let path = dir.join("gear.toml");
-    std::fs::write(
-        &path,
-        r#"
-class = "Lore-master"
-
-[Virtues]
-Virtue1 = "Valour"
-
-[[item]]
-slot = "Head"
-name = "Statless Helm"
-"#,
-    )
-    .expect("write toml");
-
-    let total = optimize_tm_total(&path, r#"{ "Valour": { "TacticalMastery": 75 } }"#);
-    assert_eq!(total, 75);
+    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats, &virtues);
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
+    result.gear_set
 }
 
 #[test]
-fn selected_virtue_base_stats_flow_through_derivation_path() {
-    let dir = make_test_dir();
-    let path = dir.join("gear.toml");
-    std::fs::write(
-        &path,
-        r#"
-class = "Lore-master"
+fn chosen_virtue_tracked_stats_contribute_directly() {
+    // Five Virtues, exactly five slots: all are chosen, so the total is the
+    // sum of their direct tracked stats.
+    let gear_set = optimize_statless_with_virtues(
+        r#"{
+            "A": { "TacticalMastery": 75 },
+            "B": { "TacticalMastery": 10 },
+            "C": { "CriticalRating": 5 },
+            "D": { "Finesse": 5 },
+            "E": { "Resistance": 5 }
+        }"#,
+    );
+    assert_eq!(gear_set.virtues.len(), 5);
+    assert_eq!(gear_set.total(&Stat::TacticalMastery), 85);
+    assert_eq!(gear_set.total(&Stat::CriticalRating), 5);
+}
 
-[Virtues]
-Virtue1 = "Wisdom"
-
-[[item]]
-slot = "Head"
-name = "Statless Helm"
-"#,
-    )
-    .expect("write toml");
-
-    let total = optimize_tm_total(&path, r#"{ "Wisdom": { "Will": 100 } }"#);
-    // The virtue's 100 Will must flow through the derivation path into
-    // Tactical Mastery. Derive the expected contribution from the same
-    // synthetic table this test supplies, rather than a real fixture number.
+#[test]
+fn chosen_virtue_base_stats_flow_through_derivation_path() {
+    let gear_set = optimize_statless_with_virtues(
+        r#"{
+            "Wisdom": { "Will": 100 },
+            "B": { "Vitality": 1 },
+            "C": { "Vitality": 2 },
+            "D": { "Vitality": 3 },
+            "E": { "Vitality": 4 }
+        }"#,
+    );
+    // Wisdom's 100 Will must flow through the derivation path into Tactical
+    // Mastery. Derive the expectation from the same synthetic table rather
+    // than a real fixture number.
     let expected = load_derivations()
         .derive_stats(LORE_MASTER, &HashMap::from([(Stat::Will, 100)]))
         .expect("synthetic derivation must succeed")
@@ -112,173 +135,97 @@ name = "Statless Helm"
         .copied()
         .expect("Will must derive Tactical Mastery in the synthetic table");
     assert!(expected > 0, "synthetic table must map Will to TM");
-    assert_eq!(total, expected);
+    assert_eq!(gear_set.total(&Stat::TacticalMastery), expected);
 
-    std::fs::remove_dir_all(&dir).expect("cleanup");
+    // The raw Base stat is kept alongside so reports can show it in the
+    // projected Base-stat pool.
+    let wisdom = gear_set
+        .virtues
+        .iter()
+        .find(|v| v.name == "Wisdom")
+        .expect("Wisdom must be slotted");
+    assert_eq!(wisdom.base_stats.get(&Stat::Will), Some(&100));
 }
 
 #[test]
-fn selected_virtue_armour_derives_mitigations_and_leaves_no_tracked_armour() {
+fn chosen_virtue_armour_derives_mitigations_and_leaves_no_tracked_armour() {
     // Armour is a Base stat: a Virtue granting Armour = 500 must derive
-    // +500 PhysicalMitigation and +ceil(0.2 × 500) = +100 TacticalMitigation
-    // into the fixed baseline, with no raw Armour in the tracked totals.
-    let dir = make_test_dir();
-    let path = dir.join("gear.toml");
-    std::fs::write(
-        &path,
-        r#"
-class = "Lore-master"
-
-[Virtues]
-Virtue1 = "Loyalty"
-
-[[item]]
-slot = "Head"
-name = "Statless Helm"
-"#,
-    )
-    .expect("write toml");
-
-    let mut doc = read_stats_file(&path).expect("gear toml must parse");
-    let virtues =
-        VirtuesDb::from_json_str(r#"{ "Loyalty": { "Armour": 500 } }"#, Path::new("<test>"))
-            .expect("virtue db must parse");
-    virtues
-        .apply_selected_virtues(&mut doc)
-        .expect("virtues must apply");
-    load_derivations()
-        .derive_doc(LORE_MASTER, &mut doc)
-        .expect("derivation pre-pass must succeed");
-
-    let resolved: HashMap<String, lgo::gear::GearItem> = doc
-        .items
-        .into_iter()
-        .map(|doc_item| doc_item.item)
-        .enumerate()
-        .map(|(idx, item)| (optimizer_candidate_key(idx, &item), item))
-        .collect();
-    let keys: Vec<String> = resolved.keys().cloned().collect();
-    let result = optimize(&resolved, &keys, &tm_goal(), &doc.innate_stats);
-
-    assert_eq!(result.gear_set.total(&Stat::PhysicalMitigation), 500);
-    assert_eq!(result.gear_set.total(&Stat::TacticalMitigation), 100);
+    // +500 PhysicalMitigation and +ceil(0.2 × 500) = +100 TacticalMitigation,
+    // with no raw Armour in the tracked totals.
+    let gear_set = optimize_statless_with_virtues(
+        r#"{
+            "Loyalty": { "Armour": 500 },
+            "B": { "Vitality": 1 },
+            "C": { "Vitality": 2 },
+            "D": { "Vitality": 3 },
+            "E": { "Vitality": 4 }
+        }"#,
+    );
+    assert_eq!(gear_set.total(&Stat::PhysicalMitigation), 500);
+    assert_eq!(gear_set.total(&Stat::TacticalMitigation), 100);
     assert_eq!(
-        result.gear_set.total(&Stat::Armor),
+        gear_set.total(&Stat::Armor),
         0,
         "Armour is a derivation input and must never appear in tracked totals"
     );
-
-    std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
-fn optimize_succeeds_with_empty_virtues_even_without_virtues_data_file() {
+fn optimize_requires_the_virtues_data_file() {
     let dir = make_test_dir();
-    let data_dir = dir.join("data");
-    common::write_derivations(&data_dir);
+    common::write_derivations(&dir.join("data"));
 
     let gear = dir.join("gear.toml");
-    std::fs::write(
-        &gear,
-        r#"
-class = "Lore-master"
+    std::fs::write(&gear, STATLESS_GEAR).expect("write toml");
 
-[InnateStats]
-Will = 7950
-
-[Virtues]
-Virtue1 = ""
-Virtue2 = " "
-Virtue3 = ""
-Virtue4 = ""
-Virtue5 = ""
-
-[[item]]
-slot = "Head"
-name = "Statless Helm"
-"#,
-    )
-    .expect("write toml");
-
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
-        .args([
-            "optimize",
-            "--file",
-            gear.to_str().expect("utf-8 path"),
-            "tm:0",
-        ])
-        .current_dir(&dir)
-        .env("LGO_HOME", &dir)
-        .output()
-        .expect("lgo optimize must run");
-    assert!(
-        output.status.success(),
-        "optimize must succeed without a virtues data file when all Virtue fields are empty; stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    std::fs::remove_dir_all(&dir).expect("cleanup");
-}
-
-#[test]
-fn optimize_reports_unknown_virtue_name_clearly() {
-    let dir = make_test_dir();
-    let data_dir = dir.join("data");
-    common::write_derivations(&data_dir);
-    std::fs::write(
-        data_dir.join("lgo_virtues.json"),
-        r#"{ "Wisdom": { "Will": 100 } }"#,
-    )
-    .expect("write virtues data");
-
-    let gear = dir.join("gear.toml");
-    std::fs::write(
-        &gear,
-        r#"
-class = "Lore-master"
-
-[Virtues]
-Virtue1 = "Insight"
-
-[[item]]
-slot = "Head"
-name = "Statless Helm"
-"#,
-    )
-    .expect("write toml");
-
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
-        .args([
-            "optimize",
-            "--file",
-            gear.to_str().expect("utf-8 path"),
-            "tm:0",
-        ])
-        .current_dir(&dir)
-        .env("LGO_HOME", &dir)
-        .output()
-        .expect("lgo optimize must run");
+    let output = run_optimize(&dir, &gear);
     assert!(
         !output.status.success(),
-        "optimize must fail on unknown Virtue"
+        "optimize must fail without data/lgo_virtues.json"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown Virtue 'Insight'"));
-    assert!(stderr.contains("data/lgo_virtues.json"));
+    assert!(
+        stderr.contains("Failed to load virtue data") && stderr.contains("lgo_virtues.json"),
+        "stderr must explain the missing file:\n{stderr}"
+    );
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
-fn optimize_reports_duplicate_virtue_name_clearly() {
+fn optimize_rejects_fewer_than_five_virtues_in_the_data_file() {
     let dir = make_test_dir();
     let data_dir = dir.join("data");
     common::write_derivations(&data_dir);
     std::fs::write(
         data_dir.join("lgo_virtues.json"),
-        r#"{ "Wisdom": { "Will": 100 } }"#,
+        r#"{ "Wisdom": { "Will": 100 }, "Valour": { "TacticalMastery": 10 } }"#,
     )
     .expect("write virtues data");
+
+    let gear = dir.join("gear.toml");
+    std::fs::write(&gear, STATLESS_GEAR).expect("write toml");
+
+    let output = run_optimize(&dir, &gear);
+    assert!(
+        !output.status.success(),
+        "optimize must fail with only two Virtues"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("only 2 Virtue(s)") && stderr.contains("at least 5"),
+        "stderr must explain the shortfall:\n{stderr}"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn optimize_rejects_a_virtues_block_in_the_gear_file() {
+    let dir = make_test_dir();
+    let data_dir = dir.join("data");
+    common::write_derivations(&data_dir);
+    common::write_virtues(&data_dir);
 
     let gear = dir.join("gear.toml");
     std::fs::write(
@@ -288,7 +235,6 @@ class = "Lore-master"
 
 [Virtues]
 Virtue1 = "Wisdom"
-Virtue2 = " wisdom "
 
 [[item]]
 slot = "Head"
@@ -297,23 +243,59 @@ name = "Statless Helm"
     )
     .expect("write toml");
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lgo"))
-        .args([
-            "optimize",
-            "--file",
-            gear.to_str().expect("utf-8 path"),
-            "tm:0",
-        ])
-        .current_dir(&dir)
-        .env("LGO_HOME", &dir)
-        .output()
-        .expect("lgo optimize must run");
+    let output = run_optimize(&dir, &gear);
     assert!(
         !output.status.success(),
-        "optimize must fail on duplicate Virtues"
+        "a [Virtues] block must be rejected as an unknown top-level key"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Duplicate Virtue 'Wisdom'"));
+    assert!(
+        stderr.contains("Unknown top-level key `Virtues`"),
+        "stderr must name the unknown key:\n{stderr}"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn optimize_report_lists_the_five_chosen_virtues() {
+    let dir = make_test_dir();
+    let data_dir = dir.join("data");
+    common::write_derivations(&data_dir);
+    common::write_virtues(&data_dir);
+
+    let gear = dir.join("gear.toml");
+    std::fs::write(&gear, STATLESS_GEAR).expect("write toml");
+
+    let output = run_optimize(&dir, &gear);
+    assert!(
+        output.status.success(),
+        "optimize must succeed; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Virtues (chosen by the optimizer):"),
+        "report must carry a Virtues section:\n{stdout}"
+    );
+    let listed = [
+        "Test Charity",
+        "Test Fidelity",
+        "Test Honour",
+        "Test Loyalty",
+        "Test Valour",
+        "Test Wisdom",
+    ]
+    .iter()
+    .filter(|name| stdout.contains(*name))
+    .count();
+    assert_eq!(
+        listed, 5,
+        "exactly five of six Virtues must be listed:\n{stdout}"
+    );
+    // tm:0 with a statless helm: Test Valour (TM 10) and Test Wisdom (Will →
+    // TM) are the only TM sources and must both be chosen.
+    assert!(stdout.contains("Test Valour") && stdout.contains("Test Wisdom"));
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }

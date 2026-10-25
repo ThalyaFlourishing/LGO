@@ -1,16 +1,23 @@
-//! Virtue selection parsing and fixed-stat loading.
+//! Virtue data loading and optimizer-candidate construction.
+//!
+//! Virtues are not chosen by the user. `data/lgo_virtues.json` is the whole
+//! candidate pool; the optimizer picks the best five distinct Virtues jointly
+//! with gear (see `optimizer.rs`). This module only loads and validates the
+//! pool and turns each Virtue into a final tracked-stat map for the class
+//! being optimized.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::gearstats::GearDoc;
+use crate::base_stats::{apply_tracked_links, BaseStatDerivations, DerivationError};
 use crate::stat::{Stat, BASE_STATS, TRACKED_STATS};
 
 /// File name resolved under the install directory's `data/` folder.
 const DEFAULT_VIRTUES_FILE: &str = "lgo_virtues.json";
-pub const VIRTUE_TABLE_KEY: &str = "Virtues";
-pub const VIRTUE_FIELD_KEYS: [&str; 5] = ["Virtue1", "Virtue2", "Virtue3", "Virtue4", "Virtue5"];
+
+/// The optimizer always slots exactly this many distinct Virtues.
+pub const VIRTUE_SLOT_COUNT: usize = 5;
 
 pub const VIRTUE_INNATE_TABLE_KEY: &str = "VirtueInnateStats";
 /// (Stat, TOML key) pairs, in the fixed emit order for the block
@@ -20,17 +27,6 @@ pub const VIRTUE_INNATE_FIELDS: [(Stat, &str); 2] = [
     (Stat::TacticalMastery, "TacticalMastery"),
 ];
 pub const VIRTUE_INNATE_DEFAULT: i64 = 9275;
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SelectedVirtues {
-    pub slots: [Option<String>; 5],
-}
-
-impl SelectedVirtues {
-    pub fn is_empty(&self) -> bool {
-        self.slots.iter().all(Option::is_none)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VirtueStats {
@@ -47,17 +43,21 @@ impl VirtueStats {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ResolvedVirtues {
-    pub slots: [Option<String>; 5],
-    pub tracked_stats: HashMap<Stat, i64>,
-    pub base_stats: HashMap<Stat, i64>,
+/// One Virtue as the optimizer sees it: a **final** tracked-stat map
+/// (JSON tracked stats + class-derived Base-stat contributions + the
+/// tracked-stat link pass), plus the raw Base stats kept alongside so reports
+/// can show the chosen Virtues' Base stats in the projected Base-stat pool.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VirtueCandidate {
+    pub name: String,
+    pub tracked: HashMap<Stat, i64>,
+    pub base: HashMap<Stat, i64>,
 }
 
 #[derive(Debug, Clone)]
 pub struct VirtuesDb {
     by_name: HashMap<String, VirtueStats>,
-    canonical_by_folded_name: HashMap<String, String>,
+    path: PathBuf,
 }
 
 #[derive(Debug)]
@@ -90,12 +90,13 @@ pub enum VirtuesError {
         first: String,
         second: String,
     },
-    UnknownSelectedVirtue {
-        entered_name: String,
+    /// Fewer than [`VIRTUE_SLOT_COUNT`] Virtues in the data file: the
+    /// optimizer cannot fill five slots.
+    TooFewVirtues {
+        path: PathBuf,
+        found: usize,
     },
-    DuplicateSelectedVirtue {
-        virtue_name: String,
-    },
+    Derivation(DerivationError),
 }
 
 impl std::fmt::Display for VirtuesError {
@@ -149,21 +150,25 @@ impl std::fmt::Display for VirtuesError {
                 "virtue data contains duplicate Virtue names differing only by case: '{}' and '{}'",
                 first, second
             ),
-            VirtuesError::UnknownSelectedVirtue { entered_name } => write!(
+            VirtuesError::TooFewVirtues { path, found } => write!(
                 f,
-                "Unknown Virtue '{}'; check the spelling in data/lgo_virtues.json.",
-                entered_name
+                "virtue data '{}' defines only {} Virtue(s); the optimizer needs at least {} to fill the five Virtue slots",
+                path.display(),
+                found,
+                VIRTUE_SLOT_COUNT
             ),
-            VirtuesError::DuplicateSelectedVirtue { virtue_name } => write!(
-                f,
-                "Duplicate Virtue '{}'; a character cannot select the same Virtue twice.",
-                virtue_name
-            ),
+            VirtuesError::Derivation(err) => write!(f, "{}", err),
         }
     }
 }
 
 impl std::error::Error for VirtuesError {}
+
+impl From<DerivationError> for VirtuesError {
+    fn from(err: DerivationError) -> Self {
+        VirtuesError::Derivation(err)
+    }
+}
 
 impl VirtuesDb {
     pub fn load_default() -> Result<Self, VirtuesError> {
@@ -193,7 +198,7 @@ impl VirtuesDb {
         let root = value.as_object().ok_or(VirtuesError::TopLevelNotObject)?;
 
         let mut by_name = HashMap::new();
-        let mut canonical_by_folded_name = HashMap::new();
+        let mut canonical_by_folded_name: HashMap<String, String> = HashMap::new();
 
         for (virtue_name, virtue_value) in root {
             let virtue_obj =
@@ -239,73 +244,60 @@ impl VirtuesDb {
             by_name.insert(virtue_name.clone(), stats);
         }
 
-        Ok(Self {
-            by_name,
-            canonical_by_folded_name,
-        })
-    }
-
-    pub fn resolve_selected(
-        &self,
-        selected: &SelectedVirtues,
-    ) -> Result<ResolvedVirtues, VirtuesError> {
-        let mut slots: [Option<String>; 5] = Default::default();
-        let mut tracked_stats = HashMap::new();
-        let mut base_stats = HashMap::new();
-        let mut seen = HashSet::new();
-
-        for (idx, name) in selected.slots.iter().enumerate() {
-            let Some(name) = name.as_ref() else {
-                continue;
-            };
-            let name = name.trim();
-            if name.is_empty() {
-                continue;
-            }
-            let canonical_name = self
-                .canonical_by_folded_name
-                .get(&fold_name(name))
-                .ok_or_else(|| VirtuesError::UnknownSelectedVirtue {
-                    entered_name: name.to_string(),
-                })?;
-            if !seen.insert(fold_name(canonical_name)) {
-                return Err(VirtuesError::DuplicateSelectedVirtue {
-                    virtue_name: canonical_name.clone(),
-                });
-            }
-            slots[idx] = Some(canonical_name.clone());
-            let stats = self
-                .by_name
-                .get(canonical_name)
-                .expect("canonical virtue name must exist in db");
-            merge_stats(&stats.tracked_stats, &mut tracked_stats);
-            merge_stats(&stats.base_stats, &mut base_stats);
+        if by_name.len() < VIRTUE_SLOT_COUNT {
+            return Err(VirtuesError::TooFewVirtues {
+                path: path_for_errors.to_path_buf(),
+                found: by_name.len(),
+            });
         }
 
-        Ok(ResolvedVirtues {
-            slots,
-            tracked_stats,
-            base_stats,
+        Ok(Self {
+            by_name,
+            path: path_for_errors.to_path_buf(),
         })
     }
 
-    pub fn apply_selected_virtues(
-        &self,
-        doc: &mut GearDoc,
-    ) -> Result<ResolvedVirtues, VirtuesError> {
-        let resolved = self.resolve_selected(&doc.selected_virtues)?;
-        merge_stats(&resolved.tracked_stats, &mut doc.innate_stats);
-        merge_stats(&resolved.base_stats, &mut doc.innate_base_stats);
-        doc.selected_virtues.slots = resolved.slots.clone();
-        Ok(resolved)
+    /// Path the data was loaded from (for error messages).
+    pub fn path(&self) -> &Path {
+        &self.path
     }
-}
 
-fn merge_stats(src: &HashMap<Stat, i64>, dst: &mut HashMap<Stat, i64>) {
-    for (stat, value) in src {
-        *dst.entry(*stat).or_insert(0) += value;
+    /// Number of Virtues in the pool.
+    pub fn len(&self) -> usize {
+        self.by_name.len()
     }
-    dst.retain(|_, value| *value != 0);
+
+    pub fn is_empty(&self) -> bool {
+        self.by_name.is_empty()
+    }
+
+    /// Build the optimizer's Virtue candidate pool for `class`, in JSON
+    /// canonical (sorted-name) order. Each candidate's `tracked` map is final:
+    /// JSON tracked stats, plus the class-derived contributions of its Base
+    /// stats (per-product `ceil()`, like every other derivation), plus the
+    /// tracked-stat link pass (TM → OH). The optimizer therefore treats a
+    /// Virtue exactly like an item whose stats are already fully derived.
+    pub fn candidates(
+        &self,
+        class: &str,
+        derivations: &BaseStatDerivations,
+    ) -> Result<Vec<VirtueCandidate>, VirtuesError> {
+        let mut names: Vec<&String> = self.by_name.keys().collect();
+        names.sort();
+        let mut out = Vec::with_capacity(names.len());
+        for name in names {
+            let stats = &self.by_name[name];
+            let mut tracked = stats.tracked_stats.clone();
+            derivations.apply_derivations(class, &stats.base_stats, &mut tracked)?;
+            apply_tracked_links(&mut tracked);
+            out.push(VirtueCandidate {
+                name: name.clone(),
+                tracked,
+                base: stats.base_stats.clone(),
+            });
+        }
+        Ok(out)
+    }
 }
 
 fn fold_name(name: &str) -> String {
@@ -326,10 +318,40 @@ fn parse_canonical_stat_key(key: &str) -> Option<Stat> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gearstats::read_stats_file;
+    use std::collections::HashSet;
 
     fn db_from_json(src: &str) -> VirtuesDb {
         VirtuesDb::from_json_str(src, Path::new("<test>")).expect("virtue db should parse")
+    }
+
+    /// Synthetic derivation table owned by these tests: every expected class
+    /// is present; only Lore-master carries coefficients (Might → CR/Finesse,
+    /// Will → TM) so the candidate-building tests have something to derive.
+    const SYNTHETIC_DERIVATIONS: &str = r#"{
+        "Beorning": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Brawler": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Burglar": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Captain": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Champion": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Guardian": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Hunter": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Lore-master": {
+            "Might": { "CriticalRating": 1.5, "Finesse": 1.5 },
+            "Agility": {},
+            "Vitality": {},
+            "Will": { "TacticalMastery": 3.0 },
+            "Fate": {},
+            "Armour": { "PhysicalMitigation": 1.0, "TacticalMitigation": 0.2 }
+        },
+        "Mariner": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Minstrel": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Rune-keeper": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} },
+        "Warden": { "Might": {}, "Agility": {}, "Vitality": {}, "Will": {}, "Fate": {}, "Armour": {} }
+    }"#;
+
+    fn synthetic_derivations() -> BaseStatDerivations {
+        BaseStatDerivations::from_json_str(SYNTHETIC_DERIVATIONS, Path::new("<synthetic>"))
+            .expect("synthetic derivations must parse")
     }
 
     #[test]
@@ -406,76 +428,17 @@ mod tests {
     }
 
     #[test]
-    fn resolve_selected_trims_case_insensitively_and_canonicalizes_names() {
-        let db = db_from_json(
-            r#"{
-                "Wisdom": { "Will": 80, "TacticalMastery": 192 },
-                "Zeal":   { "Might": 80, "CriticalRating": 136 }
-            }"#,
-        );
-        let selected = SelectedVirtues {
-            slots: [
-                Some(" wisdom ".to_string()),
-                Some("ZEAL".to_string()),
-                None,
-                None,
-                None,
-            ],
-        };
-
-        let resolved = db
-            .resolve_selected(&selected)
-            .expect("selection must resolve");
-        assert_eq!(resolved.slots[0].as_deref(), Some("Wisdom"));
-        assert_eq!(resolved.slots[1].as_deref(), Some("Zeal"));
-        assert_eq!(
-            resolved.tracked_stats.get(&Stat::TacticalMastery),
-            Some(&192)
-        );
-        assert_eq!(
-            resolved.tracked_stats.get(&Stat::CriticalRating),
-            Some(&136)
-        );
-        assert_eq!(resolved.base_stats.get(&Stat::Will), Some(&80));
-        assert_eq!(resolved.base_stats.get(&Stat::Might), Some(&80));
-    }
-
-    #[test]
-    fn resolve_selected_rejects_unknown_virtue_name() {
-        let db = db_from_json(r#"{ "Wisdom": { "Will": 80 } }"#);
-        let selected = SelectedVirtues {
-            slots: [Some("Insight".to_string()), None, None, None, None],
-        };
-
-        let err = db
-            .resolve_selected(&selected)
-            .expect_err("unknown virtue must fail");
-        assert_eq!(
-            err.to_string(),
-            "Unknown Virtue 'Insight'; check the spelling in data/lgo_virtues.json."
-        );
-    }
-
-    #[test]
-    fn resolve_selected_rejects_duplicate_virtues_case_insensitively() {
-        let db = db_from_json(r#"{ "Wisdom": { "Will": 80 } }"#);
-        let selected = SelectedVirtues {
-            slots: [
-                Some("Wisdom".to_string()),
-                Some(" wisdom ".to_string()),
-                None,
-                None,
-                None,
-            ],
-        };
-
-        let err = db
-            .resolve_selected(&selected)
-            .expect_err("duplicate virtue must fail");
-        assert_eq!(
-            err.to_string(),
-            "Duplicate Virtue 'Wisdom'; a character cannot select the same Virtue twice."
-        );
+    fn from_json_str_rejects_fewer_than_five_virtues() {
+        let err = VirtuesDb::from_json_str(
+            r#"{ "Wisdom": { "Will": 80 }, "Zeal": { "Might": 80 } }"#,
+            Path::new("data/lgo_virtues.json"),
+        )
+        .expect_err("two virtues must fail");
+        assert!(matches!(err, VirtuesError::TooFewVirtues { found: 2, .. }));
+        let msg = err.to_string();
+        assert!(msg.contains("data/lgo_virtues.json"), "{msg}");
+        assert!(msg.contains("only 2 Virtue(s)"), "{msg}");
+        assert!(msg.contains("at least 5"), "{msg}");
     }
 
     #[test]
@@ -492,52 +455,74 @@ mod tests {
     }
 
     #[test]
-    fn apply_selected_virtues_adds_tracked_and_base_stats_to_doc() {
-        let dir = std::env::temp_dir().join(format!(
-            "lgo_virtues_apply_test_{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&dir).expect("create temp dir");
-        let path = dir.join("gear.toml");
-        std::fs::write(
-            &path,
-            r#"
-class = "Lore-master"
-
-[InnateStats]
-Will = 10
-
-[Virtues]
-Virtue1 = " wisdom "
-Virtue2 = "ZEAL"
-
-[[item]]
-slot = "Head"
-name = "Test Helm"
-"#,
+    fn virtue_data_rejects_names_differing_only_by_case() {
+        let err = VirtuesDb::from_json_str(
+            r#"{ "Wisdom": { "Will": 1 }, "wisdom": { "Will": 2 },
+                 "A": {}, "B": {}, "C": {}, "D": {} }"#,
+            Path::new("<test>"),
         )
-        .expect("write toml");
+        .expect_err("case-duplicate names must fail");
+        assert!(matches!(err, VirtuesError::DuplicateVirtueName { .. }));
+    }
 
-        let mut doc = read_stats_file(&path).expect("toml must parse");
+    #[test]
+    fn candidates_are_sorted_by_name_and_fully_derived() {
+        let derivations = synthetic_derivations();
         let db = db_from_json(
             r#"{
+                "Zeal":   { "Might": 100, "CriticalRating": 136 },
                 "Wisdom": { "Will": 80, "TacticalMastery": 192 },
-                "Zeal":   { "Might": 80, "CriticalRating": 136 }
+                "Alpha":  { "Finesse": 10 },
+                "Beta":   { "Evade": 10 },
+                "Gamma":  { "Block": 10 }
             }"#,
         );
-        db.apply_selected_virtues(&mut doc)
-            .expect("virtues must apply");
 
-        assert_eq!(doc.selected_virtues.slots[0].as_deref(), Some("Wisdom"));
-        assert_eq!(doc.selected_virtues.slots[1].as_deref(), Some("Zeal"));
-        assert_eq!(doc.innate_stats.get(&Stat::TacticalMastery), Some(&192));
-        assert_eq!(doc.innate_stats.get(&Stat::CriticalRating), Some(&136));
-        assert_eq!(doc.innate_base_stats.get(&Stat::Will), Some(&90));
-        assert_eq!(doc.innate_base_stats.get(&Stat::Might), Some(&80));
+        let candidates = db
+            .candidates("Lore-master", &derivations)
+            .expect("candidates must build");
+        let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["Alpha", "Beta", "Gamma", "Wisdom", "Zeal"]);
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        // Wisdom: JSON TM 192 + Will-derived TM, then TM → OH link on the
+        // final TM total. Expected values come from the same synthetic table.
+        let wisdom = &candidates[3];
+        let derived = derivations
+            .derive_stats("Lore-master", &HashMap::from([(Stat::Will, 80)]))
+            .expect("derive");
+        let derived_tm = derived.get(&Stat::TacticalMastery).copied().unwrap_or(0);
+        assert!(derived_tm > 0, "synthetic table must map Will to TM");
+        let expected_tm = 192 + derived_tm;
+        assert_eq!(
+            wisdom.tracked.get(&Stat::TacticalMastery),
+            Some(&expected_tm)
+        );
+        assert_eq!(
+            wisdom.tracked.get(&Stat::OutgoingHealing),
+            Some(&expected_tm)
+        );
+        assert_eq!(wisdom.base.get(&Stat::Will), Some(&80));
+        assert!(
+            !wisdom.tracked.contains_key(&Stat::Will),
+            "Base stats must never leak into the tracked map"
+        );
+
+        let zeal = &candidates[4];
+        let derived = derivations
+            .derive_stats("Lore-master", &HashMap::from([(Stat::Might, 100)]))
+            .expect("derive");
+        let expected_cr = 136 + derived.get(&Stat::CriticalRating).copied().unwrap_or(0);
+        assert_eq!(zeal.tracked.get(&Stat::CriticalRating), Some(&expected_cr));
+        assert_eq!(zeal.base.get(&Stat::Might), Some(&100));
+    }
+
+    #[test]
+    fn candidates_reject_unknown_class() {
+        let derivations = synthetic_derivations();
+        let db = db_from_json(r#"{ "A": { "Might": 1 }, "B": {}, "C": {}, "D": {}, "E": {} }"#);
+        let err = db
+            .candidates("Not-a-class", &derivations)
+            .expect_err("unknown class must fail");
+        assert!(matches!(err, VirtuesError::Derivation(_)));
     }
 }

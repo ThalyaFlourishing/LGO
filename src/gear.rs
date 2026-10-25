@@ -226,11 +226,31 @@ impl GearItem {
     }
 }
 
-/// A candidate gear set: exactly one item per slot.
+/// One Virtue slotted by the optimizer: its final tracked-stat contribution
+/// (Base stats already derived and linked) plus the raw Base stats it carries,
+/// kept so reports can show them in the projected Base-stat pool. Virtues are
+/// **not** items: `scrap-gear` and item counting must never see them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlottedVirtue {
+    pub name: String,
+    pub stats: HashMap<Stat, i64>,
+    pub base_stats: HashMap<Stat, i64>,
+}
+
+impl SlottedVirtue {
+    /// Return the value of a tracked stat, or 0 if not present.
+    pub fn stat(&self, s: &Stat) -> i64 {
+        self.stats.get(s).copied().unwrap_or(0)
+    }
+}
+
+/// A candidate gear set: exactly one item per slot, plus the five Virtues the
+/// optimizer chose alongside the gear.
 #[derive(Debug, Clone)]
 pub struct GearSet {
     pub innate_stats: HashMap<Stat, i64>,
     pub items: HashMap<Slot, GearItem>,
+    pub virtues: Vec<SlottedVirtue>,
 }
 
 impl GearSet {
@@ -238,13 +258,20 @@ impl GearSet {
         GearSet {
             innate_stats,
             items: HashMap::new(),
+            virtues: Vec::new(),
         }
     }
 
-    /// Sum a single stat across innate totals and all equipped items.
+    /// Sum a single stat across innate totals, all equipped items, and the
+    /// slotted Virtues.
     pub fn total(&self, s: &Stat) -> i64 {
         self.innate_stats.get(s).copied().unwrap_or(0)
             + self.items.values().map(|item| item.stat(s)).sum::<i64>()
+            + self
+                .virtues
+                .iter()
+                .map(|virtue| virtue.stat(s))
+                .sum::<i64>()
     }
 }
 
@@ -332,5 +359,18 @@ mod tests {
         );
 
         assert_eq!(gear_set.total(&Stat::CriticalRating), 125);
+    }
+
+    #[test]
+    fn total_includes_slotted_virtues() {
+        let mut gear_set = GearSet::new([(Stat::CriticalRating, 100)].into_iter().collect());
+        gear_set.virtues.push(SlottedVirtue {
+            name: "Zeal".to_string(),
+            stats: [(Stat::CriticalRating, 50)].into_iter().collect(),
+            base_stats: [(Stat::Might, 10)].into_iter().collect(),
+        });
+
+        assert_eq!(gear_set.total(&Stat::CriticalRating), 150);
+        assert_eq!(gear_set.total(&Stat::Might), 0, "Base stats are not totals");
     }
 }

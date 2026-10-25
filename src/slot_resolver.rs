@@ -29,10 +29,7 @@ use unicode_normalization::{is_nfc, UnicodeNormalization};
 use crate::base_stats::DerivationError;
 use crate::gear::{parse_slot_display, Slot};
 use crate::stat::{Stat, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
-use crate::virtues::{
-    VIRTUE_FIELD_KEYS, VIRTUE_INNATE_DEFAULT, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY,
-    VIRTUE_TABLE_KEY,
-};
+use crate::virtues::{VIRTUE_INNATE_DEFAULT, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY};
 
 /// Default items-DB file, resolved under the install directory's `data/`
 /// folder.
@@ -43,7 +40,6 @@ const STAT_KEY_PAD_WIDTH: usize = STAT_EQUALS_COLUMN - 1;
 pub const UNRESOLVED_COMMENT_PREFIX: &str = "# UNRESOLVED:";
 pub const AUTO_PICKED_COMMENT_PREFIX: &str = "# AUTO-PICKED ";
 const INNATE_STATS_NOTE: &str = "# Extracted by in-game plugin; do not edit.";
-const VIRTUES_NOTE: &str = "# Not extracted, you must add these yourself.";
 const VIRTUE_INNATE_NOTE: &str =
     "# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.";
 const LEVEL_KEY: &str = "level";
@@ -564,15 +560,15 @@ fn resolve_toml_str_inner(
     Ok((doc.to_string(), outcomes_local))
 }
 
-/// Write `character`, `class`, `level`, `[InnateStats]`, `[Virtues]`,
-/// and `[VirtueInnateStats]` into the document header.
+/// Write `character`, `class`, `level`, `[InnateStats]`, and
+/// `[VirtueInnateStats]` into the document header.
 ///
 /// `[InnateStats]` carries the character's five *raw* Base stats from the
 /// plugindata export — no derivation happens in the resolver.
-/// `level` is regenerated from the same export. `[Virtues]` carries the
-/// user's five fixed Virtue selection slots as empty strings for later
-/// hand-editing. Derivation into tracked stats is the optimize path's job;
-/// see the pass-through design in the repo docs.
+/// `level` is regenerated from the same export. Virtues are not part of the
+/// gear file at all: the optimizer chooses them from `data/lgo_virtues.json`.
+/// Derivation into tracked stats is the optimize path's job; see the
+/// pass-through design in the repo docs.
 fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_>) {
     if let Some(character) = metadata.character {
         doc.insert("character", value(character));
@@ -593,7 +589,6 @@ fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_
         "InnateStats",
         toml_edit::Item::Table(build_innate_stats_table(metadata.base_stats)),
     );
-    doc.insert(VIRTUE_TABLE_KEY, Item::Table(build_virtues_table()));
     doc.insert(
         VIRTUE_INNATE_TABLE_KEY,
         Item::Table(build_virtue_innate_stats_table()),
@@ -601,8 +596,8 @@ fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_
 }
 
 /// Pin the generated header tables to the front of the document, in canonical
-/// order: `[InnateStats]` = 0, `[Virtues]` = 1, `[VirtueInnateStats]` = 2,
-/// and the `[[item]]` tables from 3 upward.
+/// order: `[InnateStats]` = 0, `[VirtueInnateStats]` = 1, and the `[[item]]`
+/// tables from 2 upward.
 ///
 /// toml_edit serializes top-level tables by their internal `position` index,
 /// not by map insertion order, and `push_group` renumbers every `[[item]]`
@@ -611,9 +606,8 @@ fn apply_top_level_metadata(doc: &mut DocumentMut, metadata: &ResolveMetadata<'_
 /// header table are harmless: positions only have to be ordered.
 fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
     const INNATE_POSITION: usize = 0;
-    const VIRTUES_POSITION: usize = 1;
-    const VIRTUE_INNATE_POSITION: usize = 2;
-    const FIRST_ITEM_POSITION: usize = 3;
+    const VIRTUE_INNATE_POSITION: usize = 1;
+    const FIRST_ITEM_POSITION: usize = 2;
 
     doc.as_table_mut().sort_values_by(|left, _, right, _| {
         let rank = |key: &toml_edit::Key| match key.get() {
@@ -627,7 +621,6 @@ fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
 
     for (key, position) in [
         ("InnateStats", INNATE_POSITION),
-        (VIRTUE_TABLE_KEY, VIRTUES_POSITION),
         (VIRTUE_INNATE_TABLE_KEY, VIRTUE_INNATE_POSITION),
     ] {
         if let Some(table) = doc.get_mut(key).and_then(|i| i.as_table_mut()) {
@@ -643,16 +636,10 @@ fn reorder_resolved_header_before_items(doc: &mut DocumentMut) {
     }
 }
 
-fn build_virtues_table() -> Table {
-    let mut table = Table::new();
-    ensure_virtue_fields(&mut table);
-    table
-}
-
 /// Build the `[VirtueInnateStats]` block: the two virtue-passive mastery
-/// values seeded to `VIRTUE_INNATE_DEFAULT`. Like `[Virtues]`, the block is
-/// user-maintained — this only supplies the initial defaults; existing values
-/// are preserved by `ensure_virtue_innate_fields` on subsequent runs.
+/// values seeded to `VIRTUE_INNATE_DEFAULT`. The block is user-maintained —
+/// this only supplies the initial defaults; existing values are preserved by
+/// `ensure_virtue_innate_fields` on subsequent runs.
 fn build_virtue_innate_stats_table() -> Table {
     let mut table = Table::new();
     for (_, key) in VIRTUE_INNATE_FIELDS {
@@ -705,20 +692,10 @@ fn read_innate_base_stats(table: &Table) -> Result<HashMap<Stat, i64>, ResolveEr
     Ok(stats)
 }
 
-fn ensure_virtue_fields(table: &mut Table) {
-    for key in VIRTUE_FIELD_KEYS {
-        if table.get(key).is_none() {
-            table.insert(key, value(""));
-        }
-        normalize_assignment_decor(table, key);
-    }
-    ensure_table_header_note(table, VIRTUES_NOTE);
-}
-
 /// Ensure the two `[VirtueInnateStats]` fields exist, seeding missing ones to
 /// `VIRTUE_INNATE_DEFAULT` while preserving existing values verbatim, then
-/// normalize alignment and the header note. Mirrors `ensure_virtue_fields`:
-/// the block is user-maintained, so an existing value is never overwritten.
+/// normalize alignment and the header note. The block is user-maintained, so
+/// an existing value is never overwritten.
 fn ensure_virtue_innate_fields(table: &mut Table) {
     for (_, key) in VIRTUE_INNATE_FIELDS {
         if table.get(key).is_none() {
@@ -1407,22 +1384,13 @@ fn validate_document_keys(doc: &DocumentMut) -> Result<(), ResolveError> {
     validate_keys(doc.as_table(), "document root", |key| {
         matches!(
             key,
-            "character"
-                | "class"
-                | "level"
-                | "InnateStats"
-                | "Virtues"
-                | "VirtueInnateStats"
-                | "item"
+            "character" | "class" | "level" | "InnateStats" | "VirtueInnateStats" | "item"
         )
     })?;
     if let Some(table) = doc.get("InnateStats").and_then(Item::as_table_like) {
         validate_keys(table, "`[InnateStats]`", |key| {
             INNATE_BASE_STATS.iter().any(|(_, name)| *name == key)
         })?;
-    }
-    if let Some(table) = doc.get(VIRTUE_TABLE_KEY).and_then(Item::as_table_like) {
-        validate_keys(table, "`[Virtues]`", |key| VIRTUE_FIELD_KEYS.contains(&key))?;
     }
     if let Some(table) = doc
         .get(VIRTUE_INNATE_TABLE_KEY)
@@ -1767,35 +1735,15 @@ pub fn merge_into_canonical(
         None => {}
     }
 
-    // Carry forward or create `[Virtues]`. These five fields are user-maintained:
-    // preserve existing values verbatim, add any missing fields as empty
-    // strings, and normalize their alignment.
-    let should_have_virtues = incoming_doc.get("InnateStats").is_some()
+    // Carry forward or create `[VirtueInnateStats]`. These two virtue-passive
+    // mastery values are user-maintained: preserve existing values verbatim,
+    // seed any missing field to the default, and normalize alignment. The
+    // block accompanies `[InnateStats]`: it is created whenever either side
+    // carries the plugin-exported header, or when it already exists.
+    let should_have_virtue_innate = incoming_doc.get("InnateStats").is_some()
         || prev_doc.get("InnateStats").is_some()
-        || prev_doc.get(VIRTUE_TABLE_KEY).is_some();
-    if should_have_virtues {
-        match prev_doc
-            .get_mut(VIRTUE_TABLE_KEY)
-            .and_then(|i| i.as_table_mut())
-        {
-            Some(prev_virtues) => ensure_virtue_fields(prev_virtues),
-            None => {
-                let mut virtues = incoming_doc
-                    .get(VIRTUE_TABLE_KEY)
-                    .and_then(|i| i.as_table())
-                    .cloned()
-                    .unwrap_or_else(build_virtues_table);
-                ensure_virtue_fields(&mut virtues);
-                prev_doc.insert(VIRTUE_TABLE_KEY, Item::Table(virtues));
-            }
-        }
-    }
-
-    // Carry forward or create `[VirtueInnateStats]`. Like `[Virtues]`, these
-    // two virtue-passive mitigation values are user-maintained: preserve
-    // existing values verbatim, seed any missing field to the default, and
-    // normalize alignment. Gated on the same predicate as `[Virtues]`.
-    if should_have_virtues {
+        || prev_doc.get(VIRTUE_INNATE_TABLE_KEY).is_some();
+    if should_have_virtue_innate {
         match prev_doc
             .get_mut(VIRTUE_INNATE_TABLE_KEY)
             .and_then(|i| i.as_table_mut())
@@ -2673,14 +2621,14 @@ mod tests {
     }
 
     /// The canonical pre-items header order documented in
-    /// `docs/AGENT_CONTEXT.md` §5: root values first, then the three header
-    /// tables at positions 0/1/2, then the items.
+    /// `docs/AGENT_CONTEXT.md` §5: root values first, then the two header
+    /// tables at positions 0/1, then the items. `[Virtues]` must never appear:
+    /// Virtues are optimizer-chosen and have no place in the gear file.
     fn assert_canonical_header_order(src: &str) {
         let character = src.find("character =").expect("character field exists");
         let class = src.find("class =").expect("class field exists");
         let level = src.find("level =").expect("level field exists");
         let innate = src.find("[InnateStats]").expect("InnateStats block exists");
-        let virtues = src.find("[Virtues]").expect("Virtues block exists");
         let virtue_innate = src
             .find("[VirtueInnateStats]")
             .expect("VirtueInnateStats block exists");
@@ -2689,11 +2637,15 @@ mod tests {
             character < class
                 && class < level
                 && level < innate
-                && innate < virtues
-                && virtues < virtue_innate
+                && innate < virtue_innate
                 && virtue_innate < divider,
             "header must read character, class, level, [InnateStats], \
-             [Virtues], [VirtueInnateStats], first divider:\n{}",
+             [VirtueInnateStats], first divider:\n{}",
+            src
+        );
+        assert!(
+            !src.contains("[Virtues]"),
+            "resolver must never emit a [Virtues] block:\n{}",
             src
         );
     }
@@ -3163,7 +3115,7 @@ name = \"Test Helm\"\n";
     }
 
     #[test]
-    fn resolver_places_innate_stats_before_virtues_and_items() {
+    fn resolver_places_innate_stats_before_virtue_innate_stats_and_items() {
         let db = fixture_db();
         let base_stats: HashMap<Stat, i64> =
             [(Stat::Agility, 1000), (Stat::Vitality, 2), (Stat::Fate, 2)]
@@ -3187,7 +3139,9 @@ name = \"Test Helm\"\n";
         let character_pos = out.find("character").expect("character field exists");
         let class_pos = out.find("class").expect("class field exists");
         let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
-        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+        let virtue_innate_pos = out
+            .find("[VirtueInnateStats]")
+            .expect("VirtueInnateStats block exists");
         let item_pos = out.find("[[item]]").expect("item array exists");
 
         assert!(
@@ -3201,59 +3155,24 @@ name = \"Test Helm\"\n";
             out
         );
         assert!(
-            innate_pos < virtues_pos,
-            "InnateStats should appear before Virtues:\n{}",
+            innate_pos < virtue_innate_pos,
+            "InnateStats should appear before VirtueInnateStats:\n{}",
             out
         );
         assert!(
-            virtues_pos < item_pos,
-            "Virtues should appear before the first [[item]] block:\n{}",
+            virtue_innate_pos < item_pos,
+            "VirtueInnateStats should appear before the first [[item]] block:\n{}",
+            out
+        );
+        assert!(
+            !out.contains("[Virtues]"),
+            "resolver must not generate a [Virtues] block:\n{}",
             out
         );
     }
 
     #[test]
-    fn resolver_writes_virtues_block_between_innate_stats_and_first_item() {
-        let db = fixture_db();
-        let base_stats: HashMap<Stat, i64> = [(Stat::Will, 77)].into_iter().collect();
-        let input = "\
-[[item]]\n\
-slot = \"Unknown\"\n\
-name = \"Test Helm\"\n";
-
-        let (out, _) = resolve_toml_str_with_metadata(
-            input,
-            &db,
-            Some("Thalya"),
-            "Lore-master",
-            &base_stats,
-            None,
-        )
-        .expect("must resolve with metadata");
-
-        let doc: DocumentMut = out.parse().expect("output parses");
-        let virtues = doc
-            .get(VIRTUE_TABLE_KEY)
-            .and_then(|item| item.as_table())
-            .expect("Virtues table exists");
-        let keys: Vec<&str> = virtues.iter().map(|(key, _)| key).collect();
-        assert_eq!(keys, VIRTUE_FIELD_KEYS);
-        for key in VIRTUE_FIELD_KEYS {
-            assert_eq!(virtues.get(key).and_then(|item| item.as_str()), Some(""));
-        }
-
-        let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
-        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
-        let item_pos = out.find("[[item]]").expect("item array exists");
-        assert!(
-            innate_pos < virtues_pos && virtues_pos < item_pos,
-            "Virtues must sit between InnateStats and the first item:\n{}",
-            out
-        );
-    }
-
-    #[test]
-    fn resolver_writes_virtue_innate_stats_block_after_virtues_with_defaults() {
+    fn resolver_writes_virtue_innate_stats_block_after_innate_stats_with_defaults() {
         let db = fixture_db();
         let base_stats: HashMap<Stat, i64> = [(Stat::Will, 77)].into_iter().collect();
         let input = "\
@@ -3291,16 +3210,16 @@ name = \"Test Helm\"\n";
             assert_assignment_aligns_to_column_20(&out, key);
         }
 
-        // The block sits immediately after [Virtues] and before the first item,
-        // and its header note is emitted exactly once.
-        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+        // The block sits immediately after [InnateStats] and before the first
+        // item, and its header note is emitted exactly once.
+        let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
         let virtue_innate_pos = out
             .find("[VirtueInnateStats]")
             .expect("VirtueInnateStats block exists");
         let item_pos = out.find("[[item]]").expect("item array exists");
         assert!(
-            virtues_pos < virtue_innate_pos && virtue_innate_pos < item_pos,
-            "VirtueInnateStats must sit between Virtues and the first item:\n{}",
+            innate_pos < virtue_innate_pos && virtue_innate_pos < item_pos,
+            "VirtueInnateStats must sit between InnateStats and the first item:\n{}",
             out
         );
         assert_header_note_immediately_after(&out, "[VirtueInnateStats]", VIRTUE_INNATE_NOTE);
@@ -3385,8 +3304,8 @@ name = \"Test Helm\"\n";
         assert_canonical_header_order(&out);
     }
 
-    /// Position indices are fixed: `[InnateStats]` 0, `[Virtues]` 1,
-    /// `[VirtueInnateStats]` 2, items from 3 (Bug 10 territory).
+    /// Position indices are fixed: `[InnateStats]` 0, `[VirtueInnateStats]` 1,
+    /// items from 2 (Bug 10 territory).
     #[test]
     fn resolver_assigns_fixed_header_table_positions() {
         let db = fixture_db();
@@ -3418,7 +3337,6 @@ name = \"Test Helm\"\n";
                 .unwrap_or_else(|| panic!("{key} must carry a position:\n{out}"))
         };
         let innate = position_of("InnateStats");
-        let virtues = position_of(VIRTUE_TABLE_KEY);
         let virtue_innate = position_of(VIRTUE_INNATE_TABLE_KEY);
         let first_item = doc
             .get("item")
@@ -3428,11 +3346,10 @@ name = \"Test Helm\"\n";
             .expect("first item must carry a position");
 
         assert_eq!(innate, 0);
-        assert_eq!(virtues, innate + 1, "Virtues must follow InnateStats");
         assert_eq!(
             virtue_innate,
-            virtues + 1,
-            "VirtueInnateStats must follow Virtues"
+            innate + 1,
+            "VirtueInnateStats must follow InnateStats"
         );
         assert_eq!(
             first_item,
@@ -3538,7 +3455,7 @@ name = \"Test Helm\"\n";
     }
 
     #[test]
-    fn resolver_writes_innate_stats_and_virtues_even_when_base_stats_are_empty() {
+    fn resolver_writes_innate_stats_and_virtue_innate_even_when_base_stats_are_empty() {
         let db = fixture_db();
         let input = "\
 [[item]]\n\
@@ -3561,10 +3478,10 @@ name = \"Test Helm\"\n";
             .get("InnateStats")
             .and_then(|item| item.as_table())
             .expect("InnateStats table exists");
-        let virtues = doc
-            .get(VIRTUE_TABLE_KEY)
+        let virtue_innate = doc
+            .get(VIRTUE_INNATE_TABLE_KEY)
             .and_then(|item| item.as_table())
-            .expect("Virtues table exists");
+            .expect("VirtueInnateStats table exists");
 
         let innate_keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
         assert_eq!(
@@ -3575,20 +3492,24 @@ name = \"Test Helm\"\n";
             assert_eq!(innate.get(key).and_then(|item| item.as_integer()), Some(0));
         }
 
-        let virtue_keys: Vec<&str> = virtues.iter().map(|(key, _)| key).collect();
-        assert_eq!(virtue_keys, VIRTUE_FIELD_KEYS);
-        for key in VIRTUE_FIELD_KEYS {
-            assert_eq!(virtues.get(key).and_then(|item| item.as_str()), Some(""));
+        for (_, key) in VIRTUE_INNATE_FIELDS {
+            assert_eq!(
+                virtue_innate.get(key).and_then(|item| item.as_integer()),
+                Some(VIRTUE_INNATE_DEFAULT)
+            );
         }
 
         let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
-        let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+        let virtue_innate_pos = out
+            .find("[VirtueInnateStats]")
+            .expect("VirtueInnateStats block exists");
         let item_pos = out.find("[[item]]").expect("item array exists");
         assert!(
-            innate_pos < virtues_pos && virtues_pos < item_pos,
-            "Virtues must sit between InnateStats and the first item:\n{}",
+            innate_pos < virtue_innate_pos && virtue_innate_pos < item_pos,
+            "VirtueInnateStats must sit between InnateStats and the first item:\n{}",
             out
         );
+        assert!(!out.contains("[Virtues]"));
     }
 
     #[test]
@@ -4145,7 +4066,6 @@ name = \"Test Helm\"\n";
         for (label, out) in [("first", &first), ("second", &second), ("third", &third)] {
             assert_canonical_header_order(out);
             assert_header_note_immediately_after(out, "[InnateStats]", INNATE_STATS_NOTE);
-            assert_header_note_immediately_after(out, "[Virtues]", VIRTUES_NOTE);
             assert_header_note_immediately_after(out, "[VirtueInnateStats]", VIRTUE_INNATE_NOTE);
             assert!(
                 has_assignment_line(out, "level", 160),
@@ -4233,7 +4153,7 @@ name = \"Test Helm\"\n";
             merged
         );
         assert!(
-            merged.find("[InnateStats]") < merged.find("[Virtues]"),
+            merged.find("[InnateStats]") < merged.find("[VirtueInnateStats]"),
             "the remaining header blocks must stay in canonical order:\n{}",
             merged
         );
@@ -4887,7 +4807,7 @@ Armour = 100\n";
                 out
             );
             assert_header_note_immediately_after(out, "[InnateStats]", INNATE_STATS_NOTE);
-            assert_header_note_immediately_after(out, "[Virtues]", VIRTUES_NOTE);
+            assert_header_note_immediately_after(out, "[VirtueInnateStats]", VIRTUE_INNATE_NOTE);
         }
         assert_eq!(
             strip_generated_timestamp_comment(&first),
@@ -4984,7 +4904,10 @@ Armour = 100\n";
     }
 
     #[test]
-    fn merge_preserves_existing_virtue_values_and_restores_missing_fields() {
+    fn merge_rejects_previous_canonical_that_still_carries_a_virtues_block() {
+        // `[Virtues]` was removed without a compatibility shim: a previous
+        // canonical file that still contains it must fail the ordinary
+        // unknown-top-level-key validation rather than being migrated.
         let db = fixture_db();
         let bookmarklet = make_doc(&[("Test Helm", "Unknown", &[("Armour", 100)])]);
         let base_stats: HashMap<Stat, i64> = [(Stat::Might, 5300)].into_iter().collect();
@@ -5001,41 +4924,19 @@ Armour = 100\n";
             .expect("first merge")
             .merged_text;
 
-        let hand_edited = first.replace(
-            "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
-            "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"Wisdom\"\nVirtue3            = \" Zeal \"\nVirtue5            = \"Honour\"\n",
+        let with_virtues = first.replace(
+            "[VirtueInnateStats]\n",
+            "[Virtues]\nVirtue1            = \"Wisdom\"\n\n[VirtueInnateStats]\n",
         );
-        assert_ne!(hand_edited, first, "hand-edit must apply");
+        assert_ne!(with_virtues, first, "edit must apply");
 
-        let merged = merge_ic(Some(&hand_edited), &resolved, ForceMode::NoForce)
-            .expect("second merge")
-            .merged_text;
-        let doc: DocumentMut = merged.parse().expect("merged output parses");
-        let virtues = doc
-            .get(VIRTUE_TABLE_KEY)
-            .and_then(|item| item.as_table())
-            .expect("Virtues table exists");
-        assert_eq!(
-            virtues.get("Virtue1").and_then(|item| item.as_str()),
-            Some("Wisdom")
+        let err = merge_ic(Some(&with_virtues), &resolved, ForceMode::NoForce)
+            .expect_err("a [Virtues] block must be rejected");
+        let message = err.to_string();
+        assert!(
+            message.contains("Virtues"),
+            "error must name the offending key:\n{message}"
         );
-        assert_eq!(
-            virtues.get("Virtue3").and_then(|item| item.as_str()),
-            Some(" Zeal ")
-        );
-        assert_eq!(
-            virtues.get("Virtue5").and_then(|item| item.as_str()),
-            Some("Honour")
-        );
-        assert_eq!(
-            virtues.get("Virtue2").and_then(|item| item.as_str()),
-            Some("")
-        );
-        assert_eq!(
-            virtues.get("Virtue4").and_then(|item| item.as_str()),
-            Some("")
-        );
-        assert_header_note_immediately_after(&merged, "[Virtues]", VIRTUES_NOTE);
     }
 
     #[test]
