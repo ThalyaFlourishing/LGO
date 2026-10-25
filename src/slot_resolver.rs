@@ -475,8 +475,7 @@ struct ResolveMetadata<'a> {
     character: Option<&'a str>,
     class_name: &'a str,
     base_stats: &'a HashMap<Stat, i64>,
-    /// Character level from the plugin export; `None` when the export has
-    /// none (old `lgo-gearlist-1` format), in which case no `level` is written.
+    /// Character level from the plugin export; `None` means no `level` is written.
     level: Option<u32>,
 }
 
