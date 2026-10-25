@@ -60,21 +60,16 @@ fn read_gear_doc_or_exit(stats_file: &Path) -> gearstats::GearDoc {
     }
 }
 
-/// Fold Virtues in, derive Base-stat contributions, apply the tracked-stat
-/// links (Tactical Mastery → Outgoing Healing). Links run after derivation so
+/// Derive Base-stat contributions, then apply the tracked-stat links
+/// (Tactical Mastery → Outgoing Healing). Links run after derivation so
 /// every source total is final before optimization consumes `innate_stats`.
+/// Virtues are *not* folded in here: they are optimizer candidates, built by
+/// [`load_virtue_candidates_or_exit`] and passed to `optimizer::optimize`.
 fn prepare_gear_doc_for_optimization(
     gear_doc: &mut gearstats::GearDoc,
     class: &str,
+    derivations: &base_stats::BaseStatDerivations,
 ) -> Result<(), String> {
-    if !gear_doc.selected_virtues.is_empty() {
-        let virtues = load_virtues_or_exit();
-        virtues
-            .apply_selected_virtues(gear_doc)
-            .map_err(|e| e.to_string())?;
-    }
-
-    let derivations = load_derivations_or_exit();
     derivations
         .derive_doc(class, gear_doc)
         .map_err(|e| format!("deriving Base stats for class '{}': {}", class, e))?;
@@ -82,6 +77,28 @@ fn prepare_gear_doc_for_optimization(
     base_stats::link_doc(gear_doc);
 
     Ok(())
+}
+
+/// Build the optimizer's Virtue candidate pool for `class` from
+/// `data/lgo_virtues.json`. The file is required: a missing file, or one with
+/// fewer than five Virtues, is a hard error (the loader enforces the count).
+fn load_virtue_candidates_or_exit(
+    class: &str,
+    derivations: &base_stats::BaseStatDerivations,
+) -> Vec<virtues::VirtueCandidate> {
+    let db = load_virtues_or_exit();
+    match db.candidates(class, derivations) {
+        Ok(candidates) => candidates,
+        Err(e) => {
+            eprintln!(
+                "Error deriving Virtue stats for class '{}' from {}: {}",
+                class,
+                db.path().display(),
+                e
+            );
+            process::exit(1);
+        }
+    }
 }
 
 fn build_resolved_candidates(
@@ -368,7 +385,9 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
-    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+    let derivations = load_derivations_or_exit();
+    let virtue_candidates = load_virtue_candidates_or_exit(&class, &derivations);
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class, &derivations) {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
@@ -383,7 +402,10 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
             &candidate_names,
             &build.goals,
             &gear_doc.innate_stats,
+            &virtue_candidates,
         );
+        // Only real gear is counted; `GearSet::virtues` is deliberately
+        // ignored so scrap-gear never treats a Virtue as an item.
         for (name, used_count) in count_selected_real_items_by_name(&result.gear_set) {
             max_used_by_name
                 .entry(name)
@@ -520,13 +542,21 @@ fn run_optimize(cli: &OptimizeCli) {
         )
     });
 
-    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+    let derivations = load_derivations_or_exit();
+    let virtue_candidates = load_virtue_candidates_or_exit(&class, &derivations);
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class, &derivations) {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
 
     let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
-    let result = optimizer::optimize(&resolved, &candidate_names, &goals, &gear_doc.innate_stats);
+    let result = optimizer::optimize(
+        &resolved,
+        &candidate_names,
+        &goals,
+        &gear_doc.innate_stats,
+        &virtue_candidates,
+    );
 
     let projected_base_stats = projected_base_stats(
         &gear_doc.innate_base_stats,
@@ -619,6 +649,10 @@ fn projected_base_stats(
         merge_stat_totals(&doc_item.base_stats, &mut totals);
     }
 
+    for virtue in &gear_set.virtues {
+        merge_stat_totals(&virtue.base_stats, &mut totals);
+    }
+
     totals.retain(|_, value| *value != 0);
     totals
 }
@@ -694,11 +728,13 @@ fn run_base_stats(cli: &BaseStatsCli) {
         }
     };
 
-    // The raw section reports the file's own `[InnateStats]` values, so keep a
-    // copy before the optimize pre-pass folds Virtue Base stats into them.
+    // Virtues are optimizer-chosen, so the fixed baseline is independent of
+    // them; the data file is still required so base-stats fails on the same
+    // missing-data conditions optimize would.
+    let _ = load_virtue_candidates_or_exit(&class, &derivations);
     let innate_base = gear_doc.innate_base_stats.clone();
     let mut gear_doc = gear_doc;
-    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class) {
+    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class, &derivations) {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
@@ -1155,8 +1191,8 @@ fn print_usage() {
     println!("  Characters live in <install>\\<CharacterName>_Gear folders; when several");
     println!("  exist the most recently updated is chosen and announced. optimize requires");
     println!("  data\\base_stat_derivations.json in <install>\\data to derive Base-stat");
-    println!("  contributions before optimization. If [Virtues] contains any non-empty");
-    println!("  selections, optimize also resolves them against data\\lgo_virtues.json.");
+    println!("  contributions before optimization, and data\\lgo_virtues.json, from which");
+    println!("  it chooses the best five Virtues jointly with the gear (you do not pick them).");
     println!("  By default optimize prints only to the terminal; add --to-file to also write");
     println!("  matching .txt and .html reports into <install>\\<CharacterName>_Gear\\");
     println!("  <CharacterName>_Reports.");
@@ -1180,8 +1216,8 @@ fn print_usage() {
     println!();
     println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
     println!("  tracked-stat contributions derived from them (already included in optimize");
-    println!("  totals), then the fixed tracked-stat baseline optimize starts from (Virtues,");
-    println!("  Base derivation, Tactical Mastery -> Outgoing Healing link).");
+    println!("  totals), then the fixed tracked-stat baseline optimize starts from");
+    println!("  (VirtueInnateStats, Base derivation, Tactical Mastery -> Outgoing Healing link).");
     println!("  It does not run an optimization.");
     println!();
     println!("Options (resolve-slots):");

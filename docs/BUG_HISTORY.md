@@ -335,3 +335,84 @@ brace depth while skipping escaped string contents. Extract only numeric-keyed
 string entries from that bounded substring, then sort them by numeric index.
 The reordered fixture keeps `names` first and guards the Rust parser's
 order-independent behavior as an additional regression check.
+
+---
+
+### Bug 16 — Virtue pool made the branch-and-bound search ~1000× slower (benchmark no longer completed at N = 8) ✅ FIXED
+
+**Symptom:** PR #92 made Virtues an optimizer-chosen family of five, appended
+to the search as a last pool of ~74 five-set super-candidates. The code was
+correct (oracle and both fuzzers agreed), but the `Uniform` benchmark profile
+went from "completes through N = 12, breaches at N = 13" to **no run
+completing within 100 s at N = 8**. PR #92 was reverted from `main` for this.
+
+**Diagnosis (measured, release build):**
+
+| run | N = 8 nodes | wall time |
+|---|---:|---:|
+| `main` (no Virtue pool) | 84,545 | 0.027 s |
+| fix branch, Virtue pool skipped | 84,545 | 0.028 s |
+| fix branch, Virtue pool as merged in PR #92 | >78,500,000 at 60 s | timed out |
+
+Skipping `search_pools.push(virtue_pool)` restored the baseline node-for-node,
+so the Virtue pool was the sole cause. Real data was barely affected
+(`TestData/lgo_Thalya_gearReady.toml`, `tm:450000 cr:350000 fn:0`: ~8 ms with
+Virtues vs ~6 ms without; a contrived 6-goal infeasible run: 0.34 s vs
+0.10 s) because real gear dominance-collapses heavily; the synthetic
+non-dominated frontier is the worst case.
+
+**Root cause — a per-goal-max bound over a large super-candidate pool is far
+looser than the same bound over single items.** `suffix_goal_maxima` bounded
+each remaining pool by its *component-wise* maximum: max CR from any choice,
+max TM from any choice, and so on. For a pool of single items that fantasy
+candidate is close to a real one. For the Virtue pool it was wildly
+optimistic: under `BENCHMARK_GOALS` the component-wise maximum over the 74
+sets is (CR 52,609, TM 51,307, PM 33,309, TT 44,494), while the best *real*
+set that still meets the TT goal has CR 46,036. Every gear level inherited
+that 6,573-CR slack, so after the first leaf found the true best (all max-CR
+gear + that real set) the bound could not prune any partial build whose gear
+was within 6,573 CR of optimal — on the synthetic frontier (200 CR per index
+step, 16 pools) that is on the order of 10¹² partial builds. The same slack
+had previously been hidden because, without Virtues, TT was unmet and the
+search lived in Stage 2, where TT's per-slot maximum (4) *was* a real item.
+
+**Fix** (`virtue-pool-bound` branch): the last pool is now bounded **per
+candidate**, not component-wise. `suffix_goal_maxima` sums maxima only over
+the pools *before* the last; `DfsState::completion_can_beat` then prunes a
+partial build only if, for *every* choice `v` in the last pool,
+`running + suffix_maxima + v` loses to the incumbent under `compare_builds`.
+Admissibility: any completion is component-wise `≤` that expression for the
+`v` it actually uses, and the comparator is monotone in every component, so
+"every `v` loses" implies "every completion loses". The last pool is
+dominance-filtered in production, so iterating it is exactly iterating its
+Pareto frontier (candidate fix 2 in the task) and the bound is exact at the
+penultimate level (candidate fix 1); no comparator, Virtue-semantics or
+`BENCHMARK_GOALS` change was needed. A move-to-front hint remembers which
+`v` last rescued a node so non-pruned nodes usually cost one comparison. The
+DFS also stopped cloning `Choice` values (five `VirtueCandidate`s with two
+`HashMap`s each) on every node and now builds tiebreak keys only at leaves
+that survive the totals comparison.
+
+**Result:** `Uniform` completes N = 8–12 in under 1 ms (240–341 nodes) and
+breaches at N = 13 exactly like `main`. The N = 13 breach is a *gear*
+fantasy of the same kind — the first item whose primary stat is TT (8,002 TT
+at −2,400 CR) appears at index 12, and the component-wise gear bound credits
+its TT alongside index 0's CR in the same slot — and is pre-existing. Pool
+order was also measured: with the Virtue pool *first* (and so bounded
+component-wise only at the root) N = 8 takes 900 nodes; last-with-per-candidate
+bound is kept because it generalises to whatever pool is last.
+
+**Regression test:**
+`optimizer::tests::last_pool_bound_is_per_candidate_not_component_wise_max`
+builds a two-pool case where the fantasy completion survives (7 nodes) but
+every real last-pool candidate loses (5 nodes), and checks the result against
+the oracle.
+
+**⚠ Lesson for future agents:** a component-wise per-goal maximum is only a
+*tight* bound when some real candidate is near every goal's maximum at once.
+Pools of super-candidates (five-sets, pairs, hand configurations) spread the
+maxima across different members, so the fantasy can be thousands of points
+better than anything selectable, and the slack is paid for at every DFS
+level above that pool. When adding a large super-candidate pool, bound it by
+its real candidates (Pareto frontier), place it last, and rerun the benchmark
+before merging — oracle agreement proves correctness, not cost.

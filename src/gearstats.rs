@@ -6,10 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::gear::{parse_slot_display, GearItem};
 use crate::stat::{Stat, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
-use crate::virtues::{
-    SelectedVirtues, VIRTUE_FIELD_KEYS, VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY,
-    VIRTUE_TABLE_KEY,
-};
+use crate::virtues::{VIRTUE_INNATE_FIELDS, VIRTUE_INNATE_TABLE_KEY};
 
 const ESSENCE_TOTALS_KEY: &str = "EssenceTotals";
 /// The parsed contents of a gear stats TOML file, including any top-level
@@ -25,17 +22,15 @@ pub struct GearDoc {
     pub level: Option<u32>,
     /// Fixed tracked-stat totals present before item optimization begins.
     /// `[InnateStats]` no longer contributes tracked stats directly; this map
-    /// is populated by fixed tracked-stat sources such as selected Virtues,
-    /// and by Base-stat derivation during the optimize pre-pass.
+    /// is populated by `[VirtueInnateStats]` and by Base-stat derivation
+    /// during the optimize pre-pass. Virtues themselves are *not* fixed: the
+    /// optimizer chooses them alongside gear.
     pub innate_stats: HashMap<Stat, i64>,
     /// The five raw Base-stat values from top-level `[InnateStats]`
     /// (Might/Agility/Vitality/Will/Fate). Derivation inputs only: the
     /// optimize path converts them into tracked-stat contributions via
     /// per-class coefficients before optimization.
     pub innate_base_stats: HashMap<Stat, i64>,
-    /// The five user-maintained top-level `[Virtues]` selections, trimmed and
-    /// with empty/whitespace-only values normalized to `None`.
-    pub selected_virtues: SelectedVirtues,
     /// Parsed gear items from `[[item]]` entries.
     pub items: Vec<DocItem>,
 }
@@ -74,7 +69,6 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             "class",
             "level",
             "InnateStats",
-            VIRTUE_TABLE_KEY,
             VIRTUE_INNATE_TABLE_KEY,
             "item",
         ]
@@ -201,21 +195,15 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
             .ok_or_else(|| "`InnateStats` must be a TOML table".to_string())?;
         validate_innate_keys(innate_table)?;
     }
-    if let Some(virtues) = doc.get(VIRTUE_TABLE_KEY) {
-        let virtues_table = virtues
-            .as_table()
-            .ok_or_else(|| format!("`{}` must be a TOML table", VIRTUE_TABLE_KEY))?;
-        validate_virtue_keys(virtues_table)?;
-    }
     let mut innate_stats = HashMap::new();
     if let Some(virtue_innate) = doc.get(VIRTUE_INNATE_TABLE_KEY) {
         let virtue_innate_table = virtue_innate
             .as_table()
             .ok_or_else(|| format!("`{}` must be a TOML table", VIRTUE_INNATE_TABLE_KEY))?;
         validate_virtue_innate_keys(virtue_innate_table)?;
-        // Virtue-passive mitigations fold into the fixed tracked baseline
-        // exactly like a Virtue's tracked stats — added directly, no Base-stat
-        // derivation. Integer-only, like `[InnateStats]`.
+        // Virtue-passive masteries fold into the fixed tracked baseline
+        // directly — no Base-stat derivation. Integer-only, like
+        // `[InnateStats]`.
         for (stat, value) in read_virtue_innate_stats(virtue_innate_table)? {
             *innate_stats.entry(stat).or_insert(0) += value;
         }
@@ -225,7 +213,6 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
     // a Base stat too, but it never appears innately (omitted = zero), so the
     // innate base-stat map is read against `INNATE_BASE_STATS`, not `BASE_STATS`.
     let innate_base_stats = read_innate_stats(&doc, INNATE_BASE_STATS)?;
-    let selected_virtues = read_selected_virtues(&doc)?;
     let level = read_level(&doc)?;
 
     Ok(GearDoc {
@@ -234,7 +221,6 @@ pub fn read_stats_file(path: &Path) -> Result<GearDoc, String> {
         level,
         innate_stats,
         innate_base_stats,
-        selected_virtues,
         items,
     })
 }
@@ -404,19 +390,9 @@ fn validate_innate_keys(table: &toml::value::Table) -> Result<(), String> {
             continue;
         }
         return Err(format!(
-            "Invalid key `{}` in `InnateStats`; `[InnateStats]` may contain only raw Base stats: Might, Agility, Vitality, Will, Fate. Fixed non-item stat sources should be configured through `[Virtues]`.",
+            "Invalid key `{}` in `InnateStats`; `[InnateStats]` may contain only raw Base stats: Might, Agility, Vitality, Will, Fate. Fixed tracked-stat sources belong in `[VirtueInnateStats]`; Virtues are chosen by the optimizer.",
             key
         ));
-    }
-    Ok(())
-}
-
-fn validate_virtue_keys(table: &toml::value::Table) -> Result<(), String> {
-    for key in table.keys() {
-        if VIRTUE_FIELD_KEYS.contains(&key.as_str()) {
-            continue;
-        }
-        return Err(format!("Unknown key `{}` in `{}`.", key, VIRTUE_TABLE_KEY));
     }
     Ok(())
 }
@@ -443,28 +419,6 @@ fn validate_virtue_innate_keys(table: &toml::value::Table) -> Result<(), String>
 fn read_virtue_innate_stats(table: &toml::value::Table) -> Result<HashMap<Stat, i64>, String> {
     let label = format!("`{}`", VIRTUE_INNATE_TABLE_KEY);
     read_stats_map(table, &VIRTUE_INNATE_FIELDS, &label, false)
-}
-
-fn read_selected_virtues(doc: &toml::Value) -> Result<SelectedVirtues, String> {
-    let Some(table) = doc.get(VIRTUE_TABLE_KEY).and_then(|v| v.as_table()) else {
-        return Ok(SelectedVirtues::default());
-    };
-
-    let mut slots: [Option<String>; 5] = Default::default();
-    for (idx, key) in VIRTUE_FIELD_KEYS.iter().enumerate() {
-        let Some(value) = table.get(*key) else {
-            continue;
-        };
-        let Some(value) = value.as_str() else {
-            return Err(format!("`{}.{}` must be a string", VIRTUE_TABLE_KEY, key));
-        };
-        let trimmed = value.trim();
-        if !trimmed.is_empty() {
-            slots[idx] = Some(trimmed.to_string());
-        }
-    }
-
-    Ok(SelectedVirtues { slots })
 }
 
 /// Scan `dir` for a file whose name matches `<prefix><X><suffix>` where
@@ -827,13 +781,15 @@ name = "Test Helm"
     }
 
     #[test]
-    fn read_stats_file_treats_missing_or_blank_virtues_as_empty() {
+    fn read_stats_file_rejects_removed_virtues_block_as_unknown_key() {
+        // `[Virtues]` is gone: the optimizer chooses Virtues. A file that
+        // still carries the block hits the ordinary unknown-top-level-key
+        // hard error — no tolerant parsing, no migration.
         let dir = make_test_dir();
         let path = dir.join("test.toml");
         let toml = r#"
 [Virtues]
-Virtue1 = " "
-Virtue3 = ""
+Virtue1 = "Wisdom"
 
 [[item]]
 slot = "Head"
@@ -841,31 +797,8 @@ name = "Test Helm"
 "#;
         std::fs::write(&path, toml).expect("write toml");
 
-        let doc = read_stats_file(&path).expect("must return Ok");
-        assert!(doc.selected_virtues.is_empty());
-
-        std::fs::remove_dir_all(&dir).expect("cleanup");
-    }
-
-    #[test]
-    fn read_stats_file_trims_selected_virtue_names() {
-        let dir = make_test_dir();
-        let path = dir.join("test.toml");
-        let toml = r#"
-[Virtues]
-Virtue1 = " Wisdom "
-Virtue2 = "ZEAL"
-
-[[item]]
-slot = "Head"
-name = "Test Helm"
-"#;
-        std::fs::write(&path, toml).expect("write toml");
-
-        let doc = read_stats_file(&path).expect("must return Ok");
-        assert_eq!(doc.selected_virtues.slots[0].as_deref(), Some("Wisdom"));
-        assert_eq!(doc.selected_virtues.slots[1].as_deref(), Some("ZEAL"));
-        assert!(doc.selected_virtues.slots[2].is_none());
+        let err = read_stats_file(&path).expect_err("[Virtues] must be rejected");
+        assert_eq!(err, "Unknown top-level key `Virtues`.");
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
@@ -1011,7 +944,7 @@ Will = 12
     }
 
     #[test]
-    fn read_stats_file_rejects_tracked_stats_in_innate_stats_and_points_to_virtues() {
+    fn read_stats_file_rejects_tracked_stats_in_innate_stats_and_points_to_virtue_innate() {
         let dir = make_test_dir();
         let path = dir.join("test.toml");
         let toml = r#"
@@ -1034,55 +967,13 @@ name = "Test Helm"
             "Vitality",
             "Will",
             "Fate",
-            "Virtues",
+            "VirtueInnateStats",
         ] {
             assert!(
                 err.contains(needle),
                 "error must mention {needle:?}; got: {err}"
             );
         }
-        std::fs::remove_dir_all(&dir).expect("cleanup");
-    }
-
-    #[test]
-    fn read_stats_file_errors_on_unknown_virtue_key() {
-        let dir = make_test_dir();
-        let path = dir.join("test.toml");
-        let toml = r#"
-[Virtues]
-Virtue6 = "Wisdom"
-
-[[item]]
-slot = "Head"
-name = "Test Helm"
-"#;
-        std::fs::write(&path, toml).expect("write toml");
-
-        let err = read_stats_file(&path).expect_err("unknown Virtues key must fail");
-        assert!(err.contains("Virtue6"));
-        assert!(err.contains("Virtues"));
-
-        std::fs::remove_dir_all(&dir).expect("cleanup");
-    }
-
-    #[test]
-    fn read_stats_file_errors_on_non_string_virtue_value() {
-        let dir = make_test_dir();
-        let path = dir.join("test.toml");
-        let toml = r#"
-[Virtues]
-Virtue1 = 42
-
-[[item]]
-slot = "Head"
-name = "Test Helm"
-"#;
-        std::fs::write(&path, toml).expect("write toml");
-
-        let err = read_stats_file(&path).expect_err("non-string Virtue value must fail");
-        assert!(err.contains("Virtues.Virtue1"));
-        assert!(err.contains("string"));
-
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 

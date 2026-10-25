@@ -63,6 +63,19 @@ pub const ITEMS_JSON: &str = r#"{
   "Test Tome": { "name": "Test Tome", "slot": "Class Item" }
 }"#;
 
+/// Minimal synthetic Virtue table. `optimize`, `scrap-gear` and `base-stats`
+/// require `data/lgo_virtues.json` with at least five Virtues so the optimizer
+/// can fill its five Virtue slots; six are defined so one is always left
+/// unchosen. Stats are deliberately tiny and tests own these numbers.
+pub const VIRTUES_JSON: &str = r#"{
+  "Test Charity":    { "TacticalMitigation": 10 },
+  "Test Fidelity":   { "Vitality": 10 },
+  "Test Honour":     { "PhysicalMitigation": 10 },
+  "Test Loyalty":    { "Armour": 50 },
+  "Test Valour":     { "TacticalMastery": 10 },
+  "Test Wisdom":     { "Will": 10 }
+}"#;
+
 /// Synthetic raw Base stats a plugindata export carries. Tests that pass these
 /// through `[InnateStats]` assert against these constants — their own data —
 /// rather than the real character's numbers.
@@ -81,6 +94,14 @@ pub fn write_derivations(data_dir: &Path) {
         DERIVATIONS_JSON,
     )
     .expect("write synthetic derivations");
+}
+
+/// Write the synthetic Virtue table into `<data_dir>/lgo_virtues.json`,
+/// creating `data_dir` if needed.
+pub fn write_virtues(data_dir: &Path) {
+    std::fs::create_dir_all(data_dir).expect("create data dir");
+    std::fs::write(data_dir.join("lgo_virtues.json"), VIRTUES_JSON)
+        .expect("write synthetic virtues");
 }
 
 /// Write the synthetic items DB into `<data_dir>/lgo_items.json`, creating

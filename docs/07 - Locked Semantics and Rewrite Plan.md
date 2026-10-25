@@ -113,7 +113,7 @@ This is a **rewrite of the objective + search core**, not a bug fix.
 - `filter_compatible_single` / `filter_compatible_pair`.
 - `safe_narrow_single` / `safe_narrow_pair` / `narrow_single` / `narrow_pair`.
 - The `phase1_viable` two-path branch and reverse-priority narrowing.
-- `truncate(8)`-and-warn (lines 152–162) — replaced by refuse-on-overflow (§3).
+- `truncate(8)`-and-warn (lines 152–162) — removed outright; no cap remains (§3).
 
 ### 2.3 Build (new search core)
 Two implementations that must agree:
@@ -134,8 +134,38 @@ Two implementations that must agree:
      totals + remaining per-slot maxima) cannot beat the best-so-far under the
      §1 comparator. This is where the old per-stat maxima are legitimately
      reused — as **admissible bounds**, not as a feasibility proxy.
-   - **Exactness:** no candidate silently dropped; the cap (§3) bounds the input,
-     dominance + B&B bound the *work*.
+   - **Exactness:** no candidate silently dropped; dominance + B&B bound the
+     *work* (there is no input cap any more — see §3).
+   - **Virtue family (sixth kind of pool, appended last).** The optimizer
+     chooses exactly five distinct Virtues from `data/lgo_virtues.json`
+     jointly with the gear, so `compare_builds` always sees gear + Virtue
+     totals together. Each Virtue is first turned into a `VirtueCandidate`
+     whose tracked map already includes its class-derived Base-stat
+     contributions and the TM → OH link (`VirtuesDb::candidates`). The family
+     is one `SearchPool` of `Choice::Virtues` super-candidates, each a
+     5-combination enumerated in **strictly increasing index order** — that is
+     what makes distinctness structural, exactly as `build_pairs` never
+     generates a self-pair. The pool is appended **last**, and the last pool is bounded *per
+     candidate* in the branch-and-bound (a partial build is pruned only if
+     every real Virtue set loses to the best so far). Bounding it by
+     per-goal maxima is unsafe for performance: the component-wise max over
+     ~74 five-sets is a fantasy set no real set approaches, and it made the
+     Uniform benchmark fail to finish at N = 8 (Bug 16).
+     *Pre-filter soundness.* Single-candidate dominance is **unsound** for
+     k-subsets: a dominated Virtue may still be needed when all of its
+     dominators are already in the set. The sound rule is: *a Virtue V may be
+     dropped iff at least five other Virtues each weakly dominate it on every
+     goal stat* (ties broken by index so exactly one of two identical Virtues
+     survives). Proof sketch: any 5-set S containing V has at most four other
+     members, so by pigeonhole some dominator D ∉ S exists; swapping V for D
+     weakly improves every goal total under additivity + clamping. The
+     dominance relation (weakly ≥ on all goals, strictly > somewhere or earlier
+     index) is a strict partial order, so repeated swaps terminate at an
+     equally-good set made entirely of survivors. After enumerating C(k,5)
+     over the survivors, the ordinary `dominance_filter` runs on the resulting
+     super-candidates, as it does for pairs. With the real 21-Virtue file
+     under the benchmark goals: 12 survivors → 792 combos → 74 supers.
+     There is deliberately no way to pin a Virtue.
 
 ### 2.4 Why not naive-enumeration-as-product
 At cap 5, worst case ? **1.2 × 10¹²** complete builds (§4) — far past any
@@ -144,26 +174,17 @@ inputs*. Dominance + B&B is what ships.
 
 ---
 
-## 3. Refuse-on-overflow guard (LOCKED)
+## 3. Candidate cap (removed)
 
-- `MAX_CANDIDATES_PER_SLOT = 8` becomes a **supported-input contract**, enforced
-  by **refusal**, not truncation. Applies to each **single slot** and each
-  **paired family** (family pool size, before pairing).
-- **Rust:** validate after grouping by canonical slot/family, before pairing/
-  search. Return a proper error (e.g. `OptimizeError::TooManyCandidates {
-  slot_label, count, max }`); `optimize` becomes `Result<_, OptimizeError>`;
-  `run_optimize` prints an actionable message and exits non-zero.
-- **Lua plugin (`src/lgo.lua`):** bucket chest+equipped items by optimizer slot
-  family at export time; if any family exceeds the cap, **refuse to export**,
-  list the offending families/counts, and tell the user to remove items. Use a
-  named constant `MAX_CANDIDATES_PER_SLOT = 8` at the top of the file, printed
-  in the refusal message. (Rust remains the defensive backstop.)
-- Constant is authoritative in Rust; Lua value is manually kept in sync
-  (documented in both places). Value is a knob, not sacred.
-
-**Note:** performance tractability comes from **dominance pruning**, not from the
-cap — 13 single slots dominate the combinatorics, not the 3 paired families.
-So the cap stays user-generous at 8; we do **not** lower it for speed.
+Earlier revisions of this plan specified a `MAX_CANDIDATES_PER_SLOT = 8`
+refuse-on-overflow guard (enforced in Rust and mirrored in the Lua plugin).
+**That cap no longer exists in the code.** Benchmarking
+(`docs/Benchmark Testing.txt`) showed that dominance pruning + B&B keep exact
+search tractable far past any realistic per-slot pool size, and that the
+number and ambition of the goals — not pool size — governs run time. The
+optimizer accepts pools of any size and never truncates or refuses. The
+Virtue family in particular is exempt from any per-slot cap by design: its
+pool is the entire Virtue table (§2.3).
 
 ---
 
@@ -202,7 +223,13 @@ only up to cap ? 3, and is therefore **test-only**. Production must prune.
   boundary (`..._meets_minimum_exactly`, `..._one_below_minimum`), and the
   negative-stat tests.
 - **Add deterministic objective tests** = the §1.4 table, one test each.
-- **Add refuse-on-overflow tests** (single slot >8, paired family >8, both).
+- **Virtue family tests:** exactly five chosen; no Virtue slotted twice even
+  when one strictly dominates all others; the ≥5-dominators pre-filter never
+  drops a Virtue the oracle selects (a Virtue dominated by exactly four others
+  must survive); Virtue Base stats derive into tracked totals and link TM →
+  OH; joint choice (a Virtue supplying stat X flips the optimal item in some
+  slot). The oracle brute-forces every 5-subset of a synthetic Virtue table
+  alongside gear, and every fuzz case carries a 5–8 Virtue table.
 - **Add the oracle** (`#[cfg(test)]`), then **differential fuzz**: seeded RNG
   generates tiny legal cases (2–4 slots, 1–4 items, 1–3 goals, small stat
   ranges, sometimes paired); compare production search vs. oracle on

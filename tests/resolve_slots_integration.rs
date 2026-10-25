@@ -2,7 +2,7 @@ use lgo::slot_resolver::{
     ResolutionOutcome, AUTO_PICKED_COMMENT_PREFIX, UNRESOLVED_COMMENT_PREFIX,
 };
 use lgo::stat::{BASE_STATS, TRACKED_STATS};
-use lgo::virtues::VIRTUE_FIELD_KEYS;
+use lgo::virtues::VIRTUE_INNATE_FIELDS;
 use std::path::{Path, PathBuf};
 
 mod common;
@@ -81,20 +81,6 @@ fn canonical_stat_keys() -> Vec<&'static str> {
 
 fn has_assignment_line(src: &str, key: &str, expected: i64) -> bool {
     let expected = expected.to_string();
-    src.lines().any(|line| {
-        let trimmed = line.trim_start();
-        let Some(rest) = trimmed.strip_prefix(key) else {
-            return false;
-        };
-        let Some(rest) = rest.trim_start_matches(' ').strip_prefix('=') else {
-            return false;
-        };
-        rest.trim_start_matches(' ') == expected
-    })
-}
-
-fn has_string_assignment_line(src: &str, key: &str, expected: &str) -> bool {
-    let expected = format!("\"{}\"", expected);
     src.lines().any(|line| {
         let trimmed = line.trim_start();
         let Some(rest) = trimmed.strip_prefix(key) else {
@@ -1416,9 +1402,6 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
         let innate_pos = out
             .find("[InnateStats]")
             .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
-        let virtues_pos = out
-            .find("[Virtues]")
-            .unwrap_or_else(|| panic!("run {}: [Virtues] missing:\n{}", run, out));
         let virtue_innate_pos = out
             .find("[VirtueInnateStats]")
             .unwrap_or_else(|| panic!("run {}: [VirtueInnateStats] missing:\n{}", run, out));
@@ -1426,7 +1409,13 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
             .find("# --- Head ---")
             .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
 
-        for header in ["[InnateStats]", "[Virtues]", "[VirtueInnateStats]"] {
+        assert!(
+            !out.contains("[Virtues]"),
+            "run {}: resolve-slots must not emit a [Virtues] block:\n{}",
+            run,
+            out
+        );
+        for header in ["[InnateStats]", "[VirtueInnateStats]"] {
             assert_eq!(
                 out.matches(header).count(),
                 1,
@@ -1449,14 +1438,8 @@ fn file_level_innate_stats_stays_between_class_and_first_divider_across_reruns()
             out
         );
         assert!(
-            innate_pos < virtues_pos,
-            "run {}: [Virtues] must follow [InnateStats]:\n{}",
-            run,
-            out
-        );
-        assert!(
-            virtues_pos < virtue_innate_pos,
-            "run {}: [VirtueInnateStats] must follow [Virtues]:\n{}",
+            innate_pos < virtue_innate_pos,
+            "run {}: [VirtueInnateStats] must follow [InnateStats]:\n{}",
             run,
             out
         );
@@ -1579,8 +1562,8 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
         );
         assert_header_note_immediately_after(
             &out,
-            "[Virtues]",
-            "# Not extracted, you must add these yourself.",
+            "[VirtueInnateStats]",
+            "# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.",
         );
     }
 
@@ -1588,7 +1571,7 @@ fn file_level_innate_stats_holds_raw_base_stats_across_reruns() {
 }
 
 #[test]
-fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
+fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtue_innate() {
     let dir = make_temp_dir("zero_base_export");
     let character = "TestChar";
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
@@ -1623,10 +1606,10 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
         .get("InnateStats")
         .and_then(|item| item.as_table())
         .expect("InnateStats table exists");
-    let virtues = doc
-        .get("Virtues")
+    let virtue_innate = doc
+        .get("VirtueInnateStats")
         .and_then(|item| item.as_table())
-        .expect("Virtues table exists");
+        .expect("VirtueInnateStats table exists");
 
     let innate_keys: Vec<&str> = innate.iter().map(|(key, _)| key).collect();
     assert_eq!(
@@ -1640,22 +1623,27 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
             "zero export must still write {key} = 0:\n{out}"
         );
     }
-    for key in VIRTUE_FIELD_KEYS {
-        assert_eq!(
-            virtues.get(key).and_then(|item| item.as_str()),
-            Some(""),
+    for (_, key) in VIRTUE_INNATE_FIELDS {
+        assert!(
+            virtue_innate
+                .get(key)
+                .and_then(|item| item.as_integer())
+                .is_some(),
             "zero export must still write default {key}:\n{out}"
         );
     }
 
     let innate_pos = out.find("[InnateStats]").expect("InnateStats block exists");
-    let virtues_pos = out.find("[Virtues]").expect("Virtues block exists");
+    let virtue_innate_pos = out
+        .find("[VirtueInnateStats]")
+        .expect("VirtueInnateStats block exists");
     let divider_pos = out.find("# --- Head ---").expect("Head divider exists");
     assert!(
-        innate_pos < virtues_pos && virtues_pos < divider_pos,
-        "zero export must still place Virtues after InnateStats and before items:\n{}",
+        innate_pos < virtue_innate_pos && virtue_innate_pos < divider_pos,
+        "zero export must still place VirtueInnateStats after InnateStats and before items:\n{}",
         out
     );
+    assert!(!out.contains("[Virtues]"), "no [Virtues] block:\n{out}");
     assert_header_note_immediately_after(
         &out,
         "[InnateStats]",
@@ -1663,16 +1651,16 @@ fn file_level_zero_base_stat_export_still_writes_innate_stats_and_virtues() {
     );
     assert_header_note_immediately_after(
         &out,
-        "[Virtues]",
-        "# Not extracted, you must add these yourself.",
+        "[VirtueInnateStats]",
+        "# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.",
     );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_reruns() {
-    let dir = make_temp_dir("virtues_position");
+fn file_level_virtue_innate_block_stays_between_innate_stats_and_first_divider_across_reruns() {
+    let dir = make_temp_dir("virtue_innate_position");
     let character = "TestChar";
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
@@ -1704,16 +1692,22 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
         let innate_pos = out
             .find("[InnateStats]")
             .unwrap_or_else(|| panic!("run {}: [InnateStats] missing:\n{}", run, out));
-        let virtues_pos = out
-            .find("[Virtues]")
-            .unwrap_or_else(|| panic!("run {}: [Virtues] missing:\n{}", run, out));
+        let virtue_innate_pos = out
+            .find("[VirtueInnateStats]")
+            .unwrap_or_else(|| panic!("run {}: [VirtueInnateStats] missing:\n{}", run, out));
         let divider_pos = out
             .find("# --- Head ---")
             .unwrap_or_else(|| panic!("run {}: Head divider missing:\n{}", run, out));
 
         assert!(
-            innate_pos < virtues_pos && virtues_pos < divider_pos,
-            "run {}: [Virtues] must sit between [InnateStats] and the first divider:\n{}",
+            innate_pos < virtue_innate_pos && virtue_innate_pos < divider_pos,
+            "run {}: [VirtueInnateStats] must sit between [InnateStats] and the first divider:\n{}",
+            run,
+            out
+        );
+        assert!(
+            !out.contains("[Virtues]"),
+            "run {}: resolve-slots must never emit a [Virtues] block:\n{}",
             run,
             out
         );
@@ -1724,12 +1718,12 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
         );
         assert_header_note_immediately_after(
             &out,
-            "[Virtues]",
-            "# Not extracted, you must add these yourself.",
+            "[VirtueInnateStats]",
+            "# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.",
         );
-        for key in VIRTUE_FIELD_KEYS {
+        for (_, key) in VIRTUE_INNATE_FIELDS {
             assert!(
-                has_string_assignment_line(&out, key, ""),
+                has_assignment_line_for_key(&out, key),
                 "run {}: missing default {} assignment:\n{}",
                 run,
                 key,
@@ -1741,9 +1735,12 @@ fn file_level_virtues_block_stays_between_innate_stats_and_first_divider_across_
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `[Virtues]` was removed without a compatibility shim. A previous canonical
+/// file that still carries the block must make `resolve-slots` fail with the
+/// ordinary unknown-top-level-key error rather than silently migrate it.
 #[test]
-fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
-    let dir = make_temp_dir("virtues_merge");
+fn file_level_previous_canonical_with_virtues_block_is_rejected() {
+    let dir = make_temp_dir("virtues_rejected");
     let character = "TestChar";
     let bookmarklet = lgo::slot_resolver::bookmarklet_stats_path(&dir, character);
     let canonical = lgo::slot_resolver::canonical_gear_path(&dir, character);
@@ -1769,41 +1766,39 @@ fn file_level_virtues_values_survive_reruns_and_missing_fields_are_restored() {
     .expect("first resolve must succeed");
 
     let first = std::fs::read_to_string(&canonical).expect("read canonical");
-    let hand_edited = first.replace(
-        "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"\"\nVirtue2            = \"\"\nVirtue3            = \"\"\nVirtue4            = \"\"\nVirtue5            = \"\"\n",
-        "[Virtues]\n# Not extracted, you must add these yourself.\nVirtue1            = \"Wisdom\"\nVirtue3            = \" zeal \"\nVirtue5            = \"Honour\"\n",
+    let with_virtues = first.replace(
+        "[VirtueInnateStats]\n",
+        "[Virtues]\nVirtue1            = \"Wisdom\"\n\n[VirtueInnateStats]\n",
     );
-    assert_ne!(hand_edited, first, "hand-edit must apply");
-    std::fs::write(&canonical, hand_edited).expect("write edited canonical");
+    assert_ne!(with_virtues, first, "edit must apply");
+    std::fs::write(&canonical, with_virtues).expect("write edited canonical");
 
     std::fs::write(&bookmarklet, common::SYNTH_GEARSTATS).expect("write synthetic gearStats");
-    let _ = lgo::slot_resolver::resolve_stats_file(
+    let err = lgo::slot_resolver::resolve_stats_file(
         &dir,
         Some(&dir),
         character,
         &db,
         lgo::slot_resolver::ForceMode::NoForce,
     )
-    .expect("second resolve must succeed");
-
-    let out = std::fs::read_to_string(&canonical).expect("read canonical");
-    assert!(has_string_assignment_line(&out, "Virtue1", "Wisdom"));
-    assert!(has_string_assignment_line(&out, "Virtue2", ""));
-    assert!(has_string_assignment_line(&out, "Virtue3", " zeal "));
-    assert!(has_string_assignment_line(&out, "Virtue4", ""));
-    assert!(has_string_assignment_line(&out, "Virtue5", "Honour"));
-    assert_header_note_immediately_after(
-        &out,
-        "[InnateStats]",
-        "# Extracted by in-game plugin; do not edit.",
-    );
-    assert_header_note_immediately_after(
-        &out,
-        "[Virtues]",
-        "# Not extracted, you must add these yourself.",
+    .expect_err("a [Virtues] block in the previous canonical must be rejected");
+    let message = err.to_string();
+    assert!(
+        message.contains("Virtues"),
+        "error must name the offending key:\n{message}"
     );
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn has_assignment_line_for_key(src: &str, key: &str) -> bool {
+    src.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed
+            .strip_prefix(key)
+            .map(|rest| rest.trim_start().starts_with('='))
+            .unwrap_or(false)
+    })
 }
 
 /// Strip the volatile `# gearReady.toml updated: ...` line so successive
