@@ -9,7 +9,7 @@
 //!   - Any warnings (missing items, etc.)
 //!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
 
-use crate::gear::{GearSet, Slot};
+use crate::gear::{GearSet, Slot, SlottedVirtue};
 use crate::optimizer::OptimizeResult;
 use crate::stat::{Stat, StatGoal, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
@@ -52,6 +52,7 @@ pub fn format_optimize_report(
 
     write_stat_summary_text(w, &result.gear_set, goals, &result.failed_minima);
     write_gear_table_text(w, &result.gear_set);
+    write_virtues_text(w, &result.gear_set);
     write_projected_tracked_stats_text(w, &result.gear_set);
     write_projected_base_stats_text(w, projected_base_stats);
 
@@ -245,10 +246,12 @@ pub fn format_optimize_report_html(
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
 
+    write_virtues_html(w, &result.gear_set);
+
     writeln!(w, "  <h2>Projected tracked stats</h2>").unwrap();
     writeln!(
         w,
-        "  <p class=\"meta\">Effective totals worn (gear + essences + derived Base-stat contributions + Virtue fixed stats).</p>"
+        "  <p class=\"meta\">Effective totals worn (gear + essences + chosen Virtues + derived Base-stat contributions + VirtueInnateStats).</p>"
     )
     .unwrap();
     writeln!(w, "  <table>").unwrap();
@@ -273,7 +276,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  <h2>Projected raw Base stats</h2>").unwrap();
     writeln!(
         w,
-        "  <p class=\"meta\">Combined Base-stat pool (innate + gear + essences + Virtues). These are derivation inputs only.</p>"
+        "  <p class=\"meta\">Combined Base-stat pool (innate + gear + essences + chosen Virtues). These are derivation inputs only.</p>"
     )
     .unwrap();
     writeln!(w, "  <table>").unwrap();
@@ -479,7 +482,7 @@ pub fn format_base_stats_report(
     .unwrap();
     writeln!(
         w,
-        "  (Virtues, VirtueInnateStats, Base derivation incl. Virtue Armour, TM → OH link):"
+        "  (VirtueInnateStats, Base derivation, TM → OH link; Virtues are chosen by optimize):"
     )
     .unwrap();
     writeln!(w).unwrap();
@@ -567,6 +570,86 @@ fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w, "  {}", divider).unwrap();
 }
 
+/// One line per chosen Virtue: its name and the tracked stats it contributes
+/// (already class-derived and linked), in canonical TRACKED_STATS order.
+fn virtue_contribution_summary(virtue: &SlottedVirtue) -> String {
+    let parts: Vec<String> = TRACKED_STATS
+        .iter()
+        .filter_map(|(stat, _)| {
+            let value = virtue.stat(stat);
+            (value != 0).then(|| format!("{} {}", stat, format_number(value)))
+        })
+        .collect();
+    if parts.is_empty() {
+        "—".to_string()
+    } else {
+        parts.join(", ")
+    }
+}
+
+/// The five Virtues the optimizer chose alongside the gear. Virtues are
+/// listed in JSON canonical (sorted-name) order, which is also the order the
+/// optimizer slotted them in.
+fn write_virtues_text(w: &mut String, gear_set: &GearSet) {
+    if gear_set.virtues.is_empty() {
+        return;
+    }
+    let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
+
+    writeln!(w).unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+    writeln!(w, "  Virtues (chosen by the optimizer):").unwrap();
+    writeln!(
+        w,
+        "  {:>COL_SLOT$}  Contributed stats",
+        "Virtue",
+        COL_SLOT = COL_SLOT
+    )
+    .unwrap();
+    writeln!(w, "  {}", divider).unwrap();
+    for virtue in &gear_set.virtues {
+        writeln!(
+            w,
+            "  {:>COL_SLOT$}  {}",
+            truncate(&virtue.name, COL_SLOT),
+            virtue_contribution_summary(virtue),
+            COL_SLOT = COL_SLOT
+        )
+        .unwrap();
+    }
+    writeln!(w, "  {}", divider).unwrap();
+}
+
+fn write_virtues_html(w: &mut String, gear_set: &GearSet) {
+    if gear_set.virtues.is_empty() {
+        return;
+    }
+    writeln!(w, "  <h2>Virtues</h2>").unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\">The five Virtues chosen by the optimizer jointly with the gear.</p>"
+    )
+    .unwrap();
+    writeln!(w, "  <table>").unwrap();
+    writeln!(
+        w,
+        "    <thead><tr><th>Virtue</th><th>Contributed stats</th></tr></thead>"
+    )
+    .unwrap();
+    writeln!(w, "    <tbody>").unwrap();
+    for virtue in &gear_set.virtues {
+        writeln!(
+            w,
+            "      <tr><td>{}</td><td>{}</td></tr>",
+            html_escape(&virtue.name),
+            html_escape(&virtue_contribution_summary(virtue)),
+        )
+        .unwrap();
+    }
+    writeln!(w, "    </tbody>").unwrap();
+    writeln!(w, "  </table>").unwrap();
+}
+
 fn hand_or_item_label(gear_set: &GearSet, slot: Slot, main_is_two_handed: bool) -> String {
     if slot == Slot::OffHand && main_is_two_handed {
         return "(2-handed item)".to_string();
@@ -647,7 +730,7 @@ fn write_projected_tracked_stats_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w).unwrap();
     writeln!(
         w,
-        "  Projected tracked stats (gear + essences + derived Base-stat contributions + Virtue fixed stats):"
+        "  Projected tracked stats (gear + essences + chosen Virtues + derived Base-stat contributions + VirtueInnateStats):"
     )
     .unwrap();
     writeln!(w).unwrap();
@@ -670,7 +753,7 @@ fn write_projected_base_stats_text(w: &mut String, projected_base_stats: &HashMa
     writeln!(w).unwrap();
     writeln!(
         w,
-        "  Projected raw Base stats (innate + gear + essences + Virtues; derivation inputs only):"
+        "  Projected raw Base stats (innate + gear + essences + chosen Virtues; derivation inputs only):"
     )
     .unwrap();
     writeln!(w).unwrap();

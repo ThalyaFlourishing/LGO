@@ -29,10 +29,11 @@ invariant?"**
 
 | File | Friction | Recommended model | Why |
 |---|---|---|---|
-| `src/optimizer.rs` | 🔴 High | **Frontier** | Exact dominance-pruned branch-and-bound search, a four-stage comparator, paired-slot identity invariants, and oracle/fuzzer-backed correctness checks all make this file easy to break with an apparently "simple" edit. |
+| `src/optimizer.rs` | 🔴 High | **Frontier** | Exact dominance-pruned branch-and-bound search, a four-stage comparator, paired-slot identity invariants, the Virtue family's ≥5-dominators pre-filter (whose soundness argument is subtle — single-candidate dominance is *wrong* for k-subsets), and oracle/fuzzer-backed correctness checks all make this file easy to break with an apparently "simple" edit. |
 | `src/slot_resolver.rs` | 🔴 High | **Frontier** | `toml_edit` mutation via `std::mem::replace`; `&mut force` threaded through a loop that mutates four things at once; `Box<dyn Prompter>` trait objects with a hand-written `Debug`; decor/position bookkeeping that underpins an idempotency guarantee. |
 | `src/build_db.rs` | 🟠 Moderate | Frontier *for control-flow edits*; cheap for lookup-table edits | Streaming XML state machine with `&mut` accumulators and `ref mut` bindings into `Option`s that are `.take()`n elsewhere. Adding a stat/slot mapping is trivial; reorganising the state machine is not. |
 | `src/plugindata.rs` | 🟠 Moderate | Frontier *for parser edits*; cheap for lookup-table edits | Hand-written recursive-descent parser whose functions return `(_, &str)` slices threaded through the whole recursion — an implicit lifetime contract. Editing the `method_to_name` table is easy; editing parser control flow fights the borrow checker. |
+| `src/virtues.rs` | 🟢 Low | Cheap | JSON loading/validation plus `VirtuesDb::candidates`, a straight map over `BaseStatDerivations::apply_derivations` and `apply_tracked_links`. Owned `HashMap`s throughout; no lifetimes. |
 | `src/gearstats.rs` | 🟢 Very low | Cheap | Iterator `.filter().collect()` chains over owned `PathBuf`s; short-lived `.get()` borrows. Clean. |
 | `src/main.rs` | 🟢 Low | Cheap | Lots of `&` / `PathBuf` passing, but an index-based arg loop sidesteps iterator-borrow issues. Mostly mechanical. |
 | `src/stat.rs` | 🟢 None | Cheap | Enums + `FromStr` / `Display` match arms. |
@@ -52,7 +53,8 @@ bitten by subtle regressions before, and several tests exist specifically to
 pin down non-obvious invariants, for example:
 
 - `optimizer.rs` — Stage 1/2 goal satisfaction must beat Stage 3 overshoot polish,
-  and production search must stay exactly aligned with the brute-force oracle.
+  and production search must stay exactly aligned with the brute-force oracle —
+  including the Virtue family, which the oracle brute-forces as every 5-subset.
 - `slot_resolver.rs` — the merge must be **idempotent**: running it three times
   in a row must produce byte-identical output (see
   `merge_idempotent_when_nothing_changes`).
