@@ -1,7 +1,5 @@
 return 
 {
-	["activeEffects"] = 3.000000,
-	["maxMorale"] = 417522.093750,
 	["class"] = "Lore-master",
 	["names"] = 
 	{
@@ -78,30 +76,7 @@ return
 	},
 	["character"] = "Thalya",
 	["version"] = "lgo-gearlist-2",
-	["maxPower"] = 13736.000000,
 	["level"] = 160.000000,
-	["equipped"] = 
-	{
-		[1.000000] = "Veteran Sage's Hooded Helm",
-		[2.000000] = "Veteran Sage's Coat",
-		[3.000000] = "Veteran Sage's Leggings",
-		[4.000000] = "Veteran Sage's Bracers",
-		[5.000000] = "Veteran Sage's Shoes",
-		[6.000000] = "Veteran Sage's Shoulder-guard",
-		[7.000000] = "Zajâni Scholar's Cloak",
-		[8.000000] = "Ensorceled Bracelet",
-		[9.000000] = "Keen Ordâkhai Bracelet",
-		[10.000000] = "Hunter's Necklace of Lamentation",
-		[11.000000] = "Keen Pristine Madáshi Ring",
-		[12.000000] = "Candinglos Reforged",
-		[13.000000] = "Keen Pristine Madáshi Earring",
-		[14.000000] = "Keen Pristine Madáshi Earring",
-		[15.000000] = "Golden Scroll Case",
-		[16.000000] = "Legendary Lore-keeper's Staff",
-		[17.000000] = "Kinta Sword of the Herbalist",
-		[18.000000] = "Pristine Mûrai Stickpin of Bestial Strength",
-		[19.000000] = "Lore-master's Book"
-	},
 	["baseStats"] = 
 	{
 		["GetBaseWill"] = 7950.000000,

@@ -36,15 +36,11 @@
   
       /lgo export
 
-    Tip: the export captures your current Max Morale/Power including any active
-    food/hope/fellowship buffs. Export unbuffed for a clean baseline. If you
-    export while buffed, LGO treats those buffs as permanent.
-   
     The plugin writes one file into your character's plugin-data directory:
   
       lgo_<character-name>_gearNames_<timestamp>.plugindata
          
-    This file is a list of all the items you currently have equipped, plus all the ones you put in the 'lgo' shared-storage chest, plus your character's name, base stats, level, measured Max Morale/Power, active-effect count, and equipped-item list. Unfortunately getting item stats from LotRO is *extremely* difficult, so this file is not the last one you have to make, sorry. :(
+    This file is a list of all the items you currently have equipped, plus all the ones you put in the 'lgo' shared-storage chest, plus the export version and your character's name, class, base stats, and level. Unfortunately getting item stats from LotRO is *extremely* difficult, so this file is not the last one you have to make, sorry. :(
     
     This `.plugindata` export is the only LGO file that lives in the game's Documents (PluginData) folder; its location is fixed by the game. Every other LGO file — the gear TOMLs, saved builds, and reports — lives beside lgo.exe in the install directory (see step 7).
   
@@ -94,10 +90,10 @@
     `--character <name>` (or `-c <name>`) to pick a specific character; the folder
     name match is case-insensitive.
   
-  9. It is optional, but to get an accurate set of stats, you will usually need to hand-edit some of the information in the 'lgo_<CharacterName>_gearReady.toml' file in a text editor and review it. `level` and `[MeasuredStats]` are generated and must not be hand-edited. This includes:
+  9. It is optional, but to get an accurate set of stats, you will usually need to hand-edit some of the information in the 'lgo_<CharacterName>_gearReady.toml' file in a text editor and review it. `level` is generated and must not be hand-edited. This includes:
     - Your five selected Virtues in the top-level [Virtues] block. Fill in Virtue1 ... Virtue5 with names from data/lgo_virtues.json. Matching is case-insensitive and trims surrounding whitespace. Empty strings are allowed; unknown or duplicate non-empty Virtue names make optimize fail with a clear error.
     - Legendary Items
-    - Essence stats: enter them in each item's [item.EssenceTotals] block. NOTE: The optimizer derives tracked stats (e.g. Crit Rating or Phys Mitigation) from the essence Base stats (e.g. Vitality or Will essences) automatically, so no manual derivation is needed. Essence Tactical Mastery also raises Outgoing Healing automatically (1 for 1), so never enter that Outgoing Healing yourself. A stat value may also be a list of values in square brackets, separated by commas (e.g. CriticalRating = [4917, 3222]) — one per socket — and LGO adds them up for you. The list is kept as you wrote it, so you keep seeing the per-socket breakdown.
+    - Essence stats: enter them in each item's [item.EssenceTotals] block. NOTE: The optimizer derives tracked stats (e.g. Crit Rating or Phys Mitigation) from the essence Base stats (e.g. Might or Will essences) automatically, so no manual derivation is needed. Vitality and Fate remain Base stats but derive no tracked stats. Essence Tactical Mastery also raises Outgoing Healing automatically (1 for 1), so never enter that Outgoing Healing yourself. A stat value may also be a list of values in square brackets, separated by commas (e.g. CriticalRating = [4917, 3222]) — one per socket — and LGO adds them up for you. The list is kept as you wrote it, so you keep seeing the per-socket breakdown.
     - Items flagged with '# UNRESOLVED'.
     - Items left with slot = "Unknown" by resolve-slots.
     - Note: don't bother aligning or prettifying the '= value' spacing when hand-editing; resolve-slots automatically re-aligns every stat line (= at column 20) on its next run. Your values and comments are kept.
@@ -106,7 +102,7 @@
      
     Open the file with any text editor. (*NOT* a word-processer program like MS Word! Notepad will work, but Notepad++ or VS Code will display it more readably). The file lives in the character's gear folder, <install>\<CharacterName>_Gear\, the same folder resolve-slots used in step 8. The filename is lgo_<CharacterName>_gearReady.toml.
    
-    Near the top of the file you will see the header fields `character`, `class`, `level`, `[InnateStats]`, `[MeasuredStats]`, and `[Virtues]`. [InnateStats] contains only the five raw Base stats (Might, Agility, Vitality, Will, Fate). [MeasuredStats] contains generated measured Max Morale/Power, active-effect count, and equipped-item list. [Virtues] contains your five user-maintained Virtue name slots. The item list begins
+    Near the top of the file you will see the header fields `character`, `class`, `level`, `[InnateStats]`, `[Virtues]`, and `[VirtueInnateStats]`. [InnateStats] contains only the five raw Base stats (Might, Agility, Vitality, Will, Fate). [Virtues] contains your five user-maintained Virtue name slots. [VirtueInnateStats] contains your virtue-passive Physical and Tactical Mastery values. The item list begins
     after that. Each item has normal stat lines for the base item plus an attached item.EssenceTotals] block. Put the sum of that item's socketed essence stats in [item.EssenceTotals]. Missing stat lines are treated as 0, but resolve-slots writes every tracked stat explicitly to reduce copy/paste mistakes. If you mistype a stat name, or enter an unknown Virtue name,
     optimize will fail with an error rather than silently ignore it.
      
@@ -161,15 +157,13 @@
   
     To see just your character's raw innate Base stats, the tracked-stat
     contributions derived from them (already included in optimize totals),
-    and the measured Max Morale/Power from your export together with the
-    innate Morale/Power baseline LGO calibrated from them, run:
+    and the fixed tracked-stat baseline before gear, run:
   
         lgo base-stats
   
-    This does not run an optimization. If it says "No [MeasuredStats] block",
-    re-run /lgo export in game and lgo resolve-slots.
+    This does not run an optimization.
   
-  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each tracked stat, and the projected raw Base-stat pool. Under the totals, one line says which innate Morale/Power baseline was used — `measured (N effects at export)` means your export drove it; if N is not 0 you exported buffed and should re-export. If you used `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both text and HTML.
+  11. Read the report printed to the terminal. It lists the chosen item for each gear slot, the resulting total for each of the 13 tracked stats, and the projected raw Base-stat pool. If you used `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both text and HTML.
   
   12. If you keep several saved builds, run:
   
@@ -181,7 +175,7 @@
   Iteration
 -----------
   
-    - To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1. To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1. Also repeat from step 1 whenever you level up, change your slotted Virtues, or read a new stat tome — those change the measured baseline, and resolve-slots regenerates it from the fresh export.
+    - To change the set of items being considered: rearrange your gear items in LotRO, then repeat from step 1. Also repeat the export workflow whenever you level up or read a new stat tome so your Base stats and level stay current. To change selected Virtues, edit [Virtues] in gearReady.toml.
     
     - To re-run with different stat goals on the same gear: just repeat step 10 with new goals. Steps 1-9 do not need to be redone.
     
