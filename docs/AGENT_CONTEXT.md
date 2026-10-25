@@ -352,6 +352,8 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 7. Honest tool / methodology notes for the agent
 
+- Do not attempt to launch a coding agent yourself. The reason for this is that you are unable to reliably dictate a choice of model used to perform the coding tasks. Instead, provide a prompt for an agent to *the user* in the form of a tilde-delimited, literal-markdown text block. The user will copy-paste that prompt into an agent of his own choosing.
+- Consider the user's level of technical expertise to be somewhere between that of a novice and a second-year college computer-science student: Knowledgeable, but not a fully-trained engineer. Keep this in mind when guaging how and how much to explain things.
 - The `bing-search` tool returns LLM-summarized results, not raw page content. It is the **wrong instrument** for "what does this wiki template actually say." For wiki source, ask the user to open the page in a browser and view source.
 - `data/items.xml` is too large for the code-search index (~384 KB threshold) and too large for `getfile` to be useful. To inspect it, ask the user to paste a representative snippet.
 - `data/lgo_items.json` (~5 MB) is at the edge of `getfile`'s comfort zone. The first ~125 entries are reliably retrievable via `getfile`, which is plenty for schema verification. For deeper questions (collisions, counts, name lookups), ask the user to run a `grep` / `Select-String` command locally and paste the output.
