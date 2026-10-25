@@ -14,14 +14,6 @@ Vitality           = 100
 Will               = 100
 Fate               = 100
 
-[Virtues]
-# Not extracted, you must add these yourself.
-Virtue1            = "" # Confidence -     0
-Virtue2            = ""   # Fidelity   -     0
-Virtue3            = "Honesty"    # Honesty    - 19905
-Virtue4            = "Wisdom"     # Wisdom     - 17529
-Virtue5            = "Wit"        # Wit        -  4171                        
-
 [VirtueInnateStats]
 # Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mitigation passives are and correct the number here.
 PhysicalMastery = 100

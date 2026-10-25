@@ -31,6 +31,8 @@ Editable parameters:
 
 (Do not edit BENCHMARK_SINGLETON_SLOTS / BENCHMARK_PAIRED_FAMILIES. These are structural constants)
 
+Virtues: every run also appends the real Virtue family (all 21 Virtues from `data/lgo_virtues.json`, derived for a Lore-master with the committed `data/base_stat_derivations.json`) as the last search pool, exactly as production does. The `virtue supers` column reports the size of that pool after the >=5-dominators pre-filter, the 5-combination enumeration and the combo dominance filter. It does not depend on N or the profile; under the fixed BENCHMARK_GOALS it is 74 (21 Virtues -> 12 pre-filter survivors -> C(12,5) = 792 combinations -> 74 super-candidates). Because the Virtue pool is last, every gear pool is bounded with the best possible Virtue contribution already included.
+
 The test can run any of four separate 'Profiles', named in enum 'BenchmarkProfile' :
   . Uniform
   . SinglesAtN
