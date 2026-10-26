@@ -369,7 +369,7 @@ pub fn format_scrap_gear_report(
 
     writeln!(w, "  LGO — Saved-build item usage").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Gear List: {}", input_file).unwrap();
+    writeln!(w, "  Gear List : {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
     writeln!(w).unwrap();
@@ -448,7 +448,7 @@ pub fn format_base_stats_report(
 
     writeln!(w, "  LGO — Innate Base Stats").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Gear List: {}", input_file).unwrap();
+    writeln!(w, "  Gear List : {}", input_file).unwrap();
     writeln!(w, "  {}", divider).unwrap();
 
     writeln!(w).unwrap();
@@ -538,7 +538,7 @@ fn write_header_text(
     writeln!(w, "  {}", REPORT_TITLE).unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
     writeln!(w, "  Build Name: {}", build_name.unwrap_or("-")).unwrap();
-    writeln!(w, "  Gear List: {}", input_file).unwrap();
+    writeln!(w, "  Gear List : {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
 }
@@ -961,7 +961,7 @@ mod tests {
         );
 
         assert!(report.contains("Character : Thalya (Lore-master)"));
-        assert!(report.contains("Gear List: lgo_Thalya_gearReady.toml"));
+        assert!(report.contains("Gear List : lgo_Thalya_gearReady.toml"));
         assert!(report.contains("derivation inputs only"));
         for (name, value) in [
             ("Might", "5,300"),
@@ -1305,7 +1305,7 @@ mod tests {
 
         let character = report.find("Character :").expect("character line");
         let build = report.find("Build Name: BeastLord!").expect("build line");
-        let gear = report.find("Gear List:").expect("gear list line");
+        let gear = report.find("Gear List :").expect("gear list line");
         assert!(character < build && build < gear);
     }
 
@@ -1324,7 +1324,7 @@ mod tests {
 
         let character = report.find("Character :").expect("character line");
         let build = report.find("Build Name: -\n").expect("dash build line");
-        let gear = report.find("Gear List:").expect("gear list line");
+        let gear = report.find("Gear List :").expect("gear list line");
         assert!(character < build && build < gear);
     }
 
