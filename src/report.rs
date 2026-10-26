@@ -11,7 +11,7 @@
 
 use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
-use crate::stat::{Stat, StatGoal, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
+use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
@@ -454,12 +454,17 @@ pub fn format_base_stats_report(
     writeln!(w).unwrap();
     writeln!(
         w,
-        "  Raw Base stats from [InnateStats] (derivation inputs only):"
+        "  Raw Base stats (derivation inputs only; Might through Fate from [InnateStats], innate Armour is always 0):"
     )
     .unwrap();
     writeln!(w).unwrap();
-    for (stat, _) in INNATE_BASE_STATS {
-        let value = innate_base.get(stat).copied().unwrap_or(0);
+    for (stat, _) in BASE_STATS {
+        // Innate Armour is never read from [InnateStats] and is always zero.
+        let value = if *stat == Stat::Armor {
+            0
+        } else {
+            innate_base.get(stat).copied().unwrap_or(0)
+        };
         writeln!(
             w,
             "  {:<COL_STAT$}  {:>COL_VALUE$}",
@@ -1031,6 +1036,122 @@ mod tests {
         assert_eq!(row_value(derived_section, Stat::OutgoingHealing), "0");
         assert_eq!(row_value(baseline_section, Stat::TacticalMastery), "33,125");
         assert_eq!(row_value(baseline_section, Stat::OutgoingHealing), "33,125");
+    }
+
+    #[test]
+    fn base_stats_raw_section_lists_six_base_stats_in_canonical_order() {
+        // Armour is supplied in the innate map but must still print as 0.
+        let innate_base: HashMap<Stat, i64> = [
+            (Stat::Might, 5300),
+            (Stat::Agility, 2650),
+            (Stat::Vitality, 10200),
+            (Stat::Will, 7950),
+            (Stat::Fate, 4000),
+            (Stat::Armor, 999),
+        ]
+        .into_iter()
+        .collect();
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &innate_base,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+
+        let raw_at = report
+            .find("Raw Base stats (derivation inputs only")
+            .expect("raw header");
+        let derived_at = report
+            .find("Derived tracked-stat contributions")
+            .expect("derived header");
+        let raw_section = &report[raw_at..derived_at];
+        assert!(raw_section.contains("innate Armour is always 0"));
+
+        let row_for = |stat: &str| -> (usize, String) {
+            let prefix = format!("  {:<COL_STAT$}", stat, COL_STAT = COL_STAT);
+            let matches: Vec<(usize, &str)> = raw_section
+                .match_indices(&prefix)
+                .filter(|(i, _)| *i == 0 || raw_section.as_bytes()[i - 1] == b'\n')
+                .collect();
+            assert_eq!(matches.len(), 1, "raw section must list {} once", stat);
+            let (pos, _) = matches[0];
+            let line = raw_section[pos..].lines().next().expect("row line");
+            (pos, line[prefix.len()..].trim().to_string())
+        };
+
+        let order = ["Might", "Agility", "Vitality", "Will", "Fate", "Armour"];
+        let rows: Vec<(usize, String)> = order.iter().map(|s| row_for(s)).collect();
+        for pair in rows.windows(2) {
+            assert!(pair[0].0 < pair[1].0, "rows must follow canonical order");
+        }
+        assert_eq!(rows[0].1, "5,300");
+        assert_eq!(rows[4].1, "4,000");
+        assert_eq!(rows[5].1, "0");
+    }
+
+    #[test]
+    fn base_stats_armour_absent_from_tracked_baseline_tables() {
+        let derived: HashMap<Stat, i64> = [(Stat::TacticalMastery, 39750)].into_iter().collect();
+        let fixed: HashMap<Stat, i64> = [(Stat::TacticalMastery, 33125)].into_iter().collect();
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &HashMap::new(),
+            &derived,
+            &fixed,
+        );
+
+        let derived_at = report
+            .find("Derived tracked-stat contributions")
+            .expect("derived header");
+        let baseline_at = report
+            .find("Fixed tracked-stat baseline before gear")
+            .expect("baseline header");
+        for section in [&report[derived_at..baseline_at], &report[baseline_at..]] {
+            assert!(
+                !section.lines().any(|line| line.starts_with("  Armour")),
+                "tracked tables must not list Armour"
+            );
+        }
+    }
+
+    #[test]
+    fn optimize_projected_base_stats_show_armour_once_in_text_and_html() {
+        let projected: HashMap<Stat, i64> = [(Stat::Might, 5300), (Stat::Armor, 1234567)]
+            .into_iter()
+            .collect();
+        let text = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-10-22 04:04:42 -07:00",
+            &projected,
+        );
+        let armour_rows: Vec<&str> = text
+            .lines()
+            .filter(|line| line.trim_start().starts_with("Armour"))
+            .collect();
+        assert_eq!(armour_rows.len(), 1, "text must list Armour once");
+        assert!(armour_rows[0].trim_end().ends_with("1,234,567"));
+
+        let html = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-10-22 04:04:42 -07:00",
+            &projected,
+        );
+        assert_eq!(html.matches("<td>Armour</td>").count(), 1);
+        assert!(html.contains("<td>Armour</td><td class=\"num\">1,234,567</td>"));
     }
 
     #[test]

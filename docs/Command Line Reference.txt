@@ -265,8 +265,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.6 base-stats
   lgo base-stats
-    Print the five raw innate Base stats from [InnateStats] in
-    lgo_<character>_gearReady.toml, and the 13 derived tracked-stat
+    Print the six raw Base stats in canonical order (Might, Agility, Vitality,
+    Will, Fate, Armour). The first five come from [InnateStats] in
+    lgo_<character>_gearReady.toml; innate Armour is always 0 and is not read
+    from the file. Then print the 13 derived tracked-stat
     contributions computed from them (already included in optimize totals).
     That derived table is Base-stats-only and excludes the Tactical Mastery ->
     Outgoing Healing link. A second section, "Fixed tracked-stat baseline before

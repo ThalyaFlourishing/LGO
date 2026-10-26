@@ -1252,7 +1252,8 @@ fn print_usage() {
     println!("                      (auto-detected when only one exists)");
     println!("  --file      <path>  Explicit canonical gear TOML to read instead of auto-detect");
     println!();
-    println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
+    println!("  base-stats prints the six raw Base stats (Armour is always 0 innately; the other");
+    println!("  five come from [InnateStats]) and the");
     println!("  tracked-stat contributions derived from them (already included in optimize");
     println!("  totals), then the fixed tracked-stat baseline optimize starts from");
     println!("  (VirtueInnateStats, Base derivation, Tactical Mastery -> Outgoing Healing link).");
