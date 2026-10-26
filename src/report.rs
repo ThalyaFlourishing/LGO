@@ -126,7 +126,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
     writeln!(w, "  <title>{}</title>", html_escape(REPORT_TITLE)).unwrap();
     writeln!(w, "  <style>").unwrap();
-    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #cde; }}").unwrap();
+    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; font-size: 0.9rem; margin: 2rem; color: #222; background: #cde; }}").unwrap();
     writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
     writeln!(w, "    p.meta {{ margin: 0.2rem 0; }}").unwrap();
     writeln!(
