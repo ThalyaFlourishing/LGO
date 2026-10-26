@@ -728,10 +728,6 @@ fn run_base_stats(cli: &BaseStatsCli) {
         }
     };
 
-    // Virtues are optimizer-chosen, so the fixed baseline is independent of
-    // them; the data file is still required so base-stats fails on the same
-    // missing-data conditions optimize would.
-    let _ = load_virtue_candidates_or_exit(&class, &derivations);
     let innate_base = gear_doc.innate_base_stats.clone();
     let mut gear_doc = gear_doc;
     if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class, &derivations) {

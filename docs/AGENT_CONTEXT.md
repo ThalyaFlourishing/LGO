@@ -47,11 +47,10 @@ distinct Virtues jointly with the gear** — the Virtue family is a sixth kind
 of search pool, like the two Finger slots sharing one ring pool — and the
 report lists them. Derivation happens at optimize time, before
 candidates enter the optimizer; a tracked-stat link pass (Tactical Mastery →
-Outgoing Healing, ×1) then runs after derivation. `data/lgo_virtues.json` is
-required (at least five Virtues) for `optimize`, `scrap-gear`, and
-`base-stats`. All inputs (`data/` and the `<CharacterName>_Gear`
-folders) and all outputs (reports) resolve from the install directory — the
-folder containing the executable — never the current working directory.
+Outgoing Healing, ×1) then runs after derivation. `data/lgo_virtues.json` is required
+(at least five Virtues) for `optimize` and `scrap-gear`. All inputs (`data/` and the
+`<CharacterName>_Gear` folders) and all outputs (reports) resolve from the install
+directory — the folder containing the executable — never the current working directory.
 - Characters are discovered as `<CharacterName>_Gear\` folders under the install
   directory. With one folder it auto-selects; with several it picks the most
   recently updated `gearReady.toml` and prints the choice; `-c/--character`

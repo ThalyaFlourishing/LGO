@@ -267,8 +267,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     ([VirtueInnateStats], Base derivation, the Tactical Mastery -> Outgoing
     Healing link), so its Outgoing Healing row includes the link. Virtues are
     not part of this baseline: optimize chooses them as part of the search.
-    Does not run an optimization. Requires data\base_stat_derivations.json and
-    data\lgo_virtues.json in the install directory's data\ folder, like optimize.
+    Does not run an optimization. Requires data\base_stat_derivations.json in
+    the install directory's data\ folder, like optimize.
     Auto-discovers lgo_<character>_gearReady.toml the same way optimize does.
 
   lgo base-stats --character <name>

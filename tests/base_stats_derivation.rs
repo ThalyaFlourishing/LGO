@@ -349,7 +349,6 @@ Will = 100
 fn base_stats_verb_prints_raw_and_derived_sections() {
     let dir = make_test_dir();
     common::write_derivations(&dir.join("data"));
-    common::write_virtues(&dir.join("data"));
 
     // Synthetic innate base stats this test owns.
     let innate = [
