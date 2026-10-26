@@ -162,8 +162,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     run from anywhere. optimize errors clearly if the class entry or the
     derivation file is missing, if data\lgo_virtues.json is missing, or if it
     defines fewer than five Virtues.
-    The report content includes the chosen gear, goal summary, the five chosen
-    Virtues with their contributed stats, the full projected 13 tracked stats
+    The report content includes the chosen gear, goal summary, the names of the
+    five chosen Virtues, the full projected 13 tracked stats
     (zero rows included), and the combined raw Base-stat pool (which includes
     the chosen Virtues' Base stats).
 

@@ -296,6 +296,10 @@ fn optimize_report_lists_the_five_chosen_virtues() {
     // tm:0 with a statless helm: Test Valour (TM 10) and Test Wisdom (Will →
     // TM) are the only TM sources and must both be chosen.
     assert!(stdout.contains("Test Valour") && stdout.contains("Test Wisdom"));
+    assert!(
+        !stdout.contains("Contributed stats"),
+        "Virtues section must list names only:\n{stdout}"
+    );
 
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }

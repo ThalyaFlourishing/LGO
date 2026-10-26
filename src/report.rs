@@ -9,7 +9,7 @@
 //!   - Any warnings (missing items, etc.)
 //!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
 
-use crate::gear::{GearSet, Slot, SlottedVirtue};
+use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
 use crate::stat::{Stat, StatGoal, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
@@ -131,6 +131,11 @@ pub fn format_optimize_report_html(
     writeln!(
         w,
         "    th.num, td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "    table.virtues th, table.virtues td {{ text-align: right; }}"
     )
     .unwrap();
     writeln!(w, "    .banner {{ font-weight: 700; padding: 0.75rem 1rem; border-radius: 0.35rem; margin: 1.25rem 0; }}").unwrap();
@@ -570,26 +575,10 @@ fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w, "  {}", divider).unwrap();
 }
 
-/// One line per chosen Virtue: its name and the tracked stats it contributes
-/// (already class-derived and linked), in canonical TRACKED_STATS order.
-fn virtue_contribution_summary(virtue: &SlottedVirtue) -> String {
-    let parts: Vec<String> = TRACKED_STATS
-        .iter()
-        .filter_map(|(stat, _)| {
-            let value = virtue.stat(stat);
-            (value != 0).then(|| format!("{} {}", stat, format_number(value)))
-        })
-        .collect();
-    if parts.is_empty() {
-        "—".to_string()
-    } else {
-        parts.join(", ")
-    }
-}
-
-/// The five Virtues the optimizer chose alongside the gear. Virtues are
-/// listed in JSON canonical (sorted-name) order, which is also the order the
-/// optimizer slotted them in.
+/// The five Virtues the optimizer chose alongside the gear, names only.
+/// Virtues are listed in JSON canonical (sorted-name) order, which is also
+/// the order the optimizer slotted them in. Contributions still count toward
+/// projected totals; they are simply not shown here.
 fn write_virtues_text(w: &mut String, gear_set: &GearSet) {
     if gear_set.virtues.is_empty() {
         return;
@@ -599,20 +588,12 @@ fn write_virtues_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w).unwrap();
     writeln!(w, "  {}", divider).unwrap();
     writeln!(w, "  Virtues (chosen by the optimizer):").unwrap();
-    writeln!(
-        w,
-        "  {:>COL_SLOT$}  Contributed stats",
-        "Virtue",
-        COL_SLOT = COL_SLOT
-    )
-    .unwrap();
     writeln!(w, "  {}", divider).unwrap();
     for virtue in &gear_set.virtues {
         writeln!(
             w,
-            "  {:>COL_SLOT$}  {}",
+            "  {:>COL_SLOT$}",
             truncate(&virtue.name, COL_SLOT),
-            virtue_contribution_summary(virtue),
             COL_SLOT = COL_SLOT
         )
         .unwrap();
@@ -630,21 +611,11 @@ fn write_virtues_html(w: &mut String, gear_set: &GearSet) {
         "  <p class=\"meta\">The five Virtues chosen by the optimizer jointly with the gear.</p>"
     )
     .unwrap();
-    writeln!(w, "  <table>").unwrap();
-    writeln!(
-        w,
-        "    <thead><tr><th>Virtue</th><th>Contributed stats</th></tr></thead>"
-    )
-    .unwrap();
+    writeln!(w, "  <table class=\"virtues\">").unwrap();
+    writeln!(w, "    <thead><tr><th>Virtue</th></tr></thead>").unwrap();
     writeln!(w, "    <tbody>").unwrap();
     for virtue in &gear_set.virtues {
-        writeln!(
-            w,
-            "      <tr><td>{}</td><td>{}</td></tr>",
-            html_escape(&virtue.name),
-            html_escape(&virtue_contribution_summary(virtue)),
-        )
-        .unwrap();
+        writeln!(w, "      <tr><td>{}</td></tr>", html_escape(&virtue.name)).unwrap();
     }
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
@@ -1514,5 +1485,111 @@ mod tests {
             either_hand: false,
             stats: HashMap::new(),
         }
+    }
+
+    fn gear_set_with_virtues(names: &[&str]) -> GearSet {
+        let mut gear_set = GearSet::new(HashMap::new());
+        for name in names {
+            gear_set.virtues.push(crate::gear::SlottedVirtue {
+                name: name.to_string(),
+                stats: [(Stat::CriticalRating, 50)].into_iter().collect(),
+                base_stats: [(Stat::Might, 10)].into_iter().collect(),
+            });
+        }
+        gear_set
+    }
+
+    #[test]
+    fn virtues_text_lists_names_only_right_aligned_in_order() {
+        let gear_set =
+            gear_set_with_virtues(&["Confidence", "Determination", "Honesty", "Wit", "Zeal"]);
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+
+        let expected = [
+            "      Confidence",
+            "   Determination",
+            "         Honesty",
+            "             Wit",
+            "            Zeal",
+        ];
+        let lines: Vec<&str> = out.lines().collect();
+        let heading = lines
+            .iter()
+            .position(|l| *l == "  Virtues (chosen by the optimizer):")
+            .expect("heading");
+        assert_eq!(
+            lines[heading + 1],
+            format!("  {}", "─".repeat(COL_SLOT + COL_ITEM + 3))
+        );
+        assert_eq!(&lines[heading + 2..heading + 7], &expected);
+        assert_eq!(lines[heading + 7], lines[heading + 1], "closing divider");
+        assert_eq!(
+            lines.len(),
+            heading + 8,
+            "nothing after the closing divider"
+        );
+    }
+
+    #[test]
+    fn virtues_text_omits_contributed_stat_details() {
+        let gear_set = gear_set_with_virtues(&["Honesty", "Zeal"]);
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+
+        assert!(
+            !out.contains("Contributed"),
+            "obsolete column header:\n{out}"
+        );
+        assert!(!out.contains("Virtue "), "obsolete column header:\n{out}");
+        assert!(!out.contains("Critical"), "stat name leaked:\n{out}");
+        assert!(!out.contains("Might"), "base stat leaked:\n{out}");
+        assert!(!out.contains("50"), "stat value leaked:\n{out}");
+        assert!(!out.contains(','), "separators leaked:\n{out}");
+    }
+
+    #[test]
+    fn virtues_text_empty_list_omits_section() {
+        let gear_set = GearSet::new(HashMap::new());
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn virtues_html_has_single_escaped_name_column() {
+        let gear_set = gear_set_with_virtues(&["Zeal", "<Wit & Co>"]);
+        let mut out = String::new();
+        write_virtues_html(&mut out, &gear_set);
+
+        assert!(out.contains("<table class=\"virtues\">"));
+        assert!(out.contains("<thead><tr><th>Virtue</th></tr></thead>"));
+        assert!(!out.contains("Contributed"), "obsolete column:\n{out}");
+        assert!(!out.contains("CriticalRating"), "stat leaked:\n{out}");
+        assert_eq!(
+            out.matches("<td>").count(),
+            2,
+            "one name cell per row:\n{out}"
+        );
+        assert!(out.contains("<tr><td>Zeal</td></tr>"));
+        assert!(out.contains("<tr><td>&lt;Wit &amp; Co&gt;</td></tr>"));
+        let zeal = out.find("Zeal").unwrap();
+        let wit = out.find("&lt;Wit").unwrap();
+        assert!(zeal < wit, "input order preserved");
+    }
+
+    #[test]
+    fn virtues_html_empty_list_omits_section() {
+        let gear_set = GearSet::new(HashMap::new());
+        let mut out = String::new();
+        write_virtues_html(&mut out, &gear_set);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn virtue_contributions_still_count_toward_totals() {
+        let gear_set = gear_set_with_virtues(&["Zeal", "Wit"]);
+        assert_eq!(gear_set.total(&Stat::CriticalRating), 100);
+        assert_eq!(gear_set.total(&Stat::Might), 0, "Base stats are not totals");
     }
 }
