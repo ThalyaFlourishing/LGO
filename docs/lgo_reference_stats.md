@@ -133,9 +133,10 @@ particular Virtue.
   Virtue slots form one candidate pool, exactly as the two Finger slots share
   one ring pool. If a Virtue supplies the stat an item was being picked for,
   the search is free to swap that item for a different one.
-- Virtues are never optimizer goals. The optimize report lists the five chosen
-  Virtues (sorted by name) with their contributed tracked stats in a "Virtues"
-  section between the gear table and the projected totals.
+- Virtues are never optimizer goals. The optimize report lists the names of the
+  five chosen Virtues (sorted by name) in a "Virtues" section between the gear
+  table and the projected totals. Their contributions are already folded into
+  the projected totals and are not itemised.
 
 ## VirtueInnateStats
 

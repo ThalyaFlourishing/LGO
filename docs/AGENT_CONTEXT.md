@@ -86,7 +86,7 @@ directory — the folder containing the executable — never the current working
 - `src/report.rs` also formats the `scrap-gear` text report that is printed to
   the terminal and written into the character's `<CharacterName>_Reports`
   folder.
-- `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install directory); the caller passes the resolved reports directory.
+- `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install directory); the caller passes the resolved reports directory. Runs with a build name (`--save-build`, or the stored name behind `--build`) write `lgo_<Character>_<Build>.{txt,html}` and silently overwrite them; runs without one keep the `lgo_GearReport_###` serial names. Build and character names are validated as Windows-safe filename parts before anything is written.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups, disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a pinned-top-right status panel, a Cloudflare warm-up probe + fetch-error circuit breaker (see Bug 11), and a programmatic Save TOML... button (`showSaveFilePicker` on Chromium, Blob/`<a download>` fallback elsewhere). It always emits `slot = "Unknown"`; `resolve-slots` replaces that placeholder from `data/lgo_items.json`.
 - `data/items.xml` (~71 MB), `data/lgo_items.json` (~5 MB), `data/lgo_virtues.json`
