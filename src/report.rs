@@ -31,10 +31,15 @@ pub struct ScrapUnusedItem {
 }
 
 /// Build the full text optimize report used for terminal and `.txt` output.
+///
+/// `build_name` is the display name of the saved build behind this run, if any;
+/// `None` shows `-` on the `Build` header line.
+#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -43,7 +48,7 @@ pub fn format_optimize_report(
     let mut out = String::new();
     let w = &mut out;
 
-    write_header_text(w, character, class, input_file, timestamp);
+    write_header_text(w, character, build_name, class, input_file, timestamp);
     write_feasibility_status_text(w, result.feasible);
 
     if !result.warnings.is_empty() {
@@ -100,10 +105,12 @@ pub fn colorize_terminal_status_markers(report: &str) -> String {
 }
 
 /// Build a self-contained HTML optimize report.
+#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report_html(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -164,6 +171,12 @@ pub fn format_optimize_report_html(
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
         html_escape(character),
         html_escape(class),
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\"><strong>Build Name:</strong> {}</p>",
+        html_escape(build_name.unwrap_or("-")),
     )
     .unwrap();
     writeln!(
@@ -511,6 +524,7 @@ pub fn format_base_stats_report(
 fn write_header_text(
     w: &mut String,
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -518,6 +532,7 @@ fn write_header_text(
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w, "  {}", REPORT_TITLE).unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
+    writeln!(w, "  Build Name: {}", build_name.unwrap_or("-")).unwrap();
     writeln!(w, "  Gear List: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
@@ -1027,6 +1042,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1068,6 +1084,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1121,6 +1138,7 @@ mod tests {
                 minimum: 2000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1152,6 +1170,85 @@ mod tests {
     }
 
     #[test]
+    fn text_header_shows_build_line_between_character_and_gear_list() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            Some("BeastLord!"),
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report.find("Character :").expect("character line");
+        let build = report.find("Build Name: BeastLord!").expect("build line");
+        let gear = report.find("Gear List:").expect("gear list line");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn text_header_shows_dash_build_line_without_build_name() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report.find("Character :").expect("character line");
+        let build = report.find("Build Name: -\n").expect("dash build line");
+        let gear = report.find("Gear List:").expect("gear list line");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn html_header_escapes_build_name_and_orders_lines() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            Some("Bob & <Co>"),
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report
+            .find("<strong>Character:</strong>")
+            .expect("character");
+        let build = report
+            .find("<strong>Build Name:</strong> Bob &amp; &lt;Co&gt;</p>")
+            .expect("escaped build line");
+        let gear = report
+            .find("<strong>Gear List:</strong>")
+            .expect("gear list");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn html_header_shows_dash_build_line_without_build_name() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        assert!(report.contains("<strong>Build Name:</strong> -</p>"));
+    }
+
+    #[test]
     fn html_report_escapes_item_names() {
         let report = format_optimize_report_html(
             &sample_optimize_result_with_name("Shield <&> \"Quote\" 'Single'"),
@@ -1160,6 +1257,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1181,6 +1279,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1406,6 +1505,10 @@ mod tests {
         assert!(alpha_hood < alpha_ring);
         assert!(alpha_ring < beta_ring);
         assert!(beta_ring < gamma_boots);
+    }
+
+    fn sample_base_stats() -> HashMap<Stat, i64> {
+        HashMap::new()
     }
 
     fn sample_optimize_result() -> OptimizeResult {

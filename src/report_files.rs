@@ -5,6 +5,11 @@ use std::path::{Path, PathBuf};
 
 const STEM_PREFIX: &str = "lgo_GearReport_";
 const SCRAP_GEAR_STEM_PREFIX: &str = "lgo_ScrapGearReport_";
+/// Lowercase, because Windows filenames are case-insensitive. Named reports
+/// starting with these would collide with unnamed or scrap-gear files.
+const RESERVED_UNNAMED_STEM_PREFIXES: [&str; 2] = ["lgo_gearreport_", "lgo_scrapgearreport_"];
+const WINDOWS_FORBIDDEN_FILENAME_CHARS: &str = "<>:\"/\\|?*";
+const MAX_FILENAME_BYTES: usize = 255;
 
 #[derive(Debug, Clone)]
 pub struct ReportPaths {
@@ -28,6 +33,81 @@ pub fn write_optimize_report_files(
     })?;
 
     let stem = choose_report_stem(reports_dir)?;
+    write_report_pair(reports_dir, &stem, text_report, html_report)
+}
+
+/// Write the optimize `.txt`/`.html` pair for a saved build as
+/// `lgo_<character>_<build>.{txt,html}`. The latest run silently replaces
+/// either or both existing files; the names are validated before any write.
+pub fn write_named_optimize_report_files(
+    reports_dir: &Path,
+    character: &str,
+    build_name: &str,
+    text_report: &str,
+    html_report: &str,
+) -> Result<ReportPaths, String> {
+    let stem = named_report_stem(character, build_name)?;
+    fs::create_dir_all(reports_dir).map_err(|e| {
+        format!(
+            "cannot create reports directory {}: {}",
+            reports_dir.display(),
+            e
+        )
+    })?;
+    write_report_pair(reports_dir, &stem, text_report, html_report)
+}
+
+/// Build the `lgo_<character>_<build>` stem for a named report, rejecting any
+/// component that cannot be used as a Windows-compatible filename part. The
+/// name is never altered: an unsafe name is an error.
+pub fn named_report_stem(character: &str, build_name: &str) -> Result<String, String> {
+    validate_filename_component("character name", character)?;
+    validate_filename_component("build name", build_name)?;
+
+    let stem = format!("lgo_{character}_{build_name}");
+    let lowercase = stem.to_ascii_lowercase();
+    if RESERVED_UNNAMED_STEM_PREFIXES
+        .iter()
+        .any(|prefix| lowercase.starts_with(prefix))
+    {
+        return Err(format!(
+            "report name `{stem}` clashes with reserved unnamed report filenames; choose a different character or build name"
+        ));
+    }
+    if stem.len() + ".html".len() > MAX_FILENAME_BYTES {
+        return Err(format!(
+            "report name `{stem}` is too long for a Windows filename (more than {MAX_FILENAME_BYTES} bytes)"
+        ));
+    }
+    Ok(stem)
+}
+
+fn validate_filename_component(label: &str, value: &str) -> Result<(), String> {
+    let problem = if value.trim().is_empty() {
+        "is empty"
+    } else if value != value.trim() {
+        "has leading or trailing spaces"
+    } else if value.ends_with('.') {
+        "ends with a dot"
+    } else if value
+        .chars()
+        .any(|c| c.is_control() || WINDOWS_FORBIDDEN_FILENAME_CHARS.contains(c))
+    {
+        "contains a control character or one of < > : \" / \\ | ? *"
+    } else {
+        return Ok(());
+    };
+    Err(format!(
+        "{label} `{value}` cannot be used in a report filename: it {problem}"
+    ))
+}
+
+fn write_report_pair(
+    reports_dir: &Path,
+    stem: &str,
+    text_report: &str,
+    html_report: &str,
+) -> Result<ReportPaths, String> {
     let text_path = reports_dir.join(format!("{}.txt", stem));
     let html_path = reports_dir.join(format!("{}.html", stem));
 
@@ -296,6 +376,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -308,6 +389,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -348,6 +430,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -360,6 +443,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -421,6 +505,117 @@ mod tests {
         assert_eq!(
             fs::read_to_string(&path).expect("read scrap report"),
             "scrap report text"
+        );
+    }
+
+    #[test]
+    fn named_reports_overwrite_existing_pair_without_suffixes() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+
+        write_named_optimize_report_files(&reports_dir, "Thalya", "Strong", "old text", "old html")
+            .expect("first write succeeds");
+        let paths = write_named_optimize_report_files(
+            &reports_dir,
+            "Thalya",
+            "Strong",
+            "new text",
+            "new html",
+        )
+        .expect("second write succeeds");
+
+        assert_eq!(
+            paths.text_path.file_name().unwrap(),
+            "lgo_Thalya_Strong.txt"
+        );
+        assert_eq!(
+            paths.html_path.file_name().unwrap(),
+            "lgo_Thalya_Strong.html"
+        );
+        assert_eq!(fs::read_to_string(&paths.text_path).unwrap(), "new text");
+        assert_eq!(fs::read_to_string(&paths.html_path).unwrap(), "new html");
+        assert_eq!(fs::read_dir(&reports_dir).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn named_write_creates_missing_counterpart_when_one_file_exists() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+        fs::create_dir_all(&reports_dir).expect("reports dir created");
+        fs::write(reports_dir.join("lgo_Thalya_Strong.txt"), "stale").expect("seed text");
+
+        let paths =
+            write_named_optimize_report_files(&reports_dir, "Thalya", "Strong", "fresh", "html")
+                .expect("write succeeds");
+
+        assert_eq!(fs::read_to_string(&paths.text_path).unwrap(), "fresh");
+        assert_eq!(fs::read_to_string(&paths.html_path).unwrap(), "html");
+        assert_eq!(fs::read_dir(&reports_dir).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn named_reports_do_not_change_unnamed_serial_naming() {
+        let baseline = TempDir::new();
+        let expected = write_optimize_report_files(&baseline.reports_dir(), "t", "h")
+            .expect("unnamed write succeeds")
+            .text_path
+            .file_name()
+            .unwrap()
+            .to_owned();
+
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+        write_named_optimize_report_files(&reports_dir, "Thalya", "Strong", "t", "h")
+            .expect("named write succeeds");
+        let unnamed =
+            write_optimize_report_files(&reports_dir, "t", "h").expect("unnamed write succeeds");
+
+        assert_eq!(unnamed.text_path.file_name().unwrap(), expected);
+        assert!(expected.to_string_lossy().starts_with("lgo_GearReport_"));
+    }
+
+    #[test]
+    fn unsafe_named_report_components_are_rejected_before_any_write() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+
+        for build in [
+            "Bad/Name",
+            "Bad:Name",
+            "Bad*",
+            "trailing.",
+            " padded",
+            "",
+            "a\u{7}b",
+        ] {
+            assert!(
+                write_named_optimize_report_files(&reports_dir, "Thalya", build, "t", "h").is_err(),
+                "build name {build:?} must be rejected"
+            );
+        }
+        assert!(
+            write_named_optimize_report_files(&reports_dir, "Thalya\\X", "Strong", "t", "h")
+                .is_err()
+        );
+        assert!(
+            !reports_dir.exists(),
+            "rejected names must not create or write any report files"
+        );
+    }
+
+    #[test]
+    fn named_report_stem_rejects_reserved_unnamed_prefixes() {
+        assert!(named_report_stem("GearReport", "005").is_err());
+        assert!(named_report_stem("Thalya", "ScrapGearReport").is_ok());
+        assert!(named_report_stem("ScrapGear", "Report").is_ok());
+        assert!(named_report_stem("gearreport_x", "a").is_err());
+    }
+
+    #[test]
+    fn named_report_stem_keeps_display_name_unchanged() {
+        assert_eq!(
+            named_report_stem("Thalya", "Bob's & Co").unwrap(),
+            "lgo_Thalya_Bob's & Co"
         );
     }
 

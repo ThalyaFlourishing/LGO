@@ -174,8 +174,15 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize --to-file <stat:min> ...
     Also write a plain-text report and a self-contained HTML report into the
     character's <install>\<CharacterName>_Gear\<CharacterName>_Reports folder
-    (created if needed). Filenames are lgo_GearReport_###.txt and
-    lgo_GearReport_###.html, with a shared serial number per run.
+    (created if needed). When the run has a build name (from --save-build, or
+    from --build using the build's stored name), the files are named
+    lgo_<CharacterName>_<BuildName>.txt and lgo_<CharacterName>_<BuildName>.html.
+    These named reports are silently overwritten by each new run for that build,
+    with no prompt and no suffixes. Runs without a build name keep the existing
+    incrementing names: lgo_GearReport_###.txt and lgo_GearReport_###.html, with a
+    shared serial number per run.
+    Every optimize report header has a Build Name line after Character: it shows the
+    build name, or `-` when the run has no build name. Gear List shows only the gear file's name.
     This routing applies even when --file/-f points to a TOML outside the install
     tree: the character is taken from the TOML's top-level character = "..." field,
     falling back to the lgo_<character>_gearReady.toml filename convention, and the

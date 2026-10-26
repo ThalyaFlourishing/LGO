@@ -140,7 +140,7 @@
       
     NOTE: optimize needs the class coefficient table in data\base_stat_derivations.json to derive your raw Base stats (Might, Agility, Vitality, Will, Fate, Armour) into tracked stats. LGO always looks for the 'data' folder beside lgo.exe (the install directory), so you can run the command from anywhere.
   
-    By default, optimize prints the report only to the terminal. If you add `--to-file`, it also writes two copies of the report — one .txt and one self-contained .html file with matching lgo_GearReport_### names — into the character's reports folder, <install>\<CharacterName>_Gear\<CharacterName>_Reports\ (created if needed).
+    By default, optimize prints the report only to the terminal. If you add `--to-file`, it also writes two copies of the report — one .txt and one self-contained .html file — into the character's reports folder, <install>\<CharacterName>_Gear\<CharacterName>_Reports\ (created if needed). When the run has a build name, the files are named lgo_<CharacterName>_<BuildName>.txt/.html and are silently overwritten by each new run for that build. Runs without a build name use incrementing lgo_GearReport_### names.
   
     If you know this goal list is one of your regular builds, add
   
