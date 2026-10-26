@@ -9,9 +9,9 @@
 //!   - Any warnings (missing items, etc.)
 //!   - A clear INFEASIBLE banner explaining the clamped-satisfaction result
 
-use crate::gear::{GearSet, Slot, SlottedVirtue};
+use crate::gear::{GearSet, Slot};
 use crate::optimizer::OptimizeResult;
-use crate::stat::{Stat, StatGoal, BASE_STATS, INNATE_BASE_STATS, TRACKED_STATS};
+use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
@@ -31,10 +31,15 @@ pub struct ScrapUnusedItem {
 }
 
 /// Build the full text optimize report used for terminal and `.txt` output.
+///
+/// `build_name` is the display name of the saved build behind this run, if any;
+/// `None` shows `-` on the `Build` header line.
+#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -43,7 +48,7 @@ pub fn format_optimize_report(
     let mut out = String::new();
     let w = &mut out;
 
-    write_header_text(w, character, class, input_file, timestamp);
+    write_header_text(w, character, build_name, class, input_file, timestamp);
     write_feasibility_status_text(w, result.feasible);
 
     if !result.warnings.is_empty() {
@@ -100,10 +105,12 @@ pub fn colorize_terminal_status_markers(report: &str) -> String {
 }
 
 /// Build a self-contained HTML optimize report.
+#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report_html(
     result: &OptimizeResult,
     goals: &[StatGoal],
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -119,7 +126,7 @@ pub fn format_optimize_report_html(
     writeln!(w, "  <meta charset=\"utf-8\">").unwrap();
     writeln!(w, "  <title>{}</title>", html_escape(REPORT_TITLE)).unwrap();
     writeln!(w, "  <style>").unwrap();
-    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; margin: 2rem; color: #222; background: #cde; }}").unwrap();
+    writeln!(w, "    body {{ font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; font-size: 0.9rem; margin: 2rem; color: #222; background: #cde; }}").unwrap();
     writeln!(w, "    h1, h2 {{ margin-bottom: 0.4rem; }}").unwrap();
     writeln!(w, "    p.meta {{ margin: 0.2rem 0; }}").unwrap();
     writeln!(
@@ -131,6 +138,11 @@ pub fn format_optimize_report_html(
     writeln!(
         w,
         "    th.num, td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "    table.virtues th, table.virtues td {{ text-align: right; }}"
     )
     .unwrap();
     writeln!(w, "    .banner {{ font-weight: 700; padding: 0.75rem 1rem; border-radius: 0.35rem; margin: 1.25rem 0; }}").unwrap();
@@ -159,6 +171,12 @@ pub fn format_optimize_report_html(
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
         html_escape(character),
         html_escape(class),
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "  <p class=\"meta\"><strong>Build Name:</strong> {}</p>",
+        html_escape(build_name.unwrap_or("-")),
     )
     .unwrap();
     writeln!(
@@ -436,12 +454,17 @@ pub fn format_base_stats_report(
     writeln!(w).unwrap();
     writeln!(
         w,
-        "  Raw Base stats from [InnateStats] (derivation inputs only):"
+        "  Raw Base stats (derivation inputs only; Might through Fate from [InnateStats], innate Armour is always 0):"
     )
     .unwrap();
     writeln!(w).unwrap();
-    for (stat, _) in INNATE_BASE_STATS {
-        let value = innate_base.get(stat).copied().unwrap_or(0);
+    for (stat, _) in BASE_STATS {
+        // Innate Armour is never read from [InnateStats] and is always zero.
+        let value = if *stat == Stat::Armor {
+            0
+        } else {
+            innate_base.get(stat).copied().unwrap_or(0)
+        };
         writeln!(
             w,
             "  {:<COL_STAT$}  {:>COL_VALUE$}",
@@ -506,6 +529,7 @@ pub fn format_base_stats_report(
 fn write_header_text(
     w: &mut String,
     character: &str,
+    build_name: Option<&str>,
     class: &str,
     input_file: &str,
     timestamp: &str,
@@ -513,6 +537,7 @@ fn write_header_text(
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w, "  {}", REPORT_TITLE).unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
+    writeln!(w, "  Build Name: {}", build_name.unwrap_or("-")).unwrap();
     writeln!(w, "  Gear List: {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
@@ -570,26 +595,10 @@ fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w, "  {}", divider).unwrap();
 }
 
-/// One line per chosen Virtue: its name and the tracked stats it contributes
-/// (already class-derived and linked), in canonical TRACKED_STATS order.
-fn virtue_contribution_summary(virtue: &SlottedVirtue) -> String {
-    let parts: Vec<String> = TRACKED_STATS
-        .iter()
-        .filter_map(|(stat, _)| {
-            let value = virtue.stat(stat);
-            (value != 0).then(|| format!("{} {}", stat, format_number(value)))
-        })
-        .collect();
-    if parts.is_empty() {
-        "—".to_string()
-    } else {
-        parts.join(", ")
-    }
-}
-
-/// The five Virtues the optimizer chose alongside the gear. Virtues are
-/// listed in JSON canonical (sorted-name) order, which is also the order the
-/// optimizer slotted them in.
+/// The five Virtues the optimizer chose alongside the gear, names only.
+/// Virtues are listed in JSON canonical (sorted-name) order, which is also
+/// the order the optimizer slotted them in. Contributions still count toward
+/// projected totals; they are simply not shown here.
 fn write_virtues_text(w: &mut String, gear_set: &GearSet) {
     if gear_set.virtues.is_empty() {
         return;
@@ -599,20 +608,12 @@ fn write_virtues_text(w: &mut String, gear_set: &GearSet) {
     writeln!(w).unwrap();
     writeln!(w, "  {}", divider).unwrap();
     writeln!(w, "  Virtues (chosen by the optimizer):").unwrap();
-    writeln!(
-        w,
-        "  {:>COL_SLOT$}  Contributed stats",
-        "Virtue",
-        COL_SLOT = COL_SLOT
-    )
-    .unwrap();
     writeln!(w, "  {}", divider).unwrap();
     for virtue in &gear_set.virtues {
         writeln!(
             w,
-            "  {:>COL_SLOT$}  {}",
+            "  {:>COL_SLOT$}",
             truncate(&virtue.name, COL_SLOT),
-            virtue_contribution_summary(virtue),
             COL_SLOT = COL_SLOT
         )
         .unwrap();
@@ -630,21 +631,11 @@ fn write_virtues_html(w: &mut String, gear_set: &GearSet) {
         "  <p class=\"meta\">The five Virtues chosen by the optimizer jointly with the gear.</p>"
     )
     .unwrap();
-    writeln!(w, "  <table>").unwrap();
-    writeln!(
-        w,
-        "    <thead><tr><th>Virtue</th><th>Contributed stats</th></tr></thead>"
-    )
-    .unwrap();
+    writeln!(w, "  <table class=\"virtues\">").unwrap();
+    writeln!(w, "    <thead><tr><th>Virtue</th></tr></thead>").unwrap();
     writeln!(w, "    <tbody>").unwrap();
     for virtue in &gear_set.virtues {
-        writeln!(
-            w,
-            "      <tr><td>{}</td><td>{}</td></tr>",
-            html_escape(&virtue.name),
-            html_escape(&virtue_contribution_summary(virtue)),
-        )
-        .unwrap();
+        writeln!(w, "      <tr><td>{}</td></tr>", html_escape(&virtue.name)).unwrap();
     }
     writeln!(w, "    </tbody>").unwrap();
     writeln!(w, "  </table>").unwrap();
@@ -1048,6 +1039,122 @@ mod tests {
     }
 
     #[test]
+    fn base_stats_raw_section_lists_six_base_stats_in_canonical_order() {
+        // Armour is supplied in the innate map but must still print as 0.
+        let innate_base: HashMap<Stat, i64> = [
+            (Stat::Might, 5300),
+            (Stat::Agility, 2650),
+            (Stat::Vitality, 10200),
+            (Stat::Will, 7950),
+            (Stat::Fate, 4000),
+            (Stat::Armor, 999),
+        ]
+        .into_iter()
+        .collect();
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &innate_base,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+
+        let raw_at = report
+            .find("Raw Base stats (derivation inputs only")
+            .expect("raw header");
+        let derived_at = report
+            .find("Derived tracked-stat contributions")
+            .expect("derived header");
+        let raw_section = &report[raw_at..derived_at];
+        assert!(raw_section.contains("innate Armour is always 0"));
+
+        let row_for = |stat: &str| -> (usize, String) {
+            let prefix = format!("  {:<COL_STAT$}", stat, COL_STAT = COL_STAT);
+            let matches: Vec<(usize, &str)> = raw_section
+                .match_indices(&prefix)
+                .filter(|(i, _)| *i == 0 || raw_section.as_bytes()[i - 1] == b'\n')
+                .collect();
+            assert_eq!(matches.len(), 1, "raw section must list {} once", stat);
+            let (pos, _) = matches[0];
+            let line = raw_section[pos..].lines().next().expect("row line");
+            (pos, line[prefix.len()..].trim().to_string())
+        };
+
+        let order = ["Might", "Agility", "Vitality", "Will", "Fate", "Armour"];
+        let rows: Vec<(usize, String)> = order.iter().map(|s| row_for(s)).collect();
+        for pair in rows.windows(2) {
+            assert!(pair[0].0 < pair[1].0, "rows must follow canonical order");
+        }
+        assert_eq!(rows[0].1, "5,300");
+        assert_eq!(rows[4].1, "4,000");
+        assert_eq!(rows[5].1, "0");
+    }
+
+    #[test]
+    fn base_stats_armour_absent_from_tracked_baseline_tables() {
+        let derived: HashMap<Stat, i64> = [(Stat::TacticalMastery, 39750)].into_iter().collect();
+        let fixed: HashMap<Stat, i64> = [(Stat::TacticalMastery, 33125)].into_iter().collect();
+        let report = format_base_stats_report(
+            "Thalya",
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            &HashMap::new(),
+            &derived,
+            &fixed,
+        );
+
+        let derived_at = report
+            .find("Derived tracked-stat contributions")
+            .expect("derived header");
+        let baseline_at = report
+            .find("Fixed tracked-stat baseline before gear")
+            .expect("baseline header");
+        for section in [&report[derived_at..baseline_at], &report[baseline_at..]] {
+            assert!(
+                !section.lines().any(|line| line.starts_with("  Armour")),
+                "tracked tables must not list Armour"
+            );
+        }
+    }
+
+    #[test]
+    fn optimize_projected_base_stats_show_armour_once_in_text_and_html() {
+        let projected: HashMap<Stat, i64> = [(Stat::Might, 5300), (Stat::Armor, 1234567)]
+            .into_iter()
+            .collect();
+        let text = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-10-22 04:04:42 -07:00",
+            &projected,
+        );
+        let armour_rows: Vec<&str> = text
+            .lines()
+            .filter(|line| line.trim_start().starts_with("Armour"))
+            .collect();
+        assert_eq!(armour_rows.len(), 1, "text must list Armour once");
+        assert!(armour_rows[0].trim_end().ends_with("1,234,567"));
+
+        let html = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-10-22 04:04:42 -07:00",
+            &projected,
+        );
+        assert_eq!(html.matches("<td>Armour</td>").count(), 1);
+        assert!(html.contains("<td>Armour</td><td class=\"num\">1,234,567</td>"));
+    }
+
+    #[test]
     fn optimize_report_lists_timestamp_and_all_projected_stats() {
         let report = format_optimize_report(
             &sample_optimize_result(),
@@ -1056,6 +1163,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1097,6 +1205,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1150,6 +1259,7 @@ mod tests {
                 minimum: 2000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1181,6 +1291,85 @@ mod tests {
     }
 
     #[test]
+    fn text_header_shows_build_line_between_character_and_gear_list() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            Some("BeastLord!"),
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report.find("Character :").expect("character line");
+        let build = report.find("Build Name: BeastLord!").expect("build line");
+        let gear = report.find("Gear List:").expect("gear list line");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn text_header_shows_dash_build_line_without_build_name() {
+        let report = format_optimize_report(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report.find("Character :").expect("character line");
+        let build = report.find("Build Name: -\n").expect("dash build line");
+        let gear = report.find("Gear List:").expect("gear list line");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn html_header_escapes_build_name_and_orders_lines() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            Some("Bob & <Co>"),
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        let character = report
+            .find("<strong>Character:</strong>")
+            .expect("character");
+        let build = report
+            .find("<strong>Build Name:</strong> Bob &amp; &lt;Co&gt;</p>")
+            .expect("escaped build line");
+        let gear = report
+            .find("<strong>Gear List:</strong>")
+            .expect("gear list");
+        assert!(character < build && build < gear);
+    }
+
+    #[test]
+    fn html_header_shows_dash_build_line_without_build_name() {
+        let report = format_optimize_report_html(
+            &sample_optimize_result(),
+            &[],
+            "Thalya",
+            None,
+            "Lore-master",
+            "lgo_Thalya_gearReady.toml",
+            "2026-08-31 08:00:00 +00:00",
+            &sample_base_stats(),
+        );
+
+        assert!(report.contains("<strong>Build Name:</strong> -</p>"));
+    }
+
+    #[test]
     fn html_report_escapes_item_names() {
         let report = format_optimize_report_html(
             &sample_optimize_result_with_name("Shield <&> \"Quote\" 'Single'"),
@@ -1189,6 +1378,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1210,6 +1400,7 @@ mod tests {
                 minimum: 1000,
             }],
             "Thalya",
+            None,
             "Lore-master",
             "lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
@@ -1437,6 +1628,10 @@ mod tests {
         assert!(beta_ring < gamma_boots);
     }
 
+    fn sample_base_stats() -> HashMap<Stat, i64> {
+        HashMap::new()
+    }
+
     fn sample_optimize_result() -> OptimizeResult {
         sample_optimize_result_with_name("Simple Helm")
     }
@@ -1514,5 +1709,111 @@ mod tests {
             either_hand: false,
             stats: HashMap::new(),
         }
+    }
+
+    fn gear_set_with_virtues(names: &[&str]) -> GearSet {
+        let mut gear_set = GearSet::new(HashMap::new());
+        for name in names {
+            gear_set.virtues.push(crate::gear::SlottedVirtue {
+                name: name.to_string(),
+                stats: [(Stat::CriticalRating, 50)].into_iter().collect(),
+                base_stats: [(Stat::Might, 10)].into_iter().collect(),
+            });
+        }
+        gear_set
+    }
+
+    #[test]
+    fn virtues_text_lists_names_only_right_aligned_in_order() {
+        let gear_set =
+            gear_set_with_virtues(&["Confidence", "Determination", "Honesty", "Wit", "Zeal"]);
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+
+        let expected = [
+            "      Confidence",
+            "   Determination",
+            "         Honesty",
+            "             Wit",
+            "            Zeal",
+        ];
+        let lines: Vec<&str> = out.lines().collect();
+        let heading = lines
+            .iter()
+            .position(|l| *l == "  Virtues (chosen by the optimizer):")
+            .expect("heading");
+        assert_eq!(
+            lines[heading + 1],
+            format!("  {}", "─".repeat(COL_SLOT + COL_ITEM + 3))
+        );
+        assert_eq!(&lines[heading + 2..heading + 7], &expected);
+        assert_eq!(lines[heading + 7], lines[heading + 1], "closing divider");
+        assert_eq!(
+            lines.len(),
+            heading + 8,
+            "nothing after the closing divider"
+        );
+    }
+
+    #[test]
+    fn virtues_text_omits_contributed_stat_details() {
+        let gear_set = gear_set_with_virtues(&["Honesty", "Zeal"]);
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+
+        assert!(
+            !out.contains("Contributed"),
+            "obsolete column header:\n{out}"
+        );
+        assert!(!out.contains("Virtue "), "obsolete column header:\n{out}");
+        assert!(!out.contains("Critical"), "stat name leaked:\n{out}");
+        assert!(!out.contains("Might"), "base stat leaked:\n{out}");
+        assert!(!out.contains("50"), "stat value leaked:\n{out}");
+        assert!(!out.contains(','), "separators leaked:\n{out}");
+    }
+
+    #[test]
+    fn virtues_text_empty_list_omits_section() {
+        let gear_set = GearSet::new(HashMap::new());
+        let mut out = String::new();
+        write_virtues_text(&mut out, &gear_set);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn virtues_html_has_single_escaped_name_column() {
+        let gear_set = gear_set_with_virtues(&["Zeal", "<Wit & Co>"]);
+        let mut out = String::new();
+        write_virtues_html(&mut out, &gear_set);
+
+        assert!(out.contains("<table class=\"virtues\">"));
+        assert!(out.contains("<thead><tr><th>Virtue</th></tr></thead>"));
+        assert!(!out.contains("Contributed"), "obsolete column:\n{out}");
+        assert!(!out.contains("CriticalRating"), "stat leaked:\n{out}");
+        assert_eq!(
+            out.matches("<td>").count(),
+            2,
+            "one name cell per row:\n{out}"
+        );
+        assert!(out.contains("<tr><td>Zeal</td></tr>"));
+        assert!(out.contains("<tr><td>&lt;Wit &amp; Co&gt;</td></tr>"));
+        let zeal = out.find("Zeal").unwrap();
+        let wit = out.find("&lt;Wit").unwrap();
+        assert!(zeal < wit, "input order preserved");
+    }
+
+    #[test]
+    fn virtues_html_empty_list_omits_section() {
+        let gear_set = GearSet::new(HashMap::new());
+        let mut out = String::new();
+        write_virtues_html(&mut out, &gear_set);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn virtue_contributions_still_count_toward_totals() {
+        let gear_set = gear_set_with_virtues(&["Zeal", "Wit"]);
+        assert_eq!(gear_set.total(&Stat::CriticalRating), 100);
+        assert_eq!(gear_set.total(&Stat::Might), 0, "Base stats are not totals");
     }
 }

@@ -500,7 +500,7 @@ fn run_optimize(cli: &OptimizeCli) {
         None
     };
 
-    let goals = if let Some(build_name) = &cli.build {
+    let (goals, selected_build_name) = if let Some(build_name) = &cli.build {
         let builds_file = builds_file
             .as_ref()
             .expect("builds file path must exist when --build is used");
@@ -516,7 +516,7 @@ fn run_optimize(cli: &OptimizeCli) {
             process::exit(1);
         }
         match saved_builds.find(build_name) {
-            Some(build) => build.goals.clone(),
+            Some(build) => (build.goals.clone(), Some(build.name.clone())),
             None => {
                 eprintln!(
                     "Error: no saved build named '{}' found in {}.",
@@ -531,8 +531,11 @@ fn run_optimize(cli: &OptimizeCli) {
             }
         }
     } else {
-        cli.goals.clone()
+        (cli.goals.clone(), None)
     };
+
+    // `--save-build` names the profile this run creates, so it wins over `--build`.
+    let report_build_name = report_build_name(cli.save_build.as_deref(), selected_build_name);
 
     let reports_dir = cli.to_file.then(|| {
         resolve_reports_dir(
@@ -541,6 +544,15 @@ fn run_optimize(cli: &OptimizeCli) {
             gear_doc.character.as_deref(),
         )
     });
+
+    if cli.to_file {
+        if let Some(build_name) = &report_build_name {
+            if let Err(e) = report_files::named_report_stem(&character, build_name) {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        }
+    }
 
     let derivations = load_derivations_or_exit();
     let virtue_candidates = load_virtue_candidates_or_exit(&class, &derivations);
@@ -563,14 +575,16 @@ fn run_optimize(cli: &OptimizeCli) {
         &result.gear_set,
         &gear_doc.items,
     );
-    let stats_file_display = stats_file.display().to_string();
+    let gear_list_name = gear_list_display_name(&stats_file);
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    let build_name = report_build_name.as_deref();
     let text_report = report::format_optimize_report(
         &result,
         &goals,
         &character,
+        build_name,
         &class,
-        &stats_file_display,
+        &gear_list_name,
         &timestamp,
         &projected_base_stats,
     );
@@ -604,13 +618,26 @@ fn run_optimize(cli: &OptimizeCli) {
             &result,
             &goals,
             &character,
+            build_name,
             &class,
-            &stats_file_display,
+            &gear_list_name,
             &timestamp,
             &projected_base_stats,
         );
 
-        match report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report) {
+        let written = match build_name {
+            Some(name) => report_files::write_named_optimize_report_files(
+                &reports_dir,
+                &character,
+                name,
+                &text_report,
+                &html_report,
+            ),
+            None => {
+                report_files::write_optimize_report_files(&reports_dir, &text_report, &html_report)
+            }
+        };
+        match written {
             Ok(paths) => {
                 println!(
                     "  Report written to: {} and {}",
@@ -623,6 +650,21 @@ fn run_optimize(cli: &OptimizeCli) {
             }
         }
     }
+}
+
+/// Only the input gear file's name without its extension is shown in report
+/// headers; its parent folders are local detail.
+fn gear_list_display_name(stats_file: &Path) -> String {
+    stats_file
+        .file_stem()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| stats_file.display().to_string())
+}
+
+/// The build name shown in reports and used for named report files. A
+/// `--save-build` name wins because it names the profile this run creates.
+fn report_build_name(save_build: Option<&str>, selected_build: Option<String>) -> Option<String> {
+    save_build.map(String::from).or(selected_build)
 }
 
 fn projected_base_stats(
@@ -1210,7 +1252,8 @@ fn print_usage() {
     println!("                      (auto-detected when only one exists)");
     println!("  --file      <path>  Explicit canonical gear TOML to read instead of auto-detect");
     println!();
-    println!("  base-stats prints the five raw innate Base stats from [InnateStats] and the");
+    println!("  base-stats prints the six raw Base stats (Armour is always 0 innately; the other");
+    println!("  five come from [InnateStats]) and the");
     println!("  tracked-stat contributions derived from them (already included in optimize");
     println!("  totals), then the fixed tracked-stat baseline optimize starts from");
     println!("  (VirtueInnateStats, Base derivation, Tactical Mastery -> Outgoing Healing link).");
@@ -1292,6 +1335,25 @@ mod tests {
             let cmd = parse_command(&s(&[token])).expect("help token should parse");
             assert!(matches!(cmd, Command::Help));
         }
+    }
+
+    #[test]
+    fn gear_list_shows_only_input_file_name_without_extension() {
+        let path = Path::new("/games/Install/Thalya_Gear/lgo_Thalya_gearReady.toml");
+        assert_eq!(gear_list_display_name(path), "lgo_Thalya_gearReady");
+    }
+
+    #[test]
+    fn save_build_name_takes_precedence_over_selected_build() {
+        assert_eq!(
+            report_build_name(Some("New"), Some("Stored".to_string())),
+            Some("New".to_string())
+        );
+        assert_eq!(
+            report_build_name(None, Some("BeastLord!".to_string())),
+            Some("BeastLord!".to_string())
+        );
+        assert_eq!(report_build_name(None, None), None);
     }
 
     #[test]

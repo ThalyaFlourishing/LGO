@@ -162,8 +162,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     run from anywhere. optimize errors clearly if the class entry or the
     derivation file is missing, if data\lgo_virtues.json is missing, or if it
     defines fewer than five Virtues.
-    The report content includes the chosen gear, goal summary, the five chosen
-    Virtues with their contributed stats, the full projected 13 tracked stats
+    The report content includes the chosen gear, goal summary, the names of the
+    five chosen Virtues, the full projected 13 tracked stats
     (zero rows included), and the combined raw Base-stat pool (which includes
     the chosen Virtues' Base stats).
 
@@ -174,8 +174,15 @@ SECTION 3 - LGO CLI (USER COMMANDS)
   lgo optimize --to-file <stat:min> ...
     Also write a plain-text report and a self-contained HTML report into the
     character's <install>\<CharacterName>_Gear\<CharacterName>_Reports folder
-    (created if needed). Filenames are lgo_GearReport_###.txt and
-    lgo_GearReport_###.html, with a shared serial number per run.
+    (created if needed). When the run has a build name (from --save-build, or
+    from --build using the build's stored name), the files are named
+    lgo_<CharacterName>_<BuildName>.txt and lgo_<CharacterName>_<BuildName>.html.
+    These named reports are silently overwritten by each new run for that build,
+    with no prompt and no suffixes. Runs without a build name keep the existing
+    incrementing names: lgo_GearReport_###.txt and lgo_GearReport_###.html, with a
+    shared serial number per run.
+    Every optimize report header has a Build Name line after Character: it shows the
+    build name, or `-` when the run has no build name. Gear List shows only the gear file's name without its extension (e.g. lgo_Thalya_gearReady).
     This routing applies even when --file/-f points to a TOML outside the install
     tree: the character is taken from the TOML's top-level character = "..." field,
     falling back to the lgo_<character>_gearReady.toml filename convention, and the
@@ -258,8 +265,10 @@ SECTION 3 - LGO CLI (USER COMMANDS)
 
 3.6 base-stats
   lgo base-stats
-    Print the five raw innate Base stats from [InnateStats] in
-    lgo_<character>_gearReady.toml, and the 13 derived tracked-stat
+    Print the six raw Base stats in canonical order (Might, Agility, Vitality,
+    Will, Fate, Armour). The first five come from [InnateStats] in
+    lgo_<character>_gearReady.toml; innate Armour is always 0 and is not read
+    from the file. Then print the 13 derived tracked-stat
     contributions computed from them (already included in optimize totals).
     That derived table is Base-stats-only and excludes the Tactical Mastery ->
     Outgoing Healing link. A second section, "Fixed tracked-stat baseline before
