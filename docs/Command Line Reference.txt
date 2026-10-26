@@ -182,7 +182,7 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     incrementing names: lgo_GearReport_###.txt and lgo_GearReport_###.html, with a
     shared serial number per run.
     Every optimize report header has a Build Name line after Character: it shows the
-    build name, or `-` when the run has no build name. Gear List shows only the gear file's name.
+    build name, or `-` when the run has no build name. Gear List shows only the gear file's name without its extension (e.g. lgo_Thalya_gearReady).
     This routing applies even when --file/-f points to a TOML outside the install
     tree: the character is taken from the TOML's top-level character = "..." field,
     falling back to the lgo_<character>_gearReady.toml filename convention, and the

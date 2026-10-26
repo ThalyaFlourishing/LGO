@@ -652,11 +652,11 @@ fn run_optimize(cli: &OptimizeCli) {
     }
 }
 
-/// Only the input gear file's basename is shown in report headers; its parent
-/// folders are local detail.
+/// Only the input gear file's name without its extension is shown in report
+/// headers; its parent folders are local detail.
 fn gear_list_display_name(stats_file: &Path) -> String {
     stats_file
-        .file_name()
+        .file_stem()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| stats_file.display().to_string())
 }
@@ -1338,9 +1338,9 @@ mod tests {
     }
 
     #[test]
-    fn gear_list_shows_only_input_file_basename() {
+    fn gear_list_shows_only_input_file_name_without_extension() {
         let path = Path::new("/games/Install/Thalya_Gear/lgo_Thalya_gearReady.toml");
-        assert_eq!(gear_list_display_name(path), "lgo_Thalya_gearReady.toml");
+        assert_eq!(gear_list_display_name(path), "lgo_Thalya_gearReady");
     }
 
     #[test]
