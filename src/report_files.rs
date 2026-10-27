@@ -283,7 +283,7 @@ mod tests {
     use super::*;
     use crate::gear::{GearItem, GearSet, Slot};
     use crate::optimizer::OptimizeResult;
-    use crate::report::{format_optimize_report, format_optimize_report_html};
+    use crate::report::{format_optimize_report, format_optimize_report_html, ReportHeader};
     use crate::stat::{Stat, StatGoal, BASE_STATS, TRACKED_STATS};
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -402,11 +402,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
         let html_report = format_optimize_report_html(
@@ -415,11 +411,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
 
@@ -456,11 +448,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
         let html_report = format_optimize_report_html(
@@ -469,11 +457,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
 
@@ -683,6 +667,16 @@ mod tests {
             feasible: true,
             failed_minima: Vec::new(),
             warnings: Vec::new(),
+        }
+    }
+
+    fn sample_header(build_name: Option<&'static str>) -> ReportHeader<'static> {
+        ReportHeader {
+            character: "Thalya",
+            build_name,
+            class: "Lore-master",
+            gear_list: "lgo_Thalya_gearReady.toml",
+            timestamp: "2026-08-31 08:00:00 +00:00",
         }
     }
 

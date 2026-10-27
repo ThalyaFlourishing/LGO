@@ -578,16 +578,15 @@ fn run_optimize(cli: &OptimizeCli) {
     let gear_list_name = gear_list_display_name(&stats_file);
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
     let build_name = report_build_name.as_deref();
-    let text_report = report::format_optimize_report(
-        &result,
-        &goals,
-        &character,
+    let header = report::ReportHeader {
+        character: &character,
         build_name,
-        &class,
-        &gear_list_name,
-        &timestamp,
-        &projected_base_stats,
-    );
+        class: &class,
+        gear_list: &gear_list_name,
+        timestamp: &timestamp,
+    };
+    let text_report =
+        report::format_optimize_report(&result, &goals, header, &projected_base_stats);
     print!("{}", report::colorize_terminal_status_markers(&text_report));
 
     if let Some(build_name) = &cli.save_build {
@@ -614,16 +613,8 @@ fn run_optimize(cli: &OptimizeCli) {
     }
 
     if let Some(reports_dir) = reports_dir {
-        let html_report = report::format_optimize_report_html(
-            &result,
-            &goals,
-            &character,
-            build_name,
-            &class,
-            &gear_list_name,
-            &timestamp,
-            &projected_base_stats,
-        );
+        let html_report =
+            report::format_optimize_report_html(&result, &goals, header, &projected_base_stats);
 
         let written = match build_name {
             Some(name) => report_files::write_named_optimize_report_files(
