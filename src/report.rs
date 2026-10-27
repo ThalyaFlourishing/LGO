@@ -30,25 +30,29 @@ pub struct ScrapUnusedItem {
     pub max_used_count: usize,
 }
 
+/// The header fields shared by the text and HTML optimize reports.
+#[derive(Debug, Clone, Copy)]
+pub struct ReportHeader<'a> {
+    pub character: &'a str,
+    /// `None` renders as `-`.
+    pub build_name: Option<&'a str>,
+    pub class: &'a str,
+    /// The gear file's stem (no folders, no extension).
+    pub gear_list: &'a str,
+    pub timestamp: &'a str,
+}
+
 /// Build the full text optimize report used for terminal and `.txt` output.
-///
-/// `build_name` is the display name of the saved build behind this run, if any;
-/// `None` shows `-` on the `Build` header line.
-#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report(
     result: &OptimizeResult,
     goals: &[StatGoal],
-    character: &str,
-    build_name: Option<&str>,
-    class: &str,
-    input_file: &str,
-    timestamp: &str,
+    header: ReportHeader<'_>,
     projected_base_stats: &HashMap<Stat, i64>,
 ) -> String {
     let mut out = String::new();
     let w = &mut out;
 
-    write_header_text(w, character, build_name, class, input_file, timestamp);
+    write_header_text(w, header);
     write_feasibility_status_text(w, result.feasible);
 
     if !result.warnings.is_empty() {
@@ -105,15 +109,10 @@ pub fn colorize_terminal_status_markers(report: &str) -> String {
 }
 
 /// Build a self-contained HTML optimize report.
-#[allow(clippy::too_many_arguments)] // Header fields are passed explicitly so both formats share one call shape.
 pub fn format_optimize_report_html(
     result: &OptimizeResult,
     goals: &[StatGoal],
-    character: &str,
-    build_name: Option<&str>,
-    class: &str,
-    input_file: &str,
-    timestamp: &str,
+    header: ReportHeader<'_>,
     projected_base_stats: &HashMap<Stat, i64>,
 ) -> String {
     let failed_stats: HashSet<Stat> = result.failed_minima.iter().map(|(s, _, _)| *s).collect();
@@ -169,26 +168,26 @@ pub fn format_optimize_report_html(
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Character:</strong> {} ({})</p>",
-        html_escape(character),
-        html_escape(class),
+        html_escape(header.character),
+        html_escape(header.class),
     )
     .unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Build Name:</strong> {}</p>",
-        html_escape(build_name.unwrap_or("-")),
+        html_escape(header.build_name.unwrap_or("-")),
     )
     .unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Gear List:</strong> <code>{}</code></p>",
-        html_escape(input_file),
+        html_escape(header.gear_list),
     )
     .unwrap();
     writeln!(
         w,
         "  <p class=\"meta\"><strong>Run time:</strong> {}</p>",
-        html_escape(timestamp),
+        html_escape(header.timestamp),
     )
     .unwrap();
     write_feasibility_status_html(w, result.feasible);
@@ -526,20 +525,13 @@ pub fn format_base_stats_report(
     out
 }
 
-fn write_header_text(
-    w: &mut String,
-    character: &str,
-    build_name: Option<&str>,
-    class: &str,
-    input_file: &str,
-    timestamp: &str,
-) {
+fn write_header_text(w: &mut String, header: ReportHeader<'_>) {
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
     writeln!(w, "  {}", REPORT_TITLE).unwrap();
-    writeln!(w, "  Character : {} ({})", character, class).unwrap();
-    writeln!(w, "  Build Name: {}", build_name.unwrap_or("-")).unwrap();
-    writeln!(w, "  Gear List : {}", input_file).unwrap();
-    writeln!(w, "  Run time  : {}", timestamp).unwrap();
+    writeln!(w, "  Character : {} ({})", header.character, header.class).unwrap();
+    writeln!(w, "  Build Name: {}", header.build_name.unwrap_or("-")).unwrap();
+    writeln!(w, "  Gear List : {}", header.gear_list).unwrap();
+    writeln!(w, "  Run time  : {}", header.timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
 }
 
@@ -1126,11 +1118,7 @@ mod tests {
         let text = format_optimize_report(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-10-22 04:04:42 -07:00",
+            sample_header(None),
             &projected,
         );
         let armour_rows: Vec<&str> = text
@@ -1143,11 +1131,7 @@ mod tests {
         let html = format_optimize_report_html(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-10-22 04:04:42 -07:00",
+            sample_header(None),
             &projected,
         );
         assert_eq!(html.matches("<td>Armour</td>").count(), 1);
@@ -1162,11 +1146,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &[
                 (Stat::Might, 5300),
                 (Stat::Agility, 2650),
@@ -1204,11 +1184,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &HashMap::new(),
         );
 
@@ -1258,11 +1234,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 2000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &HashMap::new(),
         );
 
@@ -1295,11 +1267,7 @@ mod tests {
         let report = format_optimize_report(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            Some("BeastLord!"),
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(Some("BeastLord!")),
             &sample_base_stats(),
         );
 
@@ -1314,11 +1282,7 @@ mod tests {
         let report = format_optimize_report(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
 
@@ -1333,11 +1297,7 @@ mod tests {
         let report = format_optimize_report_html(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            Some("Bob & <Co>"),
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(Some("Bob & <Co>")),
             &sample_base_stats(),
         );
 
@@ -1358,11 +1318,7 @@ mod tests {
         let report = format_optimize_report_html(
             &sample_optimize_result(),
             &[],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &sample_base_stats(),
         );
 
@@ -1377,11 +1333,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &HashMap::new(),
         );
 
@@ -1399,11 +1351,7 @@ mod tests {
                 stat: Stat::Finesse,
                 minimum: 1000,
             }],
-            "Thalya",
-            None,
-            "Lore-master",
-            "lgo_Thalya_gearReady.toml",
-            "2026-08-31 08:00:00 +00:00",
+            sample_header(None),
             &HashMap::new(),
         );
 
@@ -1630,6 +1578,16 @@ mod tests {
 
     fn sample_base_stats() -> HashMap<Stat, i64> {
         HashMap::new()
+    }
+
+    fn sample_header(build_name: Option<&'static str>) -> ReportHeader<'static> {
+        ReportHeader {
+            character: "Thalya",
+            build_name,
+            class: "Lore-master",
+            gear_list: "lgo_Thalya_gearReady.toml",
+            timestamp: "2026-08-31 08:00:00 +00:00",
+        }
     }
 
     fn sample_optimize_result() -> OptimizeResult {
