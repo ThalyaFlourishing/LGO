@@ -693,24 +693,24 @@ fn projected_base_stats(
 fn doc_item_matches_selected(
     doc_item: &gearstats::DocItem,
     selected_item: &gear::GearItem,
-    equipped_slot: gear::Slot,
+    chosen_slot: gear::Slot,
 ) -> bool {
     doc_item.item.name == selected_item.name
         && doc_item.item.two_handed == selected_item.two_handed
         && doc_item.item.either_hand == selected_item.either_hand
         && doc_item.item.stats == selected_item.stats
-        && slots_match_for_report(doc_item.item.slot, equipped_slot, selected_item.either_hand)
+        && slots_match_for_report(doc_item.item.slot, chosen_slot, selected_item.either_hand)
 }
 
 fn slots_match_for_report(
     original_slot: gear::Slot,
-    equipped_slot: gear::Slot,
+    chosen_slot: gear::Slot,
     either_hand: bool,
 ) -> bool {
-    original_slot.display_name() == equipped_slot.display_name()
+    original_slot.display_name() == chosen_slot.display_name()
         || (either_hand
             && original_slot == gear::Slot::OffHand
-            && equipped_slot == gear::Slot::MainHand)
+            && chosen_slot == gear::Slot::MainHand)
 }
 
 fn merge_stat_totals(src: &HashMap<stat::Stat, i64>, dst: &mut HashMap<stat::Stat, i64>) {

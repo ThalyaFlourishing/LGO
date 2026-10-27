@@ -11,15 +11,16 @@ SECTION 1 - IN-GAME PLUGIN COMMANDS
     Show plugin help text (lists plugin subcommands and workflow reminder).
 
   /lgo export
-    Export a unified gearlist from equipped items plus Shared Storage chest "LGO".
+    Export a unified gearlist: one flat list of owned item names, made up of
+    everything the character is wearing plus Shared Storage chest "LGO".
     Writes lgo_<character-name>_gearNames_<timestamp>.plugindata.
     The export also records its version and the character's name, class,
     five raw Base stats, and level.
-    Equipped craft tool (slot 19) and bridle (slot 21) are automatically excluded —
-    there is no need to unequip them before exporting.
+    The plugin skips the craft-tool (slot 19) and bridle (slot 21) slots,
+    so there is no need to unequip them before exporting.
 
   /lgo export chest <name>
-    Export equipped items (same exclusions as above) plus Shared Storage chest <name>.
+    Export the same flat list (worn items, minus slots 19 and 21) plus Shared Storage chest <name>.
 
 SECTION 2 - BOOKMARKLET WORKFLOW!
 --------------------------------
