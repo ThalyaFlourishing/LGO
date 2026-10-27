@@ -21,12 +21,10 @@ Binary output:
 
 See [`docs/User Workflow.txt`](docs/User%20Workflow.txt) for the full step-by-step. In brief:
 
-1. Put candidate gear in an in-game shared-storage chest named `lgo` and run `/lgo export`. Equipped items are exported automatically; equipped craft tools and bridles are excluded (no need to unequip them).
+1. Put candidate gear in an in-game shared-storage chest named `lgo` and run `/lgo export`. `/lgo export` writes one flat list of owned item names: everything the character is wearing plus the contents of the Shared Storage chest named `lgo`. Where an item came from is not recorded and does not matter to LGO. The plugin skips the craft-tool and bridle slots, so there is no need to unequip them.
 2. On lotro-wiki.com, click the **LGO Stats** bookmarklet, paste the `lgo_*_gearNames_<timestamp>.plugindata` content you copied, and save the result as `lgo_<character>_gearStats.toml`.
 3. Run `lgo resolve-slots` to merge into `lgo_<character>_gearReady.toml` (hand-edit legendaries / `Unknown` slots as needed).
 4. Run `lgo optimize <stat:minimum> …` and read the report.
-
-- Measured innate baseline: the plugin exports Max Morale/Power and the equipped set so the optimizer can calibrate the character's innate baseline instead of guessing it.
 
 ## Stat goal syntax
 
@@ -47,14 +45,13 @@ lgo optimize --character Thalya tm:450000 oh:100000
 
 | Abbrev | Stat key | Abbrev | Stat key |
 |---|---|---|---|
-| `ml` | `Morale` | `cd` | `CriticalDefense` |
-| `pw` | `Power` | `ih` | `IncomingHealing` |
-| `cr` | `CriticalRating` | `bl` | `Block` |
-| `fn` | `Finesse` | `pa` | `Parry` |
-| `pm` | `PhysicalMastery` | `ev` | `Evade` |
-| `tm` | `TacticalMastery` | `pt` | `PhysicalMitigation` |
-| `oh` | `OutgoingHealing` | `tt` | `TacticalMitigation` |
-| `rs` | `Resistance` | | |
+| `cr` | `CriticalRating` | `ih` | `IncomingHealing` |
+| `fn` | `Finesse` | `bl` | `Block` |
+| `pm` | `PhysicalMastery` | `pa` | `Parry` |
+| `tm` | `TacticalMastery` | `ev` | `Evade` |
+| `oh` | `OutgoingHealing` | `pt` | `PhysicalMitigation` |
+| `rs` | `Resistance` | `tt` | `TacticalMitigation` |
+| `cd` | `CriticalDefense` | | |
 
 Armour is not a tracked goal stat: it is the sixth Base stat (alongside Might,
 Agility, Vitality, Will, Fate) and is derived into PhysicalMitigation and
@@ -63,7 +60,7 @@ TacticalMitigation at optimize time.
 ## Optimization logic
 
 LGO compares complete builds using the clamped-satisfaction objective from
-[`docs/Optimizer_Overhaul/07 - Locked Semantics and Rewrite Plan.md`](docs/Optimizer_Overhaul/07%20-%20Locked%20Semantics%20and%20Rewrite%20Plan.md):
+[`docs/07 - Locked Semantics and Rewrite Plan.md`](docs/07%20-%20Locked%20Semantics%20and%20Rewrite%20Plan.md):
 
 1. Prefer builds that meet higher-priority goals.
 2. Among ties, get still-unmet goals as close to their minima as possible in priority order.
