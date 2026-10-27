@@ -9,9 +9,9 @@
 --   /lgo
 --     -> help
 --   /lgo export
---     -> export item names from (equipped, excl. craft tool & bridle) + (shared storage chest 'lgo')
+--     -> export one flat list of owned item names: worn gear (paperdoll slots 19 and 21 skipped) + shared storage chest 'lgo'
 --   /lgo export chest <name>
---     -> export item names from (equipped, excl. craft tool & bridle) + (shared storage chest <name>)
+--     -> export one flat list of owned item names: worn gear (paperdoll slots 19 and 21 skipped) + shared storage chest <name>
 --
 -- Data is written via Turbine.PluginData.Save(Turbine.DataScope.Account, key, table)
 --   - lgo_<character>_gearNames_<timestamp>.plugindata
@@ -95,9 +95,8 @@ local function CharacterName()
   return "Unknown";
 end
 
-local function ShouldSkipEquippedSlot(slot)
-  -- Probe-confirmed exclusions:
-  -- Users commonly keep these equipped, but they are not real optimizer candidates:
+local function ShouldSkipPaperdollSlot(slot)
+  -- Paperdoll slots never read: craft tools and bridles are not gear candidates.
   --   19 = craft tool
   --   21 = bridle
   return slot == 19 or slot == 21
@@ -300,7 +299,7 @@ local function EnumerateSharedStorageItems(filterFn)
   return out, nil;
 end
 
--- ── Equipment enumeration ───────────────────────────────────────────────────
+-- ── Paperdoll enumeration ───────────────────────────────────────────────────
 
 local function GetEquipment()
   local player = Turbine.Gameplay.LocalPlayer.GetInstance();
@@ -330,7 +329,7 @@ local function GetEquipmentCount(eq)
   return nil
 end
 
-local function EnumerateEquippedItems()
+local function EnumeratePaperdollItems()
   local eq, err = GetEquipment();
   if err ~= nil then return nil, err end
 
@@ -340,15 +339,10 @@ local function EnumerateEquippedItems()
 
   local count = GetEquipmentCount(eq);
 
-  local out = {
-    version = "equip-export-3",
-    character = CharacterName(),
-    count = count,
-    items = {},
-  };
+  local out = { items = {} };
 
   local function addSlot(slot)
-    if ShouldSkipEquippedSlot(slot) then
+    if ShouldSkipPaperdollSlot(slot) then
       return
     end
 
@@ -384,38 +378,38 @@ local function EnumerateEquippedItems()
         if nilStreak >= nilStreakStop then break end
       end
     end
-    out._note = "Equipment count unavailable; scanned slots 1.." .. tostring(maxSlot);
   end
 
   return out, nil;
 end
 
-local function CollectItemNames(equip, ss)
+-- Flatten item records from any number of sources into one list of names.
+-- The caller does not record, and must not be able to recover, which
+-- source a name came from.
+local function CollectItemNames(...)
   local names = {};
-  local function addName(rec)
-    local n = rec.infoName or rec.name;
-    if n ~= nil and n ~= "" then
-      table.insert(names, n);
+  for _, source in ipairs({ ... }) do
+    if source ~= nil and source.items ~= nil then
+      for _, rec in ipairs(source.items) do
+        local n = rec.infoName or rec.name;
+        if n ~= nil and n ~= "" then
+          table.insert(names, n);
+        end
+      end
     end
-  end
-  if equip ~= nil and equip.items ~= nil then
-    for _, rec in ipairs(equip.items) do addName(rec) end
-  end
-  if ss ~= nil and ss.items ~= nil then
-    for _, rec in ipairs(ss.items) do addName(rec) end
   end
   return names;
 end
 
--- ── Combined export (equipped + shared storage chest) ───────────────────────
+-- ── Combined export (paperdoll + shared storage chest) ───────────────────────
 
 local function ExportCombined(sharedChestName)
   sharedChestName = Trim(sharedChestName or "lgo");
   if sharedChestName == "" then sharedChestName = "lgo" end
 
-  local equip, errE = EnumerateEquippedItems();
-  if errE ~= nil then
-    Print("export: equip ERROR: " .. tostring(errE));
+  local paperdoll, errP = EnumeratePaperdollItems();
+  if errP ~= nil then
+    Print("export: paperdoll ERROR: " .. tostring(errP));
     return;
   end
 
@@ -432,13 +426,12 @@ local function ExportCombined(sharedChestName)
     character = CharacterName(),
     class = CharacterClass(),
     baseStats = GetBaseStats(),
-    names = CollectItemNames(equip, ss),
+    names = CollectItemNames(paperdoll, ss),
   };
   local level = GetPlayerNumber("GetLevel");
   if level ~= nil then out.level = level end
 
-  Print("export: equipped=" .. tostring(#equip.items) ..
-    " + sharedStorage('" .. sharedChestName .. "')=" .. tostring(#ss.items));
+  Print("export: chest '" .. sharedChestName .. "' + worn gear");
   SaveAccount("gearNames", out);
   Print("export: saved " .. tostring(#out.names) .. " owned item instances");
 end
