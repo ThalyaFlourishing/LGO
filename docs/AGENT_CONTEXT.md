@@ -339,7 +339,14 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ---
 
-## 6. There exists no need for any kind of backward compatibility. Ever. Just don't even bring it up. No.
+## 6. General Guidelines
+
+- Assume the developer's level of knowledge is about that of a second-year computer-science student: knowledgeable, but not professional-level.
+- There exists no need for any kind of backward compatibility. Ever. Just don't even bring it up. No.
+- There exists no need for any kind of MacOS or Linux compatibility. Ever. Just don't even bring it up. No. This is a Windows-only product.
+- The user base for this will be tiny. Likely no more than 40 people.
+- This is not a commercial product. No one has any financial interest or risk in this project.
+- While the documentation is a good thing, and we *will* continue to maintain it, keep in mind that only one person will ever read it.
 
 ---
 
@@ -388,7 +395,7 @@ The bookmarklet emits items in fetch order; `resolve-slots` re-groups them.
 
 ## 9. Likely next features
 
-- Improve text input and output.
+- Improve the 'scrap-gear' feature.
 
 ---
 

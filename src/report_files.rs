@@ -54,7 +54,34 @@ pub fn write_named_optimize_report_files(
             e
         )
     })?;
+    remove_case_variant_reports(reports_dir, &stem)?;
     write_report_pair(reports_dir, &stem, text_report, html_report)
+}
+
+/// On case-sensitive filesystems, an earlier run of the same build under a
+/// different capitalisation (`Strong` vs `strong`) would leave an orphaned
+/// pair behind. Remove any `.txt`/`.html` whose stem matches ours ignoring
+/// case, so there is always exactly one report pair per build.
+fn remove_case_variant_reports(reports_dir: &Path, stem: &str) -> Result<(), String> {
+    let entries = fs::read_dir(reports_dir)
+        .map_err(|e| format!("cannot list {}: {}", reports_dir.display(), e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("cannot read directory entry: {}", e))?;
+        let path = entry.path();
+        let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let Some(ext) = path.extension().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        let is_report_ext = ext.eq_ignore_ascii_case("txt") || ext.eq_ignore_ascii_case("html");
+        let same_stem_other_case = file_stem.eq_ignore_ascii_case(stem) && file_stem != stem;
+        if is_report_ext && same_stem_other_case {
+            fs::remove_file(&path)
+                .map_err(|e| format!("cannot remove stale report {}: {}", path.display(), e))?;
+        }
+    }
+    Ok(())
 }
 
 /// Build the `lgo_<character>_<build>` stem for a named report, rejecting any
@@ -535,6 +562,21 @@ mod tests {
         assert_eq!(fs::read_to_string(&paths.text_path).unwrap(), "new text");
         assert_eq!(fs::read_to_string(&paths.html_path).unwrap(), "new html");
         assert_eq!(fs::read_dir(&reports_dir).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn named_write_removes_case_variant_leftovers() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+        write_named_optimize_report_files(&reports_dir, "Thalya", "Strong", "t", "h")
+            .expect("first write");
+        write_named_optimize_report_files(&reports_dir, "Thalya", "strong", "t2", "h2")
+            .expect("second write");
+
+        // Exactly one pair remains, spelled the new way.
+        assert_eq!(fs::read_dir(&reports_dir).unwrap().count(), 2);
+        assert!(reports_dir.join("lgo_Thalya_strong.txt").exists());
+        assert!(reports_dir.join("lgo_Thalya_strong.html").exists());
     }
 
     #[test]
