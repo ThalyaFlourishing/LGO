@@ -214,7 +214,7 @@ Vitality and Fate remain Base stats but derive no tracked stats.
 | # | Where it lives | Style | Example | 
 |---|---|---|---|
 | 1 | `data/items.xml` (game data dump) | UPPERCASE enum values | `HEAD`, `SHOULDER`, `HAND`, `FEET`, `CHEST`, `LEGS` |
-| 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` / slot-bearing `type=` fields | Free-text, editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders`, `One-Handed Axe` |
+| 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` / slot-bearing `type=` fields | Free-text, editor-typed | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders`, `One-Handed Axe` |
 | 3 | `src/gear.rs` slot table, TOML, reports, and `data/lgo_items.json` `slot` values (canonical) | Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
 
 The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of truth for which slot
