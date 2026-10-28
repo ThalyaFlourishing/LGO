@@ -1,7 +1,9 @@
 LGO COMMAND-LINE REFERENCE
 ==========================
 
-LGO has three command surfaces: an in-game Lua plugin, a browser bookmarklet workflow on lotro-wiki.com, and the lgo Rust CLI. These run in different environments and are documented in separate sections below to avoid confusion.
+LGO has three command surfaces: an in-game Lua plugin, a browser bookmarklet workflow on
+lotro-wiki.com, and the lgo Rust CLI. These run in different environments and are documented in
+separate sections below to avoid confusion.
 
 SECTION 1 - IN-GAME PLUGIN COMMANDS
 -----------------------------------
@@ -56,7 +58,9 @@ SECTION 3 - LGO CLI (USER COMMANDS)
       lgo --help
       lgo -h
       lgo help
-  - When entering the file path/names of alternate data files, if the file name or any of the folders in the path have spaces, you'll need to put quote marks around it. Also, if you are using a bash window, remember to change the back slashes to forward slashes.
+  - When entering the file path/names of alternate data files, if the file name or any of the
+folders in the path have spaces, you'll need to put quote marks around it. Also, if you are using a
+bash window, remember to change the back slashes to forward slashes.
 
 3.2 statlist
   lgo --statlist
@@ -116,11 +120,14 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     Select (or create) that character's <name>_Gear folder.
 
   lgo resolve-slots --force
-   In --force mode, the program will ask you, item by item, before changing or removing anything. Each prompt looks like:
+   In --force mode, the program will ask you, item by item, before changing or removing anything.
+Each prompt looks like:
       Overwrite stats for "Test Helm"? (y/n/a)
    or:
       Remove "Old Sword" (no longer in export)? (y/n/a)
-   Type y to allow the change, n to keep your existing data, or a to allow that kind of change for all remaining items without further prompting (overwrites and removals are tracked separately, so an a to one kind does not automatically apply to the other).
+   Type y to allow the change, n to keep your existing data, or a to allow that kind of change for
+all remaining items without further prompting (overwrites and removals are tracked separately, so an
+a to one kind does not automatically apply to the other).
 
 3.4 optimize
   lgo optimize <stat:min> [<stat:min> ...]
@@ -183,7 +190,8 @@ SECTION 3 - LGO CLI (USER COMMANDS)
     incrementing names: lgo_GearReport_###.txt and lgo_GearReport_###.html, with a
     shared serial number per run.
     Every optimize report header has a Build Name line after Character: it shows the
-    build name, or `-` when the run has no build name. Gear List shows only the gear file's name without its extension (e.g. lgo_Thalya_gearReady).
+    build name, or `-` when the run has no build name. Gear List shows only the gear file's name
+without its extension (e.g. lgo_Thalya_gearReady).
     This routing applies even when --file/-f points to a TOML outside the install
     tree: the character is taken from the TOML's top-level character = "..." field,
     falling back to the lgo_<character>_gearReady.toml filename convention, and the
@@ -342,13 +350,15 @@ SECTION 4 - DEVELOPER COMMANDS (cargo)
 
   cargo build --release
     Build optimized release binaries into target/release/.
-    When cargo build --release runs, every [[bin]] becomes a standalone executable in target/release/
+    When cargo build --release runs, every [[bin]] becomes a standalone executable in
+target/release/
 
   cargo run -- optimize <stat:min> ...
                    e.g. tm:450000 cr:350000 fn:0
   
   cargo run -- resolve-slots
-    Build (if needed) and run lgo; args after -- are passed through to lgo. All Section 3 verbs and flags work this way: cargo run -- <verb> [flags]
+    Build (if needed) and run lgo; args after -- are passed through to lgo. All Section 3 verbs and
+flags work this way: cargo run -- <verb> [flags]
     (e.g. cargo run -- base-stats, cargo run -- --statlist). Section 3 is the
     authoritative catalog of verbs and flags; Section 4 only covers build and
     test tooling.
@@ -398,11 +408,15 @@ Build the items database (data\lgo_items.json):
     or: lgo --build-db
     or: lgo -b
 
-This reads data\items.xml and produces 'data\lgo_items.json' — each item's canonical slot plus the two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
+This reads data\items.xml and produces 'data\lgo_items.json' — each item's canonical slot plus the
+two_handed flag. Item stats are not part of the database; they come from the bookmarklet.
 
-build-db resolves data\items.xml and data\lgo_items.json from the install directory's data\ folder (the folder beside lgo.exe), not the current working directory, so it can be run from anywhere.
+build-db resolves data\items.xml and data\lgo_items.json from the install directory's data\ folder
+(the folder beside lgo.exe), not the current working directory, so it can be run from anywhere.
 
-So the build-db command will use the items.xml file from the 'data' folder, and the new database file will be written to the 'data' folder too, but both the input and output files can be specified if desired:
+So the build-db command will use the items.xml file from the 'data' folder, and the new database
+file will be written to the 'data' folder too, but both the input and output files can be specified
+if desired:
   cargo run -- build-db --items <path>\items.xml --out <path>\lgo_items.json
 
 The JSON file is consumed by resolve-slots.

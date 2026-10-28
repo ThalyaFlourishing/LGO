@@ -1,16 +1,28 @@
 ### Bug 1 — `Shoulder` vs `Shoulders` ✅ FIXED
 
-`SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both `"shoulder"` and `"shoulders"` (lower-cased keys) to `SLOT_MAP`.
+`SLOT_MAP` had no entry for the wiki's `Shoulder`/`Shoulders` text; `mapSlot()` fell through and
+emitted the raw string `"Shoulder"`, which `parse_slot_str` rejects. Fixed by adding both
+`"shoulder"` and `"shoulders"` (lower-cased keys) to `SLOT_MAP`.
 
 ### Bug 2 — `mapSlot()` fallback leaks raw wiki text ✅ FIXED
 
-`mapSlot()` line 171 previously returned the raw cleaned string for any slot value not in `SLOT_MAP`, allowing free-text wiki vocabulary like `"tool"`, `"bridle"`, `"Shoulder"`, or `"Gloves"` to reach the TOML output. The resolver's name-based lookup canonicalised these for items it recognised, but for items not in `data/lgo_items.json` (Bridle, Craft Tool, legendaries, recently-added items) the raw wiki string would propagate all the way to the optimizer's TOML reader and crash it with `unrecognised slot 'X'`.
+`mapSlot()` line 171 previously returned the raw cleaned string for any slot value not in
+`SLOT_MAP`, allowing free-text wiki vocabulary like `"tool"`, `"bridle"`, `"Shoulder"`, or
+`"Gloves"` to reach the TOML output. The resolver's name-based lookup canonicalised these for items
+it recognised, but for items not in `data/lgo_items.json` (Bridle, Craft Tool, legendaries,
+recently-added items) the raw wiki string would propagate all the way to the optimizer's TOML reader
+and crash it with `unrecognised slot 'X'`.
 
-**Fix:** `mapSlot` now returns `"Unknown"` instead of the raw cleaned string. Combined with the `gearstats::read_stats_file` change to skip items with non-canonical slots (silently for `"Unknown"`, with a stderr warning for any other unrecognised string), the optimizer no longer chokes on these items.
+**Fix:** `mapSlot` now returns `"Unknown"` instead of the raw cleaned string. Combined with the
+`gearstats::read_stats_file` change to skip items with non-canonical slots (silently for
+`"Unknown"`, with a stderr warning for any other unrecognised string), the optimizer no longer
+chokes on these items.
 
 ### Bug 3 — Items with parsed stats emit `slot = "Unknown"` ✅ FIXED
 
-**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. (Full design was in `docs/RESOLVER_DESIGN.md`, since removed; the surviving design rationale lives in `src/slot_resolver.rs`'s module and item docs.) Implementation:
+**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by
+item name. (Full design was in `docs/RESOLVER_DESIGN.md`, since removed; the surviving design
+rationale lives in `src/slot_resolver.rs`'s module and item docs.) Implementation:
 
 Observed examples:
 - `Faded Watcher's Bracers` — Armour 8631, Finesse 6583 — slot Unknown.
@@ -18,75 +30,142 @@ Observed examples:
 
 **Root cause** (confirmed from the Item_Tooltip template documentation):
 - `slot=` is documented as "used only for equip-able items (not weapons)".
-- Weapons (and some other categories) carry their slot info in `type=` instead (e.g. `"One-Handed Axe"`, `"Heavy Armour"`, `"Resource"`).
-- The bookmarklet only reads `slot=`, so for weapons it gets an empty string and `mapSlot("")` returns `"Unknown"` via the empty-input early return on line 155.
+- Weapons (and some other categories) carry their slot info in `type=` instead (e.g. `"One-Handed
+Axe"`, `"Heavy Armour"`, `"Resource"`).
+- The bookmarklet only reads `slot=`, so for weapons it gets an empty string and `mapSlot("")`
+returns `"Unknown"` via the empty-input early return on line 155.
 
-**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by item name. See `docs/RESOLVER_DESIGN.md` for the full design. Implementation underway:
+**Decided fix:** the `resolve-slots` subcommand reads `data/lgo_items.json` and looks up the slot by
+item name. See `docs/RESOLVER_DESIGN.md` for the full design. Implementation underway:
 
 - ✅ Step 1 — JSON schema verified.
-updated in PR #28.- ? Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip + rejection tests.
+updated in PR #28.- ? Step 2 — `Slot::from_json_variant` added to `src/gear.rs` with full round-trip
++ rejection tests.
 - ✅ Step 3 — `ItemsDb::load_default` + `lookup`.
-- ✅ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output, fixing Bug 5 as a side effect).
-- ✅ Step 5 — wired `optimize` / `resolve-slots` subcommands into `main.rs` (bare verbs, case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` aliases). [PR #18]
-- ✅ Step 6 — integration test against the 66-item bookmarklet output (`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
-- ✅ Step 7 — synced `docs/AGENT_CONTEXT.md` to the new CLI. `docs/User Workflow.txt` was updated in PR #28.
+- ✅ Step 4 — `resolve_stats_file` (uses `toml_edit` to preserve comments; emits slot-grouped output,
+fixing Bug 5 as a side effect).
+- ✅ Step 5 — wired `optimize` / `resolve-slots` subcommands into `main.rs` (bare verbs,
+case-insensitive, with `--optimize`/`-o` and `--resolve-slots`/`-r` aliases). [PR #18]
+- ✅ Step 6 — integration test against the 66-item bookmarklet output
+(`tests/resolve_slots_integration.rs`, 7 tests). [PR #19]
+- ✅ Step 7 — synced `docs/AGENT_CONTEXT.md` to the new CLI. `docs/User Workflow.txt` was updated in
+PR #28.
 
 ### Bug 4 — Many wiki pages fail to resolve ✅ FIXED
 
-The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki (e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`). Two confounding causes:
+The bookmarklet wrote `# WARNING: all stats unknown` for items whose pages *do* exist on the wiki
+(e.g. `Ornate Ordâkhai Necklace`, `Keen Pristine Madáshi Ring`). Two confounding causes:
 
-1. The page-name builder only encoded spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) went into the URL raw.
-2. The API call was missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases; without that flag, the API returned the redirect page itself (no `{{Item Tooltip}}`) instead of following to the canonical target.
+1. The page-name builder only encoded spaces and `'`. Non-ASCII characters (`á`, `â`, `û`, `ó`) went
+into the URL raw.
+2. The API call was missing `&redirects=1`. lotro-wiki uses redirects heavily for item-page aliases;
+without that flag, the API returned the redirect page itself (no `{{Item Tooltip}}`) instead of
+following to the canonical target.
 
-**Fix (PR #21):** `encodeURIComponent` the title portion (after the `Item:` prefix), and add `&redirects=1` to the API call. Both `bookmarklet/lgo_bookmarklet.html` lines 263 and 269 reflect the fix.
+**Fix (PR #21):** `encodeURIComponent` the title portion (after the `Item:` prefix), and add
+`&redirects=1` to the API call. Both `bookmarklet/lgo_bookmarklet.html` lines 263 and 269 reflect
+the fix.
 
 ### Bug 5 — TOML output is no longer slot-grouped ✅ FIXED
 
-Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer expected to be slot-grouped.
+Fixed as a side effect of the `resolve-slots` subcommand: the resolver re-emits items grouped by
+canonical slot order with divider comments between groups. The bookmarklet's raw output is no longer
+expected to be slot-grouped.
 
-The bookmarklet's `buildToml()` emits items in fetch order with blank-line separators. The previously-agreed format (slot groups in canonical order, with divider comments between groups) is now produced downstream.
+The bookmarklet's `buildToml()` emits items in fetch order with blank-line separators. The
+previously-agreed format (slot groups in canonical order, with divider comments between groups) is
+now produced downstream.
 
 ### Bug 6 — Bookmarklet drops most stats from successfully-fetched pages ✅ FIXED
 
-**Symptom:** for some items whose wiki page was fetched successfully (page exists, no Bug 4 redirect/encoding issue), the bookmarklet emitted the `.toml` with only a subset of stats populated and silently dropped the rest.
+**Symptom:** for some items whose wiki page was fetched successfully (page exists, no Bug 4
+redirect/encoding issue), the bookmarklet emitted the `.toml` with only a subset of stats populated
+and silently dropped the rest.
 
-**Root cause:** the bookmarklet's `STAT_MAP` had aliases for some "X Rating" suffix forms but not others (`finesse rating` and `critical defence rating` were present, but `tactical mastery rating` was missing, etc.).
+**Root cause:** the bookmarklet's `STAT_MAP` had aliases for some "X Rating" suffix forms but not
+others (`finesse rating` and `critical defence rating` were present, but `tactical mastery rating`
+was missing, etc.).
 
-**Fix:** `parseAttribs()` now strips a trailing `" rating"` from the lowercased stat name before `STAT_MAP` lookup. `STAT_MAP` simplified to bare forms only; the `Armor`/`Armour` and `Defence`/`Defense` spelling pairs remain listed explicitly because they aren't suffix variants.
+**Fix:** `parseAttribs()` now strips a trailing `" rating"` from the lowercased stat name before
+`STAT_MAP` lookup. `STAT_MAP` simplified to bare forms only; the `Armor`/`Armour` and
+`Defence`/`Defense` spelling pairs remain listed explicitly because they aren't suffix variants.
 
-**Also added:** an unrecognised-stat-name diagnostic. Any attrib line whose stat name does not resolve through `STAT_MAP` after the rating-strip is recorded in a deduped `Set` and shown in the result panel. Most entries will be base stats (Vitality, Will, Might, Agility, Fate) the bookmarklet intentionally does not track; genuine `STAT_MAP` misses also surface here.
+**Also added:** an unrecognised-stat-name diagnostic. Any attrib line whose stat name does not
+resolve through `STAT_MAP` after the rating-strip is recorded in a deduped `Set` and shown in the
+result panel. Most entries will be base stats (Vitality, Will, Might, Agility, Fate) the bookmarklet
+intentionally does not track; genuine `STAT_MAP` misses also surface here.
 
-**Probe input** (cross-class items chosen to exercise stats the 66-item Lore-master fixture cannot reach): `docs/probes/lgo_itemnames_StatProbe_20260603_000000.plugindata`. Manual diagnostic — does not have an automated test.
+**Probe input** (cross-class items chosen to exercise stats the 66-item Lore-master fixture cannot
+reach): `docs/probes/lgo_itemnames_StatProbe_20260603_000000.plugindata`. Manual diagnostic — does
+not have an automated test.
 
 ### Bug 7 — `# WARNING: all stats unknown` is misleading ✅ FIXED
 
-Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an `outcome` (`resolved`, `auto-picked`, `needs-pick`, `no-tooltip`, `missing`, `fetch-error`) and emits a distinct TOML comment for each non-`resolved` outcome (see §5). The generic "WARNING: all stats unknown" line is gone; the user can now tell at a glance *why* any given item needs hand-editing.
+Resolved as a side effect of Bug 9. The bookmarklet now tags every item with an `outcome`
+(`resolved`, `auto-picked`, `needs-pick`, `no-tooltip`, `missing`, `fetch-error`) and emits a
+distinct TOML comment for each non-`resolved` outcome (see §5). The generic "WARNING: all stats
+unknown" line is gone; the user can now tell at a glance *why* any given item needs hand-editing.
 
 ### Bug 8 — `//` line comments inside `runBookmarklet` break the `javascript:` URL ✅ FIXED
 
-**Symptom:** after PR #24 (Bug 6 fix) merged, clicking the bookmarklet on lotro-wiki.com produced no dialog. The browser console showed `Uncaught SyntaxError: Unexpected end of input`.
+**Symptom:** after PR #24 (Bug 6 fix) merged, clicking the bookmarklet on lotro-wiki.com produced no
+dialog. The browser console showed `Uncaught SyntaxError: Unexpected end of input`.
 
-**Root cause:** the bookmarklet wiring at the bottom of `bookmarklet/lgo_bookmarklet.html` serialises `runBookmarklet.toString()` and puts the result into the link's `href` as a `javascript:` URL. The browser collapses that string into a single line; any `//` line comment inside swallows everything that follows.
+**Root cause:** the bookmarklet wiring at the bottom of `bookmarklet/lgo_bookmarklet.html`
+serialises `runBookmarklet.toString()` and puts the result into the link's `href` as a `javascript:`
+URL. The browser collapses that string into a single line; any `//` line comment inside swallows
+everything that follows.
 
-**Fix:** all `//` line comments inside `runBookmarklet` converted to `/* ... */` block comments. Block comments survive newline collapse intact.
+**Fix:** all `//` line comments inside `runBookmarklet` converted to `/* ... */` block comments.
+Block comments survive newline collapse intact.
 
-**? Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside `runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** A second offence will be much harder to notice in review.
+**? Lesson for future agents editing `bookmarklet/lgo_bookmarklet.html`:** every comment inside
+`runBookmarklet` MUST use `/* ... */` form. **Never use `//` line comments inside that function.** A
+second offence will be much harder to notice in review.
 
 ### Bug 9 — Crafted items always emit `# WARNING: all stats unknown` ✅ FIXED
 
-**Symptom:** items like `Keen Pristine Madáshi Earring`, the three `Pristine Mûrai Stickpin of ...` variants, `Elegant Blade of the Adventurer`, `Grove-tender's Robe`, and `Kinta Sword of the Herbalist` consistently failed to resolve through the bookmarklet, even though they exist on lotro-wiki. Roughly one item per crafted recipe was affected.
+**Symptom:** items like `Keen Pristine Madáshi Earring`, the three `Pristine Mûrai Stickpin of ...`
+variants, `Elegant Blade of the Adventurer`, `Grove-tender's Robe`, and `Kinta Sword of the
+Herbalist` consistently failed to resolve through the bookmarklet, even though they exist on
+lotro-wiki. Roughly one item per crafted recipe was affected.
 
-**Root cause:** lotro-wiki disambiguates near-duplicate item pages by suffixing the URL. `Keen Pristine Madáshi Earring` exists in two forms (Item Level 561 and Item Level 563) and lives at `Item:Keen_Pristine_Madáshi_Earring_(Item_Level_561)` / `_(Item_Level_563)`. The bare `Item:Keen_Pristine_Madáshi_Earring` page is a non-existent stub. Same pattern for nearly all player-crafted items. Weapon variants like `Elegant Blade of the Adventurer` are disambiguated by class/role (`_(DPS)`, `_(Heal)`) rather than item level.
+**Root cause:** lotro-wiki disambiguates near-duplicate item pages by suffixing the URL. `Keen
+Pristine Madáshi Earring` exists in two forms (Item Level 561 and Item Level 563) and lives at
+`Item:Keen_Pristine_Madáshi_Earring_(Item_Level_561)` / `_(Item_Level_563)`. The bare
+`Item:Keen_Pristine_Madáshi_Earring` page is a non-existent stub. Same pattern for nearly all
+player-crafted items. Weapon variants like `Elegant Blade of the Adventurer` are disambiguated by
+class/role (`_(DPS)`, `_(Heal)`) rather than item level.
 
-**Investigated and rejected:** distinguishing crafted from non-crafted at plugin-extract time. A temporary `/lgo probe` subcommand was added to `src/lgo.lua` to dump the full Turbine API surface for selected items, and the recorded data (`TestData/lgo_probe_Thalya_20260607_205655.plugindata`) confirmed the API exposes no field that distinguishes the two — `GetCategory`, `GetQuality`, `IsUnique`, `GetMaxStackSize` are byte-identical between a crafted earring and a non-crafted earring; `GetItemClass`, `GetItemLevel`, `GetLevel`, `IsBound`, etc. simply don't exist on this API version; `GetDescription` returns engine error tokens for all gear; `__implementation` is opaque userdata with no enumerable methods. The probe code was removed once the investigation was complete; the data file is kept as historical reference.
+**Investigated and rejected:** distinguishing crafted from non-crafted at plugin-extract time. A
+temporary `/lgo probe` subcommand was added to `src/lgo.lua` to dump the full Turbine API surface
+for selected items, and the recorded data (`TestData/lgo_probe_Thalya_20260607_205655.plugindata`)
+confirmed the API exposes no field that distinguishes the two — `GetCategory`, `GetQuality`,
+`IsUnique`, `GetMaxStackSize` are byte-identical between a crafted earring and a non-crafted
+earring; `GetItemClass`, `GetItemLevel`, `GetLevel`, `IsBound`, etc. simply don't exist on this API
+version; `GetDescription` returns engine error tokens for all gear; `__implementation` is opaque
+userdata with no enumerable methods. The probe code was removed once the investigation was complete;
+the data file is kept as historical reference.
 
-**Fix:** the bookmarklet now uses MediaWiki's `prefixsearch` API (in namespace 100, the wiki's `Item` namespace) as a fallback when a direct page lookup yields `missing-page` or `no-tooltip`. The fallback behaviour:
+**Fix:** the bookmarklet now uses MediaWiki's `prefixsearch` API (in namespace 100, the wiki's
+`Item` namespace) as a fallback when a direct page lookup yields `missing-page` or `no-tooltip`. The
+fallback behaviour:
 
-- If prefixsearch returns variants and *all* are tagged with `_(Item_Level_NNN)`, the bookmarklet parses out the integer levels, sorts descending, and auto-picks the highest — the equip-target for an end-game character. The chosen variant is recorded in the item record as `pickedTitle` + `pickedItemLevel` and surfaced in the result panel's "Auto-resolved via disambiguation (informational)" list and as an `# AUTO-PICKED ...` TOML comment so the user can audit the choice.
-- If any variant is non-numeric (`_(DPS)`, `_(Heal)`, `_(Burglar)`, etc.) — even if other variants are numeric — the bookmarklet declines to auto-pick. The item is reported as `needs-pick`, included in the "Multiple variants exist; auto-pick declined" sub-list of the result panel, and emitted into the TOML with all-zero stats and a `# UNRESOLVED: ...` comment.
-- If prefixsearch returns no variants, the item is reported as `no-tooltip` (bare page existed but had no tooltip — the legendary case) or `missing` (bare page didn't exist either).
+- If prefixsearch returns variants and *all* are tagged with `_(Item_Level_NNN)`, the bookmarklet
+parses out the integer levels, sorts descending, and auto-picks the highest — the equip-target for
+an end-game character. The chosen variant is recorded in the item record as `pickedTitle` +
+`pickedItemLevel` and surfaced in the result panel's "Auto-resolved via disambiguation
+(informational)" list and as an `# AUTO-PICKED ...` TOML comment so the user can audit the choice.
+- If any variant is non-numeric (`_(DPS)`, `_(Heal)`, `_(Burglar)`, etc.) — even if other variants
+are numeric — the bookmarklet declines to auto-pick. The item is reported as `needs-pick`, included
+in the "Multiple variants exist; auto-pick declined" sub-list of the result panel, and emitted into
+the TOML with all-zero stats and a `# UNRESOLVED: ...` comment.
+- If prefixsearch returns no variants, the item is reported as `no-tooltip` (bare page existed but
+had no tooltip — the legendary case) or `missing` (bare page didn't exist either).
 
-The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored `fetchItem` in `bookmarklet/lgo_bookmarklet.html`. `buildToml` and `renderResult` switch on the per-item `outcome` field to produce the typed TOML comments and the three-sub-list summary panel.
+The new code lives in `fetchByTitle`, `findDisambigVariants`, and the refactored `fetchItem` in
+`bookmarklet/lgo_bookmarklet.html`. `buildToml` and `renderResult` switch on the per-item `outcome`
+field to produce the typed TOML comments and the three-sub-list summary panel.
 
 ### Bug 10 — `[InnateStats]` drifts to a different location on every `resolve-slots` run ✅ FIXED
 
@@ -126,7 +205,8 @@ position also breaks the feedback loop, restoring idempotency across re-runs.
 before any table.)
 
 **Regression test:**
-`tests/resolve_slots_integration.rs::file_level_innate_stats_stays_between_class_and_first_divider_across_reruns`
+`tests/resolve_slots_integration.rs::file_level_innate_stats_stays_between_class_and_first_divider_a
+cross_reruns`
 runs `resolve_stats_file` three times end-to-end and asserts after every run
 that exactly one `[InnateStats]` block exists, positioned between the `class`
 line and the first `# --- Head ---` divider. Three runs matter: first-run
@@ -141,7 +221,8 @@ the timestamp line) is the tripwire for this class of bug.
 
 ---
 
-### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item `fetch-error` ✅ FIXED
+### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item
+`fetch-error` ✅ FIXED
 
 **Symptom:** on the first run in a fresh browser session (typically noticed right
 after updating the bookmarklet), the fetch loop completed near-instantly and every
@@ -220,7 +301,8 @@ column, and the bookmarklet's `TRACKED` list / `STAT_MAP` output key /
 `STAT_MAP` still *accepts* both `armor` and `armour` from lotro-wiki input —
 only its emitted key changed.
 
-**Lesson for future agents:** `src/virtues.rs::tests::default_virtue_data_stat_keys_are_all_canonical`
+**Lesson for future agents:**
+`src/virtues.rs::tests::default_virtue_data_stat_keys_are_all_canonical`
 now independently re-parses `data/lgo_virtues.json` and asserts every stat key
 in every virtue is an exact `TRACKED_STATS`/`BASE_STATS` match, naming the
 offending virtue and key if not. This is the test that would have caught both
@@ -279,19 +361,31 @@ over the user's file on the next merge.
 
 ### Bug 14 — Innate Morale baseline unknown (`GetBaseMaxMorale` broken) ✅ FIXED
 
-**Symptom:** `optimize` needs the character's innate Morale/Power baseline (everything that is not gear or slotted Virtues) so that `ml:<goal>` thresholds land where the in-game panel says. `Actor:GetBaseMaxMorale()` looked like the answer, but on the current client it returns the *current* Max Morale — gear, buffs and virtues included. The baseline had been hard-coded as a 100k comb-over.
+**Symptom:** `optimize` needs the character's innate Morale/Power baseline (everything that is not
+gear or slotted Virtues) so that `ml:<goal>` thresholds land where the in-game panel says.
+`Actor:GetBaseMaxMorale()` looked like the answer, but on the current client it returns the
+*current* Max Morale — gear, buffs and virtues included. The baseline had been hard-coded as a 100k
+comb-over.
 
-**Root cause:** the Turbine API exposes no innate Morale/Power value, and several real contributors (virtue passives, racials, stat tomes) are not exposed at all.
+**Root cause:** the Turbine API exposes no innate Morale/Power value, and several real contributors
+(virtue passives, racials, stat tomes) are not exposed at all.
 
-**Fix:** measure instead of model. The plugin (`lgo-gearlist-2`) exports the dressed character's `GetMaxMorale()` / `GetMaxPower()`, the character level, the active-effect count, and the equipped item names. `resolve-slots` writes these into `level` and a generated `[MeasuredStats]` block. At optimize time LGO computes
+**Fix:** measure instead of model. The plugin (`lgo-gearlist-2`) exports the dressed character's
+`GetMaxMorale()` / `GetMaxPower()`, the character level, the active-effect count, and the equipped
+item names. `resolve-slots` writes these into `level` and a generated `[MeasuredStats]` block. At
+optimize time LGO computes
 
 ```
-innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats[s] − derived Base-stat contributions[s]
+innate[s] = measured[s] − Σ equipped items' stats[s] − slotted-Virtue stats[s] − derived Base-stat
+contributions[s]
 ```
 
-for Morale and Power. The residual absorbs class base, virtue passives, racials and tomes without modelling any of them.
+for Morale and Power. The residual absorbs class base, virtue passives, racials and tomes without
+modelling any of them.
 
-**Shipped in:** PR #81 (plugin export `lgo-gearlist-2`, docs) and PR #82 (`src/measured.rs`, `[MeasuredStats]` header generation, `base-stats` / `optimize` / `scrap-gear` reporting, real-fixture round-trip test `thalya_fixture_equipped_set_reproduces_measured_maxima`).
+**Shipped in:** PR #81 (plugin export `lgo-gearlist-2`, docs) and PR #82 (`src/measured.rs`,
+`[MeasuredStats]` header generation, `base-stats` / `optimize` / `scrap-gear` reporting,
+real-fixture round-trip test `thalya_fixture_equipped_set_reproduces_measured_maxima`).
 
 **Evidence (Thalya, High Elf Lore-master, L160, naked, no buffs, no slotted virtues):**
 
@@ -301,13 +395,21 @@ for Morale and Power. The residual absorbs class base, virtue passives, racials 
 | Vitality 10,537 × 4.5 (10,200 base + 337 stat tomes) | −47,417 |
 | **Residual absorbed into the innate baseline** | **96,278** |
 
-The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) + 14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was 13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
+The residual decomposes as 68,000 (class base, CalcStat `ClassBaseMorale(160)`, class-independent) +
+14,121 (virtue passives) + 14,197 (unexplained; High Elf racial suspected). Naked Max Power was
+13,470 ≈ 8,000 class base + 4,828 (Fate 3,219 × 1.5) + ~640 unexplained.
 
-**Research note:** CalcStat was research input only; LGO does not implement or import its formulas. `ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported Vitality exactly, which is what made the class-base figure trustworthy. Source data lives on the `CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
+**Research note:** CalcStat was research input only; LGO does not implement or import its formulas.
+`ClassBaseVitality(160)` from the same `StdProgHealth` chain equals 10,200, matching the exported
+Vitality exactly, which is what made the class-base figure trustworthy. Source data lives on the
+`CalcStat` branch under `docs/CalcStat/`; it is deliberately not merged to `main`.
 
-**Limitations:** `GetMaxMorale()`/`GetMaxPower()` include whatever buffs are active at export; the plugin prints the active-effect count and users are told to export unbuffed. If they don't, LGO treats those buffs as permanent.
+**Limitations:** `GetMaxMorale()`/`GetMaxPower()` include whatever buffs are active at export; the
+plugin prints the active-effect count and users are told to export unbuffed. If they don't, LGO
+treats those buffs as permanent.
 
-**Lesson:** when an API name promises a capability ("BaseMaxMorale") but returns current state, measure the residual rather than modelling the unknowns.
+**Lesson:** when an API name promises a capability ("BaseMaxMorale") but returns current state,
+measure the residual rather than modelling the unknowns.
 
 **Follow-up:** Bug 15 documents a bookmarklet parsing regression exposed by the
 additional `lgo-gearlist-2` keys shipped with this fix.
@@ -338,7 +440,8 @@ order-independent behavior as an additional regression check.
 
 ---
 
-### Bug 16 — Virtue pool made the branch-and-bound search ~1000× slower (benchmark no longer completed at N = 8) ✅ FIXED
+### Bug 16 — Virtue pool made the branch-and-bound search ~1000× slower (benchmark no longer
+completed at N = 8) ✅ FIXED
 
 **Symptom:** PR #92 made Virtues an optimizer-chosen family of five, appended
 to the search as a last pool of ~74 five-set super-candidates. The code was

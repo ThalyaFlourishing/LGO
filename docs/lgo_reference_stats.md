@@ -145,7 +145,9 @@ after `[InnateStats]` and before the first `[[item]]`:
 
 ```toml
 [VirtueInnateStats]
-# Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look at what your actual mastery passives are and correct the number here.
+# Virtue-passive masteries. This assumes you have all of them maxed. If you 
+don't, you can go look at what your actual mastery passives are and correct 
+the number here.
 PhysicalMastery    = 9275
 TacticalMastery    = 9275
 ```
