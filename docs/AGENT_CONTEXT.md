@@ -211,15 +211,11 @@ Vitality and Fate remain Base stats but derive no tracked stats.
 
 ### 4.3 Slot vocabularies (important — easy to confuse)
 
-| # | Where it lives | Style | Example |
+| # | Where it lives | Style | Example | 
 |---|---|---|---|
-| 1 | `data/items.xml` (game data dump) | UPPERCASE enum values | `HEAD`, `SHOULDER`, `HAND`,
-`FEET`, `CHEST`, `LEGS` |
-| 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` / slot-bearing `type=` fields | Free-text,
-editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`,
-`Shoulder`/`Shoulders`, `One-Handed Axe` |
-| 3 | `src/gear.rs` slot table, TOML, reports, and `data/lgo_items.json` `slot` values (canonical) |
-Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
+| 1 | `data/items.xml` (game data dump) | UPPERCASE enum values | `HEAD`, `SHOULDER`, `HAND`, `FEET`, `CHEST`, `LEGS` |
+| 2 | lotro-wiki.com `{{Item Tooltip}}` `slot=` / slot-bearing `type=` fields | Free-text, editor-typed, no enforced allow-list | `Gloves`, `Wrist`, `Ear`, `Back`, `Feet`, `Shoulder`/`Shoulders`, `One-Handed Axe` |
+| 3 | `src/gear.rs` slot table, TOML, reports, and `data/lgo_items.json` `slot` values (canonical) | Curated display strings | `Wrist`, `Main-hand`, `Class Item` |
 
 The Rust code is vocabulary #3. `data/items.xml` (#1) is the game's source of truth for which slot
 an item goes in. The bookmarklet no longer reads wiki slot vocabulary #2 at all; every emitted
@@ -266,7 +262,7 @@ Fate               = 4000
 
 [VirtueInnateStats]
 # Virtue-passive masteries. This assumes you have all of them maxed. If you don't, you can go look
-at what your actual mastery passives are and correct the number here.
+# at what your actual mastery passives are and correct the number here.
 PhysicalMastery    = 9275
 TacticalMastery    = 9275
 ```

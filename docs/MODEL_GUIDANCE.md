@@ -29,35 +29,37 @@ invariant?"**
 
 | File | Friction | Recommended model | Why |
 |---|---|---|---|
-| `src/optimizer.rs` | 🔴 High | **Frontier** | Exact dominance-pruned branch-and-bound search, a
-four-stage comparator, paired-slot identity invariants, the Virtue family's ≥5-dominators pre-filter
-(whose soundness argument is subtle — single-candidate dominance is *wrong* for k-subsets), and
-oracle/fuzzer-backed correctness checks all make this file easy to break with an apparently "simple"
-edit. |
-| `src/slot_resolver.rs` | 🔴 High | **Frontier** | `toml_edit` mutation via `std::mem::replace`;
-`&mut force` threaded through a loop that mutates four things at once; `Box<dyn Prompter>` trait
-objects with a hand-written `Debug`; decor/position bookkeeping that underpins an idempotency
-guarantee. |
-| `src/build_db.rs` | 🟠 Moderate | Frontier *for control-flow edits*; cheap for lookup-table edits
-| Streaming XML state machine with `&mut` accumulators and `ref mut` bindings into `Option`s that
-are `.take()`n elsewhere. Adding a stat/slot mapping is trivial; reorganising the state machine is
-not. |
-| `src/plugindata.rs` | 🟠 Moderate | Frontier *for parser edits*; cheap for lookup-table edits |
-Hand-written recursive-descent parser whose functions return `(_, &str)` slices threaded through the
-whole recursion — an implicit lifetime contract. Editing the `method_to_name` table is easy; editing
-parser control flow fights the borrow checker. |
-| `src/virtues.rs` | 🟢 Low | Cheap | JSON loading/validation plus `VirtuesDb::candidates`, a
-straight map over `BaseStatDerivations::apply_derivations` and `apply_tracked_links`. Owned
-`HashMap`s throughout; no lifetimes. |
-| `src/gearstats.rs` | 🟢 Very low | Cheap | Iterator `.filter().collect()` chains over owned
-`PathBuf`s; short-lived `.get()` borrows. Clean. |
-| `src/main.rs` | 🟢 Low | Cheap | Lots of `&` / `PathBuf` passing, but an index-based arg loop
-sidesteps iterator-borrow issues. Mostly mechanical. |
+| `src/optimizer.rs` | 🔴 High | **Frontier** | See #1 below |
+| `src/slot_resolver.rs` | 🔴 High | **Frontier** | See #2 below |
+| `src/build_db.rs` | 🟠 Moderate | Frontier *for control-flow edits*; cheap for lookup-table edits | See #3 below |
+| `src/plugindata.rs` | 🟠 Moderate | Frontier *for parser edits*; cheap for lookup-table edits | See #4 below |
+| `src/virtues.rs` | 🟢 Low | Cheap | See #5 below |
+| `src/gearstats.rs` | 🟢 Very low | Cheap | See #6 below |
+| `src/main.rs` | 🟢 Low | Cheap | See #7 below |
 | `src/stat.rs` | 🟢 None | Cheap | Enums + `FromStr` / `Display` match arms. |
-| `src/gear.rs` | 🟢 None | Cheap | Struct/enum definitions, `Display`, a simple
-`.values().map().sum()`. |
+| `src/gear.rs` | 🟢 None | Cheap | Struct/enum definitions, `Display`, a simple `.values().map().sum()`. |
 | `src/report.rs` | 🟢 None | Cheap | Read-only borrows for printing; owned `String` building. |
 | `src/lib.rs` | 🟢 None | Cheap | Just `pub mod` declarations. |
+
+1. Exact dominance-pruned branch-and-bound search, a four-stage comparator, paired-slot 
+identity invariants, the Virtue family's ≥5-dominators pre-filter (whose soundness argument 
+is subtle — single-candidate dominance is *wrong* for k-subsets), and oracle/fuzzer-backed 
+correctness checks all make this file easy to break with an apparently "simple" edit.
+2. `toml_edit` mutation via `std::mem::replace`; `&mut force` threaded through a loop that mutates
+four things at once; `Box<dyn Prompter>` trait objects with a hand-written `Debug`; decor/position
+bookkeeping that underpins an idempotency guarantee.
+3. Streaming XML state machine with `&mut` accumulators and `ref mut` bindings into `Option`s that
+are `.take()`n elsewhere. Adding a stat/slot mapping is trivial; reorganising the state machine is
+not. 
+4. Hand-written recursive-descent parser whose functions return `(_, &str)` slices threaded through
+the whole recursion — an implicit lifetime contract. Editing the `method_to_name` table is easy;
+editing parser control flow fights the borrow checker. 
+5. JSON loading/validation plus `VirtuesDb::candidates`, a straight map over
+`BaseStatDerivations::apply_derivations` and `apply_tracked_links`. Owned `HashMap`s throughout; no
+lifetimes.
+6. Iterator `.filter().collect()` chains over owned `PathBuf`s; short-lived `.get()` borrows. Clean.
+7. Lots of `&` / `PathBuf` passing, but an index-based arg loop sidesteps iterator-borrow issues.
+Mostly mechanical.
 
 **Non-Rust files** (`src/lgo.lua`, `src/lgo.plugin`, `bookmarklet/`, `data/`,
 `*.toml`, docs) have no borrow checker and are safe for a cheap model. Reserve

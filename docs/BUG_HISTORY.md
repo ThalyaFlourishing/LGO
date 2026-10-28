@@ -205,8 +205,7 @@ position also breaks the feedback loop, restoring idempotency across re-runs.
 before any table.)
 
 **Regression test:**
-`tests/resolve_slots_integration.rs::file_level_innate_stats_stays_between_class_and_first_divider_a
-cross_reruns`
+`tests/resolve_slots_integration.rs::file_level_innate_stats_stays_between_class_and_first_divider_across_reruns`
 runs `resolve_stats_file` three times end-to-end and asserts after every run
 that exactly one `[InnateStats]` block exists, positioned between the `class`
 line and the first `# --- Head ---` divider. Three runs matter: first-run
@@ -221,8 +220,7 @@ the timestamp line) is the tripwire for this class of bug.
 
 ---
 
-### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item
-`fetch-error` ✅ FIXED
+### Bug 11 — Bookmarklet first run in a fresh session speeds through, marking every item `fetch-error` ✅ FIXED
 
 **Symptom:** on the first run in a fresh browser session (typically noticed right
 after updating the bookmarklet), the fetch loop completed near-instantly and every
@@ -440,8 +438,7 @@ order-independent behavior as an additional regression check.
 
 ---
 
-### Bug 16 — Virtue pool made the branch-and-bound search ~1000× slower (benchmark no longer
-completed at N = 8) ✅ FIXED
+### Bug 16 — Virtue pool made the branch-and-bound search ~1000× slower (benchmark no longer completed at N = 8) ✅ FIXED
 
 **Symptom:** PR #92 made Virtues an optimizer-chosen family of five, appended
 to the search as a last pool of ~74 five-set super-candidates. The code was
