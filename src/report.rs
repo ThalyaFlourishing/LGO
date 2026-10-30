@@ -378,7 +378,6 @@ pub fn format_scrap_gear_report(
     reports_folder: &str,
     reports_read: &[ScrapReportRead],
     skipped_files: &[ScrapSkippedFile],
-    staleness_warnings: &[String],
     unused_items: &[ScrapUnusedItem],
 ) -> String {
     let mut out = String::new();
@@ -413,12 +412,6 @@ pub fn format_scrap_gear_report(
         writeln!(w, "  Skipped files:").unwrap();
         for skipped in skipped_files {
             writeln!(w, "    - {}: {}", skipped.file_name, skipped.reason).unwrap();
-        }
-    }
-    if !staleness_warnings.is_empty() {
-        writeln!(w).unwrap();
-        for warning in staleness_warnings {
-            writeln!(w, "  ⚠  {}", warning).unwrap();
         }
     }
     writeln!(w).unwrap();
@@ -1510,9 +1503,6 @@ mod tests {
                 reason: "no \"Recommended Gear:\" section found".to_string(),
             }],
             &[
-                "Report \"lgo_GearReport_003.txt\" predates your current lgo_Thalya_gearReady.toml; regenerate it or new items may be listed as scrappable.".to_string(),
-            ],
-            &[
                 ScrapUnusedItem {
                     slot: Slot::Head,
                     name: "Unworn Hood".to_string(),
@@ -1536,9 +1526,6 @@ mod tests {
         assert!(report.contains("    - lgo_GearReport_003.txt: -"));
         assert!(report.contains("Skipped files:"));
         assert!(report.contains("    - notes.txt: no \"Recommended Gear:\" section found"));
-        assert!(report.contains(
-            "⚠  Report \"lgo_GearReport_003.txt\" predates your current lgo_Thalya_gearReady.toml"
-        ));
         assert!(report.contains("LGO — Optimize-report item usage"));
         assert!(report.contains("Items you can scrap:"));
         assert!(report.contains("Items of which you have more than one, but only need one:"));
@@ -1567,7 +1554,6 @@ mod tests {
             }],
             &[],
             &[],
-            &[],
         );
 
         assert!(report.contains("Items you can scrap:"));
@@ -1593,7 +1579,6 @@ mod tests {
                 file_name: "lgo_GearReport_000.txt".to_string(),
                 build_name: None,
             }],
-            &[],
             &[],
             &[
                 ScrapUnusedItem {

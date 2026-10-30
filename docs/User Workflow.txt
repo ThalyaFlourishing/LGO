@@ -261,11 +261,10 @@ text and HTML.
     This reads every `.txt` optimize report directly in the character's `<CharacterName>_Reports`
 folder (use `--reports-folder <name>` to read a sub-folder of it instead) and lists the reports read
 first, each with its `Build Name` header value. Files that are not parsable optimize reports are
-listed under a skipped-files note, and reports older than your current `gearReady.toml` get a
-staleness warning telling you to regenerate them. After that it prints two simple name-only
-sections: `Items you can scrap:` for items no report uses at all, and `Items of which you have more
-than one, but only need one:` for extra copies beyond the highest count any one report needs. The
-same text report is also written into the character's
+listed under a skipped-files note. After that it prints two simple name-only sections:
+`Items you can scrap:` for items no report uses at all, and
+`Items of which you have more than one, but only need one:` for extra copies beyond the highest
+count any one report needs. The same text report is also written into the character's
 `<install>\<CharacterName>_Gear\<CharacterName>_Reports\` folder as
 `lgo_<CharacterName>_ScrapGear_Report_<TimeStamp>.txt`; scrap-gear's own reports are skipped
 silently on later runs.

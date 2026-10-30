@@ -419,47 +419,6 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         process::exit(1);
     }
 
-    // Staleness: each report's `Run time` header is compared against the
-    // last-modified time of the primary canonical gear file for the character,
-    // regardless of whether `-f` pointed at a renamed variant.
-    let mut staleness_warnings: Vec<String> = Vec::new();
-    let primary_mtime = if auto_discovered_character.is_some() {
-        std::fs::metadata(&stats_file)
-            .and_then(|m| m.modified())
-            .ok()
-    } else {
-        primary_gear_ready_mtime(&character)
-    };
-    match primary_mtime {
-        Some(mtime) => {
-            // `Run time` headers only have whole-second precision; compare at
-            // that granularity so a report written in the same second as the
-            // gear file never warns spuriously.
-            let primary_time: chrono::DateTime<chrono::Utc> = mtime.into();
-            let primary_secs = primary_time.timestamp();
-            for (file_name, parsed) in &parsed_reports {
-                match parsed.run_time {
-                    Some(run_time) => {
-                        if primary_secs > run_time.timestamp() {
-                            staleness_warnings.push(format!(
-                                "Report \"{}\" predates your current lgo_{}_gearReady.toml; regenerate it or new items may be listed as scrappable.",
-                                file_name, character
-                            ));
-                        }
-                    }
-                    None => staleness_warnings.push(format!(
-                        "Report \"{}\" has no readable Run time header; its age could not be checked.",
-                        file_name
-                    )),
-                }
-            }
-        }
-        None => staleness_warnings.push(format!(
-            "The primary lgo_{}_gearReady.toml could not be found; report staleness was not checked.",
-            character
-        )),
-    }
-
     // Used counts: for each name, the maximum count in any single report.
     let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
     for (_, parsed) in &parsed_reports {
@@ -507,7 +466,6 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         &scan_dir.display().to_string(),
         &reports_read,
         &skipped_files,
-        &staleness_warnings,
         &unused_items,
     );
     print!("{}", text_report);
@@ -525,15 +483,6 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
             eprintln!("Warning: could not write scrap-gear report file: {}", err);
         }
     }
-}
-
-/// Last-modified time of the primary canonical gear file for `character`
-/// (`<install>\<char>_Gear\lgo_<char>_gearReady.toml`), when it can be found.
-fn primary_gear_ready_mtime(character: &str) -> Option<std::time::SystemTime> {
-    let install = install::install_dir().ok()?;
-    let gear_dir = install::gear_dir(&install, character);
-    let primary = gearstats::find_canonical_gear_file(&gear_dir, character).ok()??;
-    std::fs::metadata(primary).and_then(|m| m.modified()).ok()
 }
 
 fn run_optimize(cli: &OptimizeCli) {

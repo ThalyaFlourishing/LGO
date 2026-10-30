@@ -236,8 +236,8 @@ without its extension (e.g. lgo_Thalya_gearReady).
     the items not used in any of them. The output first names the folder and
   notes that every .txt file in it was treated as an optimize report, then
   lists each report read (file name plus its `Build Name` header value, or
-  `-`), any skipped files with the reason they could not be parsed, and any
-  staleness warnings. After that it prints two simple name-only sections:
+  `-`) and any skipped files with the reason they could not be parsed.
+  After that it prints two simple name-only sections:
   `Items you can scrap:` for items used by no report, and `Items of which you
   have more than one, but only need one:` for duplicate-owned items whose
   extra copies are never needed. The same text report is also written into
@@ -255,13 +255,6 @@ without its extension (e.g. lgo_Thalya_gearReady).
 
   Empty-slot placeholders, `(2-handed item)` off-hand lines, and `NO ITEMS`
   placeholders are never counted as items.
-
-  Staleness: each report's `Run time` header is compared against the
-  last-modified time of the primary
-  <install>\<CharacterName>_Gear\lgo_<character>_gearReady.toml. A report
-  older than that file gets a warning telling you to regenerate it. A report
-  whose `Run time` cannot be parsed is still counted, with a note that its
-  age could not be checked.
 
     If no report can be parsed (empty folder, only scrap-gear reports, or
     only unparsable files), the command errors clearly and tells you to
