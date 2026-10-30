@@ -30,6 +30,21 @@ pub struct ScrapUnusedItem {
     pub max_used_count: usize,
 }
 
+/// One optimize report that scrap-gear read successfully.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScrapReportRead {
+    pub file_name: String,
+    /// The report's `Build Name` header value; `None` renders as `-`.
+    pub build_name: Option<String>,
+}
+
+/// One `.txt` file scrap-gear could not parse as an optimize report.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScrapSkippedFile {
+    pub file_name: String,
+    pub reason: String,
+}
+
 /// The header fields shared by the text and HTML optimize reports.
 #[derive(Debug, Clone, Copy)]
 pub struct ReportHeader<'a> {
@@ -354,27 +369,57 @@ pub fn format_optimize_report_html(
 }
 
 /// Build the terminal report for `lgo scrap-gear`.
+#[allow(clippy::too_many_arguments)]
 pub fn format_scrap_gear_report(
     character: &str,
     class: &str,
     input_file: &str,
     timestamp: &str,
-    evaluated_builds: &[(String, Vec<StatGoal>)],
+    reports_folder: &str,
+    reports_read: &[ScrapReportRead],
+    skipped_files: &[ScrapSkippedFile],
+    staleness_warnings: &[String],
     unused_items: &[ScrapUnusedItem],
 ) -> String {
     let mut out = String::new();
     let w = &mut out;
     let divider = "─".repeat(COL_SLOT + COL_ITEM + 3);
 
-    writeln!(w, "  LGO — Saved-build item usage").unwrap();
+    writeln!(w, "  LGO — Optimize-report item usage").unwrap();
     writeln!(w, "  Character : {} ({})", character, class).unwrap();
     writeln!(w, "  Gear List : {}", input_file).unwrap();
     writeln!(w, "  Run time  : {}", timestamp).unwrap();
     writeln!(w, "  {}", divider).unwrap();
     writeln!(w).unwrap();
-    writeln!(w, "  Saved builds evaluated:").unwrap();
-    for (name, goals) in evaluated_builds {
-        writeln!(w, "    - {}: {}", name, format_goal_list(goals)).unwrap();
+    writeln!(
+        w,
+        "  Every .txt file in {} was treated as an optimize report.",
+        reports_folder
+    )
+    .unwrap();
+    writeln!(w).unwrap();
+    writeln!(w, "  Reports read:").unwrap();
+    for report in reports_read {
+        writeln!(
+            w,
+            "    - {}: {}",
+            report.file_name,
+            report.build_name.as_deref().unwrap_or("-")
+        )
+        .unwrap();
+    }
+    if !skipped_files.is_empty() {
+        writeln!(w).unwrap();
+        writeln!(w, "  Skipped files:").unwrap();
+        for skipped in skipped_files {
+            writeln!(w, "    - {}: {}", skipped.file_name, skipped.reason).unwrap();
+        }
+    }
+    if !staleness_warnings.is_empty() {
+        writeln!(w).unwrap();
+        for warning in staleness_warnings {
+            writeln!(w, "  ⚠  {}", warning).unwrap();
+        }
     }
     writeln!(w).unwrap();
     let mut scrapable_items: Vec<&ScrapUnusedItem> = unused_items
@@ -570,10 +615,10 @@ fn write_gear_table_text(w: &mut String, gear_set: &GearSet) {
         .is_some_and(|item| item.two_handed);
 
     for slot in Slot::all() {
-        let item_display = truncate(
-            &hand_or_item_label(gear_set, slot, main_is_two_handed),
-            COL_ITEM,
-        );
+        // The item column is the table's last; a long name simply extends past
+        // the divider. Truncation is deliberately avoided so scrap-gear can
+        // match report names against gearReady.toml exactly.
+        let item_display = hand_or_item_label(gear_set, slot, main_is_two_handed);
         writeln!(
             w,
             "  {:>COL_SLOT$}  {}",
@@ -814,14 +859,6 @@ fn goal_met_marker(minimum: i64, total: i64) -> &'static str {
     } else {
         "✗"
     }
-}
-
-fn format_goal_list(goals: &[StatGoal]) -> String {
-    goals
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(", ")
 }
 
 fn html_escape(s: &str) -> String {
@@ -1432,33 +1469,48 @@ mod tests {
     }
 
     #[test]
-    fn scrap_gear_report_lists_builds_and_simple_item_sections() {
+    fn gear_table_never_truncates_long_item_names() {
+        let long_name =
+            "Umbari Robe of Beasts of the Nameless Deeps and More Words to Pass Forty-Eight";
+        assert!(long_name.chars().count() > 48);
+        let report = format_optimize_report(
+            &sample_optimize_result_with_name(long_name),
+            &[],
+            sample_header(None),
+            &sample_base_stats(),
+        );
+
+        assert!(
+            report.contains(long_name),
+            "the full item name must appear untruncated in the gear table"
+        );
+        assert!(!report.contains("Umbari Robe of Beasts of the Nameless Deeps an…"));
+    }
+
+    #[test]
+    fn scrap_gear_report_lists_reports_read_and_simple_item_sections() {
         let report = format_scrap_gear_report(
             "Thalya",
             "Lore-master",
             "TestData/lgo_Thalya_gearReady.toml",
             "2026-08-31 08:00:00 +00:00",
+            "install/Thalya_Gear/Thalya_Reports",
             &[
-                (
-                    "healer".to_string(),
-                    vec![
-                        StatGoal {
-                            stat: Stat::OutgoingHealing,
-                            minimum: 200000,
-                        },
-                        StatGoal {
-                            stat: Stat::CriticalRating,
-                            minimum: 350000,
-                        },
-                    ],
-                ),
-                (
-                    "tank".to_string(),
-                    vec![StatGoal {
-                        stat: Stat::TacticalMitigation,
-                        minimum: 450000,
-                    }],
-                ),
+                ScrapReportRead {
+                    file_name: "lgo_Thalya_healer.txt".to_string(),
+                    build_name: Some("healer".to_string()),
+                },
+                ScrapReportRead {
+                    file_name: "lgo_GearReport_003.txt".to_string(),
+                    build_name: None,
+                },
+            ],
+            &[ScrapSkippedFile {
+                file_name: "notes.txt".to_string(),
+                reason: "no \"Recommended Gear:\" section found".to_string(),
+            }],
+            &[
+                "Report \"lgo_GearReport_003.txt\" predates your current lgo_Thalya_gearReady.toml; regenerate it or new items may be listed as scrappable.".to_string(),
             ],
             &[
                 ScrapUnusedItem {
@@ -1476,14 +1528,23 @@ mod tests {
             ],
         );
 
-        assert!(report.contains("Saved builds evaluated:"));
-        assert!(report.contains("- healer: oh:200000, cr:350000"));
-        assert!(report.contains("- tank: tt:450000"));
-        assert!(report.contains("LGO — Saved-build item usage"));
+        assert!(report.contains(
+            "Every .txt file in install/Thalya_Gear/Thalya_Reports was treated as an optimize report."
+        ));
+        assert!(report.contains("Reports read:"));
+        assert!(report.contains("    - lgo_Thalya_healer.txt: healer"));
+        assert!(report.contains("    - lgo_GearReport_003.txt: -"));
+        assert!(report.contains("Skipped files:"));
+        assert!(report.contains("    - notes.txt: no \"Recommended Gear:\" section found"));
+        assert!(report.contains(
+            "⚠  Report \"lgo_GearReport_003.txt\" predates your current lgo_Thalya_gearReady.toml"
+        ));
+        assert!(report.contains("LGO — Optimize-report item usage"));
         assert!(report.contains("Items you can scrap:"));
         assert!(report.contains("Items of which you have more than one, but only need one:"));
         assert!(report.contains("    - Unworn Hood"));
         assert!(report.contains("    - Keen Pristine Madáshi Ring"));
+        assert!(!report.contains("Saved builds evaluated:"));
         assert!(!report.contains("  Head:"));
         assert!(!report.contains("  Finger:"));
         assert!(!report.contains("owned"));
@@ -1499,19 +1560,21 @@ mod tests {
             "Lore-master",
             "gear.toml",
             "2026-08-31 08:00:00 +00:00",
-            &[(
-                "healer".to_string(),
-                vec![StatGoal {
-                    stat: Stat::OutgoingHealing,
-                    minimum: 200000,
-                }],
-            )],
+            "Thalya_Reports",
+            &[ScrapReportRead {
+                file_name: "lgo_GearReport_000.txt".to_string(),
+                build_name: None,
+            }],
+            &[],
+            &[],
             &[],
         );
 
         assert!(report.contains("Items you can scrap:"));
         assert!(report.contains("Items of which you have more than one, but only need one:"));
         assert_eq!(report.matches("    - None").count(), 2);
+        assert!(!report.contains("Skipped files:"));
+        assert!(!report.contains("⚠"));
         assert!(!report.contains("Morale"));
         assert!(!report.contains("Power"));
         assert!(!report.contains("MeasuredStats"));
@@ -1525,13 +1588,13 @@ mod tests {
             "Lore-master",
             "gear.toml",
             "2026-08-31 08:00:00 +00:00",
-            &[(
-                "healer".to_string(),
-                vec![StatGoal {
-                    stat: Stat::OutgoingHealing,
-                    minimum: 200000,
-                }],
-            )],
+            "Thalya_Reports",
+            &[ScrapReportRead {
+                file_name: "lgo_GearReport_000.txt".to_string(),
+                build_name: None,
+            }],
+            &[],
+            &[],
             &[
                 ScrapUnusedItem {
                     slot: Slot::Finger2,

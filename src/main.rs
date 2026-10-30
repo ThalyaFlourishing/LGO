@@ -3,7 +3,7 @@
 use chrono::Local;
 use lgo::{
     base_stats, build_db, build_profiles, gear, gearstats, install, optimizer, report,
-    report_files, slot_resolver, stat, virtues,
+    report_files, scrap_reports, slot_resolver, stat, virtues,
 };
 
 use std::collections::HashMap;
@@ -172,21 +172,6 @@ fn no_saved_builds_message(builds_file: &Path) -> String {
     )
 }
 
-fn count_selected_real_items_by_name(gear_set: &gear::GearSet) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
-    for item in gear_set.items.values() {
-        if is_empty_placeholder(&item.name) {
-            continue;
-        }
-        *counts.entry(item.name.clone()).or_insert(0) += 1;
-    }
-    counts
-}
-
-fn is_empty_placeholder(name: &str) -> bool {
-    name.starts_with("[empty") || name == "NO ITEMS" || name == "(2-handed item)"
-}
-
 const UNKNOWN: &str = "Unknown";
 
 /// Determine the install directory (exe-anchored, or `LGO_HOME`), exiting with
@@ -346,29 +331,8 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
     let (stats_file, auto_discovered_character) =
         locate_canonical_gear_file(cli.character.as_deref(), cli.file.as_ref());
     let gear_doc = read_gear_doc_or_exit(&stats_file);
-    let builds_file = match resolve_builds_file(
-        cli.builds_file.as_ref(),
-        &stats_file,
-        gear_doc.character.as_deref(),
-    ) {
-        Ok(path) => path,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
-    };
-    let saved_builds = match read_saved_builds_if_present(&builds_file) {
-        Ok(builds) => builds,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
-    };
-    if saved_builds.is_empty() {
-        eprintln!("Error: {}", no_saved_builds_message(&builds_file));
-        process::exit(1);
-    }
 
+    // Exits when the report character cannot be resolved — before any output.
     let reports_dir = resolve_reports_dir(
         &stats_file,
         auto_discovered_character.as_deref(),
@@ -379,38 +343,131 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
         cli.character.as_deref(),
         auto_discovered_character.clone(),
     );
-    let mut gear_doc = gear_doc;
     let class = gear_doc
         .class
         .clone()
         .unwrap_or_else(|| UNKNOWN.to_string());
 
-    let derivations = load_derivations_or_exit();
-    let virtue_candidates = load_virtue_candidates_or_exit(&class, &derivations);
-    if let Err(e) = prepare_gear_doc_for_optimization(&mut gear_doc, &class, &derivations) {
-        eprintln!("Error: {}", e);
+    // The folder scanned for optimize reports: `<char>_Reports` itself, or a
+    // validated sub-folder of it when `--reports-folder` is given. Scrap-gear's
+    // own report is always written into the parent `<char>_Reports` folder.
+    let scan_dir = match &cli.reports_folder {
+        Some(name) => {
+            if let Err(e) = scrap_reports::validate_reports_folder_name(name) {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+            let dir = reports_dir.join(name);
+            if !dir.is_dir() {
+                eprintln!("Error: reports folder {} does not exist.", dir.display());
+                process::exit(1);
+            }
+            dir
+        }
+        None => reports_dir.clone(),
+    };
+
+    let candidate_files = if scan_dir.is_dir() {
+        match scrap_reports::list_candidate_report_files(&scan_dir) {
+            Ok(files) => files,
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        }
+    } else {
+        // The default reports folder does not exist yet: same as no reports.
+        Vec::new()
+    };
+
+    let mut reports_read: Vec<report::ScrapReportRead> = Vec::new();
+    let mut skipped_files: Vec<report::ScrapSkippedFile> = Vec::new();
+    let mut parsed_reports: Vec<(String, scrap_reports::ParsedReport)> = Vec::new();
+    for path in &candidate_files {
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(e) => {
+                skipped_files.push(report::ScrapSkippedFile {
+                    file_name,
+                    reason: format!("cannot read as UTF-8 text: {}", e),
+                });
+                continue;
+            }
+        };
+        match scrap_reports::parse_optimize_report(&text) {
+            Ok(parsed) => {
+                reports_read.push(report::ScrapReportRead {
+                    file_name: file_name.clone(),
+                    build_name: parsed.build_name.clone(),
+                });
+                parsed_reports.push((file_name, parsed));
+            }
+            Err(reason) => skipped_files.push(report::ScrapSkippedFile { file_name, reason }),
+        }
+    }
+
+    if parsed_reports.is_empty() {
+        eprintln!(
+            "Error: no optimize reports could be read from {}. Create them with: lgo optimize --to-file <stat:min> ... (or lgo optimize --build <name> --to-file).",
+            scan_dir.display()
+        );
         process::exit(1);
     }
-    let (resolved, candidate_names) = build_resolved_candidates(&gear_doc);
 
+    // Staleness: each report's `Run time` header is compared against the
+    // last-modified time of the primary canonical gear file for the character,
+    // regardless of whether `-f` pointed at a renamed variant.
+    let mut staleness_warnings: Vec<String> = Vec::new();
+    let primary_mtime = if auto_discovered_character.is_some() {
+        std::fs::metadata(&stats_file)
+            .and_then(|m| m.modified())
+            .ok()
+    } else {
+        primary_gear_ready_mtime(&character)
+    };
+    match primary_mtime {
+        Some(mtime) => {
+            // `Run time` headers only have whole-second precision; compare at
+            // that granularity so a report written in the same second as the
+            // gear file never warns spuriously.
+            let primary_time: chrono::DateTime<chrono::Utc> = mtime.into();
+            let primary_secs = primary_time.timestamp();
+            for (file_name, parsed) in &parsed_reports {
+                match parsed.run_time {
+                    Some(run_time) => {
+                        if primary_secs > run_time.timestamp() {
+                            staleness_warnings.push(format!(
+                                "Report \"{}\" predates your current lgo_{}_gearReady.toml; regenerate it or new items may be listed as scrappable.",
+                                file_name, character
+                            ));
+                        }
+                    }
+                    None => staleness_warnings.push(format!(
+                        "Report \"{}\" has no readable Run time header; its age could not be checked.",
+                        file_name
+                    )),
+                }
+            }
+        }
+        None => staleness_warnings.push(format!(
+            "The primary lgo_{}_gearReady.toml could not be found; report staleness was not checked.",
+            character
+        )),
+    }
+
+    // Used counts: for each name, the maximum count in any single report.
     let mut max_used_by_name: HashMap<String, usize> = HashMap::new();
-    let mut evaluated_builds = Vec::new();
-    for build in saved_builds.builds() {
-        evaluated_builds.push((build.name.clone(), build.goals.clone()));
-        let result = optimizer::optimize(
-            &resolved,
-            &candidate_names,
-            &build.goals,
-            &gear_doc.innate_stats,
-            &virtue_candidates,
-        );
-        // Only real gear is counted; `GearSet::virtues` is deliberately
-        // ignored so scrap-gear never treats a Virtue as an item.
-        for (name, used_count) in count_selected_real_items_by_name(&result.gear_set) {
+    for (_, parsed) in &parsed_reports {
+        for (name, used_count) in &parsed.item_counts {
             max_used_by_name
-                .entry(name)
-                .and_modify(|current| *current = (*current).max(used_count))
-                .or_insert(used_count);
+                .entry(name.clone())
+                .and_modify(|current| *current = (*current).max(*used_count))
+                .or_insert(*used_count);
         }
     }
 
@@ -439,18 +496,28 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
     }
 
     let stats_file_display = stats_file.display().to_string();
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    let now = Local::now();
+    let timestamp = now.format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    let file_timestamp = now.format("%Y%m%d_%H%M%S").to_string();
     let text_report = report::format_scrap_gear_report(
         &character,
         &class,
         &stats_file_display,
         &timestamp,
-        &evaluated_builds,
+        &scan_dir.display().to_string(),
+        &reports_read,
+        &skipped_files,
+        &staleness_warnings,
         &unused_items,
     );
     print!("{}", text_report);
 
-    match report_files::write_scrap_gear_report_file(&reports_dir, &text_report) {
+    match report_files::write_scrap_gear_report_file(
+        &reports_dir,
+        &character,
+        &file_timestamp,
+        &text_report,
+    ) {
         Ok(path) => {
             println!("  Scrap-gear report written to: {}", path.display());
         }
@@ -458,6 +525,15 @@ fn run_scrap_gear(cli: &ScrapGearCli) {
             eprintln!("Warning: could not write scrap-gear report file: {}", err);
         }
     }
+}
+
+/// Last-modified time of the primary canonical gear file for `character`
+/// (`<install>\<char>_Gear\lgo_<char>_gearReady.toml`), when it can be found.
+fn primary_gear_ready_mtime(character: &str) -> Option<std::time::SystemTime> {
+    let install = install::install_dir().ok()?;
+    let gear_dir = install::gear_dir(&install, character);
+    let primary = gearstats::find_canonical_gear_file(&gear_dir, character).ok()??;
+    std::fs::metadata(primary).and_then(|m| m.modified()).ok()
 }
 
 fn run_optimize(cli: &OptimizeCli) {
@@ -907,7 +983,7 @@ struct OptimizeCli {
 struct ScrapGearCli {
     character: Option<String>,
     file: Option<PathBuf>,
-    builds_file: Option<PathBuf>,
+    reports_folder: Option<String>,
 }
 
 /// `lgo base-stats`: show the raw innate Base stats and the tracked-stat
@@ -1027,7 +1103,7 @@ fn parse_optimize_args(args: &[String]) -> Result<OptimizeCli, String> {
 fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
     let mut character = None;
     let mut file = None;
-    let mut builds_file = None;
+    let mut reports_folder = None;
     let mut i = 0;
 
     while i < args.len() {
@@ -1038,11 +1114,13 @@ fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
         } else if option_matches(arg, &["--file", "-f"]) {
             i += 1;
             file = Some(PathBuf::from(args.get(i).ok_or("--file requires a path")?));
-        } else if option_matches(arg, &["--builds-file"]) {
+        } else if option_matches(arg, &["--reports-folder"]) {
             i += 1;
-            builds_file = Some(PathBuf::from(
-                args.get(i).ok_or("--builds-file requires a path")?,
-            ));
+            reports_folder = Some(
+                args.get(i)
+                    .ok_or("--reports-folder requires a folder name")?
+                    .clone(),
+            );
         } else if arg.starts_with('-') {
             return Err(format!("Unknown option: '{}'", arg));
         } else {
@@ -1054,7 +1132,7 @@ fn parse_scrap_gear_args(args: &[String]) -> Result<ScrapGearCli, String> {
     Ok(ScrapGearCli {
         character,
         file,
-        builds_file,
+        reports_folder,
     })
 }
 
@@ -1229,14 +1307,13 @@ fn print_usage() {
     println!("Options (scrap-gear):");
     println!("  --character <name>  Character name; selects the <name>_Gear folder");
     println!("                      (auto-detected when only one exists)");
-    println!(
-        "  --file      <path>  Explicit canonical gear TOML whose sibling builds file will be used"
-    );
-    println!("  --builds-file <path> Explicit saved-builds TOML path (overrides discovery)");
+    println!("  --file      <path>  Explicit canonical gear TOML to read instead of auto-detect");
+    println!("  --reports-folder <name> Folder inside <CharacterName>_Reports to read");
+    println!("                      optimize reports from (default: the Reports folder itself)");
     println!();
-    println!("  scrap-gear reruns optimize once per saved build and lists items not used");
-    println!("  in any saved build. Save builds with:");
-    println!("    lgo optimize --save-build <name> <stat:min> [<stat:min> ...]");
+    println!("  scrap-gear reads the .txt optimize reports in the reports folder and lists");
+    println!("  items not used in any of them. Create reports with:");
+    println!("    lgo optimize --to-file <stat:min> [<stat:min> ...]");
     println!();
     println!("Options (base-stats):");
     println!("  --character <name>  Character name; selects the <name>_Gear folder");
@@ -1278,8 +1355,8 @@ fn print_usage() {
     println!("  7) Run: lgo resolve-slots   (writes lgo_<character>_gearReady.toml)");
     println!("  8) Run: lgo optimize <stat:min> [<stat:min> ...]");
     println!("     Optional: add --save-build <name> to save those goals for later");
-    println!("  9) Run: lgo scrap-gear   (reruns all saved builds and lists items not used");
-    println!("     in any saved build)");
+    println!("  9) Run: lgo scrap-gear   (reads the saved .txt optimize reports and lists");
+    println!("     items not used in any of them)");
     println!();
     println!("Stat goals:");
     println!("  Each goal is a stat name and a minimum value, separated by ':'.");
@@ -1297,6 +1374,7 @@ fn print_usage() {
     println!("    lgo optimize --build healer");
     println!("    lgo optimize --file path/to/lgo_Thalya_gearReady.toml tm:450000 cr:350000");
     println!("    lgo scrap-gear");
+    println!("    lgo scrap-gear --reports-folder healer");
     println!("    lgo scrap-gear --file path/to/lgo_Thalya_gearReady.toml");
     println!("    lgo base-stats");
     println!("    lgo base-stats --character Thalya");
@@ -1904,24 +1982,36 @@ mod tests {
     }
 
     #[test]
-    fn scrap_gear_accepts_character_and_file_flags() {
+    fn scrap_gear_accepts_character_file_and_reports_folder_flags() {
         let cmd = parse_command(&s(&[
             "scrap-gear",
             "--character",
             "Thalya",
             "--file",
             "gear.toml",
-            "--builds-file",
-            "builds.toml",
+            "--reports-folder",
+            "healer",
         ]))
         .expect("scrap-gear flags should parse");
         match cmd {
             Command::ScrapGear(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("Thalya"));
                 assert_eq!(cli.file, Some(PathBuf::from("gear.toml")));
-                assert_eq!(cli.builds_file, Some(PathBuf::from("builds.toml")));
+                assert_eq!(cli.reports_folder.as_deref(), Some("healer"));
             }
             _ => panic!("expected scrap-gear command"),
+        }
+    }
+
+    #[test]
+    fn scrap_gear_rejects_removed_builds_file_flag() {
+        let err = parse_command(&s(&["scrap-gear", "--builds-file", "builds.toml"]))
+            .expect_err("must reject the removed --builds-file flag");
+        match err {
+            CliParseError::Message(msg) => {
+                assert_eq!(msg, "Unknown option: '--builds-file'")
+            }
+            _ => panic!("expected message parse error"),
         }
     }
 
@@ -1933,15 +2023,15 @@ mod tests {
             "ThAlYa",
             "--FiLe",
             "MiXeD/Gear.toml",
-            "--BuIlDs-FiLe",
-            "MiXeD/Builds.toml",
+            "--RePoRtS-FoLdEr",
+            "MiXeD Folder",
         ]))
         .expect("scrap-gear mixed-case flags should parse");
         match cmd {
             Command::ScrapGear(cli) => {
                 assert_eq!(cli.character.as_deref(), Some("ThAlYa"));
                 assert_eq!(cli.file, Some(PathBuf::from("MiXeD/Gear.toml")));
-                assert_eq!(cli.builds_file, Some(PathBuf::from("MiXeD/Builds.toml")));
+                assert_eq!(cli.reports_folder.as_deref(), Some("MiXeD Folder"));
             }
             _ => panic!("expected scrap-gear command"),
         }

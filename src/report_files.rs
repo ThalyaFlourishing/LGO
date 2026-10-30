@@ -4,10 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const STEM_PREFIX: &str = "lgo_GearReport_";
-const SCRAP_GEAR_STEM_PREFIX: &str = "lgo_ScrapGearReport_";
 /// Lowercase, because Windows filenames are case-insensitive. Named reports
-/// starting with these would collide with unnamed or scrap-gear files.
-const RESERVED_UNNAMED_STEM_PREFIXES: [&str; 2] = ["lgo_gearreport_", "lgo_scrapgearreport_"];
+/// starting with this would collide with unnamed optimize report files.
+const RESERVED_UNNAMED_STEM_PREFIXES: [&str; 1] = ["lgo_gearreport_"];
 const WINDOWS_FORBIDDEN_FILENAME_CHARS: &str = "<>:\"/\\|?*";
 const MAX_FILENAME_BYTES: usize = 255;
 
@@ -149,12 +148,18 @@ fn write_report_pair(
     })
 }
 
-/// Write the scrap-gear `.txt` report into `reports_dir`, creating it (and any
-/// missing parents) first.
+/// Write the scrap-gear `.txt` report into `reports_dir` (always the parent
+/// `<CharacterName>_Reports` folder, even when `--reports-folder` was used),
+/// creating it (and any missing parents) first. The file is named
+/// `lgo_<character>_ScrapGear_Report_<timestamp>.txt`, with `timestamp`
+/// preformatted by the caller as local `%Y%m%d_%H%M%S`.
 pub fn write_scrap_gear_report_file(
     reports_dir: &Path,
+    character: &str,
+    timestamp: &str,
     text_report: &str,
 ) -> Result<PathBuf, String> {
+    validate_filename_component("character name", character)?;
     fs::create_dir_all(reports_dir).map_err(|e| {
         format!(
             "cannot create reports directory {}: {}",
@@ -163,8 +168,8 @@ pub fn write_scrap_gear_report_file(
         )
     })?;
 
-    let serial = highest_report_serial(reports_dir)?.unwrap_or(0);
-    let text_path = choose_scrap_gear_report_path(reports_dir, serial)?;
+    let base_stem = format!("lgo_{character}_ScrapGear_Report_{timestamp}");
+    let text_path = choose_scrap_gear_report_path(reports_dir, &base_stem)?;
 
     fs::write(&text_path, text_report)
         .map_err(|e| format!("cannot write {}: {}", text_path.display(), e))?;
@@ -172,8 +177,7 @@ pub fn write_scrap_gear_report_file(
     Ok(text_path)
 }
 
-fn choose_scrap_gear_report_path(reports_dir: &Path, serial: u16) -> Result<PathBuf, String> {
-    let base_stem = format!("{SCRAP_GEAR_STEM_PREFIX}{serial:03}");
+fn choose_scrap_gear_report_path(reports_dir: &Path, base_stem: &str) -> Result<PathBuf, String> {
     let base_path = reports_dir.join(format!("{base_stem}.txt"));
     if !base_path.exists() {
         return Ok(base_path);
@@ -496,26 +500,61 @@ mod tests {
     }
 
     #[test]
-    fn scrap_gear_report_file_uses_highest_existing_gear_report_serial() {
+    fn scrap_gear_report_file_uses_character_and_timestamp_name() {
         let temp = TempDir::new();
         let reports_dir = temp.reports_dir();
-        fs::create_dir_all(&reports_dir).expect("reports dir");
-        fs::write(reports_dir.join("lgo_GearReport_008.txt"), "").expect("seed optimize txt");
-        fs::write(reports_dir.join("lgo_GearReport_008.html"), "").expect("seed optimize html");
-        fs::write(reports_dir.join("lgo_ScrapGearReport_099.txt"), "").expect("seed scrap txt");
 
-        let path = write_scrap_gear_report_file(&reports_dir, "scrap report text")
-            .expect("write succeeds");
+        let path = write_scrap_gear_report_file(
+            &reports_dir,
+            "Thalya",
+            "20260831_080000",
+            "scrap report text",
+        )
+        .expect("write succeeds");
 
         assert_eq!(
             path.file_name()
                 .and_then(|name| name.to_str())
                 .expect("utf-8 filename"),
-            "lgo_ScrapGearReport_008.txt"
+            "lgo_Thalya_ScrapGear_Report_20260831_080000.txt"
         );
         assert_eq!(
             fs::read_to_string(&path).expect("read scrap report"),
             "scrap report text"
+        );
+    }
+
+    #[test]
+    fn scrap_gear_report_same_second_collision_gets_suffix() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+
+        write_scrap_gear_report_file(&reports_dir, "Thalya", "20260831_080000", "first")
+            .expect("first write succeeds");
+        let second =
+            write_scrap_gear_report_file(&reports_dir, "Thalya", "20260831_080000", "second")
+                .expect("second write succeeds");
+
+        assert_eq!(
+            second
+                .file_name()
+                .and_then(|name| name.to_str())
+                .expect("utf-8 filename"),
+            "lgo_Thalya_ScrapGear_Report_20260831_080000-1.txt"
+        );
+    }
+
+    #[test]
+    fn scrap_gear_report_rejects_unsafe_character_names() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+
+        assert!(
+            write_scrap_gear_report_file(&reports_dir, "Bad/Name", "20260831_080000", "t").is_err()
+        );
+        assert!(
+            !reports_dir.exists(),
+            "rejected names must not create or write any report files"
         );
     }
 

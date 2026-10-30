@@ -186,7 +186,7 @@ OutgoingHealing = 20
 }
 
 #[test]
-fn explicit_builds_file_override_is_used_for_save_build_build_and_scrap_gear() {
+fn explicit_builds_file_override_is_used_for_save_build_and_build() {
     let dir = make_test_dir("explicit_builds_file");
     seed_install(&dir);
     let gear = dir.join("my_test_gear.toml");
@@ -261,36 +261,16 @@ TacticalMitigation = 20
     assert!(rebuilt_text.contains(r#"[builds.healer]"#));
     assert!(rebuilt_text.contains(r#"[builds.copy]"#));
 
-    let scrap_output = run_lgo(
-        &[
-            "scrap-gear",
-            "--file",
-            gear_arg,
-            "--builds-file",
-            builds_arg,
-        ],
-        &dir,
-    );
-    assert!(
-        scrap_output.status.success(),
-        "scrap-gear failed:\nstdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&scrap_output.stdout),
-        String::from_utf8_lossy(&scrap_output.stderr)
-    );
-    let scrap_stdout = String::from_utf8_lossy(&scrap_output.stdout);
-    assert!(scrap_stdout.contains("Saved builds evaluated:"));
-    assert!(scrap_stdout.contains("- healer: oh:10"));
-    assert!(scrap_stdout.contains("- copy: oh:10"));
-
     fs::remove_dir_all(&dir).expect("cleanup");
 }
 
 #[test]
-fn scrap_gear_reports_items_not_used_in_any_saved_build_with_copy_counts() {
+fn scrap_gear_reports_items_not_used_in_any_optimize_report_with_copy_counts() {
     let dir = make_test_dir("scrap_gear");
     seed_install(&dir);
-    let gear = dir.join("lgo_Thalya_gearReady.toml");
-    let builds = dir.join("lgo_Thalya_builds.toml");
+    let gear_dir = dir.join("Thalya_Gear");
+    fs::create_dir_all(&gear_dir).expect("create character gear folder");
+    let gear = gear_dir.join("lgo_Thalya_gearReady.toml");
     fs::write(
         &gear,
         r#"
@@ -326,26 +306,18 @@ CriticalRating = 1
 "#,
     )
     .expect("write gear file");
-    fs::write(
-        &builds,
-        r#"
-[builds.healer]
-goals = ["oh:10"]
 
-[builds.tank]
-goals = ["tt:10"]
-"#,
-    )
-    .expect("write builds file");
+    for goal in ["oh:10", "tt:10"] {
+        let optimize = run_lgo(&["optimize", "--to-file", goal], &dir);
+        assert!(
+            optimize.status.success(),
+            "optimize --to-file failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&optimize.stdout),
+            String::from_utf8_lossy(&optimize.stderr)
+        );
+    }
 
-    let output = run_lgo(
-        &[
-            "scrap-gear",
-            "--file",
-            gear.to_str().expect("utf-8 gear path"),
-        ],
-        &dir,
-    );
+    let output = run_lgo(&["scrap-gear"], &dir);
     assert!(
         output.status.success(),
         "scrap-gear failed:\nstdout:\n{}\nstderr:\n{}",
@@ -354,16 +326,224 @@ goals = ["tt:10"]
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Saved builds evaluated:"));
-    assert!(stdout.contains("- healer: oh:10"));
-    assert!(stdout.contains("- tank: tt:10"));
+    assert!(stdout.contains("treated as an optimize report"));
+    assert!(stdout.contains("Reports read:"));
+    assert!(stdout.contains("- lgo_GearReport_000.txt: -"));
+    assert!(stdout.contains("- lgo_GearReport_001.txt: -"));
+    assert!(!stdout.contains("Skipped files:"));
     assert!(stdout.contains("Items you can scrap:"));
     assert!(stdout.contains("Items of which you have more than one, but only need one:"));
     assert!(stdout.contains("    - Shared Focus"));
     assert!(stdout.contains("    - Unused Focus"));
-    assert!(!stdout.contains("Items not used in any saved build"));
-    assert!(!stdout.contains("near-misses"));
-    assert!(!stdout.contains("owned, at most"));
+    assert!(!stdout.contains("Saved builds evaluated:"));
+    assert!(!stdout.contains("predates your current"));
+
+    let reports_dir = gear_dir.join("Thalya_Reports");
+    let scrap_files = |dir: &Path| -> Vec<String> {
+        fs::read_dir(dir)
+            .expect("read reports dir")
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| name.starts_with("lgo_Thalya_ScrapGear_Report_"))
+            .collect()
+    };
+    let first_run_files = scrap_files(&reports_dir);
+    assert_eq!(
+        first_run_files.len(),
+        1,
+        "exactly one scrap-gear report file must be written: {:?}",
+        first_run_files
+    );
+    assert!(first_run_files[0].ends_with(".txt"));
+
+    // A second run must silently skip the first run's own report file.
+    let second = run_lgo(&["scrap-gear"], &dir);
+    assert!(
+        second.status.success(),
+        "second scrap-gear failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let second_stdout = String::from_utf8_lossy(&second.stdout);
+    assert!(!second_stdout.contains("ScrapGear_Report_: "));
+    assert!(!second_stdout.contains(&format!("- {}", first_run_files[0])));
+    assert!(!second_stdout.contains("Skipped files:"));
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn scrap_gear_reads_reports_from_named_subfolder_and_warns_on_stale_reports() {
+    let dir = make_test_dir("scrap_gear_subfolder");
+    seed_install(&dir);
+    let gear_dir = dir.join("Thalya_Gear");
+    let reports_dir = gear_dir.join("Thalya_Reports");
+    let subfolder = reports_dir.join("healer");
+    fs::create_dir_all(&subfolder).expect("create reports subfolder");
+    let gear = gear_dir.join("lgo_Thalya_gearReady.toml");
+    fs::write(
+        &gear,
+        r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Healing Hat"
+OutgoingHealing = 20
+
+[[item]]
+slot = "Head"
+name = "Tank Hat"
+TacticalMitigation = 20
+"#,
+    )
+    .expect("write gear file");
+
+    // A handcrafted optimize report with a Run time long before the gear
+    // file's mtime, so the staleness warning must fire. A sibling report in
+    // the parent folder must be ignored when --reports-folder is used.
+    let divider = "─".repeat(65);
+    let stale_report = format!(
+        "  LGO — Thalya's Gear Optimizer\n  Build Name: ancient healer\n  Run time  : 2000-01-01 00:00:00 +00:00\n  {divider}\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
+    );
+    fs::write(subfolder.join("old_healer.txt"), &stale_report).expect("write stale report");
+    fs::write(
+        reports_dir.join("parent_only.txt"),
+        stale_report.replace("Healing Hat", "Tank Hat"),
+    )
+    .expect("write parent report");
+
+    let output = run_lgo(&["scrap-gear", "--reports-folder", "healer"], &dir);
+    assert!(
+        output.status.success(),
+        "scrap-gear --reports-folder failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Reports read:"));
+    assert!(stdout.contains("- old_healer.txt: ancient healer"));
+    assert!(
+        !stdout.contains("parent_only.txt"),
+        "--reports-folder must not read the parent folder"
+    );
+    assert!(stdout
+        .contains("Report \"old_healer.txt\" predates your current lgo_Thalya_gearReady.toml"));
+    // Healing Hat was used in the subfolder report; Tank Hat was not.
+    assert!(stdout.contains("    - Tank Hat"));
+    assert!(!stdout.contains("    - Healing Hat"));
+
+    // The scrap report itself still lands in the parent Reports folder.
+    let wrote_to_parent = fs::read_dir(&reports_dir)
+        .expect("read reports dir")
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .any(|name| name.starts_with("lgo_Thalya_ScrapGear_Report_"));
+    assert!(
+        wrote_to_parent,
+        "scrap report must be written to the parent Reports folder"
+    );
+    let wrote_to_subfolder = fs::read_dir(&subfolder)
+        .expect("read subfolder")
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .any(|name| name.starts_with("lgo_Thalya_ScrapGear_Report_"));
+    assert!(!wrote_to_subfolder);
+
+    let missing = run_lgo(&["scrap-gear", "--reports-folder", "no-such"], &dir);
+    assert!(!missing.status.success());
+    let missing_stderr = String::from_utf8_lossy(&missing.stderr);
+    assert!(missing_stderr.contains("does not exist"));
+
+    let escape = run_lgo(&["scrap-gear", "--reports-folder", "../escape"], &dir);
+    assert!(!escape.status.success());
+    let escape_stderr = String::from_utf8_lossy(&escape.stderr);
+    assert!(escape_stderr.contains("Invalid --reports-folder value"));
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn scrap_gear_errors_when_no_optimize_reports_can_be_read() {
+    let dir = make_test_dir("scrap_gear_no_reports");
+    seed_install(&dir);
+    let gear_dir = dir.join("Thalya_Gear");
+    let reports_dir = gear_dir.join("Thalya_Reports");
+    fs::create_dir_all(&reports_dir).expect("create reports folder");
+    let gear = gear_dir.join("lgo_Thalya_gearReady.toml");
+    fs::write(
+        &gear,
+        r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Healing Hat"
+OutgoingHealing = 20
+"#,
+    )
+    .expect("write gear file");
+
+    // Only a scrap-gear report (skipped silently) — no optimize reports.
+    fs::write(
+        reports_dir.join("lgo_Thalya_ScrapGear_Report_20000101_000000.txt"),
+        "old scrap output",
+    )
+    .expect("write old scrap report");
+
+    let output = run_lgo(&["scrap-gear"], &dir);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("no optimize reports could be read"));
+    assert!(stderr.contains("lgo optimize --to-file"));
+
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn scrap_gear_lists_unparsable_files_under_skipped_files() {
+    let dir = make_test_dir("scrap_gear_skipped");
+    seed_install(&dir);
+    let gear_dir = dir.join("Thalya_Gear");
+    let reports_dir = gear_dir.join("Thalya_Reports");
+    fs::create_dir_all(&reports_dir).expect("create reports folder");
+    let gear = gear_dir.join("lgo_Thalya_gearReady.toml");
+    fs::write(
+        &gear,
+        r#"
+character = "Thalya"
+class = "Lore-master"
+
+[[item]]
+slot = "Head"
+name = "Healing Hat"
+OutgoingHealing = 20
+"#,
+    )
+    .expect("write gear file");
+
+    let divider = "─".repeat(65);
+    let good_report = format!(
+        "  Build Name: -\n  Run time  : 2100-01-01 00:00:00 +00:00\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
+    );
+    fs::write(reports_dir.join("good.txt"), &good_report).expect("write good report");
+    fs::write(reports_dir.join("notes.txt"), "shopping list\n").expect("write notes file");
+
+    let output = run_lgo(&["scrap-gear"], &dir);
+    assert!(
+        output.status.success(),
+        "scrap-gear failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("- good.txt: -"));
+    assert!(stdout.contains("Skipped files:"));
+    assert!(stdout.contains("- notes.txt: no \"Recommended Gear:\" section found"));
+    // The good report's run time (2100) is far in the future: no staleness.
+    assert!(!stdout.contains("predates your current"));
 
     fs::remove_dir_all(&dir).expect("cleanup");
 }
