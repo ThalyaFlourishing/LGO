@@ -336,7 +336,6 @@ CriticalRating = 1
     assert!(stdout.contains("    - Shared Focus"));
     assert!(stdout.contains("    - Unused Focus"));
     assert!(!stdout.contains("Saved builds evaluated:"));
-    assert!(!stdout.contains("predates your current"));
 
     let reports_dir = gear_dir.join("Thalya_Reports");
     let scrap_files = |dir: &Path| -> Vec<String> {
@@ -373,7 +372,7 @@ CriticalRating = 1
 }
 
 #[test]
-fn scrap_gear_reads_reports_from_named_subfolder_and_warns_on_stale_reports() {
+fn scrap_gear_reads_reports_from_named_subfolder() {
     let dir = make_test_dir("scrap_gear_subfolder");
     seed_install(&dir);
     let gear_dir = dir.join("Thalya_Gear");
@@ -400,17 +399,16 @@ TacticalMitigation = 20
     )
     .expect("write gear file");
 
-    // A handcrafted optimize report with a Run time long before the gear
-    // file's mtime, so the staleness warning must fire. A sibling report in
-    // the parent folder must be ignored when --reports-folder is used.
+    // A handcrafted optimize report in the subfolder. A sibling report in the
+    // parent folder must be ignored when --reports-folder is used.
     let divider = "─".repeat(65);
-    let stale_report = format!(
-        "  LGO — Thalya's Gear Optimizer\n  Build Name: ancient healer\n  Run time  : 2000-01-01 00:00:00 +00:00\n  {divider}\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
+    let healer_report = format!(
+        "  LGO — Thalya's Gear Optimizer\n  Build Name: healer build\n  Run time  : 2026-08-31 08:00:00 +00:00\n  {divider}\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
     );
-    fs::write(subfolder.join("old_healer.txt"), &stale_report).expect("write stale report");
+    fs::write(subfolder.join("healer.txt"), &healer_report).expect("write healer report");
     fs::write(
         reports_dir.join("parent_only.txt"),
-        stale_report.replace("Healing Hat", "Tank Hat"),
+        healer_report.replace("Healing Hat", "Tank Hat"),
     )
     .expect("write parent report");
 
@@ -423,13 +421,11 @@ TacticalMitigation = 20
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Reports read:"));
-    assert!(stdout.contains("- old_healer.txt: ancient healer"));
+    assert!(stdout.contains("- healer.txt: healer build"));
     assert!(
         !stdout.contains("parent_only.txt"),
         "--reports-folder must not read the parent folder"
     );
-    assert!(stdout
-        .contains("Report \"old_healer.txt\" predates your current lgo_Thalya_gearReady.toml"));
     // Healing Hat was used in the subfolder report; Tank Hat was not.
     assert!(stdout.contains("    - Tank Hat"));
     assert!(!stdout.contains("    - Healing Hat"));
@@ -526,7 +522,7 @@ OutgoingHealing = 20
 
     let divider = "─".repeat(65);
     let good_report = format!(
-        "  Build Name: -\n  Run time  : 2100-01-01 00:00:00 +00:00\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
+        "  Build Name: -\n  Run time  : 2026-08-31 08:00:00 +00:00\n  Recommended Gear:\n          Slot  Recommended Item\n  {divider}\n            Head  Healing Hat\n  {divider}\n"
     );
     fs::write(reports_dir.join("good.txt"), &good_report).expect("write good report");
     fs::write(reports_dir.join("notes.txt"), "shopping list\n").expect("write notes file");
@@ -542,8 +538,6 @@ OutgoingHealing = 20
     assert!(stdout.contains("- good.txt: -"));
     assert!(stdout.contains("Skipped files:"));
     assert!(stdout.contains("- notes.txt: no \"Recommended Gear:\" section found"));
-    // The good report's run time (2100) is far in the future: no staleness.
-    assert!(!stdout.contains("predates your current"));
 
     fs::remove_dir_all(&dir).expect("cleanup");
 }

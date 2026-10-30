@@ -9,21 +9,14 @@
 //! report-text parser.
 
 use crate::gear::Slot;
-use chrono::{DateTime, FixedOffset};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-
-/// The `Run time` header format written by `run_optimize` /
-/// `write_header_text` (e.g. `2026-08-31 08:00:00 +00:00`).
-pub const RUN_TIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S %:z";
 
 /// One successfully parsed optimize report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedReport {
     /// The `Build Name:` header value; `None` when the header showed `-`.
     pub build_name: Option<String>,
-    /// The parsed `Run time` header, when present and parsable.
-    pub run_time: Option<DateTime<FixedOffset>>,
     /// Occurrences of each real item name in the gear table.
     pub item_counts: HashMap<String, usize>,
 }
@@ -115,10 +108,9 @@ pub fn list_candidate_report_files(folder: &Path) -> Result<Vec<PathBuf>, String
 
 /// Parse one optimize report's text. Returns `Err` with a reason when the
 /// text does not contain a parsable "Recommended Gear:" section; headers
-/// (`Build Name`, `Run time`) are read best-effort from the lines before it.
+/// (`Build Name`) are read best-effort from the lines before it.
 pub fn parse_optimize_report(text: &str) -> Result<ParsedReport, String> {
     let mut build_name = None;
-    let mut run_time = None;
     let mut lines = text.lines();
 
     // Header lines appear before the gear table; nothing after the table's
@@ -134,10 +126,6 @@ pub fn parse_optimize_report(text: &str) -> Result<ParsedReport, String> {
             let value = value.trim();
             if !value.is_empty() && value != "-" {
                 build_name = Some(value.to_string());
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("Run time") {
-            if let Some(value) = rest.trim_start().strip_prefix(':') {
-                run_time = DateTime::parse_from_str(value.trim(), RUN_TIME_FORMAT).ok();
             }
         }
     }
@@ -185,7 +173,6 @@ pub fn parse_optimize_report(text: &str) -> Result<ParsedReport, String> {
 
     Ok(ParsedReport {
         build_name,
-        run_time,
         item_counts,
     })
 }
@@ -241,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_build_name_run_time_and_item_counts() {
+    fn parses_build_name_and_item_counts() {
         let text = sample_report(
             "healer",
             &[
@@ -254,10 +241,6 @@ mod tests {
         );
         let parsed = parse_optimize_report(&text).expect("report must parse");
         assert_eq!(parsed.build_name.as_deref(), Some("healer"));
-        assert_eq!(
-            parsed.run_time,
-            DateTime::parse_from_str("2026-08-31 08:00:00 +00:00", RUN_TIME_FORMAT).ok()
-        );
         assert_eq!(parsed.item_counts.len(), 2);
         assert_eq!(parsed.item_counts.get("Simple Helm"), Some(&1));
         assert_eq!(parsed.item_counts.get("Simple Robe"), Some(&1));
@@ -308,15 +291,6 @@ mod tests {
                 .get("Staff of Many Long Words and Even Longer Names"),
             Some(&1)
         );
-    }
-
-    #[test]
-    fn unparsable_run_time_still_counts_items() {
-        let text =
-            sample_report("-", &[("Head", "Simple Helm")]).replace("2026-08-31", "yesterday-ish");
-        let parsed = parse_optimize_report(&text).expect("report must parse");
-        assert_eq!(parsed.run_time, None);
-        assert_eq!(parsed.item_counts.get("Simple Helm"), Some(&1));
     }
 
     #[test]

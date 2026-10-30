@@ -140,7 +140,7 @@ Base-only derived table, then a "Fixed tracked-stat baseline before gear" sectio
 - `src/scrap_reports.rs` — pure helpers behind `scrap-gear`: list candidate
   `.txt` report files in a folder, recognise scrap-gear's own report names,
   validate `--reports-folder` values, and parse one optimize report's text
-  (headers plus the `Recommended Gear:` table) into build name, run time, and
+  (headers plus the `Recommended Gear:` table) into build name and
   per-item-name counts.
 - `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's
 `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install
