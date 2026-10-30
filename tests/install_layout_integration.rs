@@ -432,23 +432,15 @@ fn scrap_gear_out_of_tree_unresolvable_character_fails_before_printing_report() 
     let install = seed_install("scrap_outtree_unresolvable");
     let outside = unique_dir("scrap_outtree_unresolvable_src");
     let gear = outside.join("mystery.toml");
-    let builds = outside.join("saved_builds.toml");
     std::fs::write(
         &gear,
         "class = \"Lore-master\"\n\n[[item]]\nslot = \"Head\"\nname = \"Hat\"\nTacticalMastery = 5\n",
     )
     .expect("write out-of-tree gear");
-    std::fs::write(&builds, "[builds.any]\ngoals = [\"tm:0\"]\n").expect("write builds file");
 
     let output = run(
         &install,
-        &[
-            "scrap-gear",
-            "--file",
-            gear.to_str().expect("utf-8"),
-            "--builds-file",
-            builds.to_str().expect("utf-8"),
-        ],
+        &["scrap-gear", "--file", gear.to_str().expect("utf-8")],
     );
     assert!(
         !output.status.success(),
@@ -465,7 +457,7 @@ fn scrap_gear_out_of_tree_unresolvable_character_fails_before_printing_report() 
         "must not print the scrap report before failing; got:\n{stdout}"
     );
     assert!(
-        !stdout.contains("Saved builds evaluated:"),
+        !stdout.contains("Reports read:"),
         "must not print the scrap report header before failing; got:\n{stdout}"
     );
 

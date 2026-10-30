@@ -121,7 +121,7 @@ particular Virtue.
   using only LGO's tracked and Base stat vocabulary (unsupported stats are
   omitted — Justice contributes only Tactical Mitigation). Keys are matched
   exactly against `TRACKED_STATS` / `BASE_STATS`; names differing only by case
-  are duplicates. The file is **required** by `optimize` and `scrap-gear`, and
+  are duplicates. The file is **required** by `optimize`, and
   must define at least five Virtues.
 - Before the search, every Virtue becomes a candidate whose tracked-stat map is
   the JSON tracked stats, plus its Base stats derived through the character's

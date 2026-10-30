@@ -230,28 +230,43 @@ without its extension (e.g. lgo_Thalya_gearReady).
 
 3.5 scrap-gear
   lgo scrap-gear
-    Auto-discovers `lgo_<character>_gearReady.toml` and its sibling
-    `lgo_<character>_builds.toml`, re-runs the live optimizer once per saved
-    build, then lists the items not used in any saved build. The output first
-  lists every build evaluated (name plus goals in priority order), then shows
-  two simple name-only sections: `Items you can scrap:` for items used by no
-  saved build, and `Items of which you have more than one, but only need
-  one:` for duplicate-owned items whose extra copies are never needed. The
-  same text report is also written into the character's
-  <install>\<CharacterName>_Gear\<CharacterName>_Reports folder (created if
-  needed), using the shared lgo_GearReport_### serial numbering.
+    Auto-discovers `lgo_<character>_gearReady.toml`, then reads every `.txt`
+    file directly in <install>\<CharacterName>_Gear\<CharacterName>_Reports
+    (no recursion) as a saved `lgo optimize --to-file` text report, and lists
+    the items not used in any of them. The output first names the folder and
+  notes that every .txt file in it was treated as an optimize report, then
+  lists each report read (file name plus its `Build Name` header value, or
+  `-`), any skipped files with the reason they could not be parsed, and any
+  staleness warnings. After that it prints two simple name-only sections:
+  `Items you can scrap:` for items used by no report, and `Items of which you
+  have more than one, but only need one:` for duplicate-owned items whose
+  extra copies are never needed. The same text report is also written into
+  the character's <install>\<CharacterName>_Gear\<CharacterName>_Reports
+  folder (created if needed) as
+  lgo_<CharacterName>_ScrapGear_Report_<TimeStamp>.txt, where <TimeStamp> is
+  local time in YYYYMMDD_HHMMSS form. Scrap-gear's own reports are skipped
+  silently on later runs; optimize's unnamed reports keep the shared
+  lgo_GearReport_### serial numbering unchanged.
 
   Count-aware duplicate handling: for each item name, `scrap-gear` compares
-  how many copies you own against the maximum number of copies used by any
-  one saved build. The report shows item names only, but the underlying
-  duplicate-aware accounting is unchanged.
+  how many copies you own against the maximum number of copies used in any
+  one report (not a sum across reports). The report shows item names only,
+  but the underlying duplicate-aware accounting is unchanged.
 
   Empty-slot placeholders, `(2-handed item)` off-hand lines, and `NO ITEMS`
   placeholders are never counted as items.
 
-    If the builds file is missing, empty, or malformed, the command errors
-    clearly and tells you to save a build with:
-     lgo optimize --save-build <name> <goals...>
+  Staleness: each report's `Run time` header is compared against the
+  last-modified time of the primary
+  <install>\<CharacterName>_Gear\lgo_<character>_gearReady.toml. A report
+  older than that file gets a warning telling you to regenerate it. A report
+  whose `Run time` cannot be parsed is still counted, with a note that its
+  age could not be checked.
+
+    If no report can be parsed (empty folder, only scrap-gear reports, or
+    only unparsable files), the command errors clearly and tells you to
+    create reports with:
+     lgo optimize --to-file <stat:min> ...   (or --build <name> --to-file)
 
   lgo scrap-gear --character <name>
   lgo scrap-gear -c <name>
@@ -259,18 +274,19 @@ without its extension (e.g. lgo_Thalya_gearReady).
 
   lgo scrap-gear --file <path>
   lgo scrap-gear -f <path>
-    Read the explicit gear TOML you provide and discover the sibling
-    `lgo_<character>_builds.toml` beside it. If the filename is custom-named,
-    LGO falls back to the top-level `character = "..."` field in that TOML to
-    determine the builds filename.
+    Read the explicit gear TOML you provide for the owned-item counts. The
+    reports folder is still the character's <CharacterName>_Reports folder.
     If the file name or any of the folders in the path have spaces, you'll 
     need to put quote marks around it.
 
-  lgo scrap-gear --builds-file <path>
-    Override saved-build discovery and use the explicit builds TOML you
-    provide.
-    If the file name or any of the folders in the path have spaces, you'll 
-    need to put quote marks around it.
+  lgo scrap-gear --reports-folder <name>
+    Read the optimize reports from the folder <name> inside the character's
+    <CharacterName>_Reports folder instead of the Reports folder itself. The
+    value must stay inside <CharacterName>_Reports: absolute paths, `..`
+    components, and anything else that escapes the folder are rejected, and
+    the folder must already exist. The scrap-gear report itself is still
+    written into the parent <CharacterName>_Reports folder.
+    If the folder name has spaces, you'll need to put quote marks around it.
 
 3.6 base-stats
   lgo base-stats
