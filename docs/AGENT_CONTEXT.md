@@ -572,6 +572,9 @@ should be added that does. The craft-tool (19) and bridle (21) paperdoll slots a
 time; that is a slot filter, not an equipped-item rule.
 - **Cloud-agent tasks launched from Copilot Chat pick their own model regardless of the chat's
 model; to control the model, launch from github.com/copilot/agents and select it explicitly.**
+- **Any change to the `gearReady.toml`, `gearStats.toml`, or `.plugindata` format must update the
+corresponding files in `TestData/` in the same PR. `tests/fixtures_load.rs` fails if a fixture no
+longer loads.**
 
 ---
 
@@ -588,6 +591,8 @@ used by `tests/resolve_slots_integration.rs`. It intentionally contains a mix of
 so the resolver still exercises name-based slot canonicalisation against legacy input.
 - Canonical-gear fixture: `TestData/lgo_Thalya_gearReady.toml` — already-resolved gear file (input
 for `optimize`).
+- `tests/fixtures_load.rs` checks that all three fixtures above still load (gearReady via
+`read_stats_file`, gearStats as plain TOML, newest plugindata via `plugindata::load`).
 
 ---
 

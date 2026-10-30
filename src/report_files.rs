@@ -1,5 +1,6 @@
 //! Report file output.
 
+use crate::scrap_reports::is_scrap_gear_report_filename;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -98,6 +99,11 @@ pub fn named_report_stem(character: &str, build_name: &str) -> Result<String, St
     {
         return Err(format!(
             "report name `{stem}` clashes with reserved unnamed report filenames; choose a different character or build name"
+        ));
+    }
+    if is_scrap_gear_report_filename(&format!("{stem}.txt")) {
+        return Err(format!(
+            "build name `{build_name}` would produce report `{stem}.txt`, which scrap-gear would mistake for one of its own reports and skip; choose a different build name"
         ));
     }
     if stem.len() + ".html".len() > MAX_FILENAME_BYTES {
@@ -674,6 +680,32 @@ mod tests {
         assert!(named_report_stem("Thalya", "ScrapGearReport").is_ok());
         assert!(named_report_stem("ScrapGear", "Report").is_ok());
         assert!(named_report_stem("gearreport_x", "a").is_err());
+    }
+
+    #[test]
+    fn named_report_stem_rejects_scrap_gear_report_lookalikes() {
+        for build in ["ScrapGear_Report_1", "sCrApGeAr_rEpOrT_x"] {
+            let err = named_report_stem("Thalya", build).expect_err("must be rejected");
+            assert!(err.contains(build), "error must name the build: {err}");
+            assert!(err.contains("scrap-gear"), "error must explain why: {err}");
+        }
+        assert!(named_report_stem("Thalya", "ScrapGear").is_ok());
+        assert!(named_report_stem("Thalya", "Report").is_ok());
+    }
+
+    #[test]
+    fn scrap_gear_lookalike_build_name_is_rejected_before_any_write() {
+        let temp = TempDir::new();
+        let reports_dir = temp.reports_dir();
+        assert!(write_named_optimize_report_files(
+            &reports_dir,
+            "Thalya",
+            "ScrapGear_Report_1",
+            "t",
+            "h"
+        )
+        .is_err());
+        assert!(!reports_dir.exists());
     }
 
     #[test]

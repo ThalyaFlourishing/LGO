@@ -215,6 +215,8 @@ without its extension (e.g. lgo_Thalya_gearReady).
     `lgo_<character>_builds.toml` path. If the file does not exist it is
     created. If the build name already exists, matching case-insensitively, it
     is overwritten. Build names are preserved as written for display.
+    With --to-file, build names that would produce a ..._ScrapGear_Report_...
+    file are rejected, since scrap-gear would skip that report as its own.
 
   lgo optimize --build <name>
     Load the named build's saved goals from `lgo_<character>_builds.toml` and

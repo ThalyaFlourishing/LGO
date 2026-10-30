@@ -366,6 +366,88 @@ mod tests {
         assert!(validate_reports_folder_name("trailing\\").is_err());
     }
 
+    /// Guards the parser against layout drift in the real text report writer:
+    /// a report produced by `report::format_optimize_report` must parse back
+    /// into exactly the real item names it lists.
+    #[test]
+    fn real_text_report_round_trips_through_parser() {
+        use crate::gear::{GearItem, GearSet, SlottedVirtue};
+        use crate::optimizer::OptimizeResult;
+        use crate::report::{format_optimize_report, ReportHeader};
+        use crate::stat::{Stat, StatGoal};
+
+        const LONG_NAME: &str = "Thalya's Exceedingly Long & Thoroughly Ornate Cloak of the West";
+        assert!(LONG_NAME.len() > 48);
+
+        let item = |slot: Slot, name: &str, two_handed: bool| GearItem {
+            name: name.to_string(),
+            slot,
+            two_handed,
+            either_hand: false,
+            stats: [(Stat::Finesse, 100)].into_iter().collect(),
+        };
+        let mut gear_set = GearSet::new([(Stat::Finesse, 1000)].into_iter().collect());
+        for gear in [
+            item(Slot::Head, "Simple Helm", false),
+            item(Slot::Chest, "Simple Robe", false),
+            item(Slot::Legs, "Simple Leggings", false),
+            item(Slot::Back, LONG_NAME, false),
+            item(Slot::Finger1, "Twin Ring", false),
+            item(Slot::Finger2, "Twin Ring", false),
+            item(Slot::MainHand, "Great Staff of Testing", true),
+            item(Slot::Ranged, "[empty Ranged]", false),
+        ] {
+            gear_set.items.insert(gear.slot, gear);
+        }
+        for name in ["Charity", "Compassion", "Determination", "Honesty", "Wit"] {
+            gear_set.virtues.push(SlottedVirtue {
+                name: name.to_string(),
+                stats: HashMap::new(),
+                base_stats: HashMap::new(),
+            });
+        }
+        let result = OptimizeResult {
+            gear_set,
+            feasible: true,
+            failed_minima: Vec::new(),
+            warnings: Vec::new(),
+        };
+        let goals = [StatGoal {
+            stat: Stat::Finesse,
+            minimum: 0,
+        }];
+        let expected_counts: HashMap<String, usize> = [
+            ("Simple Helm", 1),
+            ("Simple Robe", 1),
+            ("Simple Leggings", 1),
+            (LONG_NAME, 1),
+            ("Twin Ring", 2),
+            ("Great Staff of Testing", 1),
+        ]
+        .into_iter()
+        .map(|(name, count)| (name.to_string(), count))
+        .collect();
+        let timestamp = "2026-08-31 08:00:00 +00:00";
+        let expected_run_time = DateTime::parse_from_str(timestamp, RUN_TIME_FORMAT).ok();
+        assert!(expected_run_time.is_some());
+
+        for build_name in [Some("Healer & Co"), None] {
+            let header = ReportHeader {
+                character: "Thalya",
+                build_name,
+                class: "Lore-master",
+                gear_list: "lgo_Thalya_gearReady",
+                timestamp,
+            };
+            let text = format_optimize_report(&result, &goals, header, &HashMap::new());
+            let parsed = parse_optimize_report(&text)
+                .unwrap_or_else(|e| panic!("real report must parse: {e}\n{text}"));
+            assert_eq!(parsed.item_counts, expected_counts, "report text:\n{text}");
+            assert_eq!(parsed.build_name.as_deref(), build_name);
+            assert_eq!(parsed.run_time, expected_run_time);
+        }
+    }
+
     #[test]
     fn empty_placeholders_cover_all_three_forms() {
         assert!(is_empty_placeholder("[empty Head]"));
