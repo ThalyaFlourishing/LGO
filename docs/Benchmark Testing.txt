@@ -1,4 +1,6 @@
 
+NOTE: THIS BENCHMARK SYSTEM WAS MADE *BEFORE* VIRTUES WERE ADDED TO LGO!
+
 How many items can optimizer handle in the pool before it becomes unbearably slow? The built-in benchmark test is a benchmark harness that measures exact-search cost as candidate pools grow under the current hand-pool semantics, without changing any production search path.
 
 Benchmark testing has produced the following answers to that question and others:
