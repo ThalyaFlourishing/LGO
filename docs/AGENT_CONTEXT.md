@@ -72,7 +72,7 @@ of search pool, like the two Finger slots sharing one ring pool — and the
 report lists them. Derivation happens at optimize time, before
 candidates enter the optimizer; a tracked-stat link pass (Tactical Mastery →
 Outgoing Healing, ×1) then runs after derivation. `data/lgo_virtues.json` is required
-(at least five Virtues) for `optimize` and `scrap-gear`. All inputs (`data/` and the
+(at least five Virtues) for `optimize`. All inputs (`data/` and the
 `<CharacterName>_Gear` folders) and all outputs (reports) resolve from the install
 directory — the folder containing the executable — never the current working directory.
 - Characters are discovered as `<CharacterName>_Gear\` folders under the install
@@ -82,10 +82,13 @@ directory — the folder containing the executable — never the current working
   to `<install>\<CharacterName>_Gear\<CharacterName>_Reports\`. Only the
   `.plugindata` export still lives in the game's `Documents\...\AllServers\` tree;
   its location is fixed by the Turbine API.
-- User may invoke `lgo scrap-gear`, which re-runs the live optimizer once per
-  saved build, prints a text report listing items not used in any saved build,
-  writes that same text report into the character's
-  `<CharacterName>_Reports\` folder, and never parses old report files.
+- User may invoke `lgo scrap-gear`, which parses the saved `lgo optimize
+  --to-file` text reports in the character's `<CharacterName>_Reports\` folder
+  (or a sub-folder named with `--reports-folder`), prints a text report listing
+  items not used in any of those reports, and writes that same text report into
+  the parent `<CharacterName>_Reports\` folder as
+  `lgo_<Character>_ScrapGear_Report_<TimeStamp>.txt`. It never runs the
+  optimizer and never reads saved builds.
 
 ---
 
@@ -134,12 +137,18 @@ Base-only derived table, then a "Fixed tracked-stat baseline before gear" sectio
 - `src/report.rs` also formats the `scrap-gear` text report that is printed to
   the terminal and written into the character's `<CharacterName>_Reports`
   folder.
+- `src/scrap_reports.rs` — pure helpers behind `scrap-gear`: list candidate
+  `.txt` report files in a folder, recognise scrap-gear's own report names,
+  validate `--reports-folder` values, and parse one optimize report's text
+  (headers plus the `Recommended Gear:` table) into build name, run time, and
+  per-item-name counts.
 - `src/report_files.rs` — optimize/scrap-gear report file naming and writing into the character's
 `<CharacterName>_Reports` folder (nested inside `<CharacterName>_Gear`, under the install
 directory); the caller passes the resolved reports directory. Runs with a build name
 (`--save-build`, or the stored name behind `--build`) write `lgo_<Character>_<Build>.{txt,html}` and
-silently overwrite them; runs without one keep the `lgo_GearReport_###` serial names. Build and
-character names are validated as Windows-safe filename parts before anything is written.
+silently overwrite them; runs without one keep the `lgo_GearReport_###` serial names. Scrap-gear
+reports are named `lgo_<Character>_ScrapGear_Report_<TimeStamp>.txt` (local `%Y%m%d_%H%M%S`). Build
+and character names are validated as Windows-safe filename parts before anything is written.
 - `src/lgo.lua`, `src/Main.lua`, `src/lgo.plugin` — in-game plugin (tested, working).
 - `bookmarklet/lgo_bookmarklet.html` — the bookmarklet HTML page; handles direct lookups,
 disambiguation auto-pick (via MediaWiki `prefixsearch`), outcome-typed reporting (see Bug 9), a

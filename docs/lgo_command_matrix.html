@@ -79,7 +79,7 @@
       <td><code>lgo --optimize</code>, <code>lgo -o</code></td>
     </tr>
     <tr>
-      <td>See which items are unused across all your saved builds</td>
+      <td>See which items are unused across your saved optimize reports</td>
       <td><code>lgo scrap-gear</code></td>
       <td><code>lgo scrapgear</code>, <code>lgo --scrap-gear</code>, <code>lgo -s</code></td>
     </tr>
@@ -172,7 +172,7 @@
 
 <h3><code>lgo scrap-gear</code></h3>
 
-<p>Reruns every saved build against your current gear file, lists the saved builds first, then shows two simple name-only sections: items you can scrap entirely, and items of which you have more than one but only need one.</p>
+<p>Reads every saved <code>lgo optimize --to-file</code> text report in your <code>&lt;CharacterName&gt;_Reports</code> folder, lists the reports read first, then shows two simple name-only sections: items you can scrap entirely, and items of which you have more than one but only need one.</p>
 
 <table class="options">
   <colgroup>
@@ -203,10 +203,10 @@
       <td>Points LGO at a specific gear file instead of auto-finding it.</td>
     </tr>
     <tr>
-      <td><code>--builds-file</code></td>
+      <td><code>--reports-folder</code></td>
       <td>—</td>
-      <td>A path to a <code>.toml</code> file</td>
-      <td>Points LGO at a specific saved-builds file instead of the one sitting next to your gear file.</td>
+      <td>A folder name inside <code>&lt;CharacterName&gt;_Reports</code></td>
+      <td>Reads the optimize reports from that sub-folder instead of the Reports folder itself. The scrap-gear report is still written into the parent Reports folder.</td>
     </tr>
   </tbody>
 </table>

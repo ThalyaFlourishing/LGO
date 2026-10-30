@@ -39,10 +39,11 @@ goals. Add `--save-build <name>` if you want to keep that priority list for late
 `--to-file` if you also want .txt and .html report files saved for that run. The optimizer then
 searches for the exact best build under those goal priorities and prints the report in the terminal
 window.
-  10. If you maintain several saved builds, run `lgo scrap-gear` to re-check the current gear pool
-against every saved build. It lists the saved builds first, then item names under `Items you can
-scrap:` and `Items of which you have more than one, but only need one:`. The same text report is
-also written into the character's `<install>\<CharacterName>_Gear\<CharacterName>_Reports\` folder.
+  10. If you keep saved `--to-file` reports, run `lgo scrap-gear` to re-check the current gear pool
+against every optimize report in your `<CharacterName>_Reports` folder. It lists the reports read
+first, then item names under `Items you can scrap:` and `Items of which you have more than one, but
+only need one:`. The same text report is also written into the character's
+`<install>\<CharacterName>_Gear\<CharacterName>_Reports\` folder.
 
 
 ============================
@@ -253,16 +254,21 @@ resulting total for each of the 13 tracked stats, and the projected raw Base-sta
 `--to-file`, the same report is also saved in the character's <CharacterName>_Reports folder as both
 text and HTML.
   
-  12. If you keep several saved builds, run:
+  12. If you keep saved `--to-file` reports, run:
   
           lgo scrap-gear
   
-    This re-runs the optimizer once per saved build in `lgo_<character-name>_builds.toml` and lists
-the saved builds first. After that it prints two simple name-only sections: `Items you can scrap:`
-for items no saved build uses at all, and `Items of which you have more than one, but only need
-one:` for extra copies beyond the highest count any one saved build needs. The same text report is
-also written into the character's `<install>\<CharacterName>_Gear\<CharacterName>_Reports\` folder.
-The output is a live check against your current `gearReady.toml`; it does not read old report files.
+    This reads every `.txt` optimize report directly in the character's `<CharacterName>_Reports`
+folder (use `--reports-folder <name>` to read a sub-folder of it instead) and lists the reports read
+first, each with its `Build Name` header value. Files that are not parsable optimize reports are
+listed under a skipped-files note, and reports older than your current `gearReady.toml` get a
+staleness warning telling you to regenerate them. After that it prints two simple name-only
+sections: `Items you can scrap:` for items no report uses at all, and `Items of which you have more
+than one, but only need one:` for extra copies beyond the highest count any one report needs. The
+same text report is also written into the character's
+`<install>\<CharacterName>_Gear\<CharacterName>_Reports\` folder as
+`lgo_<CharacterName>_ScrapGear_Report_<TimeStamp>.txt`; scrap-gear's own reports are skipped
+silently on later runs.
   
 ===========
   Iteration
@@ -282,7 +288,7 @@ Steps 1-9 do not need to be redone.
     - To save the goal list from a normal optimize run for later, add:
       `--save-build <name>`.
     
-    - To review items not used across all your saved builds: run:
+    - To review items not used across your saved optimize reports: run:
       `lgo scrap-gear`.
     
     - To hand-correct stats or slots: edit the 'lgo_<character-name>_gearReady.toml' file, then
